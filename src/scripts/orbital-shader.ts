@@ -15,7 +15,7 @@ import { terrainShader } from './earth-terrain';
 import { sceneColorShader } from './scene-color';
 import { atmosphericLightShader } from './atmospheric-light';
 
-// ISS trajectory and sunlight, with the wallpaper's photographic treatment.
+// ISS trajectory and sunlight, graded like a photograph taken from orbit.
 // All distant lights share a camera rotation. Earth's limb stays stationary;
 // surface coordinates rotate on a sphere underneath it. No individual star drift.
 export const vertexSource = `

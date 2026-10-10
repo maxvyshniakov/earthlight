@@ -1,7 +1,7 @@
 # Orbital video references
 
 The first five videos in [NASA's South America collection](https://eol.jsc.nasa.gov/videos/crewearthobservationsvideos/SouthAmerica.htm)
-are the user's selected references for clouds, cities, twilight and lightning.
+are the selected references for clouds, cities, twilight and lightning.
 These notes distinguish sampled visual evidence from proposed renderer work.
 The renderer remains photographically tuned rather than calibrated photometry.
 The subsequent [storm and twilight implementation](orbital-sky.md#storm-flashes-and-city-twilight)

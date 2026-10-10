@@ -9,7 +9,7 @@ cloud-edge experiments in the subsequent work.
 
 ## Method
 
-[`benchmark-device-api.mjs`](../scripts/benchmark-device-api.mjs) opens its own
+[`benchmark-device-api.mjs`](../../scripts/benchmark-device-api.mjs) opens its own
 visible Android Chrome tab. Assets, exposure, and focus settle before Play.
 Every run starts at `t=3235.65`, `pitch=-25`, epoch
 `2026-10-06T01:32:27Z`, zero grain, manual exposure 0 EV, native 10x playback.

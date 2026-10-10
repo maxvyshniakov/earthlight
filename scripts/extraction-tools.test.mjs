@@ -36,8 +36,8 @@ function tar(entries) {
 }
 
 test('manifest includes scene dependencies and rejects site and generated files', () => {
-  for (const path of ['src/scripts/runtime.ts', 'src/components/OrbitHud.astro', 'docs/evidence/example.json', 'public/media/orbit/terrain/12.bin', 'scripts/scene-runtime.test.mjs']) assert.equal(isSelectedPath(path), true, path);
-  for (const path of ['src/pages/index.astro', 'src/layouts/Base.astro', '.nvmrc', '.bun-version', 'bunfig.toml', 'bun.lock', 'bun.lockb', 'package.json', 'package-lock.json', 'docs/deployment.md', 'scripts/fetch-assets.mjs', 'scripts/deploy-future.mjs', 'public/media/orbit/earth-clouds-8k.avif']) assert.equal(isSelectedPath(path), false, path);
+  for (const path of ['src/scripts/runtime.ts', 'src/components/OrbitHud.astro', 'public/media/orbit/terrain/12.bin', 'scripts/scene-runtime.test.mjs']) assert.equal(isSelectedPath(path), true, path);
+  for (const path of ['src/pages/index.astro', 'src/layouts/Base.astro', '.nvmrc', '.bun-version', 'bunfig.toml', 'bun.lock', 'bun.lockb', 'package.json', 'package-lock.json', 'docs/deployment.md', 'docs/orbital-sky.md', 'docs/evidence/example.json', 'scripts/fetch-assets.mjs', 'scripts/deploy-future.mjs', 'public/media/orbit/earth-clouds-8k.avif']) assert.equal(isSelectedPath(path), false, path);
 });
 
 test('old source commands become Bun commands without changing built-in imports or evidence data', () => {
@@ -50,10 +50,8 @@ test('old source commands become Bun commands without changing built-in imports 
   assert.ok(clean.includes('const node = tree.node;'));
   assert.equal(sanitizeImportedText('scripts/example.mjs', clean), clean);
   const evidence = '{"command":"npm run verify", "runtime":"Node 24.19.0"}';
-  assert.equal(sanitizeImportedText('docs/evidence/result.json', evidence), evidence);
-  const historicalRelease = 'Node 24.19.0: `npm run verify` passed 115 tests';
-  assert.equal(sanitizeImportedText('docs/orbital-release-validation-2026-10-10.md', historicalRelease), historicalRelease);
-  assert.equal(sanitizeImportedText('docs/night-lights-benchmark.md', 'Requires Node 24'), 'Requires Bun');
+  assert.equal(sanitizeImportedText('src/data/result.json', evidence), evidence);
+  assert.equal(sanitizeImportedText('public/media/orbit/README.md', 'Requires Node 24'), 'Requires Bun');
   const benchmark = "import {stripTypeScriptTypes} from 'node:module';\nconst js=stripTypeScriptTypes(source);";
   assert.equal(sanitizeImportedText('scripts/benchmark-storm-light.mjs', benchmark), "const js=new Bun.Transpiler({loader:'ts'}).transformSync(source);");
 });
@@ -76,11 +74,7 @@ test('sync retains Bun test mocks and timeout behavior when importing older Node
 });
 
 test('privacy cleanup keeps media URLs and normalizes scene navigation', () => {
-  const documentation = 'https://dev.maxvyshniakov.com/orbit/?motion=0 Cloudflare Access /media/orbit/dem90/a /Users/alice/private/evidence';
-  const clean = sanitizeImportedText('docs/orbital-performance.md', documentation);
-  assert.ok(clean.includes('http://localhost:4321/?motion=0'));
-  assert.ok(clean.includes('/media/orbit/dem90/a'));
-  assert.doesNotMatch(clean, /maxvyshniakov\.com|Cloudflare|\/Users\//);
+  assert.equal(sanitizeImportedText('scripts/verify-cloud-edges.mjs', '// See docs/orbital-cloud-edges-2026-10-10.md and docs/evidence/a.json; docs/orbital-sky.md'), '// See docs/lab/orbital-cloud-edges-2026-10-10.md and docs/lab/evidence/a.json; docs/orbital-sky.md');
   const script = "new URL('/orbit/?a=1',base); `${base}/orbit/?b=2`; '/media/orbit/a'; location.pathname==='/orbit/'";
   assert.equal(sanitizeImportedText('scripts/verify-scene.mjs', script), "new URL('/?a=1',base); `${base}/?b=2`; '/media/orbit/a'; location.pathname==='/'");
   const fixture = "const {targetInfos}=await send('Target.getTargets'); const page=targetInfos.find(target=>target.type==='page'&&target.url.includes('/orbit/'));";
@@ -88,7 +82,7 @@ test('privacy cleanup keeps media URLs and normalizes scene navigation', () => {
   assert.ok(fixtureClean.includes("const sceneURL=(await run('get','url')).trim()"));
   assert.ok(fixtureClean.includes('target.url===sceneURL'));
   assert.equal(sanitizeImportedText('public/media/orbit/README.md', 'Copernicus WorldDEM-30'), 'Copernicus WorldDEM-90');
-  assert.equal(sanitizeImportedText('docs/orbital-sky.md', 'Copernicus WorldDEM-30'), 'Copernicus WorldDEM-30');
+  assert.equal(sanitizeImportedText('public/media/orbit/README.md', 'The wallpaper renderer uses maps for the\ncomparison lab but no longer loaded by the site.'), 'The renderer uses maps for the\ncomparison lab in the original repository; Earthlight does not include them.');
 });
 
 test('archive paths reject absolute and parent traversal forms', () => {

@@ -1,6 +1,8 @@
 # Orbital sky
 
-The home page uses `OrbitalSky.astro`; there is no separate sky route.
+`OrbitalSky.astro` wraps the `<orbital-sky>` custom element. It has two
+compositions: standalone (the demo page, with flight controls) and page (a
+scroll-driven background behind other content).
 Its renderer is a standalone WebGL shader, with no React,
 Three.js or remote runtime services. The bundled satellite.js 6.0.2 library
 (MIT) propagates the saved ISS orbit. This version avoids the optional WASM
@@ -8,12 +10,12 @@ worker exports in version 7, which the current Astro build cannot bundle.
 
 ## Reference
 
-For moving clouds, city illumination, twilight and proposed lightning, use the
-user-selected [NASA video reference notes](orbital-video-references.md), including
+For moving clouds, city illumination, twilight and proposed lightning, see the
+[NASA video reference notes](orbital-video-references.md), including
 reviewed playback timestamps and the distinction between observations and
 planned renderer changes.
 
-The supplied wallpaper matches a cropped and color-adjusted version of NASA
+The original visual reference is a cropped and color-adjusted version of NASA
 photograph **ISS044-E-020823**, taken by Scott Kelly on 19 July 2015.
 
 - [NASA image record](https://images.nasa.gov/details/iss044e020823)
@@ -55,9 +57,9 @@ The reference origin (`t=0`) remains 55 minutes after the element epoch, at
 01:15:47.860 UTC, above the Pacific west of Chile in the reference recording. Links and the orbit
 slider retain offsets beyond the first day. The model uses SGP4 position and velocity;
 this is a dated prediction from a real ISS element set, not live telemetry,
-a reconstruction of the 2015 wallpaper flight, or a record of station attitude.
+a reconstruction of the 2015 reference flight, or a record of station attitude.
 The visible camera is an artistic, forward-looking local orbital frame (LVLH).
-On the home page, the limb starts at 22% from the bottom and smoothly moves
+In page composition, the limb starts at 22% from the bottom and smoothly moves
 below the frame over the first 0.75 viewport of scrolling. The virtual camera
 rises radially above Earth, preserving its opening attitude rather than tilting.
 The lift is calibrated at 420 km so the limb ends approximately 16% below the
@@ -389,15 +391,15 @@ apparent magnitude. Refraction, lunar terrain, eclipsing the Moon, and resolved
 planetary disks are omitted. Clouds remain illustrative maps from another
 observation period.
 
-The wallpaper's three fixed bright lights are removed. Celestial objects now
+No fixed bright lights are copied from the reference photograph. Celestial objects
 enter or leave the view according to the replay, with no mobile-only relocation.
 For this flight, `t=1200` shows the Moon, Jupiter and Mars at night.
 
 ## Controls and rendering
 
-The home page has a four-line telemetry block: ISS Orbit Replay, UTC replay
+Page composition has a four-line telemetry block: ISS Orbit Replay, UTC replay
 date/time, hemispheric coordinates and altitude, then Image Credits.
-All four rows use compact uppercase type at a uniform line spacing. Time and coordinates use tabular numerals. The title links to the standalone `/` scene, carrying the displayed replay
+All four rows use compact uppercase type at a uniform line spacing. Time and coordinates use tabular numerals. The title links to the standalone scene, carrying the displayed replay
 time, yaw, pitch and paused state. An 8 px arrow appears on hover or keyboard
 focus, separated by one monospace character (1ch). A separate 16 px settings gear
 has a circular 32 px button in the lower-right corner and is always visible
@@ -424,8 +426,8 @@ reference epoch; production has no frozen October date.
 On `/`, Route selects the propagated ISS replay or an illustrative
 circular orbit: Polar orbit (800 km, 90° inclination) or High orbit (20,000 km,
 25° inclination). Model orbit periods follow Kepler's law; they are not replayed
-spacecraft tracks. High orbit starts looking at Earth's center. The homepage
-keeps its ISS composition and normal page scrolling.
+spacecraft tracks. High orbit starts looking at Earth's center. Page composition
+keeps the ISS route and normal page scrolling.
 
 Free flight detaches at the exact current camera pose. Its orientation is stored
 independently of position: local yaw/pitch gestures can cross either pole without
@@ -632,10 +634,10 @@ Browser/main-thread scheduling can still delay presentation under load.
 
 Rendering is capped at 24 frames per second, 1.5 device pixel ratio and 1.8
 million pixels. Animation stops when paused or when the document is hidden.
-Below the home-page introduction only the controls hide: the background remains
-visible and animated. Scrolling a paused home page redraws the camera at up to
+In page composition, below the first viewport only the controls hide: the background remains
+visible and animated. Scrolling a paused page redraws the camera at up to
 24 FPS without advancing the playback clock or grain. Motion is on by default,
-including under reduced-motion preferences, as explicitly requested for this
+including under reduced-motion preferences, by design for this
 scene. The pause button and `motion=0` provide manual control. Context loss reveals a CSS fallback;
 restoration rebuilds the scene and catalog passes. Disconnecting the component releases its
 resources and listeners.
@@ -725,13 +727,13 @@ shift, camera basis and horizon, consistent solar coordinates, and eclipse/day
 phase sequence. It also checks catalog anchors/proper motion, celestial frame
 agreement with an independent horizon projection, and topocentric Moon/planet
 directions, the Galactic pole/center, lunar phase flux/occultation, and the optical
-LUT energy and boundary, then runs Astro diagnostics and the site build.
+LUT energy and boundary, then runs Astro diagnostics and the production build.
 
 `bun run verify:scene http://127.0.0.1:4322 /tmp/orbit-browser-proof`
 uses an isolated agent-browser session to capture seven orbital positions,
 inject failed asset requests, restore a lost context, and exercise playback.
 Build first when the local server serves `dist`. Browser tooling must already be
-installed; the command does not attach to the user's open tab.
+installed; the command does not attach to an existing browser tab.
 
 [Image sources, licenses and modifications](../public/media/orbit/README.md).
 
@@ -831,9 +833,9 @@ view moves away. Failed jobs back off, and offscreen atlas memory is released.
 
 The public source bucket has no browser CORS headers. `/media/orbit/dem90/`
 accepts only bounded GLO-90 source coordinates through a fixed-origin proxy.
-`bun run dev` and `bun run preview` provide this route locally; the production platform
-uses `server/worker.mjs` and the existing protected custom domains. No remote
-deployment is implied by local verification. Rebuild availability using
+`bun run dev` and `bun run preview` provide this route locally. A hosted
+deployment needs the same route; `server/terrain-source.mjs` exports a
+fetch-style handler that also runs in edge runtimes. Rebuild availability using
 `bun scripts/build-terrain-availability.mjs`.
 
 Shadow rays start on the sampled surface and filter subpixel blockers using
@@ -1067,7 +1069,7 @@ contribution without a source, cloud, or visible cloud segment.
 builds a standalone browser experiment using the production renderer. Its
 build-time shader substitutions are confined to the experiment bundle; neither
 the default scene nor its assets import the experiment. Serve the output with
-`/media/orbit/` proxied to a built site. The output worker must remain next to
+`/media/orbit/` proxied to a built Earthlight preview. The output worker must remain next to
 `experiment.js`. Use `?dem=base`, `?dem=90`, or `?dem=30`; add
 `&terrainView=clay` to isolate relief and terrain shadows.
 

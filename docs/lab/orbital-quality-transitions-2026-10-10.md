@@ -84,7 +84,7 @@ Off prevents aurora program creation and rendering. On requests the effect and
 prefers WebGL2 when no explicit API override was supplied. Hardware capability
 checks still apply; an unsupported path is reported in the settings panel.
 Legacy `aurora=0` and `aurora=1` links stay valid; `off`, `on` and `auto` are also
-accepted. Removing the parameter selects Auto. Profile changes and the homepage
+accepted. Removing the parameter selects Auto. Profile changes and the page-mode
 Orbit link preserve the choice; Reset all restores Auto.
 
 The phone default is a product choice, not a measurement of saved energy or a
@@ -93,7 +93,7 @@ claim of iPhone validation. A physical iPhone remains unavailable.
 [Browser evidence](evidence/orbital-effects-policy-2026-10-10.json) checks actual
 program creation and draw calls: Off and touch Auto compile and draw no aurora
 passes; explicit On enables the effect when supported. The controls preserve
-camera, exposure, speed and pause state; unsupported fallback, the homepage link
+camera, exposure, speed and pause state; unsupported fallback, the page-mode link
 and Reset all pass. Desktop and 390 px panel screenshots were inspected. Touch
 emulation uses Chromium, not a physical iPhone. These checks preceded the final
 controller-only correction; the effect policy and controls did not change.

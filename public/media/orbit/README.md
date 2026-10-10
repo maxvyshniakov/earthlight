@@ -1,6 +1,6 @@
 # Orbital scene data and imagery
 
-The wallpaper renderer uses these local, reduced-resolution maps. No shader
+The renderer uses these local, reduced-resolution maps. No shader
 code or assets from Julien Sulpis's GPL repository are included.
 
 ## Night lights
@@ -74,7 +74,7 @@ Exposure, source colors and highlight desaturation are photographic choices.
 See `docs/earth-surface-rendering.md` for limitations and browser checks.
 
 Legacy `earth-day[-8k].avif` and `earth-clouds[-8k].avif` are retained for the
-comparison lab but no longer loaded by the site. They derive from Solar System
+comparison lab in the original repository; Earthlight does not include them. They derive from Solar System
 Scope (https://www.solarsystemscope.com/textures/), CC BY 4.0
 (https://creativecommons.org/licenses/by/4.0/), resized to 4K/8K and AVIF Q50.
 Originals: `8k_earth_daymap.jpg` and `8k_earth_clouds.jpg` from that site's texture

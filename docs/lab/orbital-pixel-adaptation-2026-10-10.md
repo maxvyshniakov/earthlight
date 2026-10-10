@@ -34,7 +34,7 @@ above 100 ms and half-cloud had 4. These short runs do not establish sustained
 
 ## Ordinary autoplay
 
-[`verify-device-startup.mjs`](../scripts/verify-device-startup.mjs) installs its
+[`verify-device-startup.mjs`](../../scripts/verify-device-startup.mjs) installs its
 measurement before the page's scripts. It then navigates without `motion=0`,
 records final framebuffer draw submissions, and observes the first 20 seconds
 after sharp focus. It keeps the native viewport, normal automatic exposure,

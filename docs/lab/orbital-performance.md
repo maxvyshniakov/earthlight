@@ -78,7 +78,7 @@ measurements do not establish battery savings.
 
 ## Quality trade-off candidates
 
-The private dev site has an opt-in [comparison selector](http://localhost:4321/?compare=1&render=balanced).
+The demo has an opt-in [comparison selector](http://localhost:4321/?compare=1&render=balanced).
 It switches one renderer at a time and preserves the camera, date, playback
 state, speed and image controls across reloads. Pause before switching to compare
 the same frame. Without `render`, the original renderer remains selected.
@@ -151,7 +151,7 @@ existing WebGL/interaction regression suite against this candidate.
 
 The browser checks cover selection, camera and control preservation, actual
 18 fps playback, zero draws after pause settles, context restoration, mobile
-layout, homepage links and the unchanged default selection.
+layout, page-mode links and the unchanged default selection.
 
 ## Validation
 
@@ -162,16 +162,7 @@ layout, homepage links and the unchanged default selection.
   restoration, viewport rotation, capability fallbacks, focus, flight, touch and
   calendar. Motion measured 23.83 fps at scale 1.0 with WebGL error 0.
 - `bun run verify:profiles`: all five profiles, camera/settings preservation,
-  context restoration, 390px layout and homepage links passed. Low-power playback
+  context restoration, 390px layout and page-mode links passed. Low-power playback
   measured 17.80 fps; settled pause produced zero frames.
 - Five full-resolution reference/optimized image comparisons passed.
 
-## Dev deployment
-
-Deployed the local working tree on 2026-10-09 using the dev site URL and
-`bun run cf deploy --env dev`. Active Worker version:
-`1eede60a-db91-4c61-a5a3-03a7f70230fc` (100% traffic).
-Authenticated Chrome loaded Optimized pipeline at render scale 1.0 with zero
-asset failures and WebGL error 0. Anonymous page and JavaScript requests redirect to
-Access; `workers.dev` and version-preview URLs remain disabled. No Git commit
-or push was performed for this deployment.

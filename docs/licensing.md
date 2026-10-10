@@ -3,7 +3,7 @@
 The repository is currently private. No public reuse license has been granted;
 `package.json` remains `UNLICENSED` until the final license text is adopted.
 
-The owner selected these requirements on 10 October 2026:
+Requirements selected on 10 October 2026:
 
 - Permit commercial use, including paid products and client projects.
 - Permit embedding in proprietary products and keeping modifications private.

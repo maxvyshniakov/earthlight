@@ -1,6 +1,6 @@
 # Streaming night lights
 
-The homepage renders NASA Black Marble 2016 grayscale imagery at its native
+Earthlight renders NASA Black Marble 2016 grayscale imagery at its native
 500 m source resolution. The existing 4K/8K night map remains available during
 loading, for the distant limb, and after a network or decoding failure.
 

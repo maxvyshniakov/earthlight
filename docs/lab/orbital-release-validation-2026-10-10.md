@@ -17,7 +17,7 @@ The release was assembled in an isolated checkout from the original renderer
 snapshot plus the scoped changes. Concurrent camera-control and HUD work was
 excluded. Node 24.19.0: `npm run verify` passed 115 tests, Astro checking and the
 build. A test-only unused-parameter cleanup was followed by an Astro check with
-zero errors, warnings and hints. Wrangler's dev dry-run also passed with 11,881
+zero errors, warnings and hints. The deployment dry-run also passed with 11,881
 static files and the expected `ASSETS` binding.
 
 Measured release client: `OrbitalSky.astro_astro_type_script_index_0_lang.BC9j4Ypf.js`,
@@ -82,7 +82,7 @@ and paired GPU measurements. M2 Max paired frame-time reductions were about 21%
 (day), 12% (night) and 34% (cloud-heavy), relative to Compact. These measurements
 belong to the earlier prototype snapshot, not the final release bundle.
 
-[The WebGL2 comparison](orbital-webgl2.md) covers five API pairs, odd-size resize
+[The WebGL2 comparison](../orbital-webgl2.md) covers five API pairs, odd-size resize
 and restoration. Night was identical. Other pairs differed in at most 64 of
 1,728,000 RGB samples, each by one 8-bit level. Overall it is not bit-identical,
 and this evidence alone does not justify changing the default API.

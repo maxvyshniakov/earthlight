@@ -114,9 +114,9 @@ and extra buffers. A 2× speedup requires `f >= 2/3`. Shader ablation changes
 compiler work and the atmosphere path, so use it as an optimistic diagnostic;
 the completed prototype must supply the real cost and visual result.
 
-## Homepage scroll baseline
+## Page-mode scroll baseline
 
-Measure the homepage at 0, 0.375, 0.75 and 1 viewport heights, then in reverse
+Measure page mode at 0, 0.375, 0.75 and 1 viewport heights, then in reverse
 order. The current composition finishes raising the camera after 0.75 small
 viewport heights. Record actual scroll offsets: a short page may clamp them.
 Use fixed resolution, a paused deterministic scene and the same viewport for
@@ -183,7 +183,7 @@ buffers, below 2×. This is only an estimate: the ablation changes the compiled
 shader and atmosphere/haze path, and the measured GPU is not the Pixel's GPU.
 Measure the actual low-resolution implementation before accepting or rejecting it.
 
-The homepage run used the fixed day view and the same 1440×900 buffer. Each cell
+The page-mode run used the fixed day view and the same 1440×900 buffer. Each cell
 below gives the two medians from forward and reverse scroll order, as a range.
 
 | Actual scroll offset | Reference GPU time | Compact GPU time |
@@ -225,7 +225,7 @@ tasks, shader compilation and texture decode/upload separately when diagnosing
 startup. Parallel shader compilation is a responsiveness experiment; it does not
 establish a frame-rate gain or a shorter total compile time.
 
-The [shader startup implementation](orbital-shader-startup.md) now batches the
+The [shader startup implementation](../orbital-shader-startup.md) now batches the
 renderer, catalog, camera finish, exposure, defocus and aurora programs. With KHR,
 program-dependent setup follows completion polling, with cancellation/generation
 handling across context loss or disposal. The extension-absent path remains
@@ -242,7 +242,7 @@ capability fallback. Promote a candidate only after its rendered motion, normal
 cadence and resolution pass on the selected devices. Unavailable physical tests
 stay explicitly open.
 
-The [WebGL2 migration](orbital-webgl2.md) has a separate image comparison.
+The [WebGL2 migration](../orbital-webgl2.md) has a separate image comparison.
 Compact retains WebGL1; selecting half-cloud rendering prefers WebGL2.
 Any newly enabled aurora is a deliberate visual and performance
 change and needs its own measurement. Texture storage experiments and the reasons
@@ -401,7 +401,7 @@ three-repeat device acceptance protocol above.
   half-cloud rendering and produced no WebGL error. A settled paused scene made
   zero draws during the 1.2-second idle check.
 
-One earlier half-cloud run was interrupted while the owner used the phone. It is
+One earlier half-cloud run was interrupted because the phone was in use. It is
 retained as excluded evidence and was repeated with visibility recording and
 frame intervals spanning measurement-window boundaries. Half-day and half-night
 also reached 24 FPS at full scale in the initial implementation run, but that

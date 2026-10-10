@@ -152,7 +152,7 @@ not interpreted as scene performance.
   build passed. The measured client bundle retained SHA-256
   `8aa94cfc3494b3b71e0ed1ca617874a9fa6e108f26332d7d79016c9bbffa4aea`,
   matching the measured snapshot.
-- `verify-scene-url.mjs`: fresh homepage/orbit URLs keep their live calendar;
+- `verify-scene-url.mjs`: fresh page-mode and standalone URLs keep their live calendar;
   exposure edits, explicit replay links and calendar edits survive reload.
 - `verify-half-clouds.mjs`: five views, eight cloud-motion frames, resize,
   context restoration and all four injected fallback cases passed.

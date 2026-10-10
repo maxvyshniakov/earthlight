@@ -1,74 +1,137 @@
 # Earthlight
 
-Earth from low orbit, rendered in real time with raw WebGL. A custom element
-draws the planet, atmosphere, stars and camera effects; Astro hosts the demo.
-There is no Three.js dependency.
+**Earth from low orbit, rendered in real time in the browser.**
 
-Created by [Max Vyshniakov](https://github.com/maxvyshniakov). The repository
-is private; a code license has not yet been selected.
+**[earthlight.maxvyshniakov.com](https://earthlight.maxvyshniakov.com)**
 
-![Earthlight](public/media/orbit/preview/poster.webp)
+![Aurora australis from the South Atlantic, with the Milky Way above](docs/media/aurora.webp)
 
-The scene uses saved ISS orbital elements with SGP4, single Rayleigh scattering,
-airglow near 90/98 km, and an illustrative auroral oval based on the WMM2025
-magnetic dipole. NASA day and night maps stream from 86,400 × 43,200 source
-imagery. Terrain, clouds and sky detail load as needed. Weather and camera
-effects are illustrative; the orbital elements are a saved snapshot.
+The International Space Station circles Earth every 93 minutes and sees about
+sixteen sunrises a day. Earthlight renders that view in the browser: the thin
+blue line of the atmosphere at dawn, auroral curtains over the poles, low sun on
+the clouds along the terminator, city lights across the night side, and the
+Milky Way behind the airglow.
 
-## Run
+All of it comes from one WebGL renderer: about 6,000 lines of TypeScript and
+GLSL, with no Three.js. Real data drives it: an ISS orbit, NASA imagery at
+native resolution, a star catalog, and ephemerides for the Sun, Moon and
+planets.
 
-Use Bun 1.3.14 and GitHub CLI authenticated for this private repository.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/sunrise.webp" alt="Sunrise on the limb over the Southern Ocean"></td>
+    <td width="50%"><img src="docs/media/dawn-cities.webp" alt="City lights before dawn over South Africa"></td>
+  </tr>
+  <tr>
+    <td><sub>Sunrise over the Southern Ocean</sub></td>
+    <td><sub>Before dawn over South Africa</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/clouds.webp" alt="Morning clouds over southern India"></td>
+    <td><img src="docs/media/terminator.webp" alt="Low evening sun on clouds over the Pacific"></td>
+  </tr>
+  <tr>
+    <td><sub>Morning clouds over southern India</sub></td>
+    <td><sub>Evening sun on Pacific clouds</sub></td>
+  </tr>
+</table>
+
+These are unedited frames from the demo. Each one is a URL, for example
+[the aurora above](https://earthlight.maxvyshniakov.com/?t=1200&yaw=100&pitch=-4&motion=0&epoch=2026-10-06T01:32:27Z).
+
+## What you are looking at
+
+- **A real orbit.** A saved CelesTrak element set for the ISS (NORAD 25544) is
+  propagated with SGP4. Earth rotates by apparent sidereal time. Sun, Moon and
+  planet positions come from Astronomy Engine, with precession and nutation.
+  Pick any date and the lighting follows it.
+- **Atmosphere.** Single Rayleigh scattering through an exponential atmosphere,
+  with Earth's shadow and wavelength-dependent extinction. That produces the
+  blue limb by day and the orange band at twilight.
+- **Airglow.** Emission shells at 90 and 98 km give the faint amber and green
+  layer above the night-side horizon.
+- **Aurora.** Curtains follow an auroral oval built from the WMM2025 magnetic
+  dipole. The oval widens toward magnetic midnight. Green emission sits at about
+  100–140 km and red at 250–330 km, and the rays fold and drift over time.
+- **Clouds.** NASA cloud coverage is lifted into a 0.6–12 km volume. Clouds
+  cast shadows, show parallax, catch low sun along the terminator, dim city
+  lights beneath them and flicker with storm flashes.
+- **Surface and cities.** NASA Blue Marble and Black Marble imagery at 500 m
+  per pixel (86,400 × 43,200), streamed tile by tile into bounded GPU atlases.
+  Relief comes from ETOPO 2022 and, close up, Copernicus GLO-90.
+- **The sky.** 15,598 stars from the HYG catalog, with proper motion and color
+  from their B−V index. NASA's Deep Star Maps provide the Milky Way, streamed at
+  up to 16K. The Moon and the planets are in their correct places.
+- **The camera.** Auto exposure, lens ghosts and a point-spread function
+  computed by FFT from a simulated iris, color separation, sensor grain, and a
+  short focus pull while detail loads.
+
+## Explore
+
+Follow the orbit, or switch to free flight. Drag to look around; pinch or
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd>-scroll to zoom. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+move, <kbd>Q</kbd>/<kbd>E</kbd> move down or up, and <kbd>Space</kbd> pauses
+time. The settings panel offers ISS, polar and high orbits, plus date, time of
+day, time scale, Moon phase, aurora and exposure. Every view can be shared as a
+URL.
+
+## How it is built
+
+- `<orbital-sky>` is a framework-free custom element (`src/scripts/`). Astro
+  only hosts the demo page.
+- Startup shows a small poster, then reveals low-resolution overviews. Detail
+  tiles for the visible region stream in afterwards. Failed requests fall back
+  to the overview, not to a blank screen.
+- Render resolution adapts to measured frame delivery. The renderer recovers
+  from WebGL context loss and releases GPU memory when detached.
+- WebGL1 is the default; a WebGL2 path can be enabled. Terrain decoding runs in
+  workers.
+- Data pipelines in `scripts/build-*.mjs` rebuild every texture and catalog
+  from the original sources.
+
+The [docs](docs/README.md) explain the model, the data and the measurements in
+detail, including what is approximate.
+
+## Honest limits
+
+This is a replay, not live tracking: the orbit comes from one saved element
+set. The clouds come from a single global composite, not the weather on the
+chosen date. Aurora and storms are illustrative presets. The light is tuned to
+look photographic rather than to match radiometric measurements. Do not
+navigate with it.
+
+## Run it locally
+
+Requires [Bun](https://bun.sh) 1.3.14. Scene data (~270 MB) is stored in a
+pinned GitHub Release, not in Git. While the repository is private, the
+download goes through an authenticated [GitHub CLI](https://cli.github.com).
 
 ```sh
 bun install --frozen-lockfile
-bun run assets
-bun run dev
+bun run assets      # download and verify the scene data
+bun run dev         # http://localhost:4321/
 ```
 
-Open `http://localhost:4321/`. `bun run preview` serves the production build,
-including the same narrow terrain proxy as the development server.
+`bun run verify` runs the unit tests, type checks and a production build. Unit
+tests need the downloaded scene data. `bun run verify:scene <url> <output-dir>`
+drives the rendered scene in an isolated agent-browser session.
 
-## Verify
+## Credits
 
-```sh
-bun run verify
-bun run preview --port 4325
-bun run verify:scene http://127.0.0.1:4325 /tmp/earthlight-browser-proof
-```
+Imagery: NASA Earth Observatory (Blue Marble, Black Marble) and NASA/GSFC
+Scientific Visualization Studio (Deep Star Maps, with Gaia DR2 from
+ESA/Gaia/DPAC). Stars: HYG v4.1 by David Nash (CC BY-SA 4.0). Terrain: NOAA
+ETOPO 2022 and Copernicus DEM. Magnetic field: WMM2025 (NOAA NCEI and BGS).
+Orbital elements: CelesTrak. Libraries: satellite.js, Astronomy Engine,
+geotiff.js. NASA, ESA and the other data providers do not endorse this project.
+Full terms and the changes made to each source are in [NOTICE](NOTICE.md) and
+the [data provenance notes](public/media/orbit/README.md).
 
-The browser suite uses `rtk proxy agent-browser`. Device-specific benchmarks
-require their corresponding device tooling. Unit tests require the assets,
-including the original DEM1 terrain maps used to check the DEM2 encoding.
+## License
 
-## Assets and credits
+Not yet licensed. Code and data are licensed separately: the third-party data
+keeps its own terms, listed in [NOTICE](NOTICE.md).
 
-The large scene data archive lives in a pinned GitHub Release. `bun run assets`
-checks its SHA-256 before extraction. Release metadata is in
-`source-snapshot.json`; small loading previews and attribution files remain in
-Git. Downloading assets preserves the documentation and notices from Git.
-Fetching the full archive is a development step, not a page-load cost.
+---
 
-The four legacy Solar System Scope day/cloud maps are excluded. The historical
-night-light comparison lab requires those separately attributed maps; it is
-not part of the demo or verification suite.
-The historical storm benchmark also requires the original site's Git history
-for its comparison baseline; it cannot run in this repository's fresh history.
-
-See [NOTICE](NOTICE.md) and [data provenance](public/media/orbit/README.md) for
-source credits, transformations and terms. Code and third-party data have
-separate licensing.
-
-## Source synchronization
-
-Source: `personal-site@82f3c1c888b7de93ddc793962dfacdc53572b584`.
-
-```sh
-bun run sync:site /path/to/personal-site <commit-or-ref>
-```
-
-Synchronization resolves one full commit, imports the shared manifest, removes
-retired imported files, reapplies privacy/path adaptations and reports the
-diff. It refuses a dirty destination and never writes to the source checkout.
-Review the result and run verification before committing. Changed binary
-assets require a new release archive and checksum. The demo wrapper, package
-metadata and Earthlight tooling remain locally maintained.
+Made by [Max Vyshniakov](https://maxvyshniakov.com).

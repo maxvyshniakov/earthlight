@@ -1,5 +1,5 @@
 // Requires codex/cloud-edge-refinement-experiment; main intentionally has no cloudEdges mode.
-// See docs/orbital-cloud-edges-2026-10-10.md for the archived decision and reproduction.
+// See docs/lab/orbital-cloud-edges-2026-10-10.md for the archived decision and reproduction.
 // Fixed WebGL2 images, deterministic motion and paired whole-frame GPU timing.
 // Native timer queries measure cost; unthrottled headless RAF does not establish display cadence.
 import {execFile} from 'node:child_process';

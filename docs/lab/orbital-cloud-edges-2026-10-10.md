@@ -2,7 +2,7 @@
 
 ## Decision
 
-Archive the refinement on `codex/cloud-edge-refinement-experiment`. It improves
+Archive the refinement; its prototype is not part of Earthlight. It improves
 some image differences, but its measured GPU cost removes the benefit of
 half-resolution clouds. The main renderer keeps its existing half-cloud
 reconstruction; `cloudEdges` is not an active option there. Compact remains the
@@ -93,8 +93,8 @@ under `/tmp/orbit-cloud-edges-v2-20261010/`; PNGs themselves are not tracked.
 
 ## Reproduce the archived prototype
 
-Use a separate worktree for `codex/cloud-edge-refinement-experiment`, install
-with Bun, build, and serve that checkout. Then run:
+The prototype branch stayed in the original repository and is not included
+here. With a checkout of that prototype built and served, run:
 
 ```sh
 EDGE_FRAMES=32 EDGE_GPU_VIEWS=clouds \

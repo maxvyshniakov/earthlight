@@ -50,7 +50,7 @@ bun scripts/verify-shader-startup.mjs http://127.0.0.1:4347 /tmp/orbit-startup-w
 
 Run browser checks against a stable build, sequentially with other GPU work.
 Cold network startup limits and physical iPhone/Windows evidence remain separate
-items in [the acceptance plan](orbital-performance-targets.md).
+items in [the acceptance plan](lab/orbital-performance-targets.md).
 
 On 2026-10-10 the seven CPU tests and both real WebGL browser suites passed
 on an M2 Max in Chromium, including loss before the first asset request and

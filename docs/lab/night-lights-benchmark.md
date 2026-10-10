@@ -1,8 +1,8 @@
 # Black Marble night-light experiment
 
-This experiment compares NASA's real 500 m imagery with the site's global 8K
+This experiment compares NASA's real 500 m imagery with the scene's global 8K
 night map. Production rendering and assets are unchanged. The lab includes
-interactive image comparisons and a regional overlay using the site's Earth
+interactive image comparisons and a regional overlay using the scene's Earth
 fragment shader and SGP4 camera.
 
 ## Source and scope

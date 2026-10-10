@@ -18,7 +18,7 @@ remain in [evidence/](evidence/). Current acceptance is tracked in
 ## Cleanup validation — 2026-10-10
 
 The retained profile selector, API choices, camera/pause/look/speed preservation,
-context restoration, 390 px mobile layout, homepage link and retired-URL fallback
+context restoration, 390 px mobile layout, page-mode link and retired-URL fallback
 passed [the browser suite](evidence/orbital-profile-cleanup-2026-10-10.json).
 Its headless motion sample recorded 23.989 fps and zero idle draws; this is
 behavioral validation with background/frame throttling disabled, not physical
@@ -146,7 +146,7 @@ rotation, capability fallback, save-data, drag, flight, touch and calendar state
 Motion ran at 23.83 fps against the unchanged 24 fps target in that behavior check.
 All ten alternative profiles passed switching checks with camera, pause, image
 settings and speed preserved. Additional checks passed for atmosphere-table and
-low-power context restoration, a 390 px comparison panel, the homepage link,
+low-power context restoration, a 390 px comparison panel, the page-mode link,
 default profile, zero idle draws and the failed-table integration fallback.
 
 ## Safari and physical Android validation
@@ -243,14 +243,11 @@ Restore any temporary keep-awake setting and remove those forwards afterward.
 artifact against the generator and evaluates 26,466 transmission values, including
 low altitude and grazing rays. A failed download retains the original integration.
 
-## Review on dev
+## Review locally
 
-Published dev version `b302b809-426f-49e7-b904-61107c4b0760` serves client
-`OrbitalSky.astro_astro_type_script_index_0_lang.D4oo02ZN.js`. Authenticated Chrome
-confirmed the compact pass at scale 1.00, zero failed assets and zero WebGL errors.
-Switching to shared lighting preserved camera position and orientation. The page
-and client asset both redirect anonymous requests to the deployment access gate;
-workers.dev and preview URLs remain disabled.
+A deployed build confirmed the compact pass at scale 1.00, zero failed assets
+and zero WebGL errors. Switching to shared lighting preserved camera position
+and orientation.
 
 These links fix resolution for comparison. Ordinary scene URLs retain the existing
 adaptive resolution behavior. Results above describe one GPU/browser combination;

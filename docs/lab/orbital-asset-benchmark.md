@@ -1,7 +1,7 @@
 # Orbital asset compression experiment
 
 Measured 6 October 2026 against the then-current JPEG textures. After reviewing
-the comparison, the owner selected AVIF quality 50 for both production sizes.
+the comparison, AVIF quality 50 was selected for both production sizes.
 The full star catalog remains unchanged. Tables below preserve the experiment's
 original JPEG baseline and recommendations.
 Full measurements: [orbital-asset-benchmark.json](evidence/orbital-asset-benchmark.json).

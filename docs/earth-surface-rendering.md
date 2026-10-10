@@ -60,7 +60,7 @@ Build scripts and official source URLs are in `public/media/orbit/README.md`.
   to coupled cloud/air multiple scattering, not a complete weather renderer.
 - Airglow uses visible path lengths through nested shells around 90 km, clipped
   by Earth. It is added in linear light. At deep-night exposure, the accepted
-  wallpaper-style soft amber halo and green edge take precedence over the thin
+  reference-photo soft amber halo and green edge take precedence over the thin
   shell. This explicitly artistic treatment fades with the scene daylight
   exposure before sunrise, preserving the new daytime/terminator appearance.
   Absolute emission strengths remain artistic.

@@ -26,8 +26,12 @@ export function isSelectedPath(path) {
   if (singleFiles.has(path) || path.startsWith('src/scripts/')) return true;
   if (path.startsWith('scripts/')) return !excludedScripts.has(path.slice(8)) && !/(?:cloudflare|storybook|github-package|^deploy[-.])/i.test(path.slice(8));
   if (path.startsWith('public/media/orbit/')) return !legacyTextures.has(path.slice('public/media/orbit/'.length));
-  return path.startsWith('docs/evidence/') || /^docs\/(?:earth-surface-rendering|night-lights-[^/]+|orbital-[^/]+|scene-optimization)\.md$/.test(path);
+  // Earthlight maintains its own documentation; the site's notes are not imported.
+  return false;
 }
+
+// Lab notes and their evidence live under docs/lab in Earthlight.
+const labDocument = /\bdocs\/((?:orbital-(?:architecture-candidates|asset-benchmark|cloud-prototype|performance(?:-targets)?|[a-z-]+-\d{4}-\d{2}-\d{2})|night-lights-benchmark)\.md|evidence\/)/g;
 
 export function normalizeImportedTest(path,text){
  if(!path.endsWith('.test.mjs'))return text;
@@ -59,8 +63,7 @@ export function normalizeImportedTest(path,text){
 
 export function sanitizeImportedText(path, text) {
   text = normalizeImportedTest(path, text);
-  // Preserve the recorded command/runtime of the original release validation.
-  if ((path.startsWith('scripts/') || path.endsWith('.md')) && path !== 'docs/orbital-release-validation-2026-10-10.md') {
+  if (path.startsWith('scripts/') || path.endsWith('.md')) {
     text = text.replace(/\bnpm run ([\w:.-]+)(?: --(?=\s|$))?/g, 'bun run $1')
       .replace(/\bnpm ci\b/g, 'bun install --frozen-lockfile')
       .replace(/\bnpm (?:install|i)\b/g, 'bun install')
@@ -82,15 +85,9 @@ export function sanitizeImportedText(path, text) {
   // refuses manual 3xx responses without following them to another origin.
   if (path === 'server/terrain-source.mjs') text = text.replaceAll("redirect:'error'", "redirect:'manual'");
   if (path === 'scripts/terrain-detail.test.mjs') text = text.replaceAll("options.redirect,'error'", "options.redirect,'manual'");
-  if (path === 'public/media/orbit/README.md') text = text.replaceAll('Copernicus WorldDEM-30', 'Copernicus WorldDEM-90');
-  if (path.startsWith('docs/')) {
-    text = text.replace(/https?:\/\/(?:dev\.)?maxvyshniakov\.com/g, 'http://localhost:4321')
-      .replace(/(?<!\/media)\/orbit\//g, '/')
-      .replace(/Cloudflare Access/g, 'the deployment access gate')
-      .replace(/Cloudflare\s+Workers?/g, 'production proxy')
-      .replace(/Cloudflare/g, 'the production platform')
-      .replace(/\/Users\/[^/\s"'`]+\/[^\s"'`]+/g, '[local artifact directory]');
-  }
+  if (path === 'public/media/orbit/README.md') text = text.replaceAll('Copernicus WorldDEM-30', 'Copernicus WorldDEM-90')
+    .replace('The wallpaper renderer uses', 'The renderer uses')
+    .replace('comparison lab but no longer loaded by the site.', 'comparison lab in the original repository; Earthlight does not include them.');
   if (path.startsWith('scripts/')) {
     if (path === 'scripts/flight-browser-fixture.mjs') {
       // Earthlight's root is the standalone scene, so its route control exists.
@@ -102,7 +99,8 @@ export function sanitizeImportedText(path, text) {
       text = text.replace("const {targetInfos}=await send('Target.getTargets');", "const sceneURL=(await run('get','url')).trim();\n const {targetInfos}=await send('Target.getTargets');")
         .replaceAll("target.url.includes('/orbit/')", 'target.url===sceneURL');
     }
-    text = text.replaceAll('${base}/orbit/', '${base}/')
+    text = text.replace(labDocument, 'docs/lab/$1')
+      .replaceAll('${base}/orbit/', '${base}/')
       .replace(/(["'`])\/orbit\//g, '$1/');
   }
   return text;
@@ -135,7 +133,7 @@ export async function copySnapshot(sourceDir, fullSHA, targetDir) {
     execFileSync('git', ['-C', sourceDir, 'archive', '--format=tar', `--output=${archive}`, fullSHA, '--', ...roots], { stdio: 'pipe' });
     await extractArchive(archive, targetDir, { select: path => selected.has(path) });
     for (const { path } of files) {
-      if (!path.startsWith('docs/') && !path.startsWith('scripts/') && path !== 'public/media/orbit/README.md' && path !== 'server/terrain-source.mjs') continue;
+      if (!path.startsWith('scripts/') && path !== 'public/media/orbit/README.md' && path !== 'server/terrain-source.mjs') continue;
       if (!/\.(?:md|json|mjs|js|ts|py|txt)$/.test(path)) continue;
       const destination = join(targetDir, path);
       const original = await readFile(destination, 'utf8');

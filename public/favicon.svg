@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
+    <linearGradient id="limb" x1="0" x2="1">
+      <stop offset="0" stop-color="#d9894a" stop-opacity=".25"/>
+      <stop offset=".5" stop-color="#a8dcff"/>
+      <stop offset="1" stop-color="#d9894a" stop-opacity=".25"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#ffd9a0" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#ff9a3c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="64" height="64" fill="#03060b"/>
+    <circle cx="32" cy="112" r="70" fill="#0a1422"/>
+    <circle cx="32" cy="112" r="70" fill="none" stroke="url(#limb)" stroke-width="4"/>
+    <circle cx="32" cy="42" r="16" fill="url(#glow)"/>
+    <circle cx="32" cy="42" r="5" fill="#fff6e0"/>
+  </g>
+</svg>

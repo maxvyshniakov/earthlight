@@ -32,6 +32,7 @@
     "typescript": "6.0.3"
   },
   "description": "Earth from low orbit, rendered in real time with raw WebGL",
+  "homepage": "https://earthlight.maxvyshniakov.com",
   "exports": {
     "./astro": "./src/components/OrbitalSky.astro",
     "./element": "./src/scripts/orbital-sky.ts",

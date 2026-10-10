@@ -5,7 +5,7 @@ WebGL1. Selecting `render=clouds-half` prefers WebGL2 automatically; use
 `api=webgl` to reproduce the explicit WebGL1 path.
 If creating the requested context fails, the scene requests WebGL1. The actual
 backend is exposed as `data-render-api`; this must be checked before accepting
-a comparison. The homepage's Orbit link preserves the API and texture choices.
+a comparison. The page-mode link to the standalone scene preserves the API and texture choices.
 
 The migration keeps the existing lighting model, transfer functions, ray steps,
 tile layouts and camera processing. It does not introduce sRGB texture decoding,
@@ -48,14 +48,14 @@ bun scripts/verify-webgl2.mjs http://127.0.0.1:4347 /tmp/orbit-webgl2
 ```
 
 The local headless launch flags and their limitations are documented in
-[the cloud experiment](orbital-cloud-prototype.md#reproduction). A numerical
+[the cloud experiment](lab/orbital-cloud-prototype.md#reproduction). A numerical
 comparison on the development Mac cannot establish Pixel, iPhone or Windows
 compatibility. Enabling aurora on a device whose WebGL1 backend omits it also
 changes that device's image and workload; it needs a separate device measurement.
 
 ## Local result on 2026-10-10
 
-[Raw comparisons and lifecycle state](evidence/orbital-webgl2-results-2026-10-10.json)
+[Raw comparisons and lifecycle state](lab/evidence/orbital-webgl2-results-2026-10-10.json)
 record the native WebGL1/WebGL2 run on the development M2 Max, Chromium, at
 960×600 with fixed manual exposure, zero grain and matching poses.
 
