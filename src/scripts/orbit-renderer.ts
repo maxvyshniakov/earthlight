@@ -3,6 +3,7 @@ import {shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './we
 import {ShaderProgramBatch} from './shader-programs';
 import {textureProfile} from './texture-profile';
 import {CloudBuffer} from './cloud-buffer';
+import {CloudLightingAtlas, cloudLightingSource} from './cloud-lighting';
 import {WorldBuffer} from './world-buffer';
 import { SceneWork, scenePriority } from './scene-work';
 import { Aurora } from './aurora';
@@ -40,6 +41,9 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     const profile=sceneProfile(params);
     const compactWorld=['compact','clouds-half'].includes(profile.name);
     const separateVolume=!terrainView&&['split','compact','clouds-half'].includes(profile.name)&&WorldBuffer.supported(gl,compactWorld);
+    const textureLighting=separateVolume&&profile.name==='compact'&&params.get('cloudLighting')!=='raymarch'
+      &&!['photo','modis'].includes(params.get('cloudStudy')??'')&&CloudLightingAtlas.supported(gl);
+    let cloudLighting:CloudLightingAtlas|null=null;
     let cloudBuffer:CloudBuffer|null=null,cloudProgram:WebGLProgram|null=null;
     let cloudPosition=0;
     let disableHalfClouds=false;
@@ -117,6 +121,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       timer?.dispose();timer=null;
       aurora?.dispose();aurora=null;
       cloudBuffer?.dispose();cloudBuffer=null;
+      cloudLighting?.dispose();cloudLighting=null;
       if(fallbackVolumeProgram)gl.deleteProgram(fallbackVolumeProgram);fallbackVolumeProgram=null;
       if(cloudProgram)gl.deleteProgram(cloudProgram);cloudProgram=null;
       worldBuffer?.dispose();worldBuffer=null;
@@ -300,11 +305,12 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
         const skyProgram=batch.add('Orbital scene',vertexSource,cloudHeader+terrainHeader+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+fragmentSource);
         const attenuationProgram=supportsSourceAttenuation?batch.add('Source transmission',vertexSource,cloudHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+sourceTransmissionFragment):null;
+        const lightingPlan=textureLighting?CloudLightingAtlas.prepare(batch,cloudHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')):null;
         const volumePlans=new Map<string,WebGLProgram>();
         if(separateVolume)for(const pass of cloudBuffer?['cloud','volume','fallback']:['volume']){
           const cloudPass=pass==='cloud',fallbackPass=pass==='fallback';
           const header=cloudPass?'#extension GL_EXT_draw_buffers : require\n#define HALF_CLOUD_PASS 1\n':'';
-          const source=cloudPass?halfCloudFragment:cloudBuffer&&!fallbackPass?halfCloudVolumeFragment:volumeFragment;
+          const source=cloudPass?halfCloudFragment:cloudBuffer&&!fallbackPass?halfCloudVolumeFragment:textureLighting?cloudLightingSource(volumeFragment):volumeFragment;
           volumePlans.set(pass,batch.add(`Orbital ${pass}`,vertexSource,header+cloudHeader+(supportsSourceAttenuation?'#define CAMERA_PUPIL_STATE 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+source));
         }
         const catalogPrograms=CatalogStars.prepare(batch),cameraPrograms=CameraFinish.prepare(batch);
@@ -414,6 +420,12 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           worldBuffer=new WorldBuffer(gl,compactWorld);gl.useProgram(program);
         }
         state.volumePass=separateVolume?'separate':'inline';
+        state.cloudLighting='raymarch';
+        if(lightingPlan){
+          const bakeProgram=batch.take(lightingPlan);
+          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify);state.cloudLighting='texture';}
+          catch(error){gl.deleteProgram(bakeProgram);console.warn('Cloud lighting atlas unavailable; retaining traced lighting.',error);}
+        }
         if(modisStudy){
           modisTexture=gl.createTexture();if(!modisTexture)throw Error('Cannot allocate MODIS patch');
           gl.activeTexture(gl.TEXTURE9);gl.bindTexture(gl.TEXTURE_2D,modisTexture);
@@ -537,6 +549,13 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         const rotate=(v:number[])=>[c*v[0]+s*v[1],-s*v[0]+c*v[1],v[2]];
         cloudTiles.update({...orbit,camera:rotate(orbit.camera),cameraBasis:[0,3,6].flatMap(i=>rotate(orbit.cameraBasis.slice(i,i+3)))},width,height,program);
       }
+      if(cloudLighting){
+        const stats=cloudTiles?.stats();
+        cloudLighting.update(orbit.camera,orbit.sun,sceneTime,width,height,imageWidths.clouds??1,cloudTiles?.layout(),
+          JSON.stringify([imageWidths.clouds,stats?.requests,stats?.resident]),assets.settled&&(!stats||stats.pending===0),state);
+        finish.resume();gl.useProgram(program);
+        gl.enableVertexAttribArray(scenePosition);gl.vertexAttribPointer(scenePosition,2,gl.FLOAT,false,0,0);
+      }
 
 
       const light = Math.max(0,Math.min(1,(orbit.solar+.25)/.4));
@@ -586,6 +605,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
             }
           }else{finish.resume();cloudBuffer?.bind();}
           gl.useProgram(passProgram);
+          cloudLighting?.bind(passProgram);
           gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_2D,worldBuffer.texture);
           gl.uniform2f(uniforms.cloudResolution,Math.ceil(width/2),Math.ceil(height/2));
           gl.uniform2f(uniforms.resolution,width,height);gl.uniform1f(uniforms.time,sceneTime);gl.uniform1f(uniforms.zoomExcess,zoomExcess);

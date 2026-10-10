@@ -207,7 +207,7 @@ export class OrbitalSky extends HTMLElement {
     const updateOrbitLink = (sceneTime=playback.read(performance.now())+composition().offset) => {
       if(!orbitLink)return;
       const url=new URL(this.dataset.exploreUrl??'/',location.href);
-      for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
+      for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudLighting'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
       url.searchParams.set('t',sceneTime.toFixed(2));
       calendar.write(url.searchParams);
       if(paused)url.searchParams.set('motion','0');
