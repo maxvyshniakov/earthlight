@@ -119,6 +119,20 @@ test('archive extraction verifies checksums and rejects existing destination sym
   await assert.rejects(validateArchive(archive), /checksum/);
 });
 
+test('parallel asset writers can create the same missing directories', async () => {
+  const directory = await scratch();
+  const output = join(directory, 'output');
+  const archives = await Promise.all(Array.from({length: 16}, async (_, index) => {
+    const archive = join(directory, `${index}.tar`);
+    await writeFile(archive, tar([{name: `tiles/shared/${index}.avif`, content: String(index)}]));
+    return archive;
+  }));
+  const results = await Promise.allSettled(archives.map(archive => extractArchive(archive, output)));
+  for (const result of results) assert.equal(result.status, 'fulfilled', result.reason?.message);
+  for (let index = 0; index < archives.length; index++)
+    assert.equal(await readFile(join(output, `tiles/shared/${index}.avif`), 'utf8'), String(index));
+});
+
 test('asset download preserves versioned notices while installing binary assets', async () => {
   const directory = await scratch();
   const archive = join(directory, 'assets.tar');

@@ -112,7 +112,17 @@ async function ensureSafeDestination(destination, name, directory) {
     if (stat?.isSymbolicLink()) throw new Error(`Refusing existing symlink: ${current}`);
     const needsDirectory = i < parts.length - 1 || directory;
     if (stat && (needsDirectory ? !stat.isDirectory() : !stat.isFile())) throw new Error(`Unexpected destination type: ${current}`);
-    if (!stat && needsDirectory) await mkdir(current);
+    if (!stat && needsDirectory) {
+      try { await mkdir(current); }
+      catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        // Another parallel download may have created this parent after lstat.
+        // Accept only a real directory, preserving the symlink/type checks.
+        const created = await lstat(current);
+        if (created.isSymbolicLink()) throw new Error(`Refusing existing symlink: ${current}`);
+        if (!created.isDirectory()) throw new Error(`Unexpected destination type: ${current}`);
+      }
+    }
   }
 }
 
