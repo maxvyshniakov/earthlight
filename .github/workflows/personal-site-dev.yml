@@ -1,0 +1,64 @@
+name: Update personal site dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize consumer updates. A newer pending push replaces an older pending run.
+concurrency:
+  group: personal-site-dev
+  cancel-in-progress: false
+
+jobs:
+  verify-and-deliver:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact Earthlight commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: earthlight
+          persist-credentials: false
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Cache immutable scene assets
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: earthlight/public/media/orbit
+          key: earthlight-assets-${{ runner.os }}-${{ hashFiles('earthlight/assets-manifest.json') }}
+
+      - name: Install Earthlight dependencies
+        working-directory: earthlight
+        run: bun install --frozen-lockfile
+
+      - name: Fetch and verify pinned scene assets
+        working-directory: earthlight
+        run: bun run assets
+
+      - name: Verify Earthlight
+        working-directory: earthlight
+        run: bun run verify
+
+      - name: Check out the private dev consumer
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: maxvyshniakov/personal-site
+          ref: dev
+          path: personal-site
+          ssh-key: ${{ secrets.PERSONAL_SITE_DEV_DEPLOY_KEY }}
+          persist-credentials: true
+
+      - name: Update, verify and push the dev package
+        working-directory: earthlight
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/deliver-personal-site.mjs ../personal-site

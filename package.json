@@ -11,7 +11,7 @@
     "build": "bun --bun astro build",
     "preview": "bun scripts/preview.mjs",
     "check": "bun --bun astro check",
-    "verify": "bun test scripts/extraction-tools.test.mjs scripts/worker-compat.test.mjs scripts/iss-orbit.test.mjs scripts/celestial-sky.test.mjs scripts/night-tiles.test.mjs scripts/earth-terrain.test.mjs scripts/terrain-detail.test.mjs scripts/scene-runtime.test.mjs scripts/scene-quality.test.mjs scripts/cloud-buffer.test.mjs scripts/cloud-lighting.test.mjs scripts/webgl-context.test.mjs scripts/shader-programs.test.mjs scripts/texture-profile.test.mjs scripts/browser-module.test.mjs scripts/scene-assets-startup.test.mjs && bun run check && bun run build",
+    "verify": "bun test scripts/deliver-personal-site.test.mjs scripts/extraction-tools.test.mjs scripts/worker-compat.test.mjs scripts/iss-orbit.test.mjs scripts/celestial-sky.test.mjs scripts/night-tiles.test.mjs scripts/earth-terrain.test.mjs scripts/terrain-detail.test.mjs scripts/scene-runtime.test.mjs scripts/scene-quality.test.mjs scripts/cloud-buffer.test.mjs scripts/cloud-lighting.test.mjs scripts/webgl-context.test.mjs scripts/shader-programs.test.mjs scripts/texture-profile.test.mjs scripts/browser-module.test.mjs scripts/scene-assets-startup.test.mjs && bun run check && bun run build",
     "verify:scene": "bun scripts/verify-scene-browser.mjs",
     "benchmark:scene": "bun scripts/benchmark-scene-profiles.mjs",
     "verify:profiles": "bun scripts/verify-scene-profiles.mjs",

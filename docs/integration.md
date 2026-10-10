@@ -12,12 +12,26 @@ use the same renderer and `scene-defaults.ts` grade.
 
 ## Develop and update the consumer
 
+Every verified push to Earthlight `main` runs `.github/workflows/personal-site-dev.yml`.
+It downloads and checks the pinned assets, runs `bun run verify`, then updates
+the package in `personal-site/dev`, verifies that site and pushes a scoped commit.
+Cloudflare Builds deploys the resulting dev commit. Public-site `main` is not an
+automatic target. Runs are serialized; superseded revisions skip publication.
+
+The workflow's repository-scoped deploy key is stored in the Earthlight Actions
+secret `PERSONAL_SITE_DEV_DEPLOY_KEY`. Its public half is the `Earthlight dev delivery`
+deploy key in `personal-site`. GitHub's ordinary read-only job token handles only
+Earthlight checkout and revision checks; no Cloudflare token is given to Actions.
+The consumer's `earthlight.lock.json` and `/earthlight-version.json` record the
+exact source SHA, archive checksum and asset version. See its
+`docs/earthlight-delivery.md` for retries, rollback and key rotation.
+
 In the site, `bun run dev:earthlight` resolves the component to the neighboring
 Earthlight checkout. Edits are made here and watched by Astro/Vite. The normal
 site build uses the exact package archive committed under `vendor/`, with its
 integrity in `bun.lock`; it needs neither a sibling checkout nor registry auth.
 
-After verifying Earthlight, run `bun run earthlight:update` in the site, then
+For a manual update of committed Earthlight source, run `bun run earthlight:update` in the site, then
 `bun run verify`. This creates a package artifact; never edit the archive or
 copy scene source back into the site. Old unreferenced vendor archives may be
 removed when committing the update. A package registry can replace this
