@@ -1,0 +1,590 @@
+[
+  {
+    "scene": "day",
+    "baseline": "compact",
+    "candidate": "clouds-half",
+    "launchArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding",
+    "candidateMs": 16.112416,
+    "frameCounts": [
+      40,
+      40
+    ],
+    "pairedRatio": 0.7880926624472544,
+    "pairs": [
+      {
+        "candidate": 17.303333,
+        "ratio": 0.8314563338377812,
+        "reference": 20.810874
+      },
+      {
+        "candidate": 13.8095,
+        "ratio": 0.6950536660249393,
+        "reference": 19.86825
+      },
+      {
+        "candidate": 14.953291,
+        "ratio": 0.844095449063249,
+        "reference": 17.715166
+      },
+      {
+        "candidate": 14.291499,
+        "ratio": 0.6599059033173487,
+        "reference": 21.656874
+      },
+      {
+        "candidate": 15.572,
+        "ratio": 0.8636297461992276,
+        "reference": 18.030875
+      },
+      {
+        "candidate": 16.002124,
+        "ratio": 0.7165771967127981,
+        "reference": 22.331333
+      },
+      {
+        "candidate": 13.6235,
+        "ratio": 0.6358248260716788,
+        "reference": 21.426499
+      },
+      {
+        "candidate": 16.401,
+        "ratio": 0.7629569758043413,
+        "reference": 21.496625
+      },
+      {
+        "candidate": 16.009416,
+        "ratio": 0.7461770895235433,
+        "reference": 21.45525
+      },
+      {
+        "candidate": 13.743499,
+        "ratio": 0.7490513069797623,
+        "reference": 18.347874
+      },
+      {
+        "candidate": 17.195916,
+        "ratio": 0.8257111457576001,
+        "reference": 20.825583
+      },
+      {
+        "candidate": 16.984749,
+        "ratio": 0.8397742439880596,
+        "reference": 20.225375
+      },
+      {
+        "candidate": 17.110708,
+        "ratio": 0.9191214142990466,
+        "reference": 18.616374
+      },
+      {
+        "candidate": 13.563958,
+        "ratio": 0.6130718034324082,
+        "reference": 22.124583
+      },
+      {
+        "candidate": 16.4105,
+        "ratio": 0.7679972160130168,
+        "reference": 21.367916
+      },
+      {
+        "candidate": 14.106333,
+        "ratio": 0.7880926624472544,
+        "reference": 17.899333
+      },
+      {
+        "candidate": 17.366958,
+        "ratio": 0.7916938094563855,
+        "reference": 21.936458
+      },
+      {
+        "candidate": 15.055333,
+        "ratio": 0.6862269614820278,
+        "reference": 21.939291
+      },
+      {
+        "candidate": 14.106749,
+        "ratio": 0.7352977831787333,
+        "reference": 19.185083
+      },
+      {
+        "candidate": 15.326208,
+        "ratio": 0.6706810711917026,
+        "reference": 22.851708
+      },
+      {
+        "candidate": 15.587874,
+        "ratio": 0.8558104719151017,
+        "reference": 18.214166
+      },
+      {
+        "candidate": 14.397583,
+        "ratio": 0.646247372327773,
+        "reference": 22.278749
+      },
+      {
+        "candidate": 16.112416,
+        "ratio": 0.8715833618858949,
+        "reference": 18.486374
+      },
+      {
+        "candidate": 16.789624,
+        "ratio": 0.710645595136688,
+        "reference": 23.625875
+      },
+      {
+        "candidate": 16.959125,
+        "ratio": 0.8935339420531256,
+        "reference": 18.979833
+      },
+      {
+        "candidate": 17.199333,
+        "ratio": 0.8377658956534776,
+        "reference": 20.529999
+      },
+      {
+        "candidate": 16.18475,
+        "ratio": 0.7957528316651684,
+        "reference": 20.338916
+      },
+      {
+        "candidate": 16.48125,
+        "ratio": 0.7762427266321443,
+        "reference": 21.232083
+      },
+      {
+        "candidate": 16.076624,
+        "ratio": 0.8009361761445168,
+        "reference": 20.072291
+      },
+      {
+        "candidate": 16.681583,
+        "ratio": 0.7707670710206931,
+        "reference": 21.642833
+      },
+      {
+        "candidate": 17.261208,
+        "ratio": 0.8062123892160246,
+        "reference": 21.410249
+      },
+      {
+        "candidate": 17.526,
+        "ratio": 0.8174170367881508,
+        "reference": 21.440708
+      }
+    ],
+    "referenceMs": 21.232083,
+    "states": [
+      {
+        "basis": "[-0.7050679457027851,0.34263503386300675,-0.6208706995117025,-0.33499662147248555,0.6107450929245508,0.7174731319503206,-0.6250251639290012,-0.7138568939488349,0.31583520927415165]",
+        "cloudPass": "inline",
+        "failures": "0",
+        "height": 900,
+        "position": "-0.30708008,0.70615534,0.73842408",
+        "profile": "compact",
+        "width": 1440
+      },
+      {
+        "basis": "[-0.7050679457027851,0.34263503386300675,-0.6208706995117025,-0.33499662147248555,0.6107450929245508,0.7174731319503206,-0.6250251639290012,-0.7138568939488349,0.31583520927415165]",
+        "cloudBuffer": "720x450",
+        "cloudPass": "half",
+        "failures": "0",
+        "height": 900,
+        "position": "-0.30708008,0.70615534,0.73842408",
+        "profile": "clouds-half",
+        "width": 1440
+      }
+    ]
+  },
+  {
+    "scene": "night",
+    "baseline": "compact",
+    "candidate": "clouds-half",
+    "launchArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding",
+    "candidateMs": 12.287874,
+    "frameCounts": [
+      40,
+      40
+    ],
+    "pairedRatio": 0.8843966414948696,
+    "pairs": [
+      {
+        "candidate": 10.287583,
+        "ratio": 0.6405136445271656,
+        "reference": 16.061458
+      },
+      {
+        "candidate": 11.878916,
+        "ratio": 0.9240338317477992,
+        "reference": 12.855499
+      },
+      {
+        "candidate": 12.175,
+        "ratio": 0.8546858546858548,
+        "reference": 14.245
+      },
+      {
+        "candidate": 13.723624,
+        "ratio": 0.8843966414948696,
+        "reference": 15.517499
+      },
+      {
+        "candidate": 10.26275,
+        "ratio": 0.6430832000619602,
+        "reference": 15.958666
+      },
+      {
+        "candidate": 13.658749,
+        "ratio": 0.8998575051201377,
+        "reference": 15.178791
+      },
+      {
+        "candidate": 10.259374,
+        "ratio": 0.7857299968967132,
+        "reference": 13.057124
+      },
+      {
+        "candidate": 12.274749,
+        "ratio": 0.9269179532840413,
+        "reference": 13.242541
+      },
+      {
+        "candidate": 12.052166,
+        "ratio": 0.7958004868763399,
+        "reference": 15.144708
+      },
+      {
+        "candidate": 13.652874,
+        "ratio": 0.8044233380960097,
+        "reference": 16.97225
+      },
+      {
+        "candidate": 12.25,
+        "ratio": 0.8499001419367926,
+        "reference": 14.413458
+      },
+      {
+        "candidate": 10.539499,
+        "ratio": 0.699810696856014,
+        "reference": 15.0605
+      },
+      {
+        "candidate": 12.809166,
+        "ratio": 0.9859051032646976,
+        "reference": 12.992291
+      },
+      {
+        "candidate": 12.834583,
+        "ratio": 0.8370426254735706,
+        "reference": 15.333249
+      },
+      {
+        "candidate": 13.840375,
+        "ratio": 0.9846450052531948,
+        "reference": 14.056208
+      },
+      {
+        "candidate": 9.732374,
+        "ratio": 0.6282903116476494,
+        "reference": 15.49025
+      },
+      {
+        "candidate": 11.950874,
+        "ratio": 0.9097399224745126,
+        "reference": 13.136583
+      },
+      {
+        "candidate": 12.781666,
+        "ratio": 0.858230766973649,
+        "reference": 14.893041
+      },
+      {
+        "candidate": 12.72375,
+        "ratio": 0.903587185200309,
+        "reference": 14.081375
+      },
+      {
+        "candidate": 13.171833,
+        "ratio": 1.0111082069144188,
+        "reference": 13.027125
+      },
+      {
+        "candidate": 12.428333,
+        "ratio": 0.9857106713724868,
+        "reference": 12.6085
+      },
+      {
+        "candidate": 10.005583,
+        "ratio": 0.7438403865811727,
+        "reference": 13.45125
+      },
+      {
+        "candidate": 10.697708,
+        "ratio": 0.7120531158998253,
+        "reference": 15.02375
+      },
+      {
+        "candidate": 15.850208,
+        "ratio": 1.2371497536465192,
+        "reference": 12.811875
+      },
+      {
+        "candidate": 11.830666,
+        "ratio": 0.7960613666184437,
+        "reference": 14.8615
+      },
+      {
+        "candidate": 12.834249,
+        "ratio": 0.9596507369778766,
+        "reference": 13.373875
+      },
+      {
+        "candidate": 12.936166,
+        "ratio": 0.9102604228969498,
+        "reference": 14.2115
+      },
+      {
+        "candidate": 11.782083,
+        "ratio": 0.8038445494852142,
+        "reference": 14.657166
+      },
+      {
+        "candidate": 12.183583,
+        "ratio": 0.9504408928240584,
+        "reference": 12.818875
+      },
+      {
+        "candidate": 14.281958,
+        "ratio": 0.9943720548464432,
+        "reference": 14.362791
+      },
+      {
+        "candidate": 13.085041,
+        "ratio": 0.8576980766713476,
+        "reference": 15.255999
+      },
+      {
+        "candidate": 12.287874,
+        "ratio": 0.9299690128241378,
+        "reference": 13.213208
+      }
+    ],
+    "referenceMs": 14.362791,
+    "states": [
+      {
+        "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.5268954781226495,-0.3733988098038303,-0.7635145604184557,0.3848171684423579,0.905781180549901,-0.17741533145033989]",
+        "cloudPass": "inline",
+        "failures": "0",
+        "height": 900,
+        "position": "0.53003818,-0.46954563,-0.79836983",
+        "profile": "compact",
+        "width": 1440
+      },
+      {
+        "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.5268954781226495,-0.3733988098038303,-0.7635145604184557,0.3848171684423579,0.905781180549901,-0.17741533145033989]",
+        "cloudBuffer": "720x450",
+        "cloudPass": "half",
+        "failures": "0",
+        "height": 900,
+        "position": "0.53003818,-0.46954563,-0.79836983",
+        "profile": "clouds-half",
+        "width": 1440
+      }
+    ]
+  },
+  {
+    "scene": "clouds",
+    "baseline": "compact",
+    "candidate": "clouds-half",
+    "launchArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding",
+    "candidateMs": 24.742125,
+    "frameCounts": [
+      40,
+      40
+    ],
+    "pairedRatio": 0.6636679629029311,
+    "pairs": [
+      {
+        "candidate": 25.77075,
+        "ratio": 0.7106893306629253,
+        "reference": 36.261625
+      },
+      {
+        "candidate": 24.489458,
+        "ratio": 0.6636679629029311,
+        "reference": 36.900166
+      },
+      {
+        "candidate": 24.412291,
+        "ratio": 0.6391237846170142,
+        "reference": 38.196499
+      },
+      {
+        "candidate": 26.075458,
+        "ratio": 0.6881520819210409,
+        "reference": 37.891999
+      },
+      {
+        "candidate": 23.611999,
+        "ratio": 0.6535258930169321,
+        "reference": 36.130166
+      },
+      {
+        "candidate": 24.205416,
+        "ratio": 0.6189403539694976,
+        "reference": 39.107833
+      },
+      {
+        "candidate": 23.519541,
+        "ratio": 0.6705794735152718,
+        "reference": 35.073458
+      },
+      {
+        "candidate": 24.654916,
+        "ratio": 0.6923180237068134,
+        "reference": 35.612125
+      },
+      {
+        "candidate": 25.021625,
+        "ratio": 0.6813487792858153,
+        "reference": 36.723666
+      },
+      {
+        "candidate": 25.056749,
+        "ratio": 0.6649836187392599,
+        "reference": 37.68025
+      },
+      {
+        "candidate": 23.489708,
+        "ratio": 0.6672857056619853,
+        "reference": 35.201875
+      },
+      {
+        "candidate": 25.192583,
+        "ratio": 0.6132267903217954,
+        "reference": 41.082
+      },
+      {
+        "candidate": 23.280666,
+        "ratio": 0.6145615236888475,
+        "reference": 37.88175
+      },
+      {
+        "candidate": 23.74925,
+        "ratio": 0.6751517490564491,
+        "reference": 35.176166
+      },
+      {
+        "candidate": 26.921666,
+        "ratio": 0.6938111826215281,
+        "reference": 38.802583
+      },
+      {
+        "candidate": 26.826416,
+        "ratio": 0.7145184346679628,
+        "reference": 37.54475
+      },
+      {
+        "candidate": 25.414874,
+        "ratio": 0.632507130330663,
+        "reference": 40.181166
+      },
+      {
+        "candidate": 25.705625,
+        "ratio": 0.711924217765801,
+        "reference": 36.107249
+      },
+      {
+        "candidate": 24.814624,
+        "ratio": 0.6457419174409507,
+        "reference": 38.428083
+      },
+      {
+        "candidate": 23.46475,
+        "ratio": 0.6333607752105376,
+        "reference": 37.048
+      },
+      {
+        "candidate": 25.417375,
+        "ratio": 0.6928696675146974,
+        "reference": 36.684208
+      },
+      {
+        "candidate": 22.180666,
+        "ratio": 0.6196668761960636,
+        "reference": 35.7945
+      },
+      {
+        "candidate": 24.033874,
+        "ratio": 0.6534665762492285,
+        "reference": 36.779041
+      },
+      {
+        "candidate": 23.225166,
+        "ratio": 0.6045203063491801,
+        "reference": 38.419166
+      },
+      {
+        "candidate": 24.930083,
+        "ratio": 0.6679482674851421,
+        "reference": 37.323374
+      },
+      {
+        "candidate": 24.963291,
+        "ratio": 0.6518525630774833,
+        "reference": 38.295916
+      },
+      {
+        "candidate": 23.662,
+        "ratio": 0.6126520493407829,
+        "reference": 38.622249
+      },
+      {
+        "candidate": 23.53,
+        "ratio": 0.6312520918776824,
+        "reference": 37.275124
+      },
+      {
+        "candidate": 25.193666,
+        "ratio": 0.6320657312919836,
+        "reference": 39.85925
+      },
+      {
+        "candidate": 25.299833,
+        "ratio": 0.690539257675224,
+        "reference": 36.637791
+      },
+      {
+        "candidate": 24.742125,
+        "ratio": 0.6888247340227616,
+        "reference": 35.919333
+      },
+      {
+        "candidate": 23.776958,
+        "ratio": 0.6225353100965472,
+        "reference": 38.19375
+      }
+    ],
+    "referenceMs": 37.323374,
+    "states": [
+      {
+        "basis": "[-0.7050679457027851,0.34263503386300675,-0.6208706995117025,-0.567757094995353,0.2518340739596713,0.7837292136161014,-0.42488948330700343,-0.9050860913540606,-0.016973338284986483]",
+        "cloudPass": "inline",
+        "failures": "0",
+        "height": 900,
+        "position": "-0.30708008,0.70615534,0.73842408",
+        "profile": "compact",
+        "width": 1440
+      },
+      {
+        "basis": "[-0.7050679457027851,0.34263503386300675,-0.6208706995117025,-0.567757094995353,0.2518340739596713,0.7837292136161014,-0.42488948330700343,-0.9050860913540606,-0.016973338284986483]",
+        "cloudBuffer": "720x450",
+        "cloudPass": "half",
+        "failures": "0",
+        "height": 900,
+        "position": "-0.30708008,0.70615534,0.73842408",
+        "profile": "clouds-half",
+        "width": 1440
+      }
+    ]
+  }
+]

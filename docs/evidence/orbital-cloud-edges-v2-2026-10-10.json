@@ -1,0 +1,771 @@
+{
+  "conditions": {
+    "viewport": [
+      1440,
+      900
+    ],
+    "api": "webgl2",
+    "aurora": 0,
+    "exposureEV": 0,
+    "grain": 0,
+    "frameStepSeconds": 0.4166666666666667,
+    "quality": "fixed",
+    "metricUnits": "8-bit RGB channel values",
+    "launchArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding",
+    "timing": "32 hardware GPU pairs after8 warmup pairs; AB/BA; two resident renderers; whole frame",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36"
+  },
+  "images": [
+    {
+      "scene": "clouds",
+      "frames": 32,
+      "states": {
+        "compact": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+          "client": [
+            "http://127.0.0.1:4351/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.D4UMnAfQ.js"
+          ],
+          "cloudEdges": "off",
+          "cloudPass": "inline",
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "compact",
+          "url": "http://127.0.0.1:4351/?api=webgl2&render=compact&aurora=0&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+          "width": 1440
+        },
+        "half": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+          "client": [
+            "http://127.0.0.1:4351/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.D4UMnAfQ.js"
+          ],
+          "cloudEdges": "off",
+          "cloudPass": "half",
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "clouds-half",
+          "url": "http://127.0.0.1:4351/?api=webgl2&render=clouds-half&aurora=0&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+          "width": 1440
+        },
+        "edges": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+          "client": [
+            "http://127.0.0.1:4351/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.D4UMnAfQ.js"
+          ],
+          "cloudEdges": "1",
+          "cloudPass": "half",
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "clouds-half",
+          "url": "http://127.0.0.1:4351/?api=webgl2&render=clouds-half&cloudEdges=1&aurora=0&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+          "width": 1440
+        }
+      },
+      "half": {
+        "spatialMean": 0.43716929494598766,
+        "spatialMax": 66,
+        "temporalMean": 0.46880968737554757,
+        "temporalFractionOverFour": 0.012041110779238019
+      },
+      "edges": {
+        "spatialMean": 0.3676048900462963,
+        "spatialMax": 59,
+        "temporalMean": 0.42537581308907474,
+        "temporalFractionOverFour": 0.007978793309438471
+      },
+      "edgeVsHalf": {
+        "spatialMean": 0.07202762506430041,
+        "spatialMax": 62,
+        "temporalMean": 0.08292965949820788,
+        "temporalFractionOverFour": 0.0025630558874286473
+      },
+      "mask": {
+        "error": 0,
+        "maxBlendWeight": 1,
+        "meanBlendWeight": 0.028471566531715203,
+        "method": "Float32 readback of volume attachment before camera finish",
+        "pixels": 1296000,
+        "refinedFraction": 0.14117978395061728
+      }
+    },
+    {
+      "scene": "horizon",
+      "frames": 32,
+      "states": {
+        "compact": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.27925004942013837,0.6706348867069968,0.6872177665269895,-0.6518425785547919,-0.657913322136817,0.377162184395436]",
+          "client": [
+            "http://127.0.0.1:4351/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.D4UMnAfQ.js"
+          ],
+          "cloudEdges": "off",
+          "cloudPass": "inline",
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "compact",
+          "url": "http://127.0.0.1:4351/?api=webgl2&render=compact&aurora=0&quality=fixed&motion=0&t=3235.65&pitch=5&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+          "width": 1440
+        },
+        "half": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.27925004942013837,0.6706348867069968,0.6872177665269895,-0.6518425785547919,-0.657913322136817,0.377162184395436]",
+          "client": [
+            "http://127.0.0.1:4351/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.D4UMnAfQ.js"
+          ],
+          "cloudEdges": "off",
+          "cloudPass": "half",
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "clouds-half",
+          "url": "http://127.0.0.1:4351/?api=webgl2&render=clouds-half&aurora=0&quality=fixed&motion=0&t=3235.65&pitch=5&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+          "width": 1440
+        },
+        "edges": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.27925004942013837,0.6706348867069968,0.6872177665269895,-0.6518425785547919,-0.657913322136817,0.377162184395436]",
+          "client": [
+            "http://127.0.0.1:4351/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.D4UMnAfQ.js"
+          ],
+          "cloudEdges": "1",
+          "cloudPass": "half",
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "clouds-half",
+          "url": "http://127.0.0.1:4351/?api=webgl2&render=clouds-half&cloudEdges=1&aurora=0&quality=fixed&motion=0&t=3235.65&pitch=5&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+          "width": 1440
+        }
+      },
+      "half": {
+        "spatialMean": 0.014810112847222221,
+        "spatialMax": 49,
+        "temporalMean": 0.005044520775255542,
+        "temporalFractionOverFour": 0.00013751991238550377
+      },
+      "edges": {
+        "spatialMean": 0.009360098379629629,
+        "spatialMax": 49,
+        "temporalMean": 0.004436711801407142,
+        "temporalFractionOverFour": 0.00012193017390150007
+      },
+      "edgeVsHalf": {
+        "spatialMean": 0.005608900784465021,
+        "spatialMax": 32,
+        "temporalMean": 0.001971707818930041,
+        "temporalFractionOverFour": 8.430406212664278e-05
+      },
+      "mask": {
+        "error": 0,
+        "maxBlendWeight": 1,
+        "meanBlendWeight": 0.0013364349194790843,
+        "method": "Float32 readback of volume attachment before camera finish",
+        "pixels": 1296000,
+        "refinedFraction": 0.0021820987654320987
+      }
+    }
+  ],
+  "timings": [
+    {
+      "scene": "clouds",
+      "candidate": "compact",
+      "candidateMs": 39.000499,
+      "frameCounts": [
+        40,
+        40
+      ],
+      "halfMs": 24.011083,
+      "pairedRatio": 1.5992757448370165,
+      "pairs": [
+        {
+          "candidate": 42.235125,
+          "half": 24.137375,
+          "ratio": 1.7497812003169355
+        },
+        {
+          "candidate": 38.857749,
+          "half": 25.092166,
+          "ratio": 1.548600826249914
+        },
+        {
+          "candidate": 36.258624,
+          "half": 23.471874,
+          "ratio": 1.5447690286680986
+        },
+        {
+          "candidate": 40.544125,
+          "half": 26.690875,
+          "ratio": 1.5190256969844564
+        },
+        {
+          "candidate": 40.606041,
+          "half": 23.279541,
+          "ratio": 1.7442801385130402
+        },
+        {
+          "candidate": 45.967083,
+          "half": 22.607166,
+          "ratio": 2.0332970085679913
+        },
+        {
+          "candidate": 37.561416,
+          "half": 25.71675,
+          "ratio": 1.460581760914579
+        },
+        {
+          "candidate": 40.052374,
+          "half": 20.896791,
+          "ratio": 1.9166758187895931
+        },
+        {
+          "candidate": 36.480333,
+          "half": 25.718666,
+          "ratio": 1.4184379936346625
+        },
+        {
+          "candidate": 41.468958,
+          "half": 25.825583,
+          "ratio": 1.6057317273340934
+        },
+        {
+          "candidate": 43.574,
+          "half": 25.225041,
+          "ratio": 1.7274104727916992
+        },
+        {
+          "candidate": 40.14125,
+          "half": 23.453874,
+          "ratio": 1.7114976400060815
+        },
+        {
+          "candidate": 39.000499,
+          "half": 25.252166,
+          "ratio": 1.5444417322458597
+        },
+        {
+          "candidate": 37.406124,
+          "half": 22.109541,
+          "ratio": 1.6918543899215277
+        },
+        {
+          "candidate": 33.878541,
+          "half": 22.427624,
+          "ratio": 1.5105720070926816
+        },
+        {
+          "candidate": 34.279458,
+          "half": 23.736041,
+          "ratio": 1.4441944214707076
+        },
+        {
+          "candidate": 43.269375,
+          "half": 22.871833,
+          "ratio": 1.891819295812452
+        },
+        {
+          "candidate": 47.870416,
+          "half": 25.481708,
+          "ratio": 1.878618811580448
+        },
+        {
+          "candidate": 35.971375,
+          "half": 22.917374,
+          "ratio": 1.56961155322595
+        },
+        {
+          "candidate": 38.731999,
+          "half": 25.023291,
+          "ratio": 1.5478379322687812
+        },
+        {
+          "candidate": 37.618708,
+          "half": 24.175124,
+          "ratio": 1.5560916254245478
+        },
+        {
+          "candidate": 35.605583,
+          "half": 25.387958,
+          "ratio": 1.4024595046202613
+        },
+        {
+          "candidate": 37.497374,
+          "half": 24.011083,
+          "ratio": 1.5616694174102852
+        },
+        {
+          "candidate": 43.08575,
+          "half": 24.996124,
+          "ratio": 1.7236972420204029
+        },
+        {
+          "candidate": 39.734249,
+          "half": 22.782374,
+          "ratio": 1.7440785143813369
+        },
+        {
+          "candidate": 36.979249,
+          "half": 25.983166,
+          "ratio": 1.4232002751319837
+        },
+        {
+          "candidate": 38.200833,
+          "half": 23.886333,
+          "ratio": 1.5992757448370165
+        },
+        {
+          "candidate": 43.369041,
+          "half": 23.693416,
+          "ratio": 1.8304258448845032
+        },
+        {
+          "candidate": 44.884875,
+          "half": 22.828999,
+          "ratio": 1.9661341699651396
+        },
+        {
+          "candidate": 46.746,
+          "half": 23.110833,
+          "ratio": 2.022687801863308
+        },
+        {
+          "candidate": 37.664125,
+          "half": 23.674374,
+          "ratio": 1.5909237980273525
+        },
+        {
+          "candidate": 37.015791,
+          "half": 25.022374,
+          "ratio": 1.479307718764015
+        }
+      ],
+      "states": [
+        {
+          "basis": "[-0.7050679457027851,0.34263503386300675,-0.6208706995117025,-0.567757094995353,0.2518340739596713,0.7837292136161014,-0.42488948330700343,-0.9050860913540606,-0.016973338284986483]",
+          "cloudPass": "half",
+          "edges": "off",
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708008,0.70615534,0.73842408",
+          "profile": "clouds-half",
+          "width": 1440
+        },
+        {
+          "basis": "[-0.7050679457027851,0.34263503386300675,-0.6208706995117025,-0.567757094995353,0.2518340739596713,0.7837292136161014,-0.42488948330700343,-0.9050860913540606,-0.016973338284986483]",
+          "cloudPass": "inline",
+          "edges": "off",
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708008,0.70615534,0.73842408",
+          "profile": "compact",
+          "width": 1440
+        }
+      ]
+    },
+    {
+      "scene": "clouds",
+      "candidate": "edges",
+      "candidateMs": 40.89125,
+      "frameCounts": [
+        40,
+        40
+      ],
+      "halfMs": 23.847708,
+      "pairedRatio": 1.6664336883024564,
+      "pairs": [
+        {
+          "candidate": 43.444999,
+          "half": 23.0725,
+          "ratio": 1.8829775273594105
+        },
+        {
+          "candidate": 40.629333,
+          "half": 25.679749,
+          "ratio": 1.5821545997198023
+        },
+        {
+          "candidate": 38.894124,
+          "half": 25.002708,
+          "ratio": 1.555596457791692
+        },
+        {
+          "candidate": 42.360249,
+          "half": 22.969208,
+          "ratio": 1.8442189647984384
+        },
+        {
+          "candidate": 38.173333,
+          "half": 24.349124,
+          "ratio": 1.5677497473831092
+        },
+        {
+          "candidate": 37.354249,
+          "half": 23.157374,
+          "ratio": 1.6130606605049431
+        },
+        {
+          "candidate": 42.110208,
+          "half": 24.405916,
+          "ratio": 1.7254098555448605
+        },
+        {
+          "candidate": 38.226083,
+          "half": 23.45575,
+          "ratio": 1.629710540059474
+        },
+        {
+          "candidate": 44.822749,
+          "half": 22.674,
+          "ratio": 1.976834656434683
+        },
+        {
+          "candidate": 44.794249,
+          "half": 23.664166,
+          "ratio": 1.892914755584456
+        },
+        {
+          "candidate": 38.707749,
+          "half": 25.567541,
+          "ratio": 1.5139410160719016
+        },
+        {
+          "candidate": 39.43275,
+          "half": 22.374249,
+          "ratio": 1.7624166960866483
+        },
+        {
+          "candidate": 37.758624,
+          "half": 23.708125,
+          "ratio": 1.5926448844014447
+        },
+        {
+          "candidate": 41.907375,
+          "half": 26.775041,
+          "ratio": 1.5651656705212889
+        },
+        {
+          "candidate": 41.082708,
+          "half": 24.272458,
+          "ratio": 1.692564799164551
+        },
+        {
+          "candidate": 41.816416,
+          "half": 25.638999,
+          "ratio": 1.6309691341693957
+        },
+        {
+          "candidate": 42.073958,
+          "half": 25.080416,
+          "ratio": 1.677562206304712
+        },
+        {
+          "candidate": 39.890374,
+          "half": 22.789166,
+          "ratio": 1.7504095586472974
+        },
+        {
+          "candidate": 37.197791,
+          "half": 23.014375,
+          "ratio": 1.6162850826928823
+        },
+        {
+          "candidate": 42.578083,
+          "half": 26.149291,
+          "ratio": 1.628269118271696
+        },
+        {
+          "candidate": 40.89125,
+          "half": 21.469125,
+          "ratio": 1.904653776062136
+        },
+        {
+          "candidate": 43.633583,
+          "half": 23.408499,
+          "ratio": 1.864006017643421
+        },
+        {
+          "candidate": 39.316999,
+          "half": 23.563833,
+          "ratio": 1.6685315585117244
+        },
+        {
+          "candidate": 39.740624,
+          "half": 23.847708,
+          "ratio": 1.6664336883024564
+        },
+        {
+          "candidate": 42.801958,
+          "half": 23.476166,
+          "ratio": 1.823209036773722
+        },
+        {
+          "candidate": 43.476291,
+          "half": 27.472125,
+          "ratio": 1.582560176906592
+        },
+        {
+          "candidate": 40.196499,
+          "half": 24.121541,
+          "ratio": 1.666415052006835
+        },
+        {
+          "candidate": 36.479416,
+          "half": 23.146583,
+          "ratio": 1.5760173326663378
+        },
+        {
+          "candidate": 38.244874,
+          "half": 25.123333,
+          "ratio": 1.5222850407627049
+        },
+        {
+          "candidate": 39.051958,
+          "half": 24.66125,
+          "ratio": 1.5835352222616452
+        },
+        {
+          "candidate": 42.580541,
+          "half": 23.576708,
+          "ratio": 1.806042684160995
+        },
+        {
+          "candidate": 42.169708,
+          "half": 24.210291,
+          "ratio": 1.7418092165847985
+        }
+      ],
+      "states": [
+        {
+          "basis": "[-0.7050679457027851,0.34263503386300675,-0.6208706995117025,-0.567757094995353,0.2518340739596713,0.7837292136161014,-0.42488948330700343,-0.9050860913540606,-0.016973338284986483]",
+          "cloudPass": "half",
+          "edges": "off",
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708008,0.70615534,0.73842408",
+          "profile": "clouds-half",
+          "width": 1440
+        },
+        {
+          "basis": "[-0.7050679457027851,0.34263503386300675,-0.6208706995117025,-0.567757094995353,0.2518340739596713,0.7837292136161014,-0.42488948330700343,-0.9050860913540606,-0.016973338284986483]",
+          "cloudPass": "half",
+          "edges": "1",
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708008,0.70615534,0.73842408",
+          "profile": "clouds-half",
+          "width": 1440
+        }
+      ]
+    }
+  ],
+  "validationScope": "Both 32-frame image sequences and both cloud GPU pairs completed; horizon GPU omitted because cloud refinement already costs 66.6% more GPU time than unrefined half clouds.",
+  "visualReview": "Inspected first refined cloud and horizon frames: the V1 dark limb speckles are absent. Full quality acceptance and long motion on physical devices remain untested.",
+  "pngSha256": {
+    "clouds-compact-0.png": "bef61771927869beaa0cc843073cce18f1df6fb530ef5f75680671b203bf6343",
+    "clouds-compact-1.png": "a5cfe3faff8a8f9ba7656f4933b0631a63eb60c4c767452aab1b66535d0f4ab8",
+    "clouds-compact-10.png": "29d5b8dcf5bd4b26b5e0c48917a2989790ba23afae4f1f0266a5d482b7439ea3",
+    "clouds-compact-11.png": "6cb15c3a25f571f8a0d34a85bac1f183df909f8aafeb55a6547edcd169fc0e21",
+    "clouds-compact-12.png": "eaa09b2cd8d40df3873a3ad0b924ee88cf06da4114563c6112738e2facc3f468",
+    "clouds-compact-13.png": "0cbe5865893088116ef1f1c115796ab5c4ebb6ed75d924449cb1a58599f15a41",
+    "clouds-compact-14.png": "8646575d5af3484b3f462f1a33a03d29c32e9e90443a346328c07d851b43c566",
+    "clouds-compact-15.png": "99a7dfae8925fbd376db189b425631b5b8516e86c3242ed4eafa3081b3792a89",
+    "clouds-compact-16.png": "0dac3a17611f295247fbab2c681878eef2b4a2ebbe4dcf943bab70b9f5ad0a3b",
+    "clouds-compact-17.png": "a61dd2fd9a5d2a02588e48c269a75651dee70cc1c32dbb1e437d53abbea4ba1b",
+    "clouds-compact-18.png": "ef4e3c8ebfd082e4020835b818a406b33b4f9691272edf11bc860a1cc056af0c",
+    "clouds-compact-19.png": "c550a625fdc47b952375772ec456b426337d4fc692e2376dd295f8d774a9f8c1",
+    "clouds-compact-2.png": "16d38ecb14597d1219701210cb49b288cab1728fdf146ce8abb1756f9d5317a1",
+    "clouds-compact-20.png": "deb91e5993702869e274115ef653bfee505245b70ac3bbb84a2c9ea07872b755",
+    "clouds-compact-21.png": "ef4f5ccd64d0fc49643f60adfd2dec8facd9ea8cdf9ced9174718ae4e5250021",
+    "clouds-compact-22.png": "41a7ed1117900f76a1228e2373ed416bc3b367387b59ea689402bb333dd80155",
+    "clouds-compact-23.png": "9227009e117a7e865dee3c70e83632a407685ef3c3c8b3c89c2af8cdd18dcd8a",
+    "clouds-compact-24.png": "06699634e8a6dabdbd35bee180314566f51582ef655672d20f2ca8ea25c10e7f",
+    "clouds-compact-25.png": "be68d44f7c0a3fcce5f2c29c00003d51ee8e3fb5210b377311eaf7ceba826b19",
+    "clouds-compact-26.png": "203ecaf5b1938ccdadcf5d6121410fcdbbf6580057d584ddaf460e6d90d8d6aa",
+    "clouds-compact-27.png": "2b9b69777e35e78da2bf804b02dd9f61f426b60338c9a5cb6822db4c6dbcc5d7",
+    "clouds-compact-28.png": "ac4c68d7f9cf7ea248df1b0addd87a71f05898353961438ec09e21e79f4d2a28",
+    "clouds-compact-29.png": "d3f1ef2cfd5d5674176592cbf7224c456ba96af42f2b6927ebfb554a1e506b49",
+    "clouds-compact-3.png": "3f24c66fd1b90e592b8b647f5e4c394c3bc2ad0792735a3b9b185f0ce8cc4aab",
+    "clouds-compact-30.png": "3e00d1e222c60f53a00d62af755fe432568b5d58ba45c6acc5207c1e16c8b899",
+    "clouds-compact-31.png": "e08f19b674a9d6ef3297204ed40bc1e0f1c29ff9edfae5fdf9741e51771aedb1",
+    "clouds-compact-4.png": "8126203da97cc871f27bba838d712083e1149076235b9cc3e2402360a41395cd",
+    "clouds-compact-5.png": "7f1a4fd3e8595e56d5e2eb1234994c508b99921db5c4ee22938ad2201cbf9ca7",
+    "clouds-compact-6.png": "161b4fc79d54c2d76eea0151c7dd649e2e2f995d67f31210c3388337c4233761",
+    "clouds-compact-7.png": "4ff285b2e0c90c9270d057d5cad273bfc6edd45796e5efac4fa8af89893a3a27",
+    "clouds-compact-8.png": "89231e88195395f68844f102cb2d6ae5c89da7038fde28569ac49d8bd158f277",
+    "clouds-compact-9.png": "9cd13f41f6a8b7904a86c4b30b8a624ea107b1284dc8bf6b0f38fff6bb63000b",
+    "clouds-edges-0.png": "91b250284f8b20b6a84548816f9b57c9988cdf46142d0d4065fdbd18f0981d5f",
+    "clouds-edges-1.png": "6b08451c4224752051d4685af0a035c4a916d9a3636b94ea269194b91f9f5df2",
+    "clouds-edges-10.png": "d5846871b3495e03ec462fc3999d6c93cd49aa54be9e6316636645c8dab74708",
+    "clouds-edges-11.png": "d897abeb796aaebc8f3e9f66e787c3ff9b23321653c606c21d68d470a8aa542f",
+    "clouds-edges-12.png": "09cef72817754bee7ad021e6c97ddc7542efc2a10b4906ec3b6cda39a10b0326",
+    "clouds-edges-13.png": "60be652e40e883c62f96498ec04af5cceabdf9897a23cb61abb058851c5e390b",
+    "clouds-edges-14.png": "25318ce1e22f3d34cf13192afc355b03b6d880f76569812bc1bce5ebe010cb99",
+    "clouds-edges-15.png": "8918fea2ae7f80bc114020e400f61a3d3dc6926da908c8ad4ad43518a6c3c3ef",
+    "clouds-edges-16.png": "1fc6ca1a05a85eefc515d62e94ff67f993ca027426ee0b8056cf3a1b8368e6dd",
+    "clouds-edges-17.png": "686074c3d7e8fe160a706bc7ed84d18ab8269cb5662b8d3cea3d3016a96f98ad",
+    "clouds-edges-18.png": "cfd2f9d98a5b67eba05777553545703e9d415fc9c781ffcc891b3d7336fd80f4",
+    "clouds-edges-19.png": "3873192225981acd2c058209d2c777cdbcfe654f11dc32b2ee41721f96e6d32d",
+    "clouds-edges-2.png": "fd1c8b0cd526b6cc02885d7172c5d27fcd552fe226303b9c3ac41917b04eff8e",
+    "clouds-edges-20.png": "5c3bfe2cb7177fb2f4cc73c9b54a6a15fb7f34acc6ccc4db1945bbac615c41aa",
+    "clouds-edges-21.png": "f627acb2bb4b17e06b6d1fde258b2bc521d008eaac9c96d21d28fa6615100f6c",
+    "clouds-edges-22.png": "c5ea7a39dc3f1a35a8254a5aea030128735496eae60bde9783fbf8ebd58d66a5",
+    "clouds-edges-23.png": "b63249b518b8a46c65f56d0eafefcc8427f1f6a07f508d77263811e3cdc5bc7e",
+    "clouds-edges-24.png": "bb27b3775653e6374f3276b688b51a74927209a05c6bc547b9ca6d170b85434a",
+    "clouds-edges-25.png": "d640a96f9a4660bfefc451702e48b897d72570c929cd2453ec5c3c77698b7bea",
+    "clouds-edges-26.png": "d898edaf55f0a646ec304960b06a7ae1eb31c0711fe64bf3bc87ff946a22dba7",
+    "clouds-edges-27.png": "53cf564dc8310d7fcc788496802ac7665d441937bab2e4eeda1a2f15a10f288c",
+    "clouds-edges-28.png": "3612308b78eadd16586734cad27ff589669fe75664a5505d4f7eb2b71ac1c68e",
+    "clouds-edges-29.png": "e1b3b4920cbafad22b98a87ecf097046d7c16005373e68db40e5ed64cb2fe8f9",
+    "clouds-edges-3.png": "92c5c579af88acda89351f02a4dd6ef82d40d2a87157279509927998d2903b8b",
+    "clouds-edges-30.png": "90ac9ad047db35710bfeff3df37adba446fc09805adeecdc68ca9d01fd38060a",
+    "clouds-edges-31.png": "0c275f8ef0835aa1e95735d69249363a07711c518a25804092afbc33579b9040",
+    "clouds-edges-4.png": "8f62dba7071c54cc38cc405494858daa2c6f8e078ac85450bb344c4ba97e18bc",
+    "clouds-edges-5.png": "41776901aec583358e7ebf2f394969f7f6f5c11ef65dbadfaa2cb1421f1503f6",
+    "clouds-edges-6.png": "32974728d33e76b7edb493b42ad33d3cec52efb7acdb72425886bc01cee2ca0e",
+    "clouds-edges-7.png": "e03b48f0842ce9c940a5404c81b995c0d367b37b5d43f4fe2bb8043054b8caf4",
+    "clouds-edges-8.png": "c8f022e116f562a883d167437a7e2dffa4935e9854148e98f02d9ec97a95fc90",
+    "clouds-edges-9.png": "d3bd12120faf422f174894c5b3a67750958f7a4923a655315e276a5e37ab3efa",
+    "clouds-half-0.png": "6ca40e2f1d8243c48d33923117c0b5cbfaf2583f8b437213e2b25aed59bbe094",
+    "clouds-half-1.png": "a52a08894469db56bd0f41c2da75e4016bde57de36abb434226ca7a8f64ee24e",
+    "clouds-half-10.png": "b653e05cbf2bd992aa7b1546178fc199d41815c9c7d7f73bdf79bb89bc555557",
+    "clouds-half-11.png": "f0592ab3fb008b1aa0aadbc951a8a0c8adac2f8f284db2e38d71f6370424791f",
+    "clouds-half-12.png": "557c4c79a5e949530f2521bd0cde4e6e8cf50ac2403421784a00d965cbc74544",
+    "clouds-half-13.png": "ed2daff51e66f20372cf30a66b5662b8c23f046477882bfe2fb95673956c2007",
+    "clouds-half-14.png": "c81a54b0ccee8d634b5f99279def8771fdef6ef4a76c391c5ebe1ef3b181c3f2",
+    "clouds-half-15.png": "673d1ad77eb195ce8f988a49c38c45c0142be8fee4c7683bd95c9e49c5f76716",
+    "clouds-half-16.png": "67fcd8c72573b2479ab9577d5715803343272a1822c27423f10d2030e707ea55",
+    "clouds-half-17.png": "8787c4517d581080ba94db259dc46d0419c4c69ae2eba5efdf0186c97e72cef8",
+    "clouds-half-18.png": "e17a35f03507a6f744c38d0fde4e6fc5f326792041a9c33b6d1c054f51a66c45",
+    "clouds-half-19.png": "c7f2e4ba9f7bd7c9fc70d83617a1a6815c0f29615be67e22ca6a6e685361426e",
+    "clouds-half-2.png": "2e0a8c871f748737b551302e9f1e9b28f6641f83ba83d78b78e398a449006af6",
+    "clouds-half-20.png": "9601d1634e272f4e613a9a3a8f6501dff389a790396e3478810da9029ea057d1",
+    "clouds-half-21.png": "46a9637b1e1a819c653be47d0eb5ca27cd45a0eba45b2e790d3c9bf462f64f72",
+    "clouds-half-22.png": "0f16e1676a06c9bf0f79d09995abd012909dabb7ce29e5d830518ff43f4996ac",
+    "clouds-half-23.png": "c8297db06353bb83c6548f9c6f745a2adb232df8811c0243f08c9f5b5026c866",
+    "clouds-half-24.png": "8df37da5abc1b9e4d41c6cb8b1d5e14d80512f2208d7cf289ee8d630a464a859",
+    "clouds-half-25.png": "d9a96a74cf3a2d04d0b4377a7b5e445cec4843b65ca704c09cb55c910ea6af2f",
+    "clouds-half-26.png": "bce475f155503acb9b29a21bc20166a5db39f186208b8af07fa64587a82f0ce1",
+    "clouds-half-27.png": "752ac9a9d6b905d0cde50214f7fc7ab04b69fe216cbd63e16d8be86750ee8f17",
+    "clouds-half-28.png": "75af8078ace5ae52e937a582d0ecaca392bea014f7285a954a015ed8dbf0af3c",
+    "clouds-half-29.png": "aaa810d4a4b225495e6ba269fe1ae10a6a17f9f9bc060eccb2b1b966364b394d",
+    "clouds-half-3.png": "f2bddd35b5c6f9248d99dd9175331b209bc4640951661ca284f0114365f57adf",
+    "clouds-half-30.png": "b9bf2b93cae8ec7b6aa4c580e3b393bba378628c8c0ef86e54534e896837bdd4",
+    "clouds-half-31.png": "5dfde2de0cb9ecefa2869c3b8b3c47c3826f291592d7c10acf1a9b1e76ed0b97",
+    "clouds-half-4.png": "df35da6a0eb5ad7269cd678a5aac6118c7e23569f183069a2679da8bc6e93e99",
+    "clouds-half-5.png": "089cbebc8993337ed34057a8eda4f9340594058f9304f5cdb4eb77176bb7f267",
+    "clouds-half-6.png": "259c96ef2a043ee037f5c121462579f4ea718bd6849956f8c51229d6229b6341",
+    "clouds-half-7.png": "8587b7908598222011e0e1129383380c04a272e1a47715d1448d4a8af95b8035",
+    "clouds-half-8.png": "da4b0040939e2280c1653daf17bd1d14efee72af7091f991027c524497ed7d5b",
+    "clouds-half-9.png": "82eb277dd2f9d1c4cd3f1d8502f2a0b01437b13fc23a7d2b63fd7d5c53eff279",
+    "clouds-mask.png": "bcf1ef2e6a59c39613a41ae2c359345e06a3b0acf99ac67defe067c7fbc4ab6b",
+    "horizon-compact-0.png": "e3bde1e2d948a37349086f8681404faa7f6fc6e5a8c5f2bff67208bad78dc371",
+    "horizon-compact-1.png": "f12478e100acfd543e97db26c96b383236acc214c957aed000bbf8f7c88f6075",
+    "horizon-compact-10.png": "d733b9f344d2bda17b1e51a6d783794cd45d5a4fd28466ba3519cdbf8506d588",
+    "horizon-compact-11.png": "e2251fc834cf4c668195defac03076403fd08391735e7b379192a7880086593d",
+    "horizon-compact-12.png": "e2934ce3291e1bf7dd12bbabde826f1a4cb8254886bb8909c4415fe386b93c44",
+    "horizon-compact-13.png": "f79348fac9901a9c5bfcf2bfa4f65a186fd9b680f2fb34132e15aa1eb864c3ce",
+    "horizon-compact-14.png": "d4a0425fdf2da4ae76e8d1d29b48554d15d62e361e82c01f5272b1b2a187644c",
+    "horizon-compact-15.png": "09fcae548289c287a28f98e0b054cc871f05604bbfc5df64abc4eb3456690a87",
+    "horizon-compact-16.png": "6bea5f2e51df8df5a3e154a5d3c35e93c8c55b43ce85a12b3b9ac882352ae442",
+    "horizon-compact-17.png": "dee10b1fb31be86d11a8f4783b79b16c26f27c7d813da1c3da566e9dd979dc1d",
+    "horizon-compact-18.png": "94ba0ec73638e8e0ef5ff0d30e912f82db0c4cbf2806fa637fdd47eb5fb8c829",
+    "horizon-compact-19.png": "b0b3be9a3edabb96f0ffe01134db3829b17403e61c0489baa75079be6eb9c1a0",
+    "horizon-compact-2.png": "8dbf7b0a41951d65da0cd2746031ab3a79f39741d831973a4590368c58c8c1f3",
+    "horizon-compact-20.png": "2320ab38ea786f6851db22c8e8694a4de1c2e5fafd9516db613c348a4eeaad99",
+    "horizon-compact-21.png": "9be57be574c403990157b0cd78a053b2c8036d67cb866fd2b2c38cee99e1edbf",
+    "horizon-compact-22.png": "e03f6d9adf442cef2509f0ab69fce0e3e1cb07142773be3a10714e0b1679cd9b",
+    "horizon-compact-23.png": "b0589abe78fe49fb1a792ad221d225918ed29767f278a7b0a49934e98b0eb734",
+    "horizon-compact-24.png": "34bec7da0f9fff04999aec0cabe8560596e2fe4c1d6010bde46100c15df709a6",
+    "horizon-compact-25.png": "f1fa6f738f26168e9ad3027a33676d59a8c86fbd9172eeb15e70237e409ff2d0",
+    "horizon-compact-26.png": "042c4c136812210e0a5f150308774a775ea93b4bbf51d4c006071c0703f78363",
+    "horizon-compact-27.png": "5648270c062a612105e766b23ce272fed25b5396e3db6580b3f56f20d683cb3a",
+    "horizon-compact-28.png": "0eeb0cb349fe394761c87872c44fbae2513c14dd6ab85c3d84a34e13faed7d19",
+    "horizon-compact-29.png": "d0599667ca8a178bcc34235033fae67e0e719461dda7c1b3641d2294174a6543",
+    "horizon-compact-3.png": "5a936c9b16ec14d5c1b0bf2c977027d51a0de3c7fab48adf85625b07bacc63aa",
+    "horizon-compact-30.png": "9075da033a1ef4d269ae07852798ac87f916d76ab04c2e96e398ab514fd7d4f0",
+    "horizon-compact-31.png": "bd5549ee27ca272526d3d7cba0c079a07a1920cdb42f7a9abf01ef2142463845",
+    "horizon-compact-4.png": "99ebabd66bd9286f21b39625f26b400603d17f939045fcd6a60ab8a740d086b6",
+    "horizon-compact-5.png": "eefdf5203781f46844aca2b6922546624d89a424f5212ac3b67f1061a6b6c40c",
+    "horizon-compact-6.png": "6d4fc3abe2836a22639f73ef3e31b78e00d33ba80d74266e96128f51c7c35910",
+    "horizon-compact-7.png": "c0de2607be8a0153e1569087ed979b407890034991c81a2690965f85097c95c7",
+    "horizon-compact-8.png": "d699632ec83c51ac958ae0c384d278425d63cd7a272e347c5864e76d15bff622",
+    "horizon-compact-9.png": "8fb70e36e002ffd595daf79c7f48ed4016a3a5fc3a57a9480a6567b3bd401609",
+    "horizon-edges-0.png": "66556a72297c0884c707996b90dda06b9a7538d327032dfd0eaac72e8b876605",
+    "horizon-edges-1.png": "cb784bf83a274a789901d38dec95cbac05c2156f716e292663a980156e2d9c1e",
+    "horizon-edges-10.png": "f84ccd4f504b67ddca8e6d96ebc719f3f443a83270bdf079f1c6ff4acd0b9e9d",
+    "horizon-edges-11.png": "f5c8cb546aeb490970252e0e335e5774b1b64f104dc0e9adbcd778fe498171c1",
+    "horizon-edges-12.png": "d3116753299fb3e9ebbd7103cfd199eecc03ac45e9871f3373ba6f75663f6d41",
+    "horizon-edges-13.png": "7d4d52d80903e671bbac1045792d924de14678bb474833cc795e76ddf1efda77",
+    "horizon-edges-14.png": "7a107e22a1a2617bd7cc7661277c880ccec1d8bcf8ae6f2e24f566b8ca43c3a0",
+    "horizon-edges-15.png": "cea8a2b6bc6a44c3446b769ebf0ada99d340648552ffcbf909af055736566860",
+    "horizon-edges-16.png": "c2070fbbfa3be3e9c7e5fc948b7d6c31d31e8ecdf1d6949ca9ee49dabd707e14",
+    "horizon-edges-17.png": "0f82251ac49397501deb1796226a735902cd3c820cdb024cd207cad262608b42",
+    "horizon-edges-18.png": "c4495a2cdadbdb1bbfca84219bb20ab31f7b2a6aa4714b0a5126ae8c12c2ea7c",
+    "horizon-edges-19.png": "eb24e9eb4db8245070bd596e6ca8818bbc98731002f42698182089ddb96405c4",
+    "horizon-edges-2.png": "02b4ee6caf08689a21b8b74f0f61b038be77db2b8103a201b2087c49b99a9dea",
+    "horizon-edges-20.png": "0f0d1c1441aa8f2cdf6a8c658cd23582235d6d4c20a694e480eba78b312b46e7",
+    "horizon-edges-21.png": "d7304e019b8c4a365de0d6c7c0483790d7b912e77fed2dbd8869f5e9235ef6a7",
+    "horizon-edges-22.png": "8662846f17c98b884a5506ec91078723e6f7335fe27c8037276cc82e8da8e89e",
+    "horizon-edges-23.png": "37c0d4c7701971f1a999f9bd396205c307cdf54f5d8be3624afffb1e7dee7d45",
+    "horizon-edges-24.png": "ffe85f09b973f3467278babecf3ff2cbdd4830ba6a0ba8aaa821d8303aa5b120",
+    "horizon-edges-25.png": "05df36fe6f9826f7c43a8508ac292044e8447729480f4b3b25b5b751f248038a",
+    "horizon-edges-26.png": "d61e7977dc7639ddd83fa4bec97a7ceff1faf71c1ef6292db99fa087fb1257f2",
+    "horizon-edges-27.png": "f1478b0698e56734fa53a6ac98a40a5eef2b715a6bf6afabd10cbdc1a1ea5a58",
+    "horizon-edges-28.png": "c7815cbdd460c5fe1dd320d59dd94dd6df3ea004dbec471c14d145f5457ec1dd",
+    "horizon-edges-29.png": "d3886421ce514db15d58b466a999d250ea39461bf0a988ca720c2c9fec065e8e",
+    "horizon-edges-3.png": "566f3751d7710a406c7782ca132b9f1fdc66b5bd940e2eb8dcd161545008c215",
+    "horizon-edges-30.png": "7ad63bb16b5bc65519835ba73b1d155d083f197f107298265377c9dea1f469ed",
+    "horizon-edges-31.png": "113d81b0bc55574d0a3fa8c4df0a981a9b8c3a2a8ef725be56de56fa7bd5fc9b",
+    "horizon-edges-4.png": "a8c07513f2396f5fa7f8c36fe792e9ec56695278a86cf9898e0f5903ab5e8d21",
+    "horizon-edges-5.png": "f959e938ad6c8bf580780df601091927b3bdcc14e3a3965cde16a4b34df2c8f3",
+    "horizon-edges-6.png": "eec72b553e12785e417b0b9315eb2da9fce00f9637b17884d22b730fe74b1cf6",
+    "horizon-edges-7.png": "da09075fb53a26f217cbe0b7c3da67d65528853f339de208bc66d08da1311d46",
+    "horizon-edges-8.png": "e30a8b4379cb7e824ee505fec6f332a9df48c53f24ed1cf161caa44a498ebb78",
+    "horizon-edges-9.png": "488351b78545759a235752afe350b2b75eb5b071e4842fb76576759042e08bc9",
+    "horizon-half-0.png": "908200bf98148b36702c5a2c7f958af4b37a6b1e5a177c22653127d1fc8db106",
+    "horizon-half-1.png": "af60285d4df37d053dc0b29adc07bc29d6d0cf501dcaeb3ff253036132b33365",
+    "horizon-half-10.png": "7b0c0c34611c6da11df042fe026b41f27f854d560c7c56e51b0994a9f866098a",
+    "horizon-half-11.png": "205201a67595ae34f046bd1be2deb6241fa4cb66be07e63ef37da8a9d2f4104c",
+    "horizon-half-12.png": "c4566261135c5afebf3b06b6d301917ab75307a4e4d74744c623a496d00c77b3",
+    "horizon-half-13.png": "70d939eb126bed79c795a233659a73202a083ba31f24856aefdfe1dcffb5cc31",
+    "horizon-half-14.png": "bf4b2c5b3ab16d1024af9ff4cbb8ceb6e88f34c41eb0fa418ee86ce49d19cc66",
+    "horizon-half-15.png": "8b470f5ee68839460630ee666744c1ae6f28f2942df0dc819a6c231092bc3d9a",
+    "horizon-half-16.png": "35f66599c98ab1b10a0b5f7cc6971f8b787ca08597a0360782f1c335ac762cf7",
+    "horizon-half-17.png": "29654a4289b1fd1a14d82c7dc04b320faa625ba462d6205631514e814b5beea1",
+    "horizon-half-18.png": "7b173c88cccd6ca0b91e14d2612fa8621a54b67f488059c56420d3ba77d5ada3",
+    "horizon-half-19.png": "c0e96159234aaaa1a0aed9a364388138bc889b11b40767ca90330eef9353e796",
+    "horizon-half-2.png": "0da9ac9e41660da50113ce3de9eef9f78a3ad64edb518fd753a0fd2932b46c04",
+    "horizon-half-20.png": "413a46f4ba80fa913e519568d5cdc4c368a39e5e2e3b696a480c647e3909000c",
+    "horizon-half-21.png": "f33bf02694df556edc86fd5f419dad78e6b0935526354b44d850f2b6dc870efc",
+    "horizon-half-22.png": "f34997ce75ed8df05ba96bce8ae0bdc204719cb65e87d05765ee4135f5fb0762",
+    "horizon-half-23.png": "8983c56beed553bac2c24c4a93836adfb8f4a41029081a1d0e3b007283320f5f",
+    "horizon-half-24.png": "9a706cc4a462abc49add9859dc749ba5eae5321f6e4b2953ef6e4a17f92fd651",
+    "horizon-half-25.png": "27d2312e7b5243986acf47f95060442954c12886825866f98aeca990bbecbc6e",
+    "horizon-half-26.png": "2da440078c1ea4024dcad43403dc6ee8eed88cb60ac3aaf45debe6256779ae9a",
+    "horizon-half-27.png": "ec48452ad5ec6fe9fa727b17d170362d720ed487cb40fce82724099adc1c77d4",
+    "horizon-half-28.png": "021c48363ee0d4472940cfb424a7caf8020d08fd23b25a53b4053600b6cc4b02",
+    "horizon-half-29.png": "ede20d9410e5ff163dafe9687f6a7120892f7715793e21a74de4345215f37657",
+    "horizon-half-3.png": "abe4c56916aeaf0cfd9a59464d7ff2fd715e4b6439c97abcc4ab5fdcf57ed047",
+    "horizon-half-30.png": "faad78cf81efec61603168e44812feefb1b4dadc0c8b17db7c55570ade2c80b5",
+    "horizon-half-31.png": "6da6d587adacb6dd2a31d353650d473b80d5f6c772ea1fea42e74797fa784717",
+    "horizon-half-4.png": "47b7082e8fd86e2b196fa158c50ef33c4a543cf01694f011360e32bde1d3247d",
+    "horizon-half-5.png": "be2dd75ac30f0c5f67a88a9720a7ad55d671146d7fcbe42bee743fa60e11ab7d",
+    "horizon-half-6.png": "6d4b956693a55d42e8001f78711d19d204b4348c70c55d6fc281530cb6be2026",
+    "horizon-half-7.png": "8e3856db920d86ad46a789ddd6db2450a0ec50a62c78b196b6ddcfb0513e6061",
+    "horizon-half-8.png": "3ddd3b4db98a2b09e01b5d6b7fad8dc6d99615492a60e1603f706027f3d6096b",
+    "horizon-half-9.png": "386703f865975ca21beaef740cc09a96bff5f7db48f0bc86e72c3221bf13b1fb",
+    "horizon-mask.png": "da2dd57efdeaf1b976013ad606ff5821acbdad501f95d09a446743ff35b46256"
+  },
+  "clientSha256": "2d033a5fe513872cf6f2c8a1c1a760fbeff50cc6f11ae74b14e204fcd800dc05"
+}

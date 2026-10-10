@@ -1,0 +1,511 @@
+{
+  "diagnostics": [
+    {
+      "assetPhase": "settled",
+      "elapsed": 6001.899999976158,
+      "exposure": "adapting",
+      "focus": "sharp",
+      "frames": 139,
+      "tiles": {
+        "cloudTiles": {
+          "bytes": 910591,
+          "capacity": 31,
+          "gpuBytes": 18939904,
+          "pending": 0,
+          "requests": 30,
+          "resident": 30,
+          "wanted": 23
+        },
+        "dayTiles": {
+          "bytes": 1867603,
+          "capacity": 31,
+          "gpuBytes": 83759104,
+          "pending": 0,
+          "requests": 101,
+          "resident": 31,
+          "wanted": 31
+        },
+        "galaxyTiles": {
+          "bytes": 3072954,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 28,
+          "resident": 17,
+          "wanted": 17
+        },
+        "nightTiles": {
+          "bytes": 0,
+          "capacity": 31,
+          "gpuBytes": 1,
+          "pending": 0,
+          "requests": 0,
+          "resident": 0,
+          "wanted": 0
+        },
+        "terrainTiles": {
+          "bytes": 41161191,
+          "capacity": 15,
+          "failures": 0,
+          "fineResident": 5,
+          "gpuBytes": 57517056,
+          "pending": 2,
+          "requests": 37,
+          "resident": 15,
+          "wanted": 15
+        }
+      }
+    },
+    {
+      "assetPhase": "settled",
+      "elapsed": 7003.399999976158,
+      "exposure": "adapting",
+      "focus": "sharp",
+      "frames": 159,
+      "tiles": {
+        "cloudTiles": {
+          "bytes": 910591,
+          "capacity": 31,
+          "gpuBytes": 18939904,
+          "pending": 0,
+          "requests": 30,
+          "resident": 30,
+          "wanted": 23
+        },
+        "dayTiles": {
+          "bytes": 1867603,
+          "capacity": 31,
+          "gpuBytes": 83759104,
+          "pending": 0,
+          "requests": 101,
+          "resident": 31,
+          "wanted": 31
+        },
+        "galaxyTiles": {
+          "bytes": 3072954,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 28,
+          "resident": 17,
+          "wanted": 17
+        },
+        "nightTiles": {
+          "bytes": 0,
+          "capacity": 31,
+          "gpuBytes": 1,
+          "pending": 0,
+          "requests": 0,
+          "resident": 0,
+          "wanted": 0
+        },
+        "terrainTiles": {
+          "bytes": 41161191,
+          "capacity": 15,
+          "failures": 0,
+          "fineResident": 5,
+          "gpuBytes": 57517056,
+          "pending": 2,
+          "requests": 37,
+          "resident": 15,
+          "wanted": 15
+        }
+      }
+    },
+    {
+      "assetPhase": "settled",
+      "elapsed": 8005.199999988079,
+      "exposure": "adapting",
+      "focus": "sharp",
+      "frames": 181,
+      "tiles": {
+        "cloudTiles": {
+          "bytes": 910591,
+          "capacity": 31,
+          "gpuBytes": 18939904,
+          "pending": 0,
+          "requests": 30,
+          "resident": 30,
+          "wanted": 23
+        },
+        "dayTiles": {
+          "bytes": 1867603,
+          "capacity": 31,
+          "gpuBytes": 83759104,
+          "pending": 0,
+          "requests": 101,
+          "resident": 31,
+          "wanted": 31
+        },
+        "galaxyTiles": {
+          "bytes": 3072954,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 28,
+          "resident": 17,
+          "wanted": 17
+        },
+        "nightTiles": {
+          "bytes": 0,
+          "capacity": 31,
+          "gpuBytes": 1,
+          "pending": 0,
+          "requests": 0,
+          "resident": 0,
+          "wanted": 0
+        },
+        "terrainTiles": {
+          "bytes": 41161191,
+          "capacity": 15,
+          "failures": 0,
+          "fineResident": 5,
+          "gpuBytes": 57517056,
+          "pending": 2,
+          "requests": 37,
+          "resident": 15,
+          "wanted": 15
+        }
+      }
+    },
+    {
+      "assetPhase": "settled",
+      "elapsed": 9006,
+      "exposure": "adapting",
+      "focus": "sharp",
+      "frames": 203,
+      "tiles": {
+        "cloudTiles": {
+          "bytes": 910591,
+          "capacity": 31,
+          "gpuBytes": 18939904,
+          "pending": 0,
+          "requests": 30,
+          "resident": 30,
+          "wanted": 23
+        },
+        "dayTiles": {
+          "bytes": 1867603,
+          "capacity": 31,
+          "gpuBytes": 83759104,
+          "pending": 0,
+          "requests": 101,
+          "resident": 31,
+          "wanted": 31
+        },
+        "galaxyTiles": {
+          "bytes": 3072954,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 28,
+          "resident": 17,
+          "wanted": 17
+        },
+        "nightTiles": {
+          "bytes": 0,
+          "capacity": 31,
+          "gpuBytes": 1,
+          "pending": 0,
+          "requests": 0,
+          "resident": 0,
+          "wanted": 0
+        },
+        "terrainTiles": {
+          "bytes": 44943855,
+          "capacity": 15,
+          "failures": 0,
+          "fineResident": 5,
+          "gpuBytes": 57517056,
+          "pending": 2,
+          "requests": 37,
+          "resident": 15,
+          "wanted": 15
+        }
+      }
+    },
+    {
+      "assetPhase": "settled",
+      "elapsed": 10008,
+      "exposure": "adapting",
+      "focus": "sharp",
+      "frames": 224,
+      "tiles": {
+        "cloudTiles": {
+          "bytes": 910591,
+          "capacity": 31,
+          "gpuBytes": 18939904,
+          "pending": 0,
+          "requests": 30,
+          "resident": 30,
+          "wanted": 23
+        },
+        "dayTiles": {
+          "bytes": 1867603,
+          "capacity": 31,
+          "gpuBytes": 83759104,
+          "pending": 0,
+          "requests": 101,
+          "resident": 31,
+          "wanted": 31
+        },
+        "galaxyTiles": {
+          "bytes": 3072954,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 28,
+          "resident": 17,
+          "wanted": 17
+        },
+        "nightTiles": {
+          "bytes": 0,
+          "capacity": 31,
+          "gpuBytes": 1,
+          "pending": 0,
+          "requests": 0,
+          "resident": 0,
+          "wanted": 0
+        },
+        "terrainTiles": {
+          "bytes": 48698687,
+          "capacity": 15,
+          "failures": 0,
+          "fineResident": 7,
+          "gpuBytes": 57517056,
+          "pending": 2,
+          "requests": 40,
+          "resident": 15,
+          "wanted": 15
+        }
+      }
+    },
+    {
+      "assetPhase": "settled",
+      "elapsed": 11009,
+      "exposure": "adapting",
+      "focus": "sharp",
+      "frames": 245,
+      "tiles": {
+        "cloudTiles": {
+          "bytes": 910591,
+          "capacity": 31,
+          "gpuBytes": 18939904,
+          "pending": 0,
+          "requests": 30,
+          "resident": 30,
+          "wanted": 23
+        },
+        "dayTiles": {
+          "bytes": 1867603,
+          "capacity": 31,
+          "gpuBytes": 83759104,
+          "pending": 0,
+          "requests": 101,
+          "resident": 31,
+          "wanted": 31
+        },
+        "galaxyTiles": {
+          "bytes": 3072954,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 28,
+          "resident": 17,
+          "wanted": 17
+        },
+        "nightTiles": {
+          "bytes": 0,
+          "capacity": 31,
+          "gpuBytes": 1,
+          "pending": 0,
+          "requests": 0,
+          "resident": 0,
+          "wanted": 0
+        },
+        "terrainTiles": {
+          "bytes": 57528876,
+          "capacity": 15,
+          "failures": 0,
+          "fineResident": 8,
+          "gpuBytes": 57517056,
+          "pending": 2,
+          "requests": 41,
+          "resident": 15,
+          "wanted": 15
+        }
+      }
+    },
+    {
+      "assetPhase": "settled",
+      "elapsed": 12010.69999998808,
+      "exposure": "adapting",
+      "focus": "sharp",
+      "frames": 265,
+      "tiles": {
+        "cloudTiles": {
+          "bytes": 910591,
+          "capacity": 31,
+          "gpuBytes": 18939904,
+          "pending": 0,
+          "requests": 30,
+          "resident": 30,
+          "wanted": 23
+        },
+        "dayTiles": {
+          "bytes": 1867603,
+          "capacity": 31,
+          "gpuBytes": 83759104,
+          "pending": 0,
+          "requests": 101,
+          "resident": 31,
+          "wanted": 31
+        },
+        "galaxyTiles": {
+          "bytes": 3072954,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 28,
+          "resident": 17,
+          "wanted": 17
+        },
+        "nightTiles": {
+          "bytes": 0,
+          "capacity": 31,
+          "gpuBytes": 1,
+          "pending": 0,
+          "requests": 0,
+          "resident": 0,
+          "wanted": 0
+        },
+        "terrainTiles": {
+          "bytes": 63000284,
+          "capacity": 15,
+          "failures": 0,
+          "fineResident": 10,
+          "gpuBytes": 57517056,
+          "pending": 0,
+          "requests": 41,
+          "resident": 15,
+          "wanted": 15
+        }
+      }
+    },
+    {
+      "assetPhase": "settled",
+      "elapsed": 13011.399999976158,
+      "exposure": "adapting",
+      "focus": "sharp",
+      "frames": 286,
+      "tiles": {
+        "cloudTiles": {
+          "bytes": 910591,
+          "capacity": 31,
+          "gpuBytes": 18939904,
+          "pending": 0,
+          "requests": 30,
+          "resident": 30,
+          "wanted": 23
+        },
+        "dayTiles": {
+          "bytes": 1867603,
+          "capacity": 31,
+          "gpuBytes": 83759104,
+          "pending": 0,
+          "requests": 101,
+          "resident": 31,
+          "wanted": 31
+        },
+        "galaxyTiles": {
+          "bytes": 3072954,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 28,
+          "resident": 17,
+          "wanted": 17
+        },
+        "nightTiles": {
+          "bytes": 0,
+          "capacity": 31,
+          "gpuBytes": 1,
+          "pending": 0,
+          "requests": 0,
+          "resident": 0,
+          "wanted": 0
+        },
+        "terrainTiles": {
+          "bytes": 63000284,
+          "capacity": 15,
+          "failures": 0,
+          "fineResident": 10,
+          "gpuBytes": 57517056,
+          "pending": 0,
+          "requests": 41,
+          "resident": 15,
+          "wanted": 15
+        }
+      }
+    }
+  ],
+  "error": 0,
+  "final": {
+    "assetPhase": "settled",
+    "elapsed": 14213.399999976158,
+    "exposure": "adapting",
+    "focus": "sharp",
+    "frames": 27,
+    "tiles": {
+      "cloudTiles": {
+        "bytes": 910591,
+        "capacity": 31,
+        "gpuBytes": 18939904,
+        "pending": 0,
+        "requests": 30,
+        "resident": 30,
+        "wanted": 23
+      },
+      "dayTiles": {
+        "bytes": 1867603,
+        "capacity": 31,
+        "gpuBytes": 83759104,
+        "pending": 0,
+        "requests": 101,
+        "resident": 31,
+        "wanted": 31
+      },
+      "galaxyTiles": {
+        "bytes": 3072954,
+        "capacity": 17,
+        "gpuBytes": 42614784,
+        "pending": 0,
+        "requests": 28,
+        "resident": 17,
+        "wanted": 17
+      },
+      "nightTiles": {
+        "bytes": 0,
+        "capacity": 31,
+        "gpuBytes": 1,
+        "pending": 0,
+        "requests": 0,
+        "resident": 0,
+        "wanted": 0
+      },
+      "terrainTiles": {
+        "bytes": 63000284,
+        "capacity": 15,
+        "failures": 0,
+        "fineResident": 10,
+        "gpuBytes": 57517056,
+        "pending": 0,
+        "requests": 41,
+        "resident": 15,
+        "wanted": 15
+      }
+    }
+  },
+  "fps": 23.793813608688655,
+  "idleFrames": 27
+}

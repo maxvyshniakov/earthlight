@@ -1,0 +1,15 @@
+---
+import Base from '../layouts/Base.astro';
+import OrbitalSky from '../components/OrbitalSky.astro';
+---
+<Base title="Earthlight" description="Explore Earth, its atmosphere and the night sky. Follow an orbit or fly freely." orbital immersive>
+  <section class="orbit-view" aria-label="Orbit — explore Earth" tabindex="0">
+    <div class="orbit-gestures" aria-hidden="true"></div>
+    <OrbitalSky standalone />
+  </section>
+</Base>
+<style>
+  .orbit-view { height: 100vh; height: 100dvh; cursor: grab; }
+  .orbit-gestures { position: fixed; inset: 0; z-index: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .orbit-view[data-camera-dragging] { cursor: grabbing; user-select: none; }
+</style>

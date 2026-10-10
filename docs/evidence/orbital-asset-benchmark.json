@@ -1,0 +1,790 @@
+{
+  "date": "2026-10-06",
+  "viewport": [
+    1440,
+    966
+  ],
+  "note": "Experiments only. Production assets and catalog unchanged. Bytes are uncompressed file sizes; decode timings exclude fetch and GPU upload.",
+  "textures8k": {
+    "versions": {
+      "aom": "3.15.1",
+      "archive": "3.8.9",
+      "cairo": "1.18.6",
+      "cgif": "0.5.4",
+      "exif": "0.6.26",
+      "expat": "2.8.5",
+      "ffi": "3.8.0",
+      "fontconfig": "2.18.3",
+      "freetype": "2.14.3",
+      "fribidi": "1.0.17",
+      "glib": "2.90.0",
+      "harfbuzz": "14.5.0",
+      "heif": "1.23.5",
+      "highway": "1.4.0",
+      "imagequant": "2.4.1",
+      "lcms": "2.19.1",
+      "mozjpeg": "0826579",
+      "pango": "1.58.2",
+      "pixman": "0.46.4",
+      "png": "1.6.58",
+      "proxy-libintl": "0.5",
+      "rsvg": "2.63.2",
+      "tiff": "4.7.2",
+      "uhdr": "2.0.2",
+      "vips": "8.18.7",
+      "webp": "1.6.0",
+      "xml2": "2.15.4",
+      "zlib-ng": "2.3.3",
+      "sharp": "0.35.5"
+    },
+    "width": 8192,
+    "height": 4096,
+    "rows": [
+      {
+        "file": "current.jpg",
+        "format": "jpeg",
+        "settings": {
+          "encoder": "ffmpeg mjpeg",
+          "q": 2,
+          "chroma": "444"
+        },
+        "bytes": 13461378
+      },
+      {
+        "file": "jpeg-q80.jpg",
+        "format": "jpeg",
+        "settings": {
+          "quality": 80,
+          "chromaSubsampling": "4:4:4",
+          "mozjpeg": true
+        },
+        "bytes": 6524426,
+        "encodeSeconds": 6.762871125000001,
+        "nightLumaRmse": 1.7242614137557348,
+        "gradientErrorFraction": 0.7578585295749901,
+        "detailEnergyRatio": 0.7112423350604584
+      },
+      {
+        "file": "jpeg-q90.jpg",
+        "format": "jpeg",
+        "settings": {
+          "quality": 90,
+          "chromaSubsampling": "4:4:4",
+          "mozjpeg": true
+        },
+        "bytes": 11114913,
+        "encodeSeconds": 10.303794791,
+        "nightLumaRmse": 1.2191774597335316,
+        "gradientErrorFraction": 0.5650615055786192,
+        "detailEnergyRatio": 0.8769853895974344
+      },
+      {
+        "file": "webp-q80.webp",
+        "format": "webp",
+        "settings": {
+          "quality": 80,
+          "effort": 6,
+          "smartSubsample": true
+        },
+        "bytes": 8870752,
+        "encodeSeconds": 79.767789208,
+        "nightLumaRmse": 0.8971958391732883,
+        "gradientErrorFraction": 0.34440027874904683,
+        "detailEnergyRatio": 1.0211030817425601
+      },
+      {
+        "file": "webp-q90.webp",
+        "format": "webp",
+        "settings": {
+          "quality": 90,
+          "effort": 6,
+          "smartSubsample": true
+        },
+        "bytes": 13436624,
+        "encodeSeconds": 78.96494091599999,
+        "nightLumaRmse": 0.48671146767591145,
+        "gradientErrorFraction": 0.18523780003774928,
+        "detailEnergyRatio": 0.9960921371303669
+      },
+      {
+        "file": "webp-q95.webp",
+        "format": "webp",
+        "settings": {
+          "quality": 95,
+          "effort": 6,
+          "smartSubsample": true
+        },
+        "bytes": 17733164,
+        "encodeSeconds": 67.31822116699998,
+        "nightLumaRmse": 0.31459199049664444,
+        "gradientErrorFraction": 0.119252879275728,
+        "detailEnergyRatio": 0.9960147161702325
+      },
+      {
+        "file": "avif-q50-444.avif",
+        "format": "avif",
+        "settings": {
+          "quality": 50,
+          "effort": 4,
+          "chromaSubsampling": "4:4:4",
+          "bitdepth": 8
+        },
+        "bytes": 3762962,
+        "encodeSeconds": 71.64659591600002,
+        "nightLumaRmse": 1.7881567865840593,
+        "gradientErrorFraction": 0.7470026494621148,
+        "detailEnergyRatio": 0.7108014142840249
+      },
+      {
+        "file": "avif-q65-444.avif",
+        "format": "avif",
+        "settings": {
+          "quality": 65,
+          "effort": 4,
+          "chromaSubsampling": "4:4:4",
+          "bitdepth": 8
+        },
+        "bytes": 7045716,
+        "encodeSeconds": 55.44838400000002,
+        "nightLumaRmse": 0.9776794750621322,
+        "gradientErrorFraction": 0.4139714476961386,
+        "detailEnergyRatio": 0.9010579938557718
+      },
+      {
+        "file": "avif-q80-444.avif",
+        "format": "avif",
+        "settings": {
+          "quality": 80,
+          "effort": 4,
+          "chromaSubsampling": "4:4:4",
+          "bitdepth": 8
+        },
+        "bytes": 10783633,
+        "encodeSeconds": 117.24116908299999,
+        "nightLumaRmse": 0.49245189316044224,
+        "gradientErrorFraction": 0.20477971481532062,
+        "detailEnergyRatio": 0.9555631908088369
+      },
+      {
+        "file": "avif-q65-420.avif",
+        "format": "avif",
+        "settings": {
+          "quality": 65,
+          "effort": 4,
+          "chromaSubsampling": "4:2:0",
+          "bitdepth": 8
+        },
+        "bytes": 7001760,
+        "encodeSeconds": 67.5157714170001,
+        "nightLumaRmse": 0.9768190775368347,
+        "gradientErrorFraction": 0.41358177982269473,
+        "detailEnergyRatio": 0.9016542711296643
+      }
+    ]
+  },
+  "textures4k": {
+    "versions": {
+      "aom": "3.15.1",
+      "archive": "3.8.9",
+      "cairo": "1.18.6",
+      "cgif": "0.5.4",
+      "exif": "0.6.26",
+      "expat": "2.8.5",
+      "ffi": "3.8.0",
+      "fontconfig": "2.18.3",
+      "freetype": "2.14.3",
+      "fribidi": "1.0.17",
+      "glib": "2.90.0",
+      "harfbuzz": "14.5.0",
+      "heif": "1.23.5",
+      "highway": "1.4.0",
+      "imagequant": "2.4.1",
+      "lcms": "2.19.1",
+      "mozjpeg": "0826579",
+      "pango": "1.58.2",
+      "pixman": "0.46.4",
+      "png": "1.6.58",
+      "proxy-libintl": "0.5",
+      "rsvg": "2.63.2",
+      "tiff": "4.7.2",
+      "uhdr": "2.0.2",
+      "vips": "8.18.7",
+      "webp": "1.6.0",
+      "xml2": "2.15.4",
+      "zlib-ng": "2.3.3",
+      "sharp": "0.35.5"
+    },
+    "width": 4096,
+    "height": 2048,
+    "rows": [
+      {
+        "file": "current.jpg",
+        "format": "jpeg",
+        "settings": {
+          "encoder": "ffmpeg mjpeg",
+          "q": 2,
+          "chroma": "444"
+        },
+        "bytes": 2487578
+      },
+      {
+        "file": "webp-q80.webp",
+        "format": "webp",
+        "settings": {
+          "quality": 80,
+          "effort": 6,
+          "smartSubsample": true
+        },
+        "bytes": 1389830,
+        "encodeSeconds": 4.901787124999999,
+        "nightLumaRmse": 0.897334058128063,
+        "gradientErrorFraction": 0.5939147684624496,
+        "detailEnergyRatio": 0.9874880358825265
+      },
+      {
+        "file": "avif-q50-444.avif",
+        "format": "avif",
+        "settings": {
+          "quality": 50,
+          "effort": 4,
+          "chromaSubsampling": "4:4:4",
+          "bitdepth": 8
+        },
+        "bytes": 539107,
+        "encodeSeconds": 11.492344624999998,
+        "nightLumaRmse": 1.263062550927171,
+        "gradientErrorFraction": 0.852708718211548,
+        "detailEnergyRatio": 0.5887570039750197
+      },
+      {
+        "file": "avif-q65-444.avif",
+        "format": "avif",
+        "settings": {
+          "quality": 65,
+          "effort": 4,
+          "chromaSubsampling": "4:4:4",
+          "bitdepth": 8
+        },
+        "bytes": 1255176,
+        "encodeSeconds": 15.915998458999995,
+        "nightLumaRmse": 0.8492782373255305,
+        "gradientErrorFraction": 0.6038803087172102,
+        "detailEnergyRatio": 0.8532803446198943
+      }
+    ]
+  },
+  "renderedTextureErrors": [
+    {
+      "time": 610.87,
+      "file": "current.jpg",
+      "mae": 0.23008667314690195,
+      "rmse": 0.48598029601338216,
+      "max": 6,
+      "percentOver1": 0.811369074323314,
+      "percentOver3": 0.0028039479587258858,
+      "percentOver8": 0
+    },
+    {
+      "time": 610.87,
+      "file": "jpeg-q80.jpg",
+      "mae": 0.5467888564877125,
+      "rmse": 0.860229375825975,
+      "max": 11,
+      "percentOver1": 11.917993868700464,
+      "percentOver3": 0.39423508299685955,
+      "percentOver8": 0.0006542545237027067
+    },
+    {
+      "time": 610.87,
+      "file": "jpeg-q90.jpg",
+      "mae": 0.34933671053287474,
+      "rmse": 0.6276444478870672,
+      "max": 7,
+      "percentOver1": 3.9187976671152986,
+      "percentOver3": 0.04233961417676088,
+      "percentOver8": 0
+    },
+    {
+      "time": 610.87,
+      "file": "webp-q80.webp",
+      "mae": 0.385464333781965,
+      "rmse": 0.6550729404426917,
+      "max": 8,
+      "percentOver1": 4.680163002841334,
+      "percentOver3": 0.03934873635411994,
+      "percentOver8": 0
+    },
+    {
+      "time": 610.87,
+      "file": "webp-q90.webp",
+      "mae": 0.2578264418523503,
+      "rmse": 0.5183767773790181,
+      "max": 7,
+      "percentOver1": 1.3664573052190818,
+      "percentOver3": 0.006729475100942126,
+      "percentOver8": 0
+    },
+    {
+      "time": 610.87,
+      "file": "webp-q95.webp",
+      "mae": 0.19635580230297592,
+      "rmse": 0.4484585116131183,
+      "max": 6,
+      "percentOver1": 0.5732204276955286,
+      "percentOver3": 0.0035516674143861223,
+      "percentOver8": 0
+    },
+    {
+      "time": 610.87,
+      "file": "avif-q50-444.avif",
+      "mae": 0.6445338592293505,
+      "rmse": 0.9599195427939027,
+      "max": 11,
+      "percentOver1": 16.47992373261552,
+      "percentOver3": 0.5587333632421115,
+      "percentOver8": 0.0011215791834903544
+    },
+    {
+      "time": 610.87,
+      "file": "avif-q65-444.avif",
+      "mae": 0.360214159314092,
+      "rmse": 0.6315196319285655,
+      "max": 9,
+      "percentOver1": 3.9753439509496036,
+      "percentOver3": 0.042526544040675934,
+      "percentOver8": 0.00018692986391505908
+    },
+    {
+      "time": 610.87,
+      "file": "avif-q80-444.avif",
+      "mae": 0.23400534619410798,
+      "rmse": 0.4964378243385834,
+      "max": 9,
+      "percentOver1": 1.36842006879019,
+      "percentOver3": 0.01766487213997308,
+      "percentOver8": 0.00009346493195752954
+    },
+    {
+      "time": 610.87,
+      "file": "avif-q65-420.avif",
+      "mae": 0.3633474153830816,
+      "rmse": 0.6349289832869938,
+      "max": 10,
+      "percentOver1": 4.080491999401825,
+      "percentOver3": 0.04402198295199641,
+      "percentOver8": 0.00018692986391505908
+    },
+    {
+      "time": 3235.65,
+      "file": "current.jpg",
+      "mae": 0.03946307512088131,
+      "rmse": 0.19865315280881227,
+      "max": 1,
+      "percentOver1": 0,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "jpeg-q80.jpg",
+      "mae": 0.08974035441902198,
+      "rmse": 0.29962413937143495,
+      "max": 2,
+      "percentOver1": 0.004673246597876477,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "jpeg-q90.jpg",
+      "mae": 0.058390346941827424,
+      "rmse": 0.24164223563229548,
+      "max": 2,
+      "percentOver1": 0.00009346493195752954,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "webp-q80.webp",
+      "mae": 0.0644294277453766,
+      "rmse": 0.25383075236252006,
+      "max": 2,
+      "percentOver1": 0.00009346493195752954,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "webp-q90.webp",
+      "mae": 0.043338131199840486,
+      "rmse": 0.2081781237302337,
+      "max": 1,
+      "percentOver1": 0,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "webp-q95.webp",
+      "mae": 0.032938599770699364,
+      "rmse": 0.18148994399332258,
+      "max": 1,
+      "percentOver1": 0,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "avif-q50-444.avif",
+      "mae": 0.1046913164847216,
+      "rmse": 0.3236287325818195,
+      "max": 2,
+      "percentOver1": 0.006542545237027067,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "avif-q65-444.avif",
+      "mae": 0.060414174268481134,
+      "rmse": 0.2457992875624603,
+      "max": 2,
+      "percentOver1": 0.00046732465978764767,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "avif-q80-444.avif",
+      "mae": 0.03926274861671901,
+      "rmse": 0.1981482995554567,
+      "max": 1,
+      "percentOver1": 0,
+      "percentOver3": 0,
+      "percentOver8": 0
+    },
+    {
+      "time": 3235.65,
+      "file": "avif-q65-420.avif",
+      "mae": 0.061124196201585164,
+      "rmse": 0.24723686112759222,
+      "max": 2,
+      "percentOver1": 0.0002803947958725886,
+      "percentOver3": 0,
+      "percentOver8": 0
+    }
+  ],
+  "browserDecode": {
+    "rows": [
+      {
+        "bytes": 13461378,
+        "decodeMs": [
+          266.30000001192093,
+          246.5999999940395,
+          300,
+          295.69999998807907
+        ],
+        "file": "current.jpg"
+      },
+      {
+        "bytes": 8870752,
+        "decodeMs": [
+          653.9000000059605,
+          773.0999999940395,
+          698.5,
+          589.6000000238419
+        ],
+        "file": "webp-q80.webp"
+      },
+      {
+        "bytes": 3762962,
+        "decodeMs": [
+          455.89999997615814,
+          377.59999999403954,
+          388.2999999821186,
+          439.59999999403954
+        ],
+        "file": "avif-q50-444.avif"
+      },
+      {
+        "bytes": 7045716,
+        "decodeMs": [
+          623.8999999761581,
+          770.7999999821186,
+          734.1999999880791,
+          493.199999988079
+        ],
+        "file": "avif-q65-444.avif"
+      },
+      {
+        "bytes": 10783633,
+        "decodeMs": [
+          543.5999999940395,
+          629.6999999880791,
+          606.5,
+          628.5
+        ],
+        "file": "avif-q80-444.avif"
+      }
+    ],
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36"
+  },
+  "starThresholds": [
+    {
+      "limit": 7,
+      "stars": 15598,
+      "removed": 0,
+      "bytes": 499136,
+      "gzip": 444067,
+      "brotli": 413365,
+      "savedBytes": 0
+    },
+    {
+      "limit": 6.75,
+      "stars": 11848,
+      "removed": 3750,
+      "bytes": 379136,
+      "gzip": 337528,
+      "brotli": 314812,
+      "savedBytes": 120000
+    },
+    {
+      "limit": 6.5,
+      "stars": 8920,
+      "removed": 6678,
+      "bytes": 285440,
+      "gzip": 254278,
+      "brotli": 238062,
+      "savedBytes": 213696
+    },
+    {
+      "limit": 6.25,
+      "stars": 6681,
+      "removed": 8917,
+      "bytes": 213792,
+      "gzip": 190704,
+      "brotli": 179195,
+      "savedBytes": 285344
+    },
+    {
+      "limit": 6,
+      "stars": 5070,
+      "removed": 10528,
+      "bytes": 162240,
+      "gzip": 144921,
+      "brotli": 136921,
+      "savedBytes": 336896
+    },
+    {
+      "limit": 5.5,
+      "stars": 2865,
+      "removed": 12733,
+      "bytes": 91680,
+      "gzip": 82191,
+      "brotli": 78445,
+      "savedBytes": 407456
+    },
+    {
+      "limit": 5,
+      "stars": 1637,
+      "removed": 13961,
+      "bytes": 52384,
+      "gzip": 47218,
+      "brotli": 45559,
+      "savedBytes": 446752
+    }
+  ],
+  "starRenderedErrors": [
+    {
+      "time": 610.87,
+      "cutoff": 6.75,
+      "mae": 0.0069379018992074175,
+      "rmse": 0.18020133548341002,
+      "max": 16,
+      "percentOver1": 0.13019665021683863,
+      "percentOver3": 0.07280918199491551,
+      "percentOver8": 0.01841259159563332,
+      "removedInSky": 257,
+      "visibleOver3": 254,
+      "visibleOver8": 160,
+      "visibleOver16": 0,
+      "maxRemovedPeak": 16
+    },
+    {
+      "time": 610.87,
+      "cutoff": 6.5,
+      "mae": 0.014546258910323514,
+      "rmse": 0.2697070396632355,
+      "max": 18,
+      "percentOver1": 0.26497308209959625,
+      "percentOver3": 0.14692687303723642,
+      "percentOver8": 0.047293255570509944,
+      "removedInSky": 489,
+      "visibleOver3": 485,
+      "visibleOver8": 365,
+      "visibleOver16": 9,
+      "maxRemovedPeak": 18
+    },
+    {
+      "time": 610.87,
+      "cutoff": 6,
+      "mae": 0.026354618413837794,
+      "rmse": 0.38597764163676296,
+      "max": 24,
+      "percentOver1": 0.46807237924330786,
+      "percentOver3": 0.2560004486316734,
+      "percentOver8": 0.09505383580080753,
+      "removedInSky": 754,
+      "visibleOver3": 750,
+      "visibleOver8": 622,
+      "visibleOver16": 63,
+      "maxRemovedPeak": 24
+    },
+    {
+      "time": 610.87,
+      "cutoff": 5.5,
+      "mae": 0.037161656946313744,
+      "rmse": 0.48579274541303863,
+      "max": 27,
+      "percentOver1": 0.6507028562883206,
+      "percentOver3": 0.3440444145356662,
+      "percentOver8": 0.13907581875280395,
+      "removedInSky": 931,
+      "visibleOver3": 928,
+      "visibleOver8": 800,
+      "visibleOver16": 185,
+      "maxRemovedPeak": 27
+    },
+    {
+      "time": 1244.05,
+      "cutoff": 6.75,
+      "mae": 0.00758623697721948,
+      "rmse": 0.19903936585274998,
+      "max": 17,
+      "percentOver1": 0.13879542395693137,
+      "percentOver3": 0.07430462090623598,
+      "percentOver8": 0.025142066696575448,
+      "removedInSky": 181,
+      "visibleOver3": 181,
+      "visibleOver8": 160,
+      "visibleOver16": 3,
+      "maxRemovedPeak": 17
+    },
+    {
+      "time": 1244.05,
+      "cutoff": 6.5,
+      "mae": 0.013931882757589352,
+      "rmse": 0.27608990710950737,
+      "max": 19,
+      "percentOver1": 0.256280843427546,
+      "percentOver3": 0.1320659488559892,
+      "percentOver8": 0.04691939584267983,
+      "removedInSky": 312,
+      "visibleOver3": 312,
+      "visibleOver8": 282,
+      "visibleOver16": 11,
+      "maxRemovedPeak": 19
+    },
+    {
+      "time": 1244.05,
+      "cutoff": 6,
+      "mae": 0.025239270225811277,
+      "rmse": 0.392425542860804,
+      "max": 24,
+      "percentOver1": 0.47330641543292956,
+      "percentOver3": 0.22646553013309406,
+      "percentOver8": 0.09159563331837894,
+      "removedInSky": 493,
+      "visibleOver3": 493,
+      "visibleOver8": 464,
+      "visibleOver16": 80,
+      "maxRemovedPeak": 24
+    },
+    {
+      "time": 1244.05,
+      "cutoff": 5.5,
+      "mae": 0.032112681321968,
+      "rmse": 0.4584704513683813,
+      "max": 26,
+      "percentOver1": 0.6104194706146254,
+      "percentOver3": 0.2809555854643338,
+      "percentOver8": 0.11926125317780768,
+      "removedInSky": 579,
+      "visibleOver3": 579,
+      "visibleOver8": 550,
+      "visibleOver16": 154,
+      "maxRemovedPeak": 26
+    },
+    {
+      "time": 3433.69,
+      "cutoff": 6.75,
+      "mae": 0.007277802701759633,
+      "rmse": 0.16682921638104384,
+      "max": 12,
+      "percentOver1": 0.13309406310752206,
+      "percentOver3": 0.07009869896814716,
+      "percentOver8": 0.011028861970988485,
+      "removedInSky": 227,
+      "visibleOver3": 226,
+      "visibleOver8": 115,
+      "visibleOver16": 0,
+      "maxRemovedPeak": 12
+    },
+    {
+      "time": 3433.69,
+      "cutoff": 6.5,
+      "mae": 0.01443285479288171,
+      "rmse": 0.24049655360005642,
+      "max": 13,
+      "percentOver1": 0.26319724839240316,
+      "percentOver3": 0.13916928368476147,
+      "percentOver8": 0.026170180948108267,
+      "removedInSky": 418,
+      "visibleOver3": 416,
+      "visibleOver8": 259,
+      "visibleOver16": 0,
+      "maxRemovedPeak": 13
+    },
+    {
+      "time": 3433.69,
+      "cutoff": 6,
+      "mae": 0.024930524400578236,
+      "rmse": 0.32967135715531565,
+      "max": 16,
+      "percentOver1": 0.4638664573052191,
+      "percentOver3": 0.23375579482578135,
+      "percentOver8": 0.05607895917451772,
+      "removedInSky": 643,
+      "visibleOver3": 642,
+      "visibleOver8": 476,
+      "visibleOver16": 0,
+      "maxRemovedPeak": 16
+    },
+    {
+      "time": 3433.69,
+      "cutoff": 5.5,
+      "mae": 0.03238279497532526,
+      "rmse": 0.3919898424556501,
+      "max": 24,
+      "percentOver1": 0.6146253925527142,
+      "percentOver3": 0.2931994915507702,
+      "percentOver8": 0.08187528039479587,
+      "removedInSky": 760,
+      "visibleOver3": 758,
+      "visibleOver8": 597,
+      "visibleOver16": 27,
+      "maxRemovedPeak": 24
+    }
+  ],
+  "starPacking": {
+    "stars": 15598,
+    "bytes": 249568,
+    "gzip": 232473,
+    "brotli": 220949,
+    "maxAngularArcsec": 5.230922820526935,
+    "maxMagnitudeError": 0.0001373311970702673,
+    "maxColorError": 0.00003814755474174092,
+    "velocityScale": 1e-9
+  }
+}

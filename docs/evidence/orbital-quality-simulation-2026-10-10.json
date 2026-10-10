@@ -1,0 +1,70 @@
+{
+  "method": "Actual SceneQuality with the simulation helper extracted verbatim from scene-quality.test.mjs. GPU work delays callbacks to refresh boundaries. Not physical GPU timing.",
+  "sourceHash": "85d82acf0d76063bc287b34f6f7bbec6301b404080aa1b6ca3ece94395cc5cdf",
+  "testsHash": "1e2fdd6f7385df5337e75b2ee076f288832b7b8911eb7225b3e307cb4540a6b4",
+  "results": [
+    {
+      "hz": 30,
+      "sharp": {
+        "mean3to8": 41.73669467787119,
+        "changes": [
+          {
+            "seconds": 0.4666666666666679,
+            "scale": 0.9
+          },
+          {
+            "seconds": 2.666666666666668,
+            "scale": 0.50922293742525
+          }
+        ]
+      },
+      "ramp": {
+        "maxFiveSecondMean": 51.73611111111487,
+        "settledMean": 41.736694677865074,
+        "resizes": 7
+      }
+    },
+    {
+      "hz": 60,
+      "sharp": {
+        "mean3to8": 41.73669467787113,
+        "changes": [
+          {
+            "seconds": 0.8333333333333321,
+            "scale": 0.9
+          },
+          {
+            "seconds": 2.999999999999967,
+            "scale": 0.5578257792537062
+          }
+        ]
+      },
+      "ramp": {
+        "maxFiveSecondMean": 45.41284403669758,
+        "settledMean": 41.73669467788329,
+        "resizes": 6
+      }
+    },
+    {
+      "hz": 120,
+      "sharp": {
+        "mean3to8": 41.666666666666686,
+        "changes": [
+          {
+            "seconds": 0.8333333333333358,
+            "scale": 0.9
+          },
+          {
+            "seconds": 2.8583333333333356,
+            "scale": 0.5880000000000001
+          }
+        ]
+      },
+      "ramp": {
+        "maxFiveSecondMean": 48.22006472491978,
+        "settledMean": 41.666666666656965,
+        "resizes": 6
+      }
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+---
+import SkyCredits from './SkyCredits.astro';
+import { sceneProfiles, comparisonProfileGroups as profileGroups } from '../scripts/scene-profile';
+interface Props { standalone?: boolean; }
+const { standalone = false } = Astro.props;
+---
+<orbital-sky data-composition={standalone ? "orbit" : "page"}>
+  <div class="sky-viewport" aria-hidden="true"></div>
+  <div class="sky-fallback" aria-hidden="true"></div>
+  <canvas aria-hidden="true"></canvas>
+  <aside class="scene-comparison" hidden aria-label="Scene comparison">
+    <label for="scene-profile">Render comparison</label>
+    <select id="scene-profile" aria-describedby="scene-profile-description">
+      {profileGroups.map(group => <optgroup label={group.label}>{group.names.map(name => <option value={name}>{sceneProfiles[name].label}</option>)}</optgroup>)}
+    </select>
+    <p id="scene-profile-description"></p>
+  </aside>
+  <div class="sky-controls" hidden>
+    {standalone ? <span class="sky-title">ISS Orbit Replay</span> : <a class="sky-title sky-orbit-link sky-action" href="/orbit/" aria-label="ISS Orbit Replay — open Orbit">ISS Orbit Replay<svg class="orbit-link-icon" width="8" height="8" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></a>}
+    <button class="sky-settings-toggle" type="button" popovertarget="sky-settings" aria-label="Your view" title="Your view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg></button>
+    <time class="sky-time sky-numbers">06 Oct 2026 · 01:32:27 UTC</time>
+    <p class="sky-coordinates sky-numbers">—° N · —° E · — km</p>
+    <div class="sky-links">
+      <button class="sky-action" type="button" popovertarget="sky-credits">Image Credits</button>
+    </div>
+  </div>
+  <div id="sky-settings" class="sky-panel" popover="auto" role="dialog" aria-labelledby="sky-settings-heading">
+    <header class="panel-header"><h2 id="sky-settings-heading">Your view</h2><button class="panel-close panel-icon" type="button" popovertarget="sky-settings" popovertargetaction="hide" aria-label="Close Your view"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></header>
+    <div class="setting-section">
+      {standalone && <>
+        <div class="setting route-setting"><label class="setting-name" for="sky-route">Route</label><select id="sky-route" aria-label="Route"><option value="iss">ISS orbit</option><option value="polar">Polar orbit</option><option value="high">High orbit</option></select></div>
+        <div class="flight-modes" role="group" aria-label="Camera mode"><button type="button" data-flight-mode="follow" aria-pressed="true" title="Return to orbit">Follow orbit</button><button type="button" data-flight-mode="free" aria-pressed="false">Free flight</button></div>
+        <div class="setting"><label class="setting-name" for="sky-altitude">Altitude</label><output class="altitude-output">420 km</output><input id="sky-altitude" data-fill="none" type="range" min="0" max="1" step="0.001" value="0.18" aria-label="Altitude above Earth" /></div>
+      </>}
+      <div class="sky-track setting"><label class="setting-name" for="sky-range-1">Orbit position</label><span class="setting-value"><output>Night</output><button class="reset-value" type="button" aria-label="Reset Orbit position" title="Reset Orbit position"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-1" data-fill="none" type="range" min="0" max="100" step="0.05" value="0" aria-label="Position in ISS orbit" /></div>
+      <div class="setting"><label class="setting-name" for="sky-range-2">Camera direction</label><span class="setting-value"><output data-view-output="yaw">Forward</output><button class="reset-value" type="button" aria-label="Reset Camera direction" title="Reset Camera direction"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-2" data-fill="none" data-neutral data-view="yaw" type="range" min="-180" max="180" step="0.1" value="0" aria-label="Camera direction" /></div>
+      <div class="setting"><label class="setting-name" for="sky-range-3">Camera tilt</label><span class="setting-value"><output data-view-output="pitch">Default</output><button class="reset-value" type="button" aria-label="Reset Camera tilt" title="Reset Camera tilt"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-3" data-fill="center" data-neutral data-view="pitch" type="range" min="-90" max="90" step="0.1" value="0" aria-label="Camera tilt" /></div>
+      {['date','time'].map((kind) => <div class="setting">
+        <label class="setting-name" for={`sky-${kind}`}>{kind === 'date' ? 'Date' : 'Time (UTC)'}</label>
+        <span class="setting-value"><output data-calendar-output={kind}>—</output><button class="reset-value" type="button" aria-label={`Reset ${kind}`} title={kind === 'date' ? 'Today' : 'Current time'}><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span>
+        <input id={`sky-${kind}`} data-calendar={kind} data-fill="none" type="range" min="0" max={kind === 'date' ? '365' : '1439'} step="1" value="0" aria-label={kind === 'date' ? 'Date' : 'Time of day in UTC'} />
+      </div>)}
+      <div class="setting"><label class="setting-name" for="sky-range-4">Moon phase</label><span class="setting-value"><output data-moon-output>Today</output><button class="reset-value" type="button" aria-label="Reset Moon phase" title="Reset Moon phase"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-4" data-fill="none" class="sky-moon" type="range" min="0" max="360" step="1" value="0" aria-label="Moon phase" /></div>
+      <div class="sky-speed setting"><label class="setting-name" for="sky-range-5">Time scale</label><span class="setting-value"><output>10×</output><button class="reset-value" type="button" aria-label="Reset Time scale" title="Reset Time scale"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-5" type="range" data-fill="default" data-neutral min="-100" max="100" step="1" value="0" aria-label="Time scale" /></div>
+      <div class="setting route-setting"><label class="setting-name" for="sky-aurora">Aurora</label><select id="sky-aurora" aria-describedby="sky-aurora-status"><option value="auto">Auto</option><option value="off">Off</option><option value="on">On</option></select><small id="sky-aurora-status" class="setting-note">Auto turns aurora off on phones and tablets.</small></div>
+      <div class="setting route-setting"><label class="setting-name" for="sky-exposure-mode">Exposure</label><select id="sky-exposure-mode" aria-label="Exposure mode"><option value="auto">Auto</option><option value="manual">Manual</option></select></div>
+      <div class="setting" data-manual-setting hidden><label class="setting-name" for="sky-fixed-exposure">Manual exposure</label><output data-fixed-output>0.0 EV</output><input id="sky-fixed-exposure" data-fill="center" type="range" min="-5.5" max="4.1" step="0.1" value="0" aria-label="Manual exposure" /></div>
+      <div class="setting"><label class="setting-name" for="sky-exposure">Exposure compensation</label><span class="setting-value"><output data-output="exposure">0.0 EV</output><button class="reset-value" type="button" aria-label="Reset Exposure compensation" title="Reset Exposure compensation"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-exposure" data-fill="default" data-neutral data-look="exposure" type="range" min="-3" max="4" step="0.1" value="0" aria-label="Exposure compensation" /></div>
+      <div class="setting"><label class="setting-name" for="sky-range-6">Lens flares</label><span class="setting-value"><output data-output="ghosts">100%</output><button class="reset-value" type="button" aria-label="Reset Lens flares" title="Reset Lens flares"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-6" data-fill="default" data-neutral data-look="ghosts" type="range" min="0" max="2" step="0.05" value="1" aria-label="Lens flares" /></div>
+      <div class="setting"><label class="setting-name" for="sky-range-7">Film grain</label><span class="setting-value"><output data-output="grain">100%</output><button class="reset-value" type="button" aria-label="Reset Film grain" title="Reset Film grain"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-7" data-fill="default" data-neutral data-look="grain" type="range" min="0" max="2" step="0.05" value="1" aria-label="Film grain intensity" /></div>
+      <div class="setting"><label class="setting-name" for="sky-range-8">Color separation</label><span class="setting-value"><output data-output="chromatic">100%</output><button class="reset-value" type="button" aria-label="Reset Color separation" title="Reset Color separation"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-8" data-fill="default" data-neutral data-look="chromatic" type="range" min="0" max="2" step="0.05" value="1" aria-label="Color separation" /></div>
+      <div class="setting"><label class="setting-name" for="sky-range-9">Milky Way brightness</label><span class="setting-value"><output data-output="galaxy">100%</output><button class="reset-value" type="button" aria-label="Reset Milky Way brightness" title="Reset Milky Way brightness"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-9" data-fill="default" data-neutral data-look="galaxy" type="range" min="0" max="2" step="0.05" value="1" aria-label="Milky Way brightness" /></div>
+    </div>
+    <footer class="panel-footer"><button class="reset-all" type="button">Reset all</button><button class="sky-motion panel-icon" type="button" aria-label="Pause" title="Pause"><svg class="motion-play" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" data-hidden><path d="m5 3 8 5-8 5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg><svg class="motion-pause" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 3v10M11 3v10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></footer>
+  </div>
+  {standalone && <aside class="flight-hint" hidden aria-label="Free flight controls"><button type="button" class="flight-hint-close" aria-label="Dismiss flight controls">×</button><div class="flight-hint-desktop"><p>Two fingers or drag to look · Shift to pan</p><p>Pinch or <kbd>Ctrl / ⌘</kbd> + scroll to zoom</p><p><kbd>W A S D</kbd> move · <kbd>Q / E</kbd> camera down / up · <kbd>Shift</kbd> faster</p><p><kbd>Space</kbd> pauses time. Choose Follow orbit to return.</p></div><div class="flight-hint-touch"><p>One finger to look · Two fingers to pan</p><p>Pinch to zoom. Choose Follow orbit to return.</p></div></aside>}
+  <div id="sky-credits" class="sky-panel credits-panel" popover="auto" role="dialog" aria-labelledby="sky-credits-heading">
+    <header class="panel-header"><h2 id="sky-credits-heading">Image Credits</h2><button class="panel-close panel-icon" type="button" popovertarget="sky-credits" popovertargetaction="hide" aria-label="Close image credits"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></header>
+    <SkyCredits />
+  </div>
+</orbital-sky>
+
+<script>
+  import { OrbitalSky } from '../scripts/orbital-sky';
+  if (!customElements.get('orbital-sky')) customElements.define('orbital-sky', OrbitalSky);
+</script>
+
+<style>
+  .setting-note { grid-column: 1 / -1; color: #ffffff99; font-size: 11px; line-height: 1.4; }
+  orbital-sky { display: contents; pointer-events: none; }
+  .scene-comparison { position: fixed; top: max(16px, env(safe-area-inset-top)); right: max(24px, env(safe-area-inset-right)); z-index: 6; width: min(290px, calc(100vw - 120px)); box-sizing: border-box; padding: 12px 14px; border: 1px solid #ffffff24; border-radius: 12px; background: #090c12e8; color: #f0ede6; pointer-events: auto; font: 12px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .scene-comparison[hidden] { display: none; }
+  .scene-comparison label { display: block; color: #ffffff99; font-size: 11px; }
+  .scene-comparison select { width: 100%; min-height: 36px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; color-scheme: dark; }
+  .scene-comparison p { margin: 4px 0 0; color: #ffffffb3; }
+  /* Browser bars reveal more of this stable surface without resizing GPU targets. */
+  canvas, .sky-fallback { position: fixed; inset: 0 0 auto; width: 100%; height: 100vh; height: 100lvh; z-index: -1; pointer-events: none; }
+  .sky-viewport { position: fixed; inset: 0 auto auto 0; width: 0; height: 100vh; height: 100svh; visibility: hidden; pointer-events: none; }
+  canvas { opacity: 0; transition: opacity .6s ease; }
+  orbital-sky[data-ready] canvas { opacity: 1; }
+  .sky-fallback { background: #020304 url('/media/orbit/preview/poster.webp') center / cover no-repeat; transition: opacity .6s ease; }
+  orbital-sky[data-ready] .sky-fallback { opacity: 0; }
+  .sky-controls { position: absolute; left: calc((100% - 100vw) / 2 + max(var(--page-gutter, 24px), env(safe-area-inset-left))); bottom: max(24px, env(safe-area-inset-bottom)); z-index: 5; display: grid; grid-auto-rows: 12px; gap: 2px; pointer-events: auto; color: #fff; --control-hover: rgb(255 255 255 / 12%); text-transform: uppercase; letter-spacing: .025em; font: 9px/12px 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; text-shadow: none; }
+  .sky-controls button { text-shadow: none; }
+  .sky-controls[hidden] { display: none; }
+  .sky-title { display: inline-flex; align-items: center; gap: 8px; width: fit-content; padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: uppercase; text-decoration: none; margin: 0; }
+  .sky-orbit-link { gap: 1ch; cursor: pointer; }
+  .orbit-link-icon { width: 8px; height: 8px; flex: 0 0 8px; opacity: 0; transition: opacity .15s; }
+  .sky-orbit-link:is(:hover,:focus-visible) .orbit-link-icon { opacity: 1; }
+  .sky-settings-toggle { position: fixed; right: max(var(--page-gutter, 24px), env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; transition: background-color .15s; }
+  .sky-settings-toggle svg { width: 16px; height: 16px; }
+  .sky-settings-toggle:is(:hover,:focus-visible) { color: inherit; background: var(--control-hover); }
+  orbital-sky[data-composition="orbit"] { --page-gutter: 24px; }
+  orbital-sky[data-composition="orbit"] .sky-controls { position: fixed; left: max(var(--page-gutter), env(safe-area-inset-left)); }
+  @media (hover: none) { .orbit-link-icon { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .sky-controls, .sky-settings-toggle, .orbit-link-icon { transition: none !important; } }
+  .sky-numbers { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; white-space: nowrap; margin: 0; font-size: inherit; line-height: inherit; }
+  .sky-links { display: flex; align-items: center; gap: 6px; height: 12px; }
+  .sky-links button { padding: 0; text-transform: inherit; letter-spacing: inherit; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; height: 12px; gap: 6px; position: relative; }
+  .sky-links button::after { content: ""; position: absolute; inset: -5px -3px; }
+  .sky-action:is(:hover,:focus-visible) { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+  .sky-panel { box-sizing: border-box; position: fixed; inset: auto; margin: 0; width: min(320px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 22px; border: 0; border-radius: 16px; background: rgb(0 0 0 / 30%); color: #fff; box-shadow: none; backdrop-filter: blur(24px); pointer-events: auto; color-scheme: dark; font: 12px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .sky-panel::backdrop { background: transparent; }
+  .panel-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 20px; }
+  .panel-header { cursor: grab; touch-action: none; user-select: none; }
+  .sky-panel[data-dragging] .panel-header { cursor: grabbing; }
+  .panel-header h2 { margin: 0; font-size: 18px; line-height: 1.3; letter-spacing: -.02em; font-weight: 500; }
+  .sky-panel button { font: inherit; cursor: pointer; }
+  .panel-header > .panel-close { margin-right: -8px; }
+  .panel-icon { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; box-sizing: border-box; flex: 0 0 28px; border: 0; border-radius: 6px; background: none; color: inherit; line-height: 0; }
+  .panel-icon:hover { color: white; background: #ffffff0a; }
+  .panel-icon svg[data-hidden] { display: none; }
+  .setting-section { display: grid; gap: 12px; }
+  .setting { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; align-items: center; }
+  .setting[hidden] { display: none; }
+  .setting-name { color: rgb(255 255 255 / 60%); }
+  .route-setting select { max-width: 180px; min-height: 30px; color: #fff; background: transparent; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+  .route-setting option { background: #111; }
+  .flight-modes { display: flex; gap: 4px; background: #ffffff0a; border-radius: 8px; padding: 3px; }
+  .flight-modes button { flex: 1; padding: 7px 4px; border: 0; border-radius: 5px; background: transparent; color: rgb(255 255 255 / 60%); }
+  .flight-modes button[aria-pressed="true"] { background: #ffffff18; color: #fff; }
+  .flight-modes button:hover { color: #fff; }
+  .flight-hint { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 100px); width: max-content; padding: 14px 36px 14px 16px; border-radius: 12px; background: rgb(0 0 0 / 30%); backdrop-filter: blur(24px); color: #fff; pointer-events: auto; font: 12px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; z-index: 6; }
+  .flight-hint[hidden] { display: none; }
+  .flight-hint p { margin: 0; }
+  .flight-hint-touch { display: none; }
+  @media (hover: none) and (pointer: coarse) { .flight-hint-desktop { display: none; } .flight-hint-touch { display: block; } }
+  .flight-hint kbd { font: inherit; font-weight: 600; }
+  .flight-hint-close { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border: 0; border-radius: 50%; color: #fff; background: none; cursor: pointer; font-size: 18px; }
+  .flight-hint-close:hover { background: #ffffff18; }
+  .setting output { font-variant-numeric: tabular-nums; color: inherit; font-size: 11px; font-weight: 600; min-width: 40px; text-align: right; }
+  .setting-value { position: relative; display: flex; align-items: center; }
+  .setting-value output { display: block; transition: transform .12s ease; }
+  .reset-value { position: absolute; right: 0; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: none; color: #fff; opacity: 0; pointer-events: none; transition: opacity .12s ease; }
+  .setting-value:is(:hover,:focus-within) output { transform: translateX(-24px); }
+  .setting-value:is(:hover,:focus-within) .reset-value { opacity: 1; pointer-events: auto; }
+  .reset-value:is(:hover,:focus-visible) { background: #ffffff15; }
+  @media (hover: none) { .setting-value { padding-right: 24px; } .setting-value output { transform: none !important; } .reset-value { opacity: 1; pointer-events: auto; } }
+  @media (prefers-reduced-motion: reduce) { .setting-value output, .reset-value { transition: none; } }
+  .setting input { grid-column: 1 / -1; appearance: none; -webkit-appearance: none; width: 100%; height: 20px; margin: 0; background: transparent; cursor: pointer; }
+  .setting input { --range-track: linear-gradient(to right, #ffffff25 var(--range-start, 0%), #fff var(--range-start, 0%), #fff var(--range-end, 0%), #ffffff25 var(--range-end, 0%)); }
+  .setting input[data-fill="none"] { --range-track: linear-gradient(#ffffff25, #ffffff25); }
+  .setting input[data-neutral] { background: linear-gradient(#ffffff70, #ffffff70) center / 1px 7px no-repeat; }
+  .setting input::-webkit-slider-runnable-track { height: 3px; border-radius: 3px; background: var(--range-track); }
+  .setting input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; height: 11px; width: 11px; margin-top: -4px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #ffffff0a; }
+  .setting input::-moz-range-track { height: 3px; border-radius: 3px; background: var(--range-track); }
+  .setting input::-moz-range-progress { height: 3px; background: transparent; }
+  .setting input::-moz-range-thumb { height: 11px; width: 11px; border: 0; border-radius: 50%; background: #fff; }
+  .panel-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; font-size: inherit; }
+  .reset-all { border: 0; padding: 4px 0; background: none; color: rgb(255 255 255 / 60%); }
+  .reset-all:is(:hover,:focus-visible) { color: white; }
+  .credits-panel { width: min(380px, calc(100vw - 32px)); }
+  :is(button,a,input):focus-visible { outline: 2px solid #d3a784; outline-offset: 4px; }
+  .sky-panel :is(button,a,input,select):focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+  @media (max-width: 760px) { .sky-panel { padding: 20px; } }
+  @media (prefers-reduced-motion: reduce) { canvas { transition: none; } }
+</style>

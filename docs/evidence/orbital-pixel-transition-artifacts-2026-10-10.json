@@ -1,0 +1,19 @@
+{
+  "directory": "/tmp/orbit-transitions-v2-20261010",
+  "artifacts": {
+    "comparison.png": {
+      "sha256": "058a06e5743f2d91517ec0ae54cb1aac70c126a73448d615cfff6b3410bb5ac8",
+      "bytes": 3401134
+    },
+    "motion-contact-sheet.png": {
+      "sha256": "4296bf2c23bf501d70db89e2ca955c35805f6e3998def9d81b1276b2ab9484be",
+      "bytes": 6070118
+    },
+    "comparison.mp4": {
+      "sha256": "9109fe8a5b735d00ee1e9076bc13cad348e8513bd1cce408974b0c445e653ab6",
+      "bytes": 1716150
+    }
+  },
+  "note": "Local review artifacts; originals and their hashes are listed in final-v2 raw evidence. Contact sheet is a downsampled overview. Paired PNG and movie preserve original compositor pixels apart from the movie encoding.",
+  "persistentDerivedDirectory": "[local artifact directory]"
+}

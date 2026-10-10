@@ -1,0 +1,103 @@
+{
+  "conditions": {
+    "api": "webgl2",
+    "viewport": [
+      1440,
+      900
+    ],
+    "quality": "fixed",
+    "aurora": 0,
+    "grain": 0,
+    "exposureEV": 0,
+    "scene": "clouds",
+    "launchArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding"
+  },
+  "comparisons": [
+    {
+      "profile": "reference",
+      "states": {
+        "before": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+          "client": [
+            "http://127.0.0.1:4350/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.BDaYREJa.js"
+          ],
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "reference",
+          "width": 1440
+        },
+        "after": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+          "client": [
+            "http://127.0.0.1:4351/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.CsvWCxgp.js"
+          ],
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "reference",
+          "width": 1440
+        }
+      },
+      "difference": {
+        "spatialMean": 2.6491769547325102e-05,
+        "spatialMax": 1,
+        "temporalMean": null,
+        "temporalFractionOverFour": null
+      }
+    },
+    {
+      "profile": "compact",
+      "states": {
+        "before": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+          "client": [
+            "http://127.0.0.1:4350/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.BDaYREJa.js"
+          ],
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "compact",
+          "width": 1440
+        },
+        "after": {
+          "api": "webgl2",
+          "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+          "client": [
+            "http://127.0.0.1:4351/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.CsvWCxgp.js"
+          ],
+          "error": 0,
+          "failures": "0",
+          "height": 900,
+          "position": "-0.30708297,0.70615223,0.73842584",
+          "profile": "compact",
+          "width": 1440
+        }
+      },
+      "difference": {
+        "spatialMean": 2.4691358024691357e-05,
+        "spatialMax": 1,
+        "temporalMean": null,
+        "temporalFractionOverFour": null
+      }
+    }
+  ],
+  "initialAssertionFailure": {
+    "message": "Retained cloud renderer image must match archived build exactly\n\n1 !== 0\n",
+    "stack": "AssertionError [ERR_ASSERTION]: Retained cloud renderer image must match archived build exactly\n\n1 !== 0\n\n    at file:///private/tmp/orbit-next-20261010/scripts/verify-renderer-cleanup.mjs:73:10"
+  },
+  "interpretation": "Images are not byte-identical. Reference differs in 103 RGB channels and Compact in 96 of 3,888,000, all by one byte level; matching poses, buffers and zero GL errors. The initial exact-identity assertion was too strict for the observed output and was replaced by an explicit one-level bound with mean below 0.001. No same-build reload control was measured.",
+  "pngSha256": {
+    "/tmp/orbit-cleanup-images-20261010/reference-after-0.png": "9a53339a6e3499c86ba026c402950d5f5520d7618dd5b36be74a34b8178073b3",
+    "/tmp/orbit-cleanup-images-20261010/reference-before-0.png": "bfb25c0eaabd16f72829f87dd27f3d21a7b6f5f4c87c1f1583b2a494b4be2706",
+    "/tmp/orbit-cleanup-compact-20261010/compact-after-0.png": "f2a0b0b70e9b603277270caf3742ffbb6a53f69b411fbee7c31c29533176ccba",
+    "/tmp/orbit-cleanup-compact-20261010/compact-before-0.png": "55efa1efd494df0449116a6c4ad33a6b04223402b37a679d0f98f6617ee56e21"
+  },
+  "finalClientSha256": "f68d30f37509d39d60fbb80a37b2a236b973f5072905998efa0a9187fd14ef4b"
+}

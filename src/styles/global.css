@@ -1,0 +1,23 @@
+@layer base, orbital;
+
+@layer base {
+  :root { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-synthesis: none; color: var(--ink); background: var(--paper); }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: .25em; }
+  a:hover { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+  h1, h2, h3, p { margin: 0; }
+  h1, h2, h3 { font-weight: 500; }
+  p { line-height: 1.7; }
+  ul, ol { margin: 0; padding: 0; }
+  img, video { display: block; max-width: 100%; height: auto; }
+  button, input { font: inherit; }
+  .skip-link { position: fixed; top: 12px; left: 12px; transform: translateY(-160%); background: var(--ink); color: var(--paper); padding: 12px 20px; z-index: 10; }
+  .skip-link:focus { transform: none; }
+}
+
+@layer orbital {
+  .orbital-page { color-scheme: dark; --paper: #080a0c; --ink: #f0ede6; --muted: #a5a5a3; --line: #ffffff24; --accent: #dfa77e; --page-gutter: clamp(20px, 3.333vw, 48px); background: #020304; }
+  .orbital-page body { isolation: isolate; }
+}

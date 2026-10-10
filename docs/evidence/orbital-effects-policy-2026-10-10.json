@@ -1,0 +1,358 @@
+{
+  "environment": {
+    "launchArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding",
+    "scope": "Chromium desktop and touch-first emulation; not physical iPhone or Android performance",
+    "touchEmulation": "Chromium 149 with iPhone 15 UA/device metrics, forced390x844 viewport, and native CDP Emulation.setTouchEmulationEnabled on active page; actual media query asserted true. This is not Safari/iPhone hardware.",
+    "policyPredicate": "(hover: none) and (pointer: coarse)"
+  },
+  "desktop": {
+    "auto": {
+      "api": "webgl",
+      "aurora": "volume",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "inline",
+      "errors": 0,
+      "exposure": "manual",
+      "failures": "0",
+      "fixedExposure": "-0.7",
+      "grain": "0.3",
+      "mode": "auto",
+      "motion": "Play",
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "probe": {
+        "blockedContexts": 0,
+        "blockedLod": 0,
+        "footprintDraws": 1,
+        "footprintPrograms": 1,
+        "volumeDraws": 293,
+        "volumePrograms": 1
+      },
+      "profile": "compact",
+      "rate": "25",
+      "selected": "auto",
+      "status": "Auto turns aurora off on phones and tablets.",
+      "statusHidden": false,
+      "touchFirst": false,
+      "url": "http://127.0.0.1:4352/?motion=0&quality=fixed&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&exposure-mode=manual&exposure-fixed=-0.7&look-grain=.3&rate=25"
+    },
+    "layout": {
+      "note": {
+        "bottom": 501.90625,
+        "top": 486.515625
+      },
+      "panel": {
+        "bottom": 884,
+        "left": 944,
+        "right": 1264,
+        "top": 16
+      },
+      "scrollWidth": 1280,
+      "select": {
+        "bottom": 481.515625,
+        "left": 1194,
+        "right": 1242,
+        "top": 451.515625
+      },
+      "viewport": [
+        1280,
+        900
+      ]
+    },
+    "on": {
+      "api": "webgl2",
+      "aurora": "volume",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "inline",
+      "errors": 0,
+      "exposure": "manual",
+      "failures": "0",
+      "fixedExposure": "-0.7",
+      "grain": "0.3",
+      "mode": "on",
+      "motion": "Play",
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "probe": {
+        "blockedContexts": 0,
+        "blockedLod": 0,
+        "footprintDraws": 1,
+        "footprintPrograms": 1,
+        "volumeDraws": 260,
+        "volumePrograms": 1
+      },
+      "profile": "compact",
+      "rate": "25",
+      "selected": "on",
+      "status": "",
+      "statusHidden": true,
+      "touchFirst": false,
+      "url": "http://127.0.0.1:4352/?motion=0&quality=fixed&t=3235.6500&pitch=-25&epoch=2026-10-06T01%3A32%3A27.000Z&exposure-mode=manual&exposure-fixed=-0.7&look-grain=0.3&rate=25&aurora=1"
+    },
+    "off": {
+      "api": "webgl",
+      "aurora": "off",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "inline",
+      "errors": 0,
+      "exposure": "manual",
+      "failures": "0",
+      "fixedExposure": "-0.7",
+      "grain": "0.3",
+      "mode": "off",
+      "motion": "Play",
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "probe": {
+        "blockedContexts": 0,
+        "blockedLod": 0,
+        "footprintDraws": 0,
+        "footprintPrograms": 0,
+        "volumeDraws": 0,
+        "volumePrograms": 0
+      },
+      "profile": "compact",
+      "rate": "25",
+      "selected": "off",
+      "status": "",
+      "statusHidden": true,
+      "touchFirst": false,
+      "url": "http://127.0.0.1:4352/?motion=0&quality=fixed&t=3235.6500&pitch=-25&epoch=2026-10-06T01%3A32%3A27.000Z&exposure-mode=manual&exposure-fixed=-0.7&look-grain=0.3&rate=25&aurora=0"
+    },
+    "reset": {
+      "api": "webgl",
+      "aurora": "volume",
+      "basis": "[-0.7511590851649499,0.22394048119875223,-0.6209755950555761,0.646376447859908,0.05855498890561017,-0.7607685593702406,0.13400565818711918,0.9728422144185229,0.18873396466746994]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "inline",
+      "errors": 0,
+      "exposure": "auto",
+      "failures": "0",
+      "fixedExposure": "0",
+      "grain": "1",
+      "mode": "auto",
+      "motion": "Pause",
+      "position": "0.67720676,-0.01579686,-0.82487551",
+      "probe": {
+        "blockedContexts": 0,
+        "blockedLod": 0,
+        "footprintDraws": 1,
+        "footprintPrograms": 1,
+        "volumeDraws": 70,
+        "volumePrograms": 1
+      },
+      "profile": "compact",
+      "rate": "0",
+      "selected": "auto",
+      "status": "Auto turns aurora off on phones and tablets.",
+      "statusHidden": false,
+      "touchFirst": false,
+      "url": "http://127.0.0.1:4352/?quality=fixed&epoch=2026-10-10T11%3A31%3A45.707Z&t=1000.0000"
+    },
+    "unsupported": {
+      "api": "webgl",
+      "aurora": "unsupported",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "inline",
+      "errors": 0,
+      "exposure": "manual",
+      "failures": "0",
+      "fixedExposure": "-0.7",
+      "grain": "0.3",
+      "mode": "on",
+      "motion": "Play",
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "probe": {
+        "blockedContexts": 1,
+        "blockedLod": 2,
+        "footprintDraws": 0,
+        "footprintPrograms": 0,
+        "volumeDraws": 0,
+        "volumePrograms": 0
+      },
+      "profile": "compact",
+      "rate": "25",
+      "selected": "on",
+      "status": "Aurora is unavailable on this device.",
+      "statusHidden": false,
+      "touchFirst": false,
+      "url": "http://127.0.0.1:4352/?motion=0&quality=fixed&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&exposure-mode=manual&exposure-fixed=-0.7&look-grain=.3&rate=25&aurora=1&probeUnsupported=1"
+    },
+    "homeLink": "http://127.0.0.1:4352/?aurora=0&t=3235.65&epoch=2026-10-06T01%3A32%3A27.000Z&motion=0&pitch=-25&look-grain=0.3&exposure-mode=manual&exposure-fixed=-0.7"
+  },
+  "touch": {
+    "auto": {
+      "api": "webgl",
+      "aurora": "off",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "inline",
+      "errors": 0,
+      "exposure": "manual",
+      "failures": "0",
+      "fixedExposure": "-0.7",
+      "grain": "0.3",
+      "mode": "auto",
+      "motion": "Play",
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "probe": {
+        "blockedContexts": 0,
+        "blockedLod": 0,
+        "footprintDraws": 0,
+        "footprintPrograms": 0,
+        "volumeDraws": 0,
+        "volumePrograms": 0
+      },
+      "profile": "compact",
+      "rate": "25",
+      "selected": "auto",
+      "status": "Auto turns aurora off on phones and tablets.",
+      "statusHidden": false,
+      "touchFirst": true,
+      "url": "http://127.0.0.1:4352/?motion=0&quality=fixed&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&exposure-mode=manual&exposure-fixed=-0.7&look-grain=.3&rate=25"
+    },
+    "layout": {
+      "note": {
+        "bottom": 456.90625,
+        "top": 441.515625
+      },
+      "panel": {
+        "bottom": 828,
+        "left": 54,
+        "right": 374,
+        "top": 16
+      },
+      "scrollWidth": 390,
+      "select": {
+        "bottom": 436.515625,
+        "left": 306,
+        "right": 354,
+        "top": 406.515625
+      },
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "on": {
+      "api": "webgl2",
+      "aurora": "volume",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "inline",
+      "errors": 0,
+      "exposure": "manual",
+      "failures": "0",
+      "fixedExposure": "-0.7",
+      "grain": "0.3",
+      "mode": "on",
+      "motion": "Play",
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "probe": {
+        "blockedContexts": 0,
+        "blockedLod": 0,
+        "footprintDraws": 1,
+        "footprintPrograms": 1,
+        "volumeDraws": 216,
+        "volumePrograms": 1
+      },
+      "profile": "compact",
+      "rate": "25",
+      "selected": "on",
+      "status": "",
+      "statusHidden": true,
+      "touchFirst": true,
+      "url": "http://127.0.0.1:4352/?motion=0&quality=fixed&t=3235.6500&pitch=-25&epoch=2026-10-06T01%3A32%3A27.000Z&exposure-mode=manual&exposure-fixed=-0.7&look-grain=0.3&rate=25&aurora=1"
+    },
+    "returnAuto": {
+      "api": "webgl",
+      "aurora": "off",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "inline",
+      "errors": 0,
+      "exposure": "manual",
+      "failures": "0",
+      "fixedExposure": "-0.7",
+      "grain": "0.3",
+      "mode": "auto",
+      "motion": "Play",
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "probe": {
+        "blockedContexts": 0,
+        "blockedLod": 0,
+        "footprintDraws": 0,
+        "footprintPrograms": 0,
+        "volumeDraws": 0,
+        "volumePrograms": 0
+      },
+      "profile": "compact",
+      "rate": "25",
+      "selected": "auto",
+      "status": "Auto turns aurora off on phones and tablets.",
+      "statusHidden": false,
+      "touchFirst": true,
+      "url": "http://127.0.0.1:4352/?motion=0&quality=fixed&t=3235.6500&pitch=-25&epoch=2026-10-06T01%3A32%3A27.000Z&exposure-mode=manual&exposure-fixed=-0.7&look-grain=0.3&rate=25"
+    },
+    "halfAuto": {
+      "api": "webgl2",
+      "aurora": "off",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "client": [
+        "http://127.0.0.1:4352/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js"
+      ],
+      "clouds": "half",
+      "errors": 0,
+      "exposure": "manual",
+      "failures": "0",
+      "fixedExposure": "-0.7",
+      "grain": "0.3",
+      "mode": "auto",
+      "motion": "Play",
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "probe": {
+        "blockedContexts": 0,
+        "blockedLod": 0,
+        "footprintDraws": 0,
+        "footprintPrograms": 0,
+        "volumeDraws": 0,
+        "volumePrograms": 0
+      },
+      "profile": "clouds-half",
+      "rate": "25",
+      "selected": "auto",
+      "status": "Auto turns aurora off on phones and tablets.",
+      "statusHidden": false,
+      "touchFirst": true,
+      "url": "http://127.0.0.1:4352/?motion=0&quality=fixed&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&exposure-mode=manual&exposure-fixed=-0.7&look-grain=.3&rate=25&render=clouds-half"
+    }
+  },
+  "harnessRetry": "Desktop checks completed; mobile template corrected to supported iPhone 15 and native CDP touch emulation enabled because the CLI device preset only changed metrics/UA; touch checks resumed.",
+  "screenshots": {
+    "desktop-auto.png": "f55575bf82cc31ef9113f4b449ff9041e6db638f2cfd2755c6044fa0153d6442",
+    "touch-auto.png": "052142185555b022df46787b0dd64a75e193ac1412510145376666bc8c4c6a6a"
+  },
+  "clients": [
+    {
+      "filename": "OrbitalSky.astro_astro_type_script_index_0_lang.DEiRGvhB.js",
+      "sha256": "972544d46ca51d32bb2cee231cc9031a04a410d1e6bc413b58562a12f8fa3b27"
+    }
+  ]
+}

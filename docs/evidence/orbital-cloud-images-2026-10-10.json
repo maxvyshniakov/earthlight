@@ -1,0 +1,480 @@
+{
+  "conditions": {
+    "viewport": [
+      1440,
+      900
+    ],
+    "exposureEV": 0,
+    "grain": 0,
+    "routeRate": 10,
+    "frameStepSeconds": 0.4166666666666667,
+    "quality": "fixed",
+    "metricUnits": "8-bit RGB channel values",
+    "acceptanceThresholds": null,
+    "launchArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36"
+  },
+  "stages": [
+    {
+      "stage": "starting",
+      "elapsedMs": 850
+    },
+    {
+      "stage": "open day/compact",
+      "elapsedMs": 200
+    },
+    {
+      "stage": "wait day/compact",
+      "elapsedMs": 11141
+    },
+    {
+      "stage": "capture day/compact (1 frames)",
+      "elapsedMs": 126
+    },
+    {
+      "stage": "open day/clouds-half",
+      "elapsedMs": 676
+    },
+    {
+      "stage": "wait day/clouds-half",
+      "elapsedMs": 11235
+    },
+    {
+      "stage": "capture day/clouds-half (1 frames)",
+      "elapsedMs": 143
+    },
+    {
+      "stage": "open night/compact",
+      "elapsedMs": 180
+    },
+    {
+      "stage": "wait night/compact",
+      "elapsedMs": 8679
+    },
+    {
+      "stage": "capture night/compact (1 frames)",
+      "elapsedMs": 101
+    },
+    {
+      "stage": "open night/clouds-half",
+      "elapsedMs": 198
+    },
+    {
+      "stage": "wait night/clouds-half",
+      "elapsedMs": 8785
+    },
+    {
+      "stage": "capture night/clouds-half (1 frames)",
+      "elapsedMs": 133
+    },
+    {
+      "stage": "open clouds/compact",
+      "elapsedMs": 171
+    },
+    {
+      "stage": "wait clouds/compact",
+      "elapsedMs": 12538
+    },
+    {
+      "stage": "capture clouds/compact (8 frames)",
+      "elapsedMs": 1476
+    },
+    {
+      "stage": "open clouds/clouds-half",
+      "elapsedMs": 204
+    },
+    {
+      "stage": "wait clouds/clouds-half",
+      "elapsedMs": 11287
+    },
+    {
+      "stage": "capture clouds/clouds-half (8 frames)",
+      "elapsedMs": 1517
+    },
+    {
+      "stage": "open horizon/compact",
+      "elapsedMs": 159
+    },
+    {
+      "stage": "wait horizon/compact",
+      "elapsedMs": 10277
+    },
+    {
+      "stage": "capture horizon/compact (1 frames)",
+      "elapsedMs": 83
+    },
+    {
+      "stage": "open horizon/clouds-half",
+      "elapsedMs": 189
+    },
+    {
+      "stage": "wait horizon/clouds-half",
+      "elapsedMs": 10265
+    },
+    {
+      "stage": "capture horizon/clouds-half (1 frames)",
+      "elapsedMs": 100
+    },
+    {
+      "stage": "open terminator/compact",
+      "elapsedMs": 205
+    },
+    {
+      "stage": "wait terminator/compact",
+      "elapsedMs": 11262
+    },
+    {
+      "stage": "capture terminator/compact (1 frames)",
+      "elapsedMs": 104
+    },
+    {
+      "stage": "open terminator/clouds-half",
+      "elapsedMs": 226
+    },
+    {
+      "stage": "wait terminator/clouds-half",
+      "elapsedMs": 11127
+    },
+    {
+      "stage": "capture terminator/clouds-half (1 frames)",
+      "elapsedMs": 115
+    },
+    {
+      "stage": "lifecycle resize",
+      "elapsedMs": 7032
+    },
+    {
+      "stage": "lifecycle context loss/restore",
+      "elapsedMs": 9839
+    },
+    {
+      "stage": "open clouds/clouds-half",
+      "elapsedMs": 219
+    },
+    {
+      "stage": "wait clouds/clouds-half",
+      "elapsedMs": 10087
+    },
+    {
+      "stage": "fallback extension",
+      "elapsedMs": 10442
+    },
+    {
+      "stage": "open clouds/clouds-half",
+      "elapsedMs": 207
+    },
+    {
+      "stage": "wait clouds/clouds-half",
+      "elapsedMs": 10665
+    },
+    {
+      "stage": "fallback framebuffer",
+      "elapsedMs": 10495
+    },
+    {
+      "stage": "open clouds/clouds-half",
+      "elapsedMs": 234
+    },
+    {
+      "stage": "wait clouds/clouds-half",
+      "elapsedMs": 10530
+    },
+    {
+      "stage": "fallback runtime-framebuffer",
+      "elapsedMs": 10378
+    },
+    {
+      "stage": "open clouds/clouds-half",
+      "elapsedMs": 201
+    },
+    {
+      "stage": "wait clouds/clouds-half",
+      "elapsedMs": 10232
+    },
+    {
+      "stage": "fallback shader",
+      "elapsedMs": 10207
+    }
+  ],
+  "images": [
+    {
+      "scene": "day",
+      "frames": 1,
+      "width": 1440,
+      "height": 900,
+      "compact": {
+        "assetFailures": "0",
+        "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.33499924276269144,0.6107419942384551,0.7174745457659514,-0.6250238752772033,-0.7138594449800636,0.3158319935443881]",
+        "cloudPass": "inline",
+        "error": 0,
+        "height": 900,
+        "position": "-0.30708297,0.70615223,0.73842584",
+        "profile": "compact",
+        "url": "http://127.0.0.1:4347/?render=compact&quality=fixed&motion=0&t=3235.65&pitch=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "half": {
+        "assetFailures": "0",
+        "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.33499924276269144,0.6107419942384551,0.7174745457659514,-0.6250238752772033,-0.7138594449800636,0.3158319935443881]",
+        "cloudBuffer": "720x450",
+        "cloudPass": "half",
+        "error": 0,
+        "height": 900,
+        "position": "-0.30708297,0.70615223,0.73842584",
+        "profile": "clouds-half",
+        "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=3235.65&pitch=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "spatialMean": 0.14109002057613168,
+      "spatialMax": 53,
+      "temporalMean": null,
+      "temporalFractionOverFour": null
+    },
+    {
+      "scene": "night",
+      "frames": 1,
+      "width": 1440,
+      "height": 900,
+      "compact": {
+        "assetFailures": "0",
+        "basis": "[-0.7578237475168501,0.20033434601544392,-0.6209422819442093,0.5268967048111952,-0.3733958456335792,-0.7635151635185042,0.38481557941255673,0.9057823647378815,-0.17741273226921905]",
+        "cloudPass": "inline",
+        "error": 0,
+        "height": 900,
+        "position": "0.53003961,-0.46954257,-0.79837068",
+        "profile": "compact",
+        "url": "http://127.0.0.1:4347/?render=compact&quality=fixed&motion=0&t=610.87&pitch=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "half": {
+        "assetFailures": "0",
+        "basis": "[-0.7578237475168501,0.20033434601544392,-0.6209422819442093,0.5268967048111952,-0.3733958456335792,-0.7635151635185042,0.38481557941255673,0.9057823647378815,-0.17741273226921905]",
+        "cloudBuffer": "720x450",
+        "cloudPass": "half",
+        "error": 0,
+        "height": 900,
+        "position": "0.53003961,-0.46954257,-0.79837068",
+        "profile": "clouds-half",
+        "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=610.87&pitch=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "spatialMean": 0.00012782921810699588,
+      "spatialMax": 1,
+      "temporalMean": null,
+      "temporalFractionOverFour": null
+    },
+    {
+      "scene": "clouds",
+      "frames": 8,
+      "width": 1440,
+      "height": 900,
+      "compact": {
+        "assetFailures": "0",
+        "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+        "cloudPass": "inline",
+        "error": 0,
+        "height": 900,
+        "position": "-0.30708297,0.70615223,0.73842584",
+        "profile": "compact",
+        "url": "http://127.0.0.1:4347/?render=compact&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "half": {
+        "assetFailures": "0",
+        "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+        "cloudBuffer": "720x450",
+        "cloudPass": "half",
+        "error": 0,
+        "height": 900,
+        "position": "-0.30708297,0.70615223,0.73842584",
+        "profile": "clouds-half",
+        "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "spatialMean": 0.4457605452674897,
+      "spatialMax": 65,
+      "temporalMean": 0.4758586860670194,
+      "temporalFractionOverFour": 0.012742026748971194
+    },
+    {
+      "scene": "horizon",
+      "frames": 1,
+      "width": 1440,
+      "height": 900,
+      "compact": {
+        "assetFailures": "0",
+        "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.27925004942013837,0.6706348867069968,0.6872177665269895,-0.6518425785547919,-0.657913322136817,0.377162184395436]",
+        "cloudPass": "inline",
+        "error": 0,
+        "height": 900,
+        "position": "-0.30708297,0.70615223,0.73842584",
+        "profile": "compact",
+        "url": "http://127.0.0.1:4347/?render=compact&quality=fixed&motion=0&t=3235.65&pitch=5&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "half": {
+        "assetFailures": "0",
+        "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.27925004942013837,0.6706348867069968,0.6872177665269895,-0.6518425785547919,-0.657913322136817,0.377162184395436]",
+        "cloudBuffer": "720x450",
+        "cloudPass": "half",
+        "error": 0,
+        "height": 900,
+        "position": "-0.30708297,0.70615223,0.73842584",
+        "profile": "clouds-half",
+        "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=3235.65&pitch=5&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "spatialMean": 0.014215277777777778,
+      "spatialMax": 37,
+      "temporalMean": null,
+      "temporalFractionOverFour": null
+    },
+    {
+      "scene": "terminator",
+      "frames": 1,
+      "width": 1440,
+      "height": 900,
+      "compact": {
+        "assetFailures": "0",
+        "basis": "[-0.7354659952579085,0.27207255578905865,-0.6205371013933846,0.48419589470504437,0.8516882467301455,-0.2004531514656538,-0.4739663546815065,0.44788799355211595,0.758124158605821]",
+        "cloudPass": "inline",
+        "error": 0,
+        "height": 900,
+        "position": "0.59251979,0.81939046,-0.34300044",
+        "profile": "compact",
+        "url": "http://127.0.0.1:4347/?render=compact&quality=fixed&motion=0&t=1900&pitch=-5&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "half": {
+        "assetFailures": "0",
+        "basis": "[-0.7354659952579085,0.27207255578905865,-0.6205371013933846,0.48419589470504437,0.8516882467301455,-0.2004531514656538,-0.4739663546815065,0.44788799355211595,0.758124158605821]",
+        "cloudBuffer": "720x450",
+        "cloudPass": "half",
+        "error": 0,
+        "height": 900,
+        "position": "0.59251979,0.81939046,-0.34300044",
+        "profile": "clouds-half",
+        "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=1900&pitch=-5&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+        "volumePass": "separate",
+        "width": 1440
+      },
+      "spatialMean": 0.12517772633744856,
+      "spatialMax": 35,
+      "temporalMean": null,
+      "temporalFractionOverFour": null
+    }
+  ],
+  "lifecycle": {
+    "resized": {
+      "assetFailures": "0",
+      "basis": "[-0.7354659952579085,0.27207255578905865,-0.6205371013933846,0.48419589470504437,0.8516882467301455,-0.2004531514656538,-0.4739663546815065,0.44788799355211595,0.758124158605821]",
+      "cloudBuffer": "401x301",
+      "cloudPass": "half",
+      "error": 0,
+      "height": 601,
+      "position": "0.59251979,0.81939046,-0.34300044",
+      "profile": "clouds-half",
+      "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=1900.00&pitch=-5&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+      "volumePass": "separate",
+      "width": 801
+    },
+    "restored": {
+      "assetFailures": "0",
+      "basis": "[-0.7354659952579085,0.27207255578905865,-0.6205371013933846,0.48419589470504437,0.8516882467301455,-0.2004531514656538,-0.4739663546815065,0.44788799355211595,0.758124158605821]",
+      "cloudBuffer": "401x301",
+      "cloudPass": "half",
+      "error": 0,
+      "height": 601,
+      "position": "0.59251979,0.81939046,-0.34300044",
+      "profile": "clouds-half",
+      "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=1900.00&pitch=-5&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+      "volumePass": "separate",
+      "width": 801
+    }
+  },
+  "fallbacks": {
+    "extension": {
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "cloudPass": "compact-fallback",
+      "error": 0,
+      "height": 601,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "clouds-half",
+      "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+      "volumePass": "separate",
+      "width": 801,
+      "probe": {
+        "hits": 1,
+        "mode": "extension"
+      }
+    },
+    "framebuffer": {
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "cloudPass": "compact-fallback",
+      "error": 0,
+      "height": 601,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "clouds-half",
+      "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+      "volumePass": "separate",
+      "width": 801,
+      "probe": {
+        "failedSize": [
+          1,
+          1
+        ],
+        "hits": 1,
+        "mode": "framebuffer",
+        "probePassed": true
+      }
+    },
+    "runtime-framebuffer": {
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "cloudPass": "compact-fallback",
+      "error": 0,
+      "height": 601,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "clouds-half",
+      "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+      "volumePass": "separate",
+      "width": 801,
+      "probe": {
+        "failedSize": [
+          241,
+          181
+        ],
+        "hits": 1,
+        "mode": "runtime-framebuffer",
+        "probePassed": true
+      }
+    },
+    "shader": {
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "cloudPass": "compact-fallback",
+      "error": 0,
+      "height": 601,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "clouds-half",
+      "url": "http://127.0.0.1:4347/?render=clouds-half&quality=fixed&motion=0&t=3235.65&pitch=-25&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0",
+      "volumePass": "separate",
+      "width": 801,
+      "probe": {
+        "hits": 1,
+        "mode": "shader"
+      }
+    }
+  }
+}

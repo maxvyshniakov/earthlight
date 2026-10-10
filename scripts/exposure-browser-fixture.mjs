@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import {browserModule} from './browser-module.mjs';
+import * as cameraModel from '../src/scripts/camera-model.ts';
+export async function verifyExposure(evaluate){
+ const exposureModule=await browserModule('camera-exposure');
+ const exposure=await evaluate(`(()=>{
+  const exports=${exposureModule};
+  const canvas=document.createElement('canvas'),gl=canvas.getContext('webgl');
+  const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+  for(const f of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,f,gl.NEAREST);
+  const fill=value=>{gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([value,value,value,255]));};
+  const read=()=>{const v=new Uint8Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,v);return (v[0]*256+v[1])/65535*${cameraModel.EXPOSURE_MAX_EV-cameraModel.EXPOSURE_MIN_EV}+(${cameraModel.EXPOSURE_MIN_EV});};
+  const run=hz=>{const meter=new exports.CameraExposure(gl);fill(10);meter.update(texture,true,false,0);const first=read();fill(1);const rise=[];for(let i=1;i<=7*hz;i++){meter.update(texture,true,false,i*1000/hz);if(i%hz===0)rise.push(read());}fill(10);const fall=[];for(let i=1;i<=hz;i++){meter.update(texture,true,false,7000+i*1000/hz);if(i%Math.round(hz/5)===0)fall.push(read());}const held=read();meter.update(texture,true,false,8000);const sameTime=read();meter.dispose();return {first,rise,fall,held,sameTime};};
+  const low=run(30),high=run(120);
+  const solar=(position,visible=1)=>{const meter=new exports.CameraExposure(gl);fill(1);meter.update(texture,true,false,0,[position,.13,visible],1.5);const ev=read();meter.dispose();return ev;};
+  const sun=solar(.17),offscreen=solar(2),occluded=solar(.17,0);
+  const highlightMeter=new exports.CameraExposure(gl);fill(255);highlightMeter.update(texture,true,false,0);const highlight=read();highlightMeter.dispose();
+  const emission=(band,offset=0)=>{const meter=new exports.CameraExposure(gl),pixels=new Uint8Array(128*128*4);
+   for(let y=0;y<128;y++)for(let x=0;x<128;x++){let i=(y*128+x)*4;pixels[i+3]=255;if(band?y>=offset&&y<offset+4:x===66&&y===66){pixels[i]=5;pixels[i+1]=128;pixels[i+2]=12;}}
+   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,128,128,0,gl.RGBA,gl.UNSIGNED_BYTE,pixels);meter.update(texture,true,false,0,[0,0,0],1.5,null,null);const ev=read();meter.dispose();return ev;};
+  const aurora=emission(true,66),auroraShifted=emission(true,69),point=emission(false);
+  const uniform=(value,manual=null)=>{const meter=new exports.CameraExposure(gl);fill(value);meter.update(texture,true,false,0,[0,0,0],1.5,null,manual);const ev=read();meter.dispose();return ev;};
+  const uniformLevels=[0,1,4,16,64,255].map(value=>uniform(value));
+  const manual=[0,1,255].map(value=>uniform(value,1.2));
+  const manualMinimum=uniform(255,${cameraModel.EXPOSURE_MIN_EV});
+  const flashMeter=new exports.CameraExposure(gl);fill(1);flashMeter.update(texture,true,false,0);const beforeFlash=read();fill(255);
+  const flash=[];for(let i=1;i<=8;i++){flashMeter.update(texture,true,false,i*10);flash.push(read());}
+  fill(1);flashMeter.update(texture,true,false,90);const afterFlash=read();flashMeter.dispose();
+  const error=gl.getError();gl.deleteTexture(texture);gl.getExtension('WEBGL_lose_context')?.loseContext();return {low,high,sun,offscreen,occluded,highlight,aurora,auroraShifted,point,uniformLevels,manual,manualMinimum,beforeFlash,flash,afterFlash,error};
+ })()`);
+ assert.equal(exposure.error,0);
+ assert.ok(Math.abs(exposure.sun-cameraModel.AUTO_EXPOSURE_MIN_EV)<.001,'solar disk reaches the brighter automatic floor even between grid taps');
+ assert.ok(Math.abs(exposure.offscreen-exposure.occluded)<.001,'occluded and offscreen sunlight cannot affect the meter');
+ assert.ok(Math.abs(exposure.highlight-cameraModel.AUTO_EXPOSURE_MIN_EV)<.001,'extended glare reaches the brighter automatic floor');
+ assert.ok(exposure.aurora<1.0,'thin colored emission protects its strongest channel');
+ assert.ok(Math.abs(exposure.aurora-exposure.auroraShifted)<.05,'moving a thin curtain between grid rows must retain metering');
+ assert.ok(exposure.point>4,'an isolated point must not darken the sky');
+ assert.ok(Math.abs(exposure.uniformLevels[0]-cameraModel.EXPOSURE_MAX_EV)<.001,'black frame reaches the single bounded ceiling');
+ for(let i=1;i<exposure.uniformLevels.length;i++)assert.ok(exposure.uniformLevels[i]<=exposure.uniformLevels[i-1],'more light never raises exposure');
+ for(let i=2;i<5;i++)if(exposure.uniformLevels[i]>cameraModel.AUTO_EXPOSURE_MIN_EV+.001)assert.ok(Math.abs(exposure.uniformLevels[i-1]-exposure.uniformLevels[i]-2)<.005,'fourfold radiance reduces exposure by two stops');
+ assert.ok(Math.abs(exposure.manualMinimum-cameraModel.EXPOSURE_MIN_EV)<.001,'manual mode retains its original lower limit');
+ assert.ok(exposure.manual.every(ev=>Math.abs(ev-1.2)<.001),'manual exposure stays fixed from dark to daylight');
+ assert.ok(exposure.flash.every(ev=>Math.abs(ev-exposure.beforeFlash)<.005)&&Math.abs(exposure.afterFlash-exposure.beforeFlash)<.005,'an 80 ms flash cannot pump exposure');
+ for(const sample of [exposure.low,exposure.high]){
+  const target=exposure.uniformLevels[1];
+  assert.ok(Math.abs(sample.rise[0]-(target+(sample.first-target)*Math.exp(-1/1.25)))<.005);
+  assert.ok(sample.rise.every((v,i,a)=>i===0||v>=a[i-1]));
+  assert.ok(Math.abs(sample.rise.at(-1)-(target+(sample.first-target)*Math.exp(-7/1.25)))<.004);
+  assert.ok(sample.fall.every((v,i,a)=>i===0||v<=a[i-1]));
+  assert.ok(sample.fall.at(-1)<sample.first+.7,'sustained daylight converges after the flash hold');
+  assert.equal(sample.held,sample.sameTime);
+ }
+ assert.ok(Math.abs(exposure.low.rise[0]-exposure.high.rise[0])<.002);
+ return exposure;
+}

@@ -1,0 +1,614 @@
+[
+  {
+    "saveDataRequests": 6
+  },
+  {
+    "slowFocus": [
+      {
+        "assets": "detail",
+        "at": 104.0999999642372,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 200.0999999642372,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 300.19999998807907,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 400.199999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 500.199999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 600.1999999880791,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 701.1999999880791,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 801.6999999880791,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 900.7999999523164,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1001.399999976158,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1101,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1201.5999999642372,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1301.0999999642372,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1401.0999999642372,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1501,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1601.0999999642372,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1702,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1801.899999976158,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 1901.2999999523165,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2000.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2101,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2201.399999976158,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2300.899999976158,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2402,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2500.7999999523163,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2600.7999999523163,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2700.7999999523163,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2801.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 2900.7999999523163,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3002.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3101.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3200.7999999523163,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3301.399999976158,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3401.7999999523163,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3501.599999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3600.7999999523163,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3701.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3800.799999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 3901.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4002.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4101.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4201.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4301.899999976158,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4401.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4501.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4600.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4701.599999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4801.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 4900.399999976158,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5000.799999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5101.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5202,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5301.5,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5400.799999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5500.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5600.799999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5702,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5800.399999976158,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 5901.199999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 6001.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 6101.799999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 6
+      },
+      {
+        "assets": "detail",
+        "at": 6201.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 5.926
+      },
+      {
+        "assets": "detail",
+        "at": 6302.099999964237,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 5.718
+      },
+      {
+        "assets": "detail",
+        "at": 6400.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 5.201
+      },
+      {
+        "assets": "detail",
+        "at": 6500.799999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 4.747
+      },
+      {
+        "assets": "detail",
+        "at": 6601,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 4.229
+      },
+      {
+        "assets": "detail",
+        "at": 6701.299999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 3.378
+      },
+      {
+        "assets": "detail",
+        "at": 6800.699999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 2.788
+      },
+      {
+        "assets": "detail",
+        "at": 6901.299999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 2.217
+      },
+      {
+        "assets": "detail",
+        "at": 7001,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 1.401
+      },
+      {
+        "assets": "detail",
+        "at": 7101.199999988079,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 0.923
+      },
+      {
+        "assets": "detail",
+        "at": 7200.799999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 0.366
+      },
+      {
+        "assets": "detail",
+        "at": 7300.799999952316,
+        "filter": "none",
+        "focus": "acquiring",
+        "radius": 0.121
+      },
+      {
+        "assets": "detail",
+        "at": 7401.699999988079,
+        "filter": "none",
+        "focus": "sharp",
+        "radius": 0
+      }
+    ]
+  },
+  {
+    "byteTarget": false,
+    "optical": {
+      "error": 0,
+      "filter": "none",
+      "noiseVariance": 11.142452239990234,
+      "samples": [
+        {
+          "area": 64,
+          "energy": 34.462098163845035,
+          "radius": 0
+        },
+        {
+          "area": 242,
+          "energy": 34.64853260642283,
+          "radius": 6
+        }
+      ]
+    }
+  },
+  {
+    "byteTarget": true,
+    "optical": {
+      "error": 0,
+      "filter": "none",
+      "noiseVariance": 11.15701961517334,
+      "samples": [
+        {
+          "area": 64,
+          "energy": 34.462098163845035,
+          "radius": 0
+        },
+        {
+          "area": 242,
+          "energy": 34.657870981259066,
+          "radius": 6
+        }
+      ]
+    }
+  },
+  {
+    "cameraDrag": {
+      "dragging": false,
+      "motion": "Play",
+      "pitch": 8.711180124223603,
+      "url": "?t=900.00&motion=0&epoch=2026-10-06T01%3A15%3A47.860Z&yaw=-14.404761904761926&pitch=8.711180124223603",
+      "yaw": -14.404761904761926
+    }
+  },
+  {
+    "spacePlayback": true
+  },
+  {
+    "flight": {
+      "detached": 429.105,
+      "moved": 537.255,
+      "restored": 537.255,
+      "limits": [
+        150,
+        50000
+      ],
+      "routes": [
+        "iss",
+        "polar",
+        "high"
+      ]
+    }
+  },
+  {
+    "touch": {
+      "look": true,
+      "pan": true,
+      "pinch": true,
+      "rebase": true,
+      "cancel": true,
+      "panelScroll": true,
+      "urlRestored": true
+    }
+  },
+  {
+    "calendar": {
+      "date": "2028-02-29T12:00:00.000Z",
+      "restored": "2028-02-29T12:00:00.000Z",
+      "default": "2026-10-10T08:55:47.853Z",
+      "cameraUnchanged": true
+    }
+  }
+]

@@ -1,0 +1,56 @@
+{
+  "name": "earthlight",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "node scripts/preview.mjs",
+    "check": "astro check",
+    "verify": "node --test scripts/extraction-tools.test.mjs scripts/iss-orbit.test.mjs scripts/celestial-sky.test.mjs scripts/night-tiles.test.mjs scripts/earth-terrain.test.mjs scripts/terrain-detail.test.mjs scripts/scene-runtime.test.mjs scripts/scene-quality.test.mjs scripts/cloud-buffer.test.mjs scripts/webgl-context.test.mjs scripts/shader-programs.test.mjs scripts/texture-profile.test.mjs scripts/browser-module.test.mjs scripts/scene-assets-startup.test.mjs && npm run check && npm run build",
+    "verify:scene": "node scripts/verify-scene-browser.mjs",
+    "benchmark:scene": "node scripts/benchmark-scene-profiles.mjs",
+    "verify:profiles": "node scripts/verify-scene-profiles.mjs",
+    "benchmark:pairs": "node scripts/benchmark-candidate-pairs.mjs",
+    "verify:motion": "node scripts/verify-candidate-motion.mjs",
+    "assets": "node scripts/fetch-assets.mjs",
+    "sync:site": "node scripts/sync-from-site.mjs"
+  },
+  "dependencies": {
+    "astro": "7.3.5",
+    "astronomy-engine": "2.1.19",
+    "geotiff": "^3.0.4",
+    "satellite.js": "6.0.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "sharp": "0.35.5",
+    "typescript": "6.0.3"
+  },
+  "description": "Earth from low orbit, rendered in real time with raw WebGL",
+  "exports": {
+    "./astro": "./src/components/OrbitalSky.astro",
+    "./element": "./src/scripts/orbital-sky.ts",
+    "./terrain": "./server/terrain-source.mjs",
+    "./terrain-middleware": "./server/terrain-middleware.mjs"
+  },
+  "files": [
+    "src/components",
+    "src/scripts",
+    "src/data",
+    "server",
+    "NOTICE.md",
+    "public/media/orbit/*.txt",
+    "public/media/orbit/README.md"
+  ],
+  "author": "Max Vyshniakov",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxvyshniakov/earthlight.git"
+  }
+}

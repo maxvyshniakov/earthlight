@@ -1,0 +1,74 @@
+[
+  {
+    "name": "india-coast",
+    "format": "avif",
+    "q": 50,
+    "bytes": 18263,
+    "psnr": 38.17655308165813,
+    "edgeError": 2.0700400997603796
+  },
+  {
+    "name": "india-coast",
+    "format": "avif",
+    "q": 65,
+    "bytes": 29081,
+    "psnr": 40.416428860610196,
+    "edgeError": 1.764678794399074
+  },
+  {
+    "name": "india-coast",
+    "format": "webp",
+    "q": 85,
+    "bytes": 32634,
+    "psnr": 39.295034229637274,
+    "edgeError": 2.0174794610983424
+  },
+  {
+    "name": "himalaya",
+    "format": "avif",
+    "q": 50,
+    "bytes": 35554,
+    "psnr": 31.096780147115606,
+    "edgeError": 5.507698012942768
+  },
+  {
+    "name": "himalaya",
+    "format": "avif",
+    "q": 65,
+    "bytes": 61006,
+    "psnr": 34.77473456439795,
+    "edgeError": 4.089621334376579
+  },
+  {
+    "name": "himalaya",
+    "format": "webp",
+    "q": 85,
+    "bytes": 90550,
+    "psnr": 36.98379128878046,
+    "edgeError": 2.92984172005151
+  },
+  {
+    "name": "desert",
+    "format": "avif",
+    "q": 50,
+    "bytes": 22161,
+    "psnr": 36.80625072423062,
+    "edgeError": 2.459227835101961
+  },
+  {
+    "name": "desert",
+    "format": "avif",
+    "q": 65,
+    "bytes": 37020,
+    "psnr": 40.31108024437418,
+    "edgeError": 1.7799240386652975
+  },
+  {
+    "name": "desert",
+    "format": "webp",
+    "q": 85,
+    "bytes": 42742,
+    "psnr": 39.28553775454594,
+    "edgeError": 2.137524043555512
+  }
+]

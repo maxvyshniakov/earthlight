@@ -1,0 +1,3956 @@
+{
+  "conditions": {
+    "api": "webgl",
+    "viewport": [
+      1440,
+      900
+    ],
+    "render": "compact",
+    "quality": "fixed",
+    "epoch": "2026-10-06T01:32:27Z",
+    "grain": 0,
+    "metricUnits": "8-bit RGB channels",
+    "acceptanceThresholds": null,
+    "launchArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding"
+  },
+  "images": [
+    {
+      "scene": "night",
+      "settings": {
+        "name": "night",
+        "t": 610.87,
+        "pitch": 0,
+        "galaxy": 1,
+        "exposure": 0
+      },
+      "reference": {
+        "api": "webgl",
+        "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.5268954781226495,-0.3733988098038303,-0.7635145604184557,0.3848171684423579,0.905781180549901,-0.17741533145033989]",
+        "error": 0,
+        "failures": "0",
+        "galaxyMapWidth": 4096,
+        "galaxyTiles": {
+          "bytes": 1954491,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 17,
+          "resident": 17,
+          "wanted": 17
+        },
+        "height": 900,
+        "position": "0.53003818,-0.46954563,-0.79836983",
+        "profile": "compact",
+        "resources": [
+          {
+            "encodedBytes": 5214,
+            "path": "/media/orbit/preview/poster.webp",
+            "transferBytes": 5514
+          },
+          {
+            "encodedBytes": 11546,
+            "path": "/media/orbit/preview/day.webp",
+            "transferBytes": 11846
+          },
+          {
+            "encodedBytes": 8350,
+            "path": "/media/orbit/preview/night.webp",
+            "transferBytes": 8650
+          },
+          {
+            "encodedBytes": 88586,
+            "path": "/media/orbit/preview/clouds.webp",
+            "transferBytes": 88886
+          },
+          {
+            "encodedBytes": 13316,
+            "path": "/media/orbit/preview/galaxy.webp",
+            "transferBytes": 13616
+          },
+          {
+            "encodedBytes": 589824,
+            "path": "/media/orbit/optical-psf.bin",
+            "transferBytes": 590124
+          },
+          {
+            "encodedBytes": 499136,
+            "path": "/media/orbit/stars-hyg.bin",
+            "transferBytes": 499436
+          },
+          {
+            "encodedBytes": 9292,
+            "path": "/media/orbit/night-tiles/manifest.json",
+            "transferBytes": 9592
+          },
+          {
+            "encodedBytes": 17078,
+            "path": "/media/orbit/day-tiles/manifest.json",
+            "transferBytes": 17378
+          },
+          {
+            "encodedBytes": 1193,
+            "path": "/media/orbit/cloud-tiles/manifest.json",
+            "transferBytes": 1493
+          },
+          {
+            "encodedBytes": 1178,
+            "path": "/media/orbit/terrain-tiles/manifest.json",
+            "transferBytes": 1478
+          },
+          {
+            "encodedBytes": 61880,
+            "path": "/media/orbit/terrain-tiles/copernicus.json",
+            "transferBytes": 62180
+          },
+          {
+            "encodedBytes": 749,
+            "path": "/media/orbit/galaxy-tiles/manifest.json",
+            "transferBytes": 1049
+          },
+          {
+            "encodedBytes": 569480,
+            "path": "/media/orbit/milky-way.avif",
+            "transferBytes": 569780
+          },
+          {
+            "encodedBytes": 2385,
+            "path": "/media/orbit/terrain-tiles/578.png",
+            "transferBytes": 2685
+          },
+          {
+            "encodedBytes": 2666,
+            "path": "/media/orbit/terrain-tiles/657.png",
+            "transferBytes": 2966
+          },
+          {
+            "encodedBytes": 468,
+            "path": "/media/orbit/night-tiles/10628.avif",
+            "transferBytes": 768
+          },
+          {
+            "encodedBytes": 369,
+            "path": "/media/orbit/night-tiles/9991.avif",
+            "transferBytes": 669
+          },
+          {
+            "encodedBytes": 28921,
+            "path": "/media/orbit/cloud-tiles/397.avif",
+            "transferBytes": 29221
+          },
+          {
+            "encodedBytes": 18452,
+            "path": "/media/orbit/cloud-tiles/429.avif",
+            "transferBytes": 18752
+          },
+          {
+            "encodedBytes": 35075,
+            "path": "/media/orbit/cloud-tiles/365.avif",
+            "transferBytes": 35375
+          },
+          {
+            "encodedBytes": 123276,
+            "path": "/media/orbit/galaxy-tiles/283.avif",
+            "transferBytes": 123576
+          },
+          {
+            "encodedBytes": 123816,
+            "path": "/media/orbit/galaxy-tiles/252.avif",
+            "transferBytes": 124116
+          },
+          {
+            "encodedBytes": 123003,
+            "path": "/media/orbit/galaxy-tiles/284.avif",
+            "transferBytes": 123303
+          },
+          {
+            "encodedBytes": 3761,
+            "path": "/media/orbit/terrain-tiles/656.png",
+            "transferBytes": 4061
+          },
+          {
+            "encodedBytes": 15201,
+            "path": "/media/orbit/terrain-tiles/698.png",
+            "transferBytes": 15501
+          },
+          {
+            "encodedBytes": 405435,
+            "path": "/media/orbit/earth-day-bmng.avif",
+            "transferBytes": 405735
+          },
+          {
+            "encodedBytes": 31370,
+            "path": "/media/orbit/cloud-tiles/398.avif",
+            "transferBytes": 31670
+          },
+          {
+            "encodedBytes": 32563,
+            "path": "/media/orbit/cloud-tiles/366.avif",
+            "transferBytes": 32863
+          },
+          {
+            "encodedBytes": 26458,
+            "path": "/media/orbit/cloud-tiles/430.avif",
+            "transferBytes": 26758
+          },
+          {
+            "encodedBytes": 334722,
+            "path": "/media/orbit/earth-night-8k.avif",
+            "transferBytes": 335022
+          },
+          {
+            "encodedBytes": 123623,
+            "path": "/media/orbit/galaxy-tiles/251.avif",
+            "transferBytes": 123923
+          },
+          {
+            "encodedBytes": 121221,
+            "path": "/media/orbit/galaxy-tiles/285.avif",
+            "transferBytes": 121521
+          },
+          {
+            "encodedBytes": 49515,
+            "path": "/media/orbit/terrain-tiles/699.png",
+            "transferBytes": 49815
+          },
+          {
+            "encodedBytes": 100331,
+            "path": "/media/orbit/galaxy-tiles/316.avif",
+            "transferBytes": 100631
+          },
+          {
+            "encodedBytes": 29967,
+            "path": "/media/orbit/cloud-tiles/396.avif",
+            "transferBytes": 30267
+          },
+          {
+            "encodedBytes": 31807,
+            "path": "/media/orbit/cloud-tiles/364.avif",
+            "transferBytes": 32107
+          },
+          {
+            "encodedBytes": 26855,
+            "path": "/media/orbit/cloud-tiles/428.avif",
+            "transferBytes": 27155
+          },
+          {
+            "encodedBytes": 112765,
+            "path": "/media/orbit/galaxy-tiles/315.avif",
+            "transferBytes": 113065
+          },
+          {
+            "encodedBytes": 123720,
+            "path": "/media/orbit/galaxy-tiles/253.avif",
+            "transferBytes": 124020
+          },
+          {
+            "encodedBytes": 1316,
+            "path": "/media/orbit/cloud-tiles/461.avif",
+            "transferBytes": 1616
+          },
+          {
+            "encodedBytes": 110130,
+            "path": "/media/orbit/galaxy-tiles/220.avif",
+            "transferBytes": 110430
+          },
+          {
+            "encodedBytes": 10163,
+            "path": "/media/orbit/cloud-tiles/462.avif",
+            "transferBytes": 10463
+          },
+          {
+            "encodedBytes": 990,
+            "path": "/media/orbit/cloud-tiles/460.avif",
+            "transferBytes": 1290
+          },
+          {
+            "encodedBytes": 122783,
+            "path": "/media/orbit/galaxy-tiles/282.avif",
+            "transferBytes": 123083
+          },
+          {
+            "encodedBytes": 109394,
+            "path": "/media/orbit/galaxy-tiles/219.avif",
+            "transferBytes": 109694
+          },
+          {
+            "encodedBytes": 28556,
+            "path": "/media/orbit/cloud-tiles/333.avif",
+            "transferBytes": 28856
+          },
+          {
+            "encodedBytes": 122601,
+            "path": "/media/orbit/galaxy-tiles/250.avif",
+            "transferBytes": 122901
+          },
+          {
+            "encodedBytes": 37831,
+            "path": "/media/orbit/cloud-tiles/399.avif",
+            "transferBytes": 38131
+          },
+          {
+            "encodedBytes": 29474,
+            "path": "/media/orbit/cloud-tiles/334.avif",
+            "transferBytes": 29774
+          },
+          {
+            "encodedBytes": 109461,
+            "path": "/media/orbit/galaxy-tiles/221.avif",
+            "transferBytes": 109761
+          },
+          {
+            "encodedBytes": 86447,
+            "path": "/media/orbit/galaxy-tiles/317.avif",
+            "transferBytes": 86747
+          },
+          {
+            "encodedBytes": 29080,
+            "path": "/media/orbit/cloud-tiles/332.avif",
+            "transferBytes": 29380
+          },
+          {
+            "encodedBytes": 112778,
+            "path": "/media/orbit/galaxy-tiles/314.avif",
+            "transferBytes": 113078
+          },
+          {
+            "encodedBytes": 30961,
+            "path": "/media/orbit/cloud-tiles/367.avif",
+            "transferBytes": 31261
+          },
+          {
+            "encodedBytes": 30052,
+            "path": "/media/orbit/cloud-tiles/431.avif",
+            "transferBytes": 30352
+          },
+          {
+            "encodedBytes": 107654,
+            "path": "/media/orbit/galaxy-tiles/218.avif",
+            "transferBytes": 107954
+          },
+          {
+            "encodedBytes": 121488,
+            "path": "/media/orbit/galaxy-tiles/286.avif",
+            "transferBytes": 121788
+          },
+          {
+            "encodedBytes": 35105,
+            "path": "/media/orbit/cloud-tiles/335.avif",
+            "transferBytes": 35405
+          },
+          {
+            "encodedBytes": 10611,
+            "path": "/media/orbit/cloud-tiles/463.avif",
+            "transferBytes": 10911
+          },
+          {
+            "encodedBytes": 792817,
+            "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+            "transferBytes": 793117
+          },
+          {
+            "encodedBytes": 8357838,
+            "path": "/media/orbit/earth-terrain-8192-v2.dem",
+            "transferBytes": 8358138
+          }
+        ],
+        "textureProfile": "reference",
+        "url": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=0&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&look-galaxy=1&exposure-mode=manual&exposure-fixed=0",
+        "width": 1440,
+        "requestedURL": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=0&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&look-galaxy=1&exposure-mode=manual&exposure-fixed=0"
+      },
+      "compact": {
+        "api": "webgl",
+        "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.5268954781226495,-0.3733988098038303,-0.7635145604184557,0.3848171684423579,0.905781180549901,-0.17741533145033989]",
+        "error": 0,
+        "failures": "0",
+        "galaxyMapWidth": 2048,
+        "galaxyTiles": {
+          "bytes": 1954491,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 17,
+          "resident": 17,
+          "wanted": 17
+        },
+        "height": 900,
+        "position": "0.53003818,-0.46954563,-0.79836983",
+        "profile": "compact",
+        "resources": [
+          {
+            "encodedBytes": 0,
+            "path": "/media/orbit/preview/poster.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 11546,
+            "path": "/media/orbit/preview/day.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 8350,
+            "path": "/media/orbit/preview/night.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 88586,
+            "path": "/media/orbit/preview/clouds.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 13316,
+            "path": "/media/orbit/preview/galaxy.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 589824,
+            "path": "/media/orbit/optical-psf.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 499136,
+            "path": "/media/orbit/stars-hyg.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 9292,
+            "path": "/media/orbit/night-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 17078,
+            "path": "/media/orbit/day-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1193,
+            "path": "/media/orbit/cloud-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1178,
+            "path": "/media/orbit/terrain-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 61880,
+            "path": "/media/orbit/terrain-tiles/copernicus.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 749,
+            "path": "/media/orbit/galaxy-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 307627,
+            "path": "/media/orbit/mobile/galaxy-2048.avif",
+            "transferBytes": 307927
+          },
+          {
+            "encodedBytes": 405435,
+            "path": "/media/orbit/earth-day-bmng.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123276,
+            "path": "/media/orbit/galaxy-tiles/283.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123816,
+            "path": "/media/orbit/galaxy-tiles/252.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123003,
+            "path": "/media/orbit/galaxy-tiles/284.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 2666,
+            "path": "/media/orbit/terrain-tiles/657.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 2385,
+            "path": "/media/orbit/terrain-tiles/578.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 468,
+            "path": "/media/orbit/night-tiles/10628.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 369,
+            "path": "/media/orbit/night-tiles/9991.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 28921,
+            "path": "/media/orbit/cloud-tiles/397.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 18452,
+            "path": "/media/orbit/cloud-tiles/429.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 35075,
+            "path": "/media/orbit/cloud-tiles/365.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 334722,
+            "path": "/media/orbit/earth-night-8k.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123623,
+            "path": "/media/orbit/galaxy-tiles/251.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 121221,
+            "path": "/media/orbit/galaxy-tiles/285.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 792817,
+            "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 3761,
+            "path": "/media/orbit/terrain-tiles/656.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 15201,
+            "path": "/media/orbit/terrain-tiles/698.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 100331,
+            "path": "/media/orbit/galaxy-tiles/316.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 31370,
+            "path": "/media/orbit/cloud-tiles/398.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 32563,
+            "path": "/media/orbit/cloud-tiles/366.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 26458,
+            "path": "/media/orbit/cloud-tiles/430.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 112765,
+            "path": "/media/orbit/galaxy-tiles/315.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 49515,
+            "path": "/media/orbit/terrain-tiles/699.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123720,
+            "path": "/media/orbit/galaxy-tiles/253.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 110130,
+            "path": "/media/orbit/galaxy-tiles/220.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29967,
+            "path": "/media/orbit/cloud-tiles/396.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 31807,
+            "path": "/media/orbit/cloud-tiles/364.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 26855,
+            "path": "/media/orbit/cloud-tiles/428.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122783,
+            "path": "/media/orbit/galaxy-tiles/282.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 109394,
+            "path": "/media/orbit/galaxy-tiles/219.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122601,
+            "path": "/media/orbit/galaxy-tiles/250.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1316,
+            "path": "/media/orbit/cloud-tiles/461.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 10163,
+            "path": "/media/orbit/cloud-tiles/462.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 990,
+            "path": "/media/orbit/cloud-tiles/460.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 109461,
+            "path": "/media/orbit/galaxy-tiles/221.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 86447,
+            "path": "/media/orbit/galaxy-tiles/317.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 28556,
+            "path": "/media/orbit/cloud-tiles/333.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 37831,
+            "path": "/media/orbit/cloud-tiles/399.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 112778,
+            "path": "/media/orbit/galaxy-tiles/314.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29474,
+            "path": "/media/orbit/cloud-tiles/334.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 107654,
+            "path": "/media/orbit/galaxy-tiles/218.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 121488,
+            "path": "/media/orbit/galaxy-tiles/286.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29080,
+            "path": "/media/orbit/cloud-tiles/332.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 30961,
+            "path": "/media/orbit/cloud-tiles/367.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 30052,
+            "path": "/media/orbit/cloud-tiles/431.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 35105,
+            "path": "/media/orbit/cloud-tiles/335.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 10611,
+            "path": "/media/orbit/cloud-tiles/463.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 8357838,
+            "path": "/media/orbit/earth-terrain-8192-v2.dem",
+            "transferBytes": 300
+          }
+        ],
+        "textureProfile": "compact",
+        "url": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=0&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&look-galaxy=1&exposure-mode=manual&exposure-fixed=0&texture=compact",
+        "width": 1440,
+        "requestedURL": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=0&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&look-galaxy=1&exposure-mode=manual&exposure-fixed=0&texture=compact"
+      },
+      "mean": 0.005347736625514403,
+      "rms": 0.07314228762270926,
+      "max": 2,
+      "fractionOverOne": 0.00000102880658436214,
+      "fractionOverFour": 0
+    },
+    {
+      "scene": "diffuse-sky",
+      "settings": {
+        "name": "diffuse-sky",
+        "t": 610.87,
+        "pitch": 45,
+        "galaxy": 2,
+        "exposure": 2
+      },
+      "reference": {
+        "api": "webgl",
+        "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.10046453623445645,-0.9045168455372656,-0.41443473925156177,0.6446781948796508,0.3764511845387172,-0.6653379071615502]",
+        "error": 0,
+        "failures": "0",
+        "galaxyMapWidth": 4096,
+        "galaxyTiles": {
+          "bytes": 2171578,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 32,
+          "resident": 17,
+          "wanted": 17
+        },
+        "height": 900,
+        "position": "0.53003818,-0.46954563,-0.79836983",
+        "profile": "compact",
+        "resources": [
+          {
+            "encodedBytes": 0,
+            "path": "/media/orbit/preview/poster.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 11546,
+            "path": "/media/orbit/preview/day.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 8350,
+            "path": "/media/orbit/preview/night.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 88586,
+            "path": "/media/orbit/preview/clouds.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 13316,
+            "path": "/media/orbit/preview/galaxy.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 589824,
+            "path": "/media/orbit/optical-psf.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 499136,
+            "path": "/media/orbit/stars-hyg.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 9292,
+            "path": "/media/orbit/night-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 17078,
+            "path": "/media/orbit/day-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1193,
+            "path": "/media/orbit/cloud-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1178,
+            "path": "/media/orbit/terrain-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 61880,
+            "path": "/media/orbit/terrain-tiles/copernicus.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 749,
+            "path": "/media/orbit/galaxy-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 569480,
+            "path": "/media/orbit/milky-way.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 405435,
+            "path": "/media/orbit/earth-day-bmng.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 113266,
+            "path": "/media/orbit/galaxy-tiles/313.avif",
+            "transferBytes": 113566
+          },
+          {
+            "encodedBytes": 113633,
+            "path": "/media/orbit/galaxy-tiles/312.avif",
+            "transferBytes": 113933
+          },
+          {
+            "encodedBytes": 121656,
+            "path": "/media/orbit/galaxy-tiles/281.avif",
+            "transferBytes": 121956
+          },
+          {
+            "encodedBytes": 334722,
+            "path": "/media/orbit/earth-night-8k.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 792817,
+            "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122087,
+            "path": "/media/orbit/galaxy-tiles/280.avif",
+            "transferBytes": 122387
+          },
+          {
+            "encodedBytes": 112778,
+            "path": "/media/orbit/galaxy-tiles/314.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 81589,
+            "path": "/media/orbit/galaxy-tiles/345.avif",
+            "transferBytes": 81889
+          },
+          {
+            "encodedBytes": 114034,
+            "path": "/media/orbit/galaxy-tiles/311.avif",
+            "transferBytes": 114334
+          },
+          {
+            "encodedBytes": 84768,
+            "path": "/media/orbit/galaxy-tiles/344.avif",
+            "transferBytes": 85068
+          },
+          {
+            "encodedBytes": 121270,
+            "path": "/media/orbit/galaxy-tiles/249.avif",
+            "transferBytes": 121570
+          },
+          {
+            "encodedBytes": 122783,
+            "path": "/media/orbit/galaxy-tiles/282.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122750,
+            "path": "/media/orbit/galaxy-tiles/248.avif",
+            "transferBytes": 123050
+          },
+          {
+            "encodedBytes": 120611,
+            "path": "/media/orbit/galaxy-tiles/279.avif",
+            "transferBytes": 120911
+          },
+          {
+            "encodedBytes": 77702,
+            "path": "/media/orbit/galaxy-tiles/346.avif",
+            "transferBytes": 78002
+          },
+          {
+            "encodedBytes": 93907,
+            "path": "/media/orbit/galaxy-tiles/343.avif",
+            "transferBytes": 94207
+          },
+          {
+            "encodedBytes": 122601,
+            "path": "/media/orbit/galaxy-tiles/250.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 120901,
+            "path": "/media/orbit/galaxy-tiles/247.avif",
+            "transferBytes": 121201
+          },
+          {
+            "encodedBytes": 8357838,
+            "path": "/media/orbit/earth-terrain-8192-v2.dem",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 16250,
+            "path": "/media/orbit/galaxy-tiles/378.avif",
+            "transferBytes": 16550
+          },
+          {
+            "encodedBytes": 22516,
+            "path": "/media/orbit/galaxy-tiles/377.avif",
+            "transferBytes": 22816
+          },
+          {
+            "encodedBytes": 10550,
+            "path": "/media/orbit/galaxy-tiles/379.avif",
+            "transferBytes": 10850
+          },
+          {
+            "encodedBytes": 32131,
+            "path": "/media/orbit/galaxy-tiles/376.avif",
+            "transferBytes": 32431
+          },
+          {
+            "encodedBytes": 76689,
+            "path": "/media/orbit/galaxy-tiles/347.avif",
+            "transferBytes": 76989
+          },
+          {
+            "encodedBytes": 6766,
+            "path": "/media/orbit/galaxy-tiles/380.avif",
+            "transferBytes": 7066
+          },
+          {
+            "encodedBytes": 52769,
+            "path": "/media/orbit/galaxy-tiles/375.avif",
+            "transferBytes": 53069
+          },
+          {
+            "encodedBytes": 68154,
+            "path": "/media/orbit/galaxy-tiles/348.avif",
+            "transferBytes": 68454
+          },
+          {
+            "encodedBytes": 112765,
+            "path": "/media/orbit/galaxy-tiles/315.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 2733,
+            "path": "/media/orbit/galaxy-tiles/381.avif",
+            "transferBytes": 3033
+          },
+          {
+            "encodedBytes": 642,
+            "path": "/media/orbit/galaxy-tiles/410.avif",
+            "transferBytes": 942
+          },
+          {
+            "encodedBytes": 650,
+            "path": "/media/orbit/galaxy-tiles/409.avif",
+            "transferBytes": 950
+          },
+          {
+            "encodedBytes": 644,
+            "path": "/media/orbit/galaxy-tiles/411.avif",
+            "transferBytes": 944
+          },
+          {
+            "encodedBytes": 629,
+            "path": "/media/orbit/galaxy-tiles/412.avif",
+            "transferBytes": 929
+          },
+          {
+            "encodedBytes": 697,
+            "path": "/media/orbit/galaxy-tiles/408.avif",
+            "transferBytes": 997
+          },
+          {
+            "encodedBytes": 657,
+            "path": "/media/orbit/galaxy-tiles/407.avif",
+            "transferBytes": 957
+          }
+        ],
+        "textureProfile": "reference",
+        "url": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=45&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=2",
+        "width": 1440,
+        "requestedURL": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=45&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=2"
+      },
+      "compact": {
+        "api": "webgl",
+        "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.10046453623445645,-0.9045168455372656,-0.41443473925156177,0.6446781948796508,0.3764511845387172,-0.6653379071615502]",
+        "error": 0,
+        "failures": "0",
+        "galaxyMapWidth": 2048,
+        "galaxyTiles": {
+          "bytes": 2171578,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 32,
+          "resident": 17,
+          "wanted": 17
+        },
+        "height": 900,
+        "position": "0.53003818,-0.46954563,-0.79836983",
+        "profile": "compact",
+        "resources": [
+          {
+            "encodedBytes": 0,
+            "path": "/media/orbit/preview/poster.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 11546,
+            "path": "/media/orbit/preview/day.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 8350,
+            "path": "/media/orbit/preview/night.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 88586,
+            "path": "/media/orbit/preview/clouds.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 13316,
+            "path": "/media/orbit/preview/galaxy.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 589824,
+            "path": "/media/orbit/optical-psf.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 499136,
+            "path": "/media/orbit/stars-hyg.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 9292,
+            "path": "/media/orbit/night-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 17078,
+            "path": "/media/orbit/day-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1193,
+            "path": "/media/orbit/cloud-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1178,
+            "path": "/media/orbit/terrain-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 61880,
+            "path": "/media/orbit/terrain-tiles/copernicus.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 749,
+            "path": "/media/orbit/galaxy-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 307627,
+            "path": "/media/orbit/mobile/galaxy-2048.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 405435,
+            "path": "/media/orbit/earth-day-bmng.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 113266,
+            "path": "/media/orbit/galaxy-tiles/313.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 113633,
+            "path": "/media/orbit/galaxy-tiles/312.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 121656,
+            "path": "/media/orbit/galaxy-tiles/281.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 334722,
+            "path": "/media/orbit/earth-night-8k.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122087,
+            "path": "/media/orbit/galaxy-tiles/280.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 112778,
+            "path": "/media/orbit/galaxy-tiles/314.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 81589,
+            "path": "/media/orbit/galaxy-tiles/345.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 114034,
+            "path": "/media/orbit/galaxy-tiles/311.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 792817,
+            "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 84768,
+            "path": "/media/orbit/galaxy-tiles/344.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 121270,
+            "path": "/media/orbit/galaxy-tiles/249.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122783,
+            "path": "/media/orbit/galaxy-tiles/282.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122750,
+            "path": "/media/orbit/galaxy-tiles/248.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 120611,
+            "path": "/media/orbit/galaxy-tiles/279.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 77702,
+            "path": "/media/orbit/galaxy-tiles/346.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 93907,
+            "path": "/media/orbit/galaxy-tiles/343.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122601,
+            "path": "/media/orbit/galaxy-tiles/250.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 120901,
+            "path": "/media/orbit/galaxy-tiles/247.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 8357838,
+            "path": "/media/orbit/earth-terrain-8192-v2.dem",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 22516,
+            "path": "/media/orbit/galaxy-tiles/377.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 16250,
+            "path": "/media/orbit/galaxy-tiles/378.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 10550,
+            "path": "/media/orbit/galaxy-tiles/379.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 32131,
+            "path": "/media/orbit/galaxy-tiles/376.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 76689,
+            "path": "/media/orbit/galaxy-tiles/347.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 6766,
+            "path": "/media/orbit/galaxy-tiles/380.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 52769,
+            "path": "/media/orbit/galaxy-tiles/375.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 68154,
+            "path": "/media/orbit/galaxy-tiles/348.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 112765,
+            "path": "/media/orbit/galaxy-tiles/315.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 2733,
+            "path": "/media/orbit/galaxy-tiles/381.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 642,
+            "path": "/media/orbit/galaxy-tiles/410.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 650,
+            "path": "/media/orbit/galaxy-tiles/409.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 644,
+            "path": "/media/orbit/galaxy-tiles/411.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 697,
+            "path": "/media/orbit/galaxy-tiles/408.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 629,
+            "path": "/media/orbit/galaxy-tiles/412.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 657,
+            "path": "/media/orbit/galaxy-tiles/407.avif",
+            "transferBytes": 300
+          }
+        ],
+        "textureProfile": "compact",
+        "url": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=45&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=2&texture=compact",
+        "width": 1440,
+        "requestedURL": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=45&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=2&texture=compact"
+      },
+      "mean": 0.021578446502057612,
+      "rms": 0.15431632709011825,
+      "max": 10,
+      "fractionOverOne": 0.00044367283950617285,
+      "fractionOverFour": 0.00002623456790123457
+    },
+    {
+      "scene": "scattered-ground",
+      "settings": {
+        "name": "scattered-ground",
+        "t": 610.87,
+        "pitch": -25,
+        "galaxy": 2,
+        "exposure": 0
+      },
+      "reference": {
+        "api": "webgl",
+        "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.6401602375920432,0.04438541904600929,-0.766958150606804,0.12608714526147446,0.9787216932189656,0.1618822999046306]",
+        "error": 0,
+        "failures": "0",
+        "galaxyMapWidth": 4096,
+        "galaxyTiles": {
+          "bytes": 2018998,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 19,
+          "resident": 17,
+          "wanted": 17
+        },
+        "height": 900,
+        "position": "0.53003818,-0.46954563,-0.79836983",
+        "profile": "compact",
+        "resources": [
+          {
+            "encodedBytes": 0,
+            "path": "/media/orbit/preview/poster.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 11546,
+            "path": "/media/orbit/preview/day.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 8350,
+            "path": "/media/orbit/preview/night.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 88586,
+            "path": "/media/orbit/preview/clouds.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 13316,
+            "path": "/media/orbit/preview/galaxy.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 589824,
+            "path": "/media/orbit/optical-psf.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 499136,
+            "path": "/media/orbit/stars-hyg.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 9292,
+            "path": "/media/orbit/night-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 17078,
+            "path": "/media/orbit/day-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1193,
+            "path": "/media/orbit/cloud-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1178,
+            "path": "/media/orbit/terrain-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 61880,
+            "path": "/media/orbit/terrain-tiles/copernicus.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 749,
+            "path": "/media/orbit/galaxy-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 569480,
+            "path": "/media/orbit/milky-way.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 405435,
+            "path": "/media/orbit/earth-day-bmng.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 110130,
+            "path": "/media/orbit/galaxy-tiles/220.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123816,
+            "path": "/media/orbit/galaxy-tiles/252.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123720,
+            "path": "/media/orbit/galaxy-tiles/253.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 3949,
+            "path": "/media/orbit/terrain-tiles/615.png",
+            "transferBytes": 4249
+          },
+          {
+            "encodedBytes": 3761,
+            "path": "/media/orbit/terrain-tiles/656.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 363,
+            "path": "/media/orbit/night-tiles/9986.avif",
+            "transferBytes": 663
+          },
+          {
+            "encodedBytes": 363,
+            "path": "/media/orbit/night-tiles/9982.avif",
+            "transferBytes": 663
+          },
+          {
+            "encodedBytes": 468,
+            "path": "/media/orbit/night-tiles/10628.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29967,
+            "path": "/media/orbit/cloud-tiles/396.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 28921,
+            "path": "/media/orbit/cloud-tiles/397.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 18452,
+            "path": "/media/orbit/cloud-tiles/429.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 334722,
+            "path": "/media/orbit/earth-night-8k.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 792817,
+            "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 109394,
+            "path": "/media/orbit/galaxy-tiles/219.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123623,
+            "path": "/media/orbit/galaxy-tiles/251.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 2666,
+            "path": "/media/orbit/terrain-tiles/657.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122923,
+            "path": "/media/orbit/galaxy-tiles/254.avif",
+            "transferBytes": 123223
+          },
+          {
+            "encodedBytes": 369,
+            "path": "/media/orbit/night-tiles/9991.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 2385,
+            "path": "/media/orbit/terrain-tiles/578.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 35075,
+            "path": "/media/orbit/cloud-tiles/365.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 31370,
+            "path": "/media/orbit/cloud-tiles/398.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 32563,
+            "path": "/media/orbit/cloud-tiles/366.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 121221,
+            "path": "/media/orbit/galaxy-tiles/285.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 7580,
+            "path": "/media/orbit/terrain-tiles/655.png",
+            "transferBytes": 7880
+          },
+          {
+            "encodedBytes": 123003,
+            "path": "/media/orbit/galaxy-tiles/284.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 107654,
+            "path": "/media/orbit/galaxy-tiles/218.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 60843,
+            "path": "/media/orbit/dem90/S54W038.tif",
+            "transferBytes": 61143
+          },
+          {
+            "encodedBytes": 26458,
+            "path": "/media/orbit/cloud-tiles/430.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 31807,
+            "path": "/media/orbit/cloud-tiles/364.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 26855,
+            "path": "/media/orbit/cloud-tiles/428.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122601,
+            "path": "/media/orbit/galaxy-tiles/250.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 121488,
+            "path": "/media/orbit/galaxy-tiles/286.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122494,
+            "path": "/media/orbit/galaxy-tiles/255.avif",
+            "transferBytes": 122794
+          },
+          {
+            "encodedBytes": 26001,
+            "path": "/media/orbit/cloud-tiles/395.avif",
+            "transferBytes": 26301
+          },
+          {
+            "encodedBytes": 49914,
+            "path": "/media/orbit/cloud-tiles/363.avif",
+            "transferBytes": 50214
+          },
+          {
+            "encodedBytes": 22635,
+            "path": "/media/orbit/cloud-tiles/427.avif",
+            "transferBytes": 22935
+          },
+          {
+            "encodedBytes": 119315,
+            "path": "/media/orbit/galaxy-tiles/287.avif",
+            "transferBytes": 119615
+          },
+          {
+            "encodedBytes": 106967,
+            "path": "/media/orbit/galaxy-tiles/217.avif",
+            "transferBytes": 107267
+          },
+          {
+            "encodedBytes": 59797,
+            "path": "/media/orbit/galaxy-tiles/188.avif",
+            "transferBytes": 60097
+          },
+          {
+            "encodedBytes": 1316,
+            "path": "/media/orbit/cloud-tiles/461.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 28556,
+            "path": "/media/orbit/cloud-tiles/333.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 10163,
+            "path": "/media/orbit/cloud-tiles/462.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 109461,
+            "path": "/media/orbit/galaxy-tiles/221.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 62001,
+            "path": "/media/orbit/galaxy-tiles/187.avif",
+            "transferBytes": 62301
+          },
+          {
+            "encodedBytes": 990,
+            "path": "/media/orbit/cloud-tiles/460.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29474,
+            "path": "/media/orbit/cloud-tiles/334.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29080,
+            "path": "/media/orbit/cloud-tiles/332.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 37831,
+            "path": "/media/orbit/cloud-tiles/399.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 30961,
+            "path": "/media/orbit/cloud-tiles/367.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 30052,
+            "path": "/media/orbit/cloud-tiles/431.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 35105,
+            "path": "/media/orbit/cloud-tiles/335.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 10611,
+            "path": "/media/orbit/cloud-tiles/463.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 8357838,
+            "path": "/media/orbit/earth-terrain-8192-v2.dem",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 50713,
+            "path": "/media/orbit/dem90/S54W039.tif",
+            "transferBytes": 51013
+          },
+          {
+            "encodedBytes": 182874,
+            "path": "/media/orbit/dem90/S55W036.tif",
+            "transferBytes": 183174
+          },
+          {
+            "encodedBytes": 1373006,
+            "path": "/media/orbit/dem90/S55W037.tif",
+            "transferBytes": 1373306
+          },
+          {
+            "encodedBytes": 60843,
+            "path": "/media/orbit/dem90/S54W038.tif",
+            "transferBytes": 0
+          },
+          {
+            "encodedBytes": 182874,
+            "path": "/media/orbit/dem90/S55W036.tif",
+            "transferBytes": 0
+          },
+          {
+            "encodedBytes": 66014,
+            "path": "/media/orbit/galaxy-tiles/185.avif",
+            "transferBytes": 66314
+          },
+          {
+            "encodedBytes": 63376,
+            "path": "/media/orbit/galaxy-tiles/186.avif",
+            "transferBytes": 63676
+          },
+          {
+            "encodedBytes": 375,
+            "path": "/media/orbit/night-tiles/10631.avif",
+            "transferBytes": 675
+          }
+        ],
+        "textureProfile": "reference",
+        "url": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=-25&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=0",
+        "width": 1440,
+        "requestedURL": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=-25&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=0"
+      },
+      "compact": {
+        "api": "webgl",
+        "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.6401602375920432,0.04438541904600929,-0.766958150606804,0.12608714526147446,0.9787216932189656,0.1618822999046306]",
+        "error": 0,
+        "failures": "0",
+        "galaxyMapWidth": 2048,
+        "galaxyTiles": {
+          "bytes": 2018998,
+          "capacity": 17,
+          "gpuBytes": 42614784,
+          "pending": 0,
+          "requests": 19,
+          "resident": 17,
+          "wanted": 17
+        },
+        "height": 900,
+        "position": "0.53003818,-0.46954563,-0.79836983",
+        "profile": "compact",
+        "resources": [
+          {
+            "encodedBytes": 0,
+            "path": "/media/orbit/preview/poster.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 11546,
+            "path": "/media/orbit/preview/day.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 8350,
+            "path": "/media/orbit/preview/night.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 88586,
+            "path": "/media/orbit/preview/clouds.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 13316,
+            "path": "/media/orbit/preview/galaxy.webp",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 589824,
+            "path": "/media/orbit/optical-psf.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 499136,
+            "path": "/media/orbit/stars-hyg.bin",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 9292,
+            "path": "/media/orbit/night-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 17078,
+            "path": "/media/orbit/day-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1193,
+            "path": "/media/orbit/cloud-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1178,
+            "path": "/media/orbit/terrain-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 61880,
+            "path": "/media/orbit/terrain-tiles/copernicus.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 749,
+            "path": "/media/orbit/galaxy-tiles/manifest.json",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 307627,
+            "path": "/media/orbit/mobile/galaxy-2048.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 405435,
+            "path": "/media/orbit/earth-day-bmng.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 110130,
+            "path": "/media/orbit/galaxy-tiles/220.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123816,
+            "path": "/media/orbit/galaxy-tiles/252.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123720,
+            "path": "/media/orbit/galaxy-tiles/253.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 3949,
+            "path": "/media/orbit/terrain-tiles/615.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 3761,
+            "path": "/media/orbit/terrain-tiles/656.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 363,
+            "path": "/media/orbit/night-tiles/9986.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 363,
+            "path": "/media/orbit/night-tiles/9982.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 468,
+            "path": "/media/orbit/night-tiles/10628.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29967,
+            "path": "/media/orbit/cloud-tiles/396.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 28921,
+            "path": "/media/orbit/cloud-tiles/397.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 18452,
+            "path": "/media/orbit/cloud-tiles/429.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 334722,
+            "path": "/media/orbit/earth-night-8k.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 109394,
+            "path": "/media/orbit/galaxy-tiles/219.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123623,
+            "path": "/media/orbit/galaxy-tiles/251.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122923,
+            "path": "/media/orbit/galaxy-tiles/254.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 2666,
+            "path": "/media/orbit/terrain-tiles/657.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 2385,
+            "path": "/media/orbit/terrain-tiles/578.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 369,
+            "path": "/media/orbit/night-tiles/9991.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 792817,
+            "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 35075,
+            "path": "/media/orbit/cloud-tiles/365.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 31370,
+            "path": "/media/orbit/cloud-tiles/398.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 32563,
+            "path": "/media/orbit/cloud-tiles/366.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 121221,
+            "path": "/media/orbit/galaxy-tiles/285.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 123003,
+            "path": "/media/orbit/galaxy-tiles/284.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 7580,
+            "path": "/media/orbit/terrain-tiles/655.png",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 60843,
+            "path": "/media/orbit/dem90/S54W038.tif",
+            "transferBytes": 0
+          },
+          {
+            "encodedBytes": 107654,
+            "path": "/media/orbit/galaxy-tiles/218.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 26458,
+            "path": "/media/orbit/cloud-tiles/430.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 31807,
+            "path": "/media/orbit/cloud-tiles/364.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 26855,
+            "path": "/media/orbit/cloud-tiles/428.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122601,
+            "path": "/media/orbit/galaxy-tiles/250.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 121488,
+            "path": "/media/orbit/galaxy-tiles/286.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 122494,
+            "path": "/media/orbit/galaxy-tiles/255.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 26001,
+            "path": "/media/orbit/cloud-tiles/395.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 49914,
+            "path": "/media/orbit/cloud-tiles/363.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 22635,
+            "path": "/media/orbit/cloud-tiles/427.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 119315,
+            "path": "/media/orbit/galaxy-tiles/287.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 106967,
+            "path": "/media/orbit/galaxy-tiles/217.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 59797,
+            "path": "/media/orbit/galaxy-tiles/188.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 1316,
+            "path": "/media/orbit/cloud-tiles/461.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 28556,
+            "path": "/media/orbit/cloud-tiles/333.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 10163,
+            "path": "/media/orbit/cloud-tiles/462.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 109461,
+            "path": "/media/orbit/galaxy-tiles/221.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 62001,
+            "path": "/media/orbit/galaxy-tiles/187.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 990,
+            "path": "/media/orbit/cloud-tiles/460.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29474,
+            "path": "/media/orbit/cloud-tiles/334.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 29080,
+            "path": "/media/orbit/cloud-tiles/332.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 37831,
+            "path": "/media/orbit/cloud-tiles/399.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 30961,
+            "path": "/media/orbit/cloud-tiles/367.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 30052,
+            "path": "/media/orbit/cloud-tiles/431.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 35105,
+            "path": "/media/orbit/cloud-tiles/335.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 10611,
+            "path": "/media/orbit/cloud-tiles/463.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 50713,
+            "path": "/media/orbit/dem90/S54W039.tif",
+            "transferBytes": 0
+          },
+          {
+            "encodedBytes": 8357838,
+            "path": "/media/orbit/earth-terrain-8192-v2.dem",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 182874,
+            "path": "/media/orbit/dem90/S55W036.tif",
+            "transferBytes": 0
+          },
+          {
+            "encodedBytes": 1373006,
+            "path": "/media/orbit/dem90/S55W037.tif",
+            "transferBytes": 0
+          },
+          {
+            "encodedBytes": 60843,
+            "path": "/media/orbit/dem90/S54W038.tif",
+            "transferBytes": 0
+          },
+          {
+            "encodedBytes": 63376,
+            "path": "/media/orbit/galaxy-tiles/186.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 182874,
+            "path": "/media/orbit/dem90/S55W036.tif",
+            "transferBytes": 0
+          },
+          {
+            "encodedBytes": 66014,
+            "path": "/media/orbit/galaxy-tiles/185.avif",
+            "transferBytes": 300
+          },
+          {
+            "encodedBytes": 375,
+            "path": "/media/orbit/night-tiles/10631.avif",
+            "transferBytes": 300
+          }
+        ],
+        "textureProfile": "compact",
+        "url": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=-25&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=0&texture=compact",
+        "width": 1440,
+        "requestedURL": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=-25&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=0&texture=compact"
+      },
+      "mean": 0.00009387860082304527,
+      "rms": 0.00968909700761868,
+      "max": 1,
+      "fractionOverOne": 0,
+      "fractionOverFour": 0
+    }
+  ],
+  "fallback": {
+    "probe": {
+      "hits": 1
+    },
+    "failed": {
+      "api": "webgl",
+      "basis": "[-0.7578237475168501,0.20033434601544392,-0.6209422819442093,0.6401606777964122,0.04438860595605587,-0.7669575987396671,0.12608518669041086,0.978721513745275,0.1618849104438146]",
+      "error": 0,
+      "failures": "1",
+      "galaxyMapWidth": 1024,
+      "galaxyTiles": {
+        "bytes": 2018998,
+        "capacity": 17,
+        "gpuBytes": 42614784,
+        "pending": 0,
+        "requests": 19,
+        "resident": 17,
+        "wanted": 17
+      },
+      "height": 900,
+      "position": "0.53003961,-0.46954257,-0.79837068",
+      "profile": "compact",
+      "resources": [
+        {
+          "encodedBytes": 0,
+          "path": "/media/orbit/preview/poster.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 11546,
+          "path": "/media/orbit/preview/day.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 8350,
+          "path": "/media/orbit/preview/night.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 88586,
+          "path": "/media/orbit/preview/clouds.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 13316,
+          "path": "/media/orbit/preview/galaxy.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 589824,
+          "path": "/media/orbit/optical-psf.bin",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 499136,
+          "path": "/media/orbit/stars-hyg.bin",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 9292,
+          "path": "/media/orbit/night-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 17078,
+          "path": "/media/orbit/day-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1193,
+          "path": "/media/orbit/cloud-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1178,
+          "path": "/media/orbit/terrain-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 61880,
+          "path": "/media/orbit/terrain-tiles/copernicus.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 749,
+          "path": "/media/orbit/galaxy-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 307627,
+          "path": "/media/orbit/mobile/galaxy-2048.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 405435,
+          "path": "/media/orbit/earth-day-bmng.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 110130,
+          "path": "/media/orbit/galaxy-tiles/220.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123816,
+          "path": "/media/orbit/galaxy-tiles/252.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123720,
+          "path": "/media/orbit/galaxy-tiles/253.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3949,
+          "path": "/media/orbit/terrain-tiles/615.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3761,
+          "path": "/media/orbit/terrain-tiles/656.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9986.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9982.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 468,
+          "path": "/media/orbit/night-tiles/10628.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29967,
+          "path": "/media/orbit/cloud-tiles/396.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28921,
+          "path": "/media/orbit/cloud-tiles/397.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 18452,
+          "path": "/media/orbit/cloud-tiles/429.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 334722,
+          "path": "/media/orbit/earth-night-8k.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109394,
+          "path": "/media/orbit/galaxy-tiles/219.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123623,
+          "path": "/media/orbit/galaxy-tiles/251.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122923,
+          "path": "/media/orbit/galaxy-tiles/254.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2666,
+          "path": "/media/orbit/terrain-tiles/657.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2385,
+          "path": "/media/orbit/terrain-tiles/578.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 369,
+          "path": "/media/orbit/night-tiles/9991.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 792817,
+          "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35075,
+          "path": "/media/orbit/cloud-tiles/365.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31370,
+          "path": "/media/orbit/cloud-tiles/398.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 32563,
+          "path": "/media/orbit/cloud-tiles/366.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121221,
+          "path": "/media/orbit/galaxy-tiles/285.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123003,
+          "path": "/media/orbit/galaxy-tiles/284.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 7580,
+          "path": "/media/orbit/terrain-tiles/655.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 107654,
+          "path": "/media/orbit/galaxy-tiles/218.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26458,
+          "path": "/media/orbit/cloud-tiles/430.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31807,
+          "path": "/media/orbit/cloud-tiles/364.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26855,
+          "path": "/media/orbit/cloud-tiles/428.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122601,
+          "path": "/media/orbit/galaxy-tiles/250.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121488,
+          "path": "/media/orbit/galaxy-tiles/286.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122494,
+          "path": "/media/orbit/galaxy-tiles/255.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26001,
+          "path": "/media/orbit/cloud-tiles/395.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 49914,
+          "path": "/media/orbit/cloud-tiles/363.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 22635,
+          "path": "/media/orbit/cloud-tiles/427.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 119315,
+          "path": "/media/orbit/galaxy-tiles/287.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 106967,
+          "path": "/media/orbit/galaxy-tiles/217.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 59797,
+          "path": "/media/orbit/galaxy-tiles/188.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1316,
+          "path": "/media/orbit/cloud-tiles/461.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28556,
+          "path": "/media/orbit/cloud-tiles/333.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10163,
+          "path": "/media/orbit/cloud-tiles/462.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109461,
+          "path": "/media/orbit/galaxy-tiles/221.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 62001,
+          "path": "/media/orbit/galaxy-tiles/187.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 990,
+          "path": "/media/orbit/cloud-tiles/460.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29474,
+          "path": "/media/orbit/cloud-tiles/334.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29080,
+          "path": "/media/orbit/cloud-tiles/332.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 37831,
+          "path": "/media/orbit/cloud-tiles/399.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30961,
+          "path": "/media/orbit/cloud-tiles/367.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30052,
+          "path": "/media/orbit/cloud-tiles/431.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35105,
+          "path": "/media/orbit/cloud-tiles/335.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10611,
+          "path": "/media/orbit/cloud-tiles/463.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 50713,
+          "path": "/media/orbit/dem90/S54W039.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 8357838,
+          "path": "/media/orbit/earth-terrain-8192-v2.dem",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 1373006,
+          "path": "/media/orbit/dem90/S55W037.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 63376,
+          "path": "/media/orbit/galaxy-tiles/186.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 66014,
+          "path": "/media/orbit/galaxy-tiles/185.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 375,
+          "path": "/media/orbit/night-tiles/10631.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 11546,
+          "path": "/media/orbit/preview/day.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 8350,
+          "path": "/media/orbit/preview/night.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 88586,
+          "path": "/media/orbit/preview/clouds.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 13316,
+          "path": "/media/orbit/preview/galaxy.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 589824,
+          "path": "/media/orbit/optical-psf.bin",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 499136,
+          "path": "/media/orbit/stars-hyg.bin",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 9292,
+          "path": "/media/orbit/night-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 17078,
+          "path": "/media/orbit/day-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1193,
+          "path": "/media/orbit/cloud-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1178,
+          "path": "/media/orbit/terrain-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 61880,
+          "path": "/media/orbit/terrain-tiles/copernicus.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 749,
+          "path": "/media/orbit/galaxy-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 405435,
+          "path": "/media/orbit/earth-day-bmng.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 334722,
+          "path": "/media/orbit/earth-night-8k.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 110130,
+          "path": "/media/orbit/galaxy-tiles/220.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123816,
+          "path": "/media/orbit/galaxy-tiles/252.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123720,
+          "path": "/media/orbit/galaxy-tiles/253.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3949,
+          "path": "/media/orbit/terrain-tiles/615.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3761,
+          "path": "/media/orbit/terrain-tiles/656.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9986.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9982.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 468,
+          "path": "/media/orbit/night-tiles/10628.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29967,
+          "path": "/media/orbit/cloud-tiles/396.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28921,
+          "path": "/media/orbit/cloud-tiles/397.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 18452,
+          "path": "/media/orbit/cloud-tiles/429.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 792817,
+          "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109394,
+          "path": "/media/orbit/galaxy-tiles/219.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123623,
+          "path": "/media/orbit/galaxy-tiles/251.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122923,
+          "path": "/media/orbit/galaxy-tiles/254.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2666,
+          "path": "/media/orbit/terrain-tiles/657.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2385,
+          "path": "/media/orbit/terrain-tiles/578.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 369,
+          "path": "/media/orbit/night-tiles/9991.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 8357838,
+          "path": "/media/orbit/earth-terrain-8192-v2.dem",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35075,
+          "path": "/media/orbit/cloud-tiles/365.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31370,
+          "path": "/media/orbit/cloud-tiles/398.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 32563,
+          "path": "/media/orbit/cloud-tiles/366.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121221,
+          "path": "/media/orbit/galaxy-tiles/285.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123003,
+          "path": "/media/orbit/galaxy-tiles/284.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 7580,
+          "path": "/media/orbit/terrain-tiles/655.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 107654,
+          "path": "/media/orbit/galaxy-tiles/218.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26458,
+          "path": "/media/orbit/cloud-tiles/430.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31807,
+          "path": "/media/orbit/cloud-tiles/364.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26855,
+          "path": "/media/orbit/cloud-tiles/428.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122601,
+          "path": "/media/orbit/galaxy-tiles/250.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121488,
+          "path": "/media/orbit/galaxy-tiles/286.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122494,
+          "path": "/media/orbit/galaxy-tiles/255.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26001,
+          "path": "/media/orbit/cloud-tiles/395.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 49914,
+          "path": "/media/orbit/cloud-tiles/363.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 22635,
+          "path": "/media/orbit/cloud-tiles/427.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 119315,
+          "path": "/media/orbit/galaxy-tiles/287.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 106967,
+          "path": "/media/orbit/galaxy-tiles/217.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 59797,
+          "path": "/media/orbit/galaxy-tiles/188.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1316,
+          "path": "/media/orbit/cloud-tiles/461.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28556,
+          "path": "/media/orbit/cloud-tiles/333.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10163,
+          "path": "/media/orbit/cloud-tiles/462.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109461,
+          "path": "/media/orbit/galaxy-tiles/221.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 62001,
+          "path": "/media/orbit/galaxy-tiles/187.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 990,
+          "path": "/media/orbit/cloud-tiles/460.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29474,
+          "path": "/media/orbit/cloud-tiles/334.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29080,
+          "path": "/media/orbit/cloud-tiles/332.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 37831,
+          "path": "/media/orbit/cloud-tiles/399.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30961,
+          "path": "/media/orbit/cloud-tiles/367.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30052,
+          "path": "/media/orbit/cloud-tiles/431.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35105,
+          "path": "/media/orbit/cloud-tiles/335.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10611,
+          "path": "/media/orbit/cloud-tiles/463.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 50713,
+          "path": "/media/orbit/dem90/S54W039.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 1373006,
+          "path": "/media/orbit/dem90/S55W037.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 63376,
+          "path": "/media/orbit/galaxy-tiles/186.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 66014,
+          "path": "/media/orbit/galaxy-tiles/185.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 375,
+          "path": "/media/orbit/night-tiles/10631.avif",
+          "transferBytes": 300
+        }
+      ],
+      "textureProfile": "compact",
+      "url": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=-25&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=0&texture=compact",
+      "width": 1440
+    },
+    "restored": {
+      "api": "webgl",
+      "basis": "[-0.7578237935073764,0.20033417531392667,-0.6209422808887943,0.6401602375920432,0.04438541904600929,-0.766958150606804,0.12608714526147446,0.9787216932189656,0.1618822999046306]",
+      "error": 0,
+      "failures": "1",
+      "galaxyMapWidth": 1024,
+      "galaxyTiles": {
+        "bytes": 1847536,
+        "capacity": 17,
+        "gpuBytes": 42614784,
+        "pending": 0,
+        "requests": 17,
+        "resident": 17,
+        "wanted": 17
+      },
+      "height": 900,
+      "position": "0.53003818,-0.46954563,-0.79836983",
+      "profile": "compact",
+      "resources": [
+        {
+          "encodedBytes": 0,
+          "path": "/media/orbit/preview/poster.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 11546,
+          "path": "/media/orbit/preview/day.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 8350,
+          "path": "/media/orbit/preview/night.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 88586,
+          "path": "/media/orbit/preview/clouds.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 13316,
+          "path": "/media/orbit/preview/galaxy.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 589824,
+          "path": "/media/orbit/optical-psf.bin",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 499136,
+          "path": "/media/orbit/stars-hyg.bin",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 9292,
+          "path": "/media/orbit/night-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 17078,
+          "path": "/media/orbit/day-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1193,
+          "path": "/media/orbit/cloud-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1178,
+          "path": "/media/orbit/terrain-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 61880,
+          "path": "/media/orbit/terrain-tiles/copernicus.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 749,
+          "path": "/media/orbit/galaxy-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 307627,
+          "path": "/media/orbit/mobile/galaxy-2048.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 405435,
+          "path": "/media/orbit/earth-day-bmng.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 110130,
+          "path": "/media/orbit/galaxy-tiles/220.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123816,
+          "path": "/media/orbit/galaxy-tiles/252.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123720,
+          "path": "/media/orbit/galaxy-tiles/253.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3949,
+          "path": "/media/orbit/terrain-tiles/615.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3761,
+          "path": "/media/orbit/terrain-tiles/656.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9986.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9982.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 468,
+          "path": "/media/orbit/night-tiles/10628.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29967,
+          "path": "/media/orbit/cloud-tiles/396.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28921,
+          "path": "/media/orbit/cloud-tiles/397.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 18452,
+          "path": "/media/orbit/cloud-tiles/429.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 334722,
+          "path": "/media/orbit/earth-night-8k.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109394,
+          "path": "/media/orbit/galaxy-tiles/219.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123623,
+          "path": "/media/orbit/galaxy-tiles/251.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122923,
+          "path": "/media/orbit/galaxy-tiles/254.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2666,
+          "path": "/media/orbit/terrain-tiles/657.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2385,
+          "path": "/media/orbit/terrain-tiles/578.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 369,
+          "path": "/media/orbit/night-tiles/9991.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 792817,
+          "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35075,
+          "path": "/media/orbit/cloud-tiles/365.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31370,
+          "path": "/media/orbit/cloud-tiles/398.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 32563,
+          "path": "/media/orbit/cloud-tiles/366.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121221,
+          "path": "/media/orbit/galaxy-tiles/285.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123003,
+          "path": "/media/orbit/galaxy-tiles/284.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 7580,
+          "path": "/media/orbit/terrain-tiles/655.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 107654,
+          "path": "/media/orbit/galaxy-tiles/218.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26458,
+          "path": "/media/orbit/cloud-tiles/430.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31807,
+          "path": "/media/orbit/cloud-tiles/364.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26855,
+          "path": "/media/orbit/cloud-tiles/428.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122601,
+          "path": "/media/orbit/galaxy-tiles/250.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121488,
+          "path": "/media/orbit/galaxy-tiles/286.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122494,
+          "path": "/media/orbit/galaxy-tiles/255.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26001,
+          "path": "/media/orbit/cloud-tiles/395.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 49914,
+          "path": "/media/orbit/cloud-tiles/363.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 22635,
+          "path": "/media/orbit/cloud-tiles/427.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 119315,
+          "path": "/media/orbit/galaxy-tiles/287.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 106967,
+          "path": "/media/orbit/galaxy-tiles/217.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 59797,
+          "path": "/media/orbit/galaxy-tiles/188.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1316,
+          "path": "/media/orbit/cloud-tiles/461.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28556,
+          "path": "/media/orbit/cloud-tiles/333.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10163,
+          "path": "/media/orbit/cloud-tiles/462.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109461,
+          "path": "/media/orbit/galaxy-tiles/221.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 62001,
+          "path": "/media/orbit/galaxy-tiles/187.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 990,
+          "path": "/media/orbit/cloud-tiles/460.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29474,
+          "path": "/media/orbit/cloud-tiles/334.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29080,
+          "path": "/media/orbit/cloud-tiles/332.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 37831,
+          "path": "/media/orbit/cloud-tiles/399.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30961,
+          "path": "/media/orbit/cloud-tiles/367.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30052,
+          "path": "/media/orbit/cloud-tiles/431.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35105,
+          "path": "/media/orbit/cloud-tiles/335.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10611,
+          "path": "/media/orbit/cloud-tiles/463.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 50713,
+          "path": "/media/orbit/dem90/S54W039.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 8357838,
+          "path": "/media/orbit/earth-terrain-8192-v2.dem",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 1373006,
+          "path": "/media/orbit/dem90/S55W037.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 63376,
+          "path": "/media/orbit/galaxy-tiles/186.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 66014,
+          "path": "/media/orbit/galaxy-tiles/185.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 375,
+          "path": "/media/orbit/night-tiles/10631.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 11546,
+          "path": "/media/orbit/preview/day.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 8350,
+          "path": "/media/orbit/preview/night.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 88586,
+          "path": "/media/orbit/preview/clouds.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 13316,
+          "path": "/media/orbit/preview/galaxy.webp",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 589824,
+          "path": "/media/orbit/optical-psf.bin",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 499136,
+          "path": "/media/orbit/stars-hyg.bin",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 9292,
+          "path": "/media/orbit/night-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 17078,
+          "path": "/media/orbit/day-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1193,
+          "path": "/media/orbit/cloud-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1178,
+          "path": "/media/orbit/terrain-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 61880,
+          "path": "/media/orbit/terrain-tiles/copernicus.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 749,
+          "path": "/media/orbit/galaxy-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 405435,
+          "path": "/media/orbit/earth-day-bmng.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 334722,
+          "path": "/media/orbit/earth-night-8k.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 110130,
+          "path": "/media/orbit/galaxy-tiles/220.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123816,
+          "path": "/media/orbit/galaxy-tiles/252.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123720,
+          "path": "/media/orbit/galaxy-tiles/253.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3949,
+          "path": "/media/orbit/terrain-tiles/615.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3761,
+          "path": "/media/orbit/terrain-tiles/656.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9986.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9982.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 468,
+          "path": "/media/orbit/night-tiles/10628.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29967,
+          "path": "/media/orbit/cloud-tiles/396.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28921,
+          "path": "/media/orbit/cloud-tiles/397.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 18452,
+          "path": "/media/orbit/cloud-tiles/429.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 792817,
+          "path": "/media/orbit/earth-clouds-nasa-4096.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109394,
+          "path": "/media/orbit/galaxy-tiles/219.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123623,
+          "path": "/media/orbit/galaxy-tiles/251.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122923,
+          "path": "/media/orbit/galaxy-tiles/254.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2666,
+          "path": "/media/orbit/terrain-tiles/657.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2385,
+          "path": "/media/orbit/terrain-tiles/578.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 369,
+          "path": "/media/orbit/night-tiles/9991.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 8357838,
+          "path": "/media/orbit/earth-terrain-8192-v2.dem",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35075,
+          "path": "/media/orbit/cloud-tiles/365.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31370,
+          "path": "/media/orbit/cloud-tiles/398.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 32563,
+          "path": "/media/orbit/cloud-tiles/366.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121221,
+          "path": "/media/orbit/galaxy-tiles/285.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123003,
+          "path": "/media/orbit/galaxy-tiles/284.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 7580,
+          "path": "/media/orbit/terrain-tiles/655.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 107654,
+          "path": "/media/orbit/galaxy-tiles/218.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26458,
+          "path": "/media/orbit/cloud-tiles/430.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31807,
+          "path": "/media/orbit/cloud-tiles/364.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26855,
+          "path": "/media/orbit/cloud-tiles/428.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122601,
+          "path": "/media/orbit/galaxy-tiles/250.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121488,
+          "path": "/media/orbit/galaxy-tiles/286.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122494,
+          "path": "/media/orbit/galaxy-tiles/255.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26001,
+          "path": "/media/orbit/cloud-tiles/395.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 49914,
+          "path": "/media/orbit/cloud-tiles/363.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 22635,
+          "path": "/media/orbit/cloud-tiles/427.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 119315,
+          "path": "/media/orbit/galaxy-tiles/287.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 106967,
+          "path": "/media/orbit/galaxy-tiles/217.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 59797,
+          "path": "/media/orbit/galaxy-tiles/188.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1316,
+          "path": "/media/orbit/cloud-tiles/461.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28556,
+          "path": "/media/orbit/cloud-tiles/333.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10163,
+          "path": "/media/orbit/cloud-tiles/462.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109461,
+          "path": "/media/orbit/galaxy-tiles/221.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 62001,
+          "path": "/media/orbit/galaxy-tiles/187.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 990,
+          "path": "/media/orbit/cloud-tiles/460.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29474,
+          "path": "/media/orbit/cloud-tiles/334.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29080,
+          "path": "/media/orbit/cloud-tiles/332.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 37831,
+          "path": "/media/orbit/cloud-tiles/399.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30961,
+          "path": "/media/orbit/cloud-tiles/367.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30052,
+          "path": "/media/orbit/cloud-tiles/431.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35105,
+          "path": "/media/orbit/cloud-tiles/335.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10611,
+          "path": "/media/orbit/cloud-tiles/463.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 50713,
+          "path": "/media/orbit/dem90/S54W039.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 1373006,
+          "path": "/media/orbit/dem90/S55W037.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 63376,
+          "path": "/media/orbit/galaxy-tiles/186.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 66014,
+          "path": "/media/orbit/galaxy-tiles/185.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 375,
+          "path": "/media/orbit/night-tiles/10631.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 9292,
+          "path": "/media/orbit/night-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 17078,
+          "path": "/media/orbit/day-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1193,
+          "path": "/media/orbit/cloud-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1178,
+          "path": "/media/orbit/terrain-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 61880,
+          "path": "/media/orbit/terrain-tiles/copernicus.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 749,
+          "path": "/media/orbit/galaxy-tiles/manifest.json",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 110130,
+          "path": "/media/orbit/galaxy-tiles/220.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123816,
+          "path": "/media/orbit/galaxy-tiles/252.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3949,
+          "path": "/media/orbit/terrain-tiles/615.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123720,
+          "path": "/media/orbit/galaxy-tiles/253.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 3761,
+          "path": "/media/orbit/terrain-tiles/656.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9986.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 468,
+          "path": "/media/orbit/night-tiles/10628.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 369,
+          "path": "/media/orbit/night-tiles/9991.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29967,
+          "path": "/media/orbit/cloud-tiles/396.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28921,
+          "path": "/media/orbit/cloud-tiles/397.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 18452,
+          "path": "/media/orbit/cloud-tiles/429.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 109394,
+          "path": "/media/orbit/galaxy-tiles/219.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 123623,
+          "path": "/media/orbit/galaxy-tiles/251.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2666,
+          "path": "/media/orbit/terrain-tiles/657.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 2385,
+          "path": "/media/orbit/terrain-tiles/578.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122923,
+          "path": "/media/orbit/galaxy-tiles/254.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 363,
+          "path": "/media/orbit/night-tiles/9982.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 375,
+          "path": "/media/orbit/night-tiles/10631.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35075,
+          "path": "/media/orbit/cloud-tiles/365.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31370,
+          "path": "/media/orbit/cloud-tiles/398.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 32563,
+          "path": "/media/orbit/cloud-tiles/366.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 107654,
+          "path": "/media/orbit/galaxy-tiles/218.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121221,
+          "path": "/media/orbit/galaxy-tiles/285.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 7580,
+          "path": "/media/orbit/terrain-tiles/655.png",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 123003,
+          "path": "/media/orbit/galaxy-tiles/284.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26458,
+          "path": "/media/orbit/cloud-tiles/430.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 31807,
+          "path": "/media/orbit/cloud-tiles/364.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26855,
+          "path": "/media/orbit/cloud-tiles/428.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122601,
+          "path": "/media/orbit/galaxy-tiles/250.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 121488,
+          "path": "/media/orbit/galaxy-tiles/286.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 63376,
+          "path": "/media/orbit/galaxy-tiles/186.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 26001,
+          "path": "/media/orbit/cloud-tiles/395.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 49914,
+          "path": "/media/orbit/cloud-tiles/363.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 22635,
+          "path": "/media/orbit/cloud-tiles/427.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 122494,
+          "path": "/media/orbit/galaxy-tiles/255.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 66014,
+          "path": "/media/orbit/galaxy-tiles/185.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 119315,
+          "path": "/media/orbit/galaxy-tiles/287.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1316,
+          "path": "/media/orbit/cloud-tiles/461.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 28556,
+          "path": "/media/orbit/cloud-tiles/333.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10163,
+          "path": "/media/orbit/cloud-tiles/462.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 106967,
+          "path": "/media/orbit/galaxy-tiles/217.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 59797,
+          "path": "/media/orbit/galaxy-tiles/188.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 990,
+          "path": "/media/orbit/cloud-tiles/460.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 29474,
+          "path": "/media/orbit/cloud-tiles/334.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 50713,
+          "path": "/media/orbit/dem90/S54W039.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 29080,
+          "path": "/media/orbit/cloud-tiles/332.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 37831,
+          "path": "/media/orbit/cloud-tiles/399.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30961,
+          "path": "/media/orbit/cloud-tiles/367.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 30052,
+          "path": "/media/orbit/cloud-tiles/431.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 35105,
+          "path": "/media/orbit/cloud-tiles/335.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 10611,
+          "path": "/media/orbit/cloud-tiles/463.avif",
+          "transferBytes": 300
+        },
+        {
+          "encodedBytes": 1373006,
+          "path": "/media/orbit/dem90/S55W037.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 60843,
+          "path": "/media/orbit/dem90/S54W038.tif",
+          "transferBytes": 0
+        },
+        {
+          "encodedBytes": 182874,
+          "path": "/media/orbit/dem90/S55W036.tif",
+          "transferBytes": 0
+        }
+      ],
+      "textureProfile": "compact",
+      "url": "http://127.0.0.1:4349/?api=webgl&render=compact&t=610.87&pitch=-25&quality=fixed&motion=0&epoch=2026-10-06T01%3A32%3A27.000Z&look-grain=0&look-galaxy=2&exposure-mode=manual&exposure-fixed=0&texture=compact",
+      "width": 1440
+    }
+  }
+}

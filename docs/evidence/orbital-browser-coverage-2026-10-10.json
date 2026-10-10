@@ -1,0 +1,55 @@
+{
+  "status": "All scene checks covered across initial run and late continuation on the same built client; not a single uninterrupted green run.",
+  "client": "/tmp/orbit-release-20261010/dist/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.BC9j4Ypf.js",
+  "sha256": "492d8f759084426d16e3cf3dc6ef94f68c77e82ab7e2a8ed9b0b6f9154182932",
+  "base": "http://127.0.0.1:4349",
+  "browserArgs": "--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding",
+  "cadenceLimitation": "Browser functionality/GPU evidence only; unthrottled headless flags do not establish normal physical display cadence.",
+  "firstRun": {
+    "log": "/tmp/orbit-full-proof-20261010-release.log",
+    "screenshots": "/tmp/orbit-full-proof-20261010-release",
+    "passed": [
+      "lighting/eclipses/moonlight",
+      "native night-light transfer and local scattering",
+      "aurora spatial/temporal/reference/fallback",
+      "terrain summit heights and shadows",
+      "lens reflection energy",
+      "catalog subpixel flux",
+      "RGBE and city source calibration",
+      "cloud density",
+      "sensor noise",
+      "auto exposure",
+      "airglow",
+      "seven reference frames",
+      "missing PSF/detail/all fallback",
+      "context restoration with pending uploads",
+      "mobile context restoration and viewport rotation",
+      "functional playback",
+      "minimum WebGL1 capability fallback"
+    ],
+    "stoppedAt": "SaveData assertion included two prior renderer DEM requests whose startTime preceded the clone; production emitted exactly six valid previews."
+  },
+  "fixtureFix": "SaveData resource assertions now require resource.startTime >= the clone timestamp. No production change or assertion threshold relaxation followed the first run.",
+  "saveDataDiagnostic": "/tmp/orbit-save-data-diagnostic.json",
+  "focusRegression": {
+    "before": "/tmp/orbit-slow-focus.json",
+    "after": "/tmp/orbit-slow-focus-fixed.json",
+    "result": "All six preview requests start before optional manifest requests; zero asset failures; focus sharp at7426.5ms while optional detail remains pending."
+  },
+  "lateRun": {
+    "exitCode": 0,
+    "log": "/tmp/orbit-late-proof-20261010-release.log",
+    "results": "/tmp/orbit-late-proof-20261010-release/results.json",
+    "passed": [
+      "SaveData",
+      "slow detail focus deadline",
+      "optical defocus half-float and byte targets",
+      "camera drag/URL/playback/cancellation",
+      "keyboard ownership",
+      "flight routes/bounds/pause/URL/input",
+      "touch look/pan/pinch/rebase/cancel/panel scroll",
+      "calendar lighting/camera independence/URL/reset"
+    ]
+  },
+  "browsersClosed": true
+}

@@ -1,0 +1,216 @@
+{
+  "date": "2026-10-09",
+  "reference": "815ede7 plus shared exact-output storm optimization and catalog initialization fix",
+  "cpu": {
+    "baseline": "815ede7",
+    "states": 240,
+    "fps": 24,
+    "batches": 5,
+    "referenceMedianMs": 586.416416,
+    "optimizedMedianMs": 24.08375,
+    "speedup": 24.34904929672519,
+    "sha256": "a550e953e65f3082685124a7600cfc4dba5c45df9855b937cd8bbbaac5e692e6"
+  },
+  "gpu": [
+    {
+      "scene": "day",
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.33499924276269144,0.6107419942384551,0.7174745457659514,-0.6250238752772033,-0.7138594449800636,0.3158319935443881]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 16.55825,
+      "p90Ms": 21.625291,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "reference",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440
+    },
+    {
+      "scene": "day",
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.33499924276269144,0.6107419942384551,0.7174745457659514,-0.6250238752772033,-0.7138594449800636,0.3158319935443881]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 15.894,
+      "p90Ms": 17.713375,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "optimized",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440,
+      "imageDifference": {
+        "mean": 2.695410524499934e-07,
+        "max": 1,
+        "overTwoFraction": 0
+      }
+    },
+    {
+      "scene": "night",
+      "assetFailures": "0",
+      "basis": "[-0.7578237475168501,0.20033434601544392,-0.6209422819442093,0.5268967048111952,-0.3733958456335792,-0.7635151635185042,0.38481557941255673,0.9057823647378815,-0.17741273226921905]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 19.237416,
+      "p90Ms": 31.054374,
+      "position": "0.53003961,-0.46954257,-0.79837068",
+      "profile": "reference",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440
+    },
+    {
+      "scene": "night",
+      "assetFailures": "0",
+      "basis": "[-0.7578237475168501,0.20033434601544392,-0.6209422819442093,0.5268967048111952,-0.3733958456335792,-0.7635151635185042,0.38481557941255673,0.9057823647378815,-0.17741273226921905]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 9.281374,
+      "p90Ms": 11.962625,
+      "position": "0.53003961,-0.46954257,-0.79837068",
+      "profile": "optimized",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440,
+      "imageDifference": {
+        "mean": 0,
+        "max": 0,
+        "overTwoFraction": 0
+      }
+    },
+    {
+      "scene": "horizon",
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.27925004942013837,0.6706348867069968,0.6872177665269895,-0.6518425785547919,-0.657913322136817,0.377162184395436]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 8.501041,
+      "p90Ms": 12.159291,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "reference",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440
+    },
+    {
+      "scene": "horizon",
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.27925004942013837,0.6706348867069968,0.6872177665269895,-0.6518425785547919,-0.657913322136817,0.377162184395436]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 8.795875,
+      "p90Ms": 12.255374,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "optimized",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440,
+      "imageDifference": {
+        "mean": 0,
+        "max": 0,
+        "overTwoFraction": 0
+      }
+    },
+    {
+      "scene": "clouds",
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 29.206083,
+      "p90Ms": 40.366541,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "reference",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440
+    },
+    {
+      "scene": "clouds",
+      "assetFailures": "0",
+      "basis": "[-0.7050678426094118,0.3426352423297848,-0.6208707015407631,-0.5677589260832958,0.2518301874839496,0.7837291359420941,-0.42488720758673404,-0.9050870938121969,-0.0169768502302165]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 32.289,
+      "p90Ms": 41.251374,
+      "position": "-0.30708297,0.70615223,0.73842584",
+      "profile": "optimized",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440,
+      "imageDifference": {
+        "mean": 1.1590265255349716e-05,
+        "max": 1,
+        "overTwoFraction": 0
+      }
+    },
+    {
+      "scene": "moon",
+      "assetFailures": "0",
+      "basis": "[-0.7458617286396225,0.24130076097068567,-0.6208576523694316,0.66189161120739,0.3731061492971882,-0.6501471344010596,-0.07476480966336457,0.8958603373917122,0.4380005469453304]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 9.675125,
+      "p90Ms": 11.674333,
+      "position": "0.71061896,0.32477840,-0.72746822",
+      "profile": "reference",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440
+    },
+    {
+      "scene": "moon",
+      "assetFailures": "0",
+      "basis": "[-0.7458617286396225,0.24130076097068567,-0.6208576523694316,0.66189161120739,0.3731061492971882,-0.6501471344010596,-0.07476480966336457,0.8958603373917122,0.4380005469453304]",
+      "disjoint": false,
+      "error": 0,
+      "height": 900,
+      "medianMs": 9.757874,
+      "p90Ms": 12.252875,
+      "position": "0.71061896,0.32477840,-0.72746822",
+      "profile": "optimized",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+      "samples": 42,
+      "width": 1440,
+      "imageDifference": {
+        "mean": 5.390821048999868e-07,
+        "max": 1,
+        "overTwoFraction": 0
+      }
+    }
+  ],
+  "gpuAttribution": {
+    "method": "Whole-frame elapsed GPU time while omitting one draw on a settled cloud-heavy frame; diagnostic only",
+    "milliseconds": {
+      "exposure": {
+        "count": 48,
+        "median": 34.019375,
+        "p90": 43.80275
+      },
+      "finish": {
+        "count": 46,
+        "median": 34.650458,
+        "p90": 40.239375
+      },
+      "none": {
+        "count": 48,
+        "median": 36.039625,
+        "p90": 44.713124
+      },
+      "world": {
+        "count": 48,
+        "median": 1.674333,
+        "p90": 1.777708
+      }
+    }
+  }
+}

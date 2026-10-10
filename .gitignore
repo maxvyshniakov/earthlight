@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.astro/
+.wrangler/
+*.tgz
+earthlight-assets-*.tar
+public/media/orbit/**
+!public/media/orbit/**/
+!public/media/orbit/**/*.md
+!public/media/orbit/**/*.txt
+!public/media/orbit/preview/**
