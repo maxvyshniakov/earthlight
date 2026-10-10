@@ -287,6 +287,9 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       state.cloudShape=modisStudy||params.get('cloudShape')==='texture'?'texture':'current';
       state.cloudStudy=modisStudy?params.get('cloudStudy')!:'off';
       state.modisReady='0';
+      state.terrainWork=params.get('terrainWork')==='legacy'?'legacy':'bounded';
+      state.terrainRefinement=params.get('terrainRefinement')==='full'?'full':'pixel';
+      state.cloudSteps=params.get('cloudSteps')==='full'?'full':'balanced';
       notify();
       try {
         if(!disableHalfClouds&&profile.name==='clouds-half'&&separateVolume&&CloudBuffer.supported(gl)){
@@ -301,6 +304,9 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           +(skyGrad?'#extension GL_OES_standard_derivatives : enable\n#define SKY_EXPLICIT_GRAD 1\n':'')
           +(compactWorld?'#define COMPACT_WORLD_PASS 1\n':'')
           +(sharedLighting?'#define SHARED_CLOUD_LIGHTING 1\n':'')
+          +(state.terrainWork==='bounded'?'#define BOUNDED_RAY_WORK 1\n':'')
+          +(state.terrainRefinement==='pixel'?'#define PIXEL_TERRAIN_REFINEMENT 1\n':'')
+          +(state.cloudSteps==='balanced'?'#define BALANCED_CLOUD_STEPS 1\n':'')
           +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
         const skyProgram=batch.add('Orbital scene',vertexSource,cloudHeader+terrainHeader+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+fragmentSource);

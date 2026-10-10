@@ -1,0 +1,161 @@
+diff --git a/scripts/terrain-detail.test.mjs b/scripts/terrain-detail.test.mjs
+index b3bf67b..514ef01 100644
+--- a/scripts/terrain-detail.test.mjs
++++ b/scripts/terrain-detail.test.mjs
+@@ -2,9 +2,25 @@ import {test,afterEach,spyOn,mock} from 'bun:test';
+ import assert from 'node:assert/strict';
+ import {packTerrainPatch,parentTerrainTile,terrainSourceName,DEM_CELL} from '../src/scripts/terrain-detail.ts';
+ import {terrainSource,terrainResponse} from '../server/terrain-source.mjs';
+-import {TerrainStream} from '../src/scripts/terrain-stream.ts';
++import {TerrainStream,terrainPageSpans} from '../src/scripts/terrain-stream.ts';
+ import {issFrame} from '../src/scripts/iss-orbit.ts';
+ 
++test('batched terrain pages reproduce individual writes across rows and evictions',()=>{
++ const cpu=Uint8Array.from({length:800*360*4},(_,i)=>i%251+1),gpu=cpu.slice();
++ for(const changes of [[0,4,799*4,800*4,805*4,287999*4],[4,805*4,0],[]]){
++  for(const p of changes)for(let c=0;c<4;c++)cpu[p+c]=(cpu[p+c]+p/4+c+1)%256;
++  // Include a cleared former atlas entry between two live entries.
++  if(changes.length>3)cpu.fill(0,4,8);
++  const spans=terrainPageSpans(changes);
++  for(const {start,end} of spans){
++   assert.equal(Math.floor(start/3200),Math.floor((end-1)/3200),'never cross a GPU row');
++   gpu.set(cpu.subarray(start,end),start);
++  }
++  assert.deepEqual(gpu,cpu,'unchanged neighbors and deleted entries remain exact');
++  assert.equal(spans.length,new Set(changes.map(p=>Math.floor(p/3200))).size);
++ }
++});
++
+ test('DEM coordinates retain hemisphere, parent quadrant and dateline',()=>{
+  assert.equal(terrainSourceName(parentTerrainTile(96*720+132)),'N41W114');
+  assert.equal(parentTerrainTile(97*720+133),parentTerrainTile(96*720+132));
+diff --git a/src/scripts/earth-clouds.ts b/src/scripts/earth-clouds.ts
+index 3589ce6..7dbb000 100644
+--- a/src/scripts/earth-clouds.ts
++++ b/src/scripts/earth-clouds.ts
+@@ -214,7 +214,14 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
+   // Near-nadir views cross only a thin shell and do not need the 96 samples
+   // reserved for long horizon paths (each lit sample also traces a shadow).
+   float pathLength=max(0.,exitDistance-entry);
++#ifdef BOUNDED_RAY_WORK
++  if(pathLength<=0.)return vec3(0.);
++#endif
++#ifdef BALANCED_CLOUD_STEPS
++  float viewSteps=clamp(ceil(pathLength*6371.),16.,96.);
++#else
+   float viewSteps=clamp(ceil(pathLength*6371./.65),16.,96.);
++#endif
+   float stepLength=pathLength/viewSteps;
+   vec4 stormA,stormB;
+   stormRaySources(ray,entry,exitDistance,stormA,stormB);
+diff --git a/src/scripts/earth-terrain.ts b/src/scripts/earth-terrain.ts
+index e229b66..f74b441 100644
+--- a/src/scripts/earth-terrain.ts
++++ b/src/scripts/earth-terrain.ts
+@@ -100,6 +100,11 @@ float terrainIntersection(vec3 ray,float seaDistance){
+    if(length(point)-1.<=terrainHeight(point,0.)){
+      float lo=previous,hi=t;
+      for(int j=0;j<11;j++){
++#ifdef PIXEL_TERRAIN_REFINEMENT
++       // Bound view-ray uncertainty to a quarter of the pixel cone.
++       // Keep a two-metre floor for very close inspection.
++       if(hi-lo<=max(2./6371000.,lo/(resolution.y*FOCAL)*.25))break;
++#endif
+        float mid=(lo+hi)*.5;
+        vec3 p=cameraPosition+ray*mid;
+        if(length(p)-1.>terrainHeight(p,0.))lo=mid;else hi=mid;
+@@ -144,12 +149,20 @@ float terrainLightVisibility(vec3 point,vec3 lightDirection){
+    float distance=first*pow(1.35,float(i));
+    if(distance>40000./6371000.)break;
+    vec3 p=origin+lightDirection*distance;
++#ifdef BOUNDED_RAY_WORK
++   // Heights use the same 9 km bound as terrainIntersection. Once an
++   // outward ray clears it, every remaining sample is also above terrain.
++   if(dot(p,lightDirection)>=0. && dot(p,p)>1.001413*1.001413)break;
++#endif
+    float support=max(footprint*.5,distance*.00465);
+    float sampleTexel=6.2831853/terrainSamplingWidthAt(earthUV(normalize(p)));
+    float lod=max(0.,log2(max(1.,support/sampleTexel)));
+    float clearance=length(p)-1.-terrainHeight(p,lod);
+    float softness=max(bias,support);
+    visibility=min(visibility,smoothstep(-softness,0.,clearance));
++#ifdef BOUNDED_RAY_WORK
++   if(visibility<=0.)break;
++#endif
+  }
+  return visibility;
+ }
+diff --git a/src/scripts/orbit-renderer.ts b/src/scripts/orbit-renderer.ts
+index 000af30..2a52542 100644
+--- a/src/scripts/orbit-renderer.ts
++++ b/src/scripts/orbit-renderer.ts
+@@ -287,6 +287,10 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
+       state.cloudShape=modisStudy||params.get('cloudShape')==='texture'?'texture':'current';
+       state.cloudStudy=modisStudy?params.get('cloudStudy')!:'off';
+       state.modisReady='0';
++      state.terrainWork=params.get('terrainWork')==='bounded'?'bounded':'legacy';
++      state.terrainRefinement=params.get('terrainRefinement')==='pixel'?'pixel':'full';
++      state.terrainUpload=params.get('terrainUpload')==='rows'?'rows':'pixels';
++      state.cloudSteps=params.get('cloudSteps')==='balanced'?'balanced':'full';
+       notify();
+       try {
+         if(!disableHalfClouds&&profile.name==='clouds-half'&&separateVolume&&CloudBuffer.supported(gl)){
+@@ -301,6 +305,9 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
+           +(skyGrad?'#extension GL_OES_standard_derivatives : enable\n#define SKY_EXPLICIT_GRAD 1\n':'')
+           +(compactWorld?'#define COMPACT_WORLD_PASS 1\n':'')
+           +(sharedLighting?'#define SHARED_CLOUD_LIGHTING 1\n':'')
++          +(params.get('terrainWork')==='bounded'?'#define BOUNDED_RAY_WORK 1\n':'')
++          +(params.get('terrainRefinement')==='pixel'?'#define PIXEL_TERRAIN_REFINEMENT 1\n':'')
++          +(params.get('cloudSteps')==='balanced'?'#define BALANCED_CLOUD_STEPS 1\n':'')
+           +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
+           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
+         const skyProgram=batch.add('Orbital scene',vertexSource,cloudHeader+terrainHeader+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+fragmentSource);
+@@ -459,7 +466,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
+           catch(error){console.warn('Detailed day map unavailable; retaining the global map.',error);}
+         }
+         if(supportsCloudTiles&&params.get('cloudDetail')!=='0')cloudTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'cloud',work,base);
+-        if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL);}
++        if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL,params.get('terrainUpload')==='rows');}
+         if(supportsGalaxyTiles)galaxyTiles=new SurfaceTiles(gl,canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches,notify,'galaxy',work,base);
+         if(starData)catalog.upload(starData);
+         initialized=true;state.shaderStartup='ready';
+diff --git a/src/scripts/terrain-stream.ts b/src/scripts/terrain-stream.ts
+index c90ad2d..40fdfdf 100644
+--- a/src/scripts/terrain-stream.ts
++++ b/src/scripts/terrain-stream.ts
+@@ -4,6 +4,16 @@ import {visibleSurfaceTiles} from './night-tiles.ts';
+ import {DEM_CELL as CELL,parentTerrainTile,terrainSourceName} from './terrain-detail.ts';
+ type View=Parameters<typeof visibleSurfaceTiles>[0];
+ type Entry={slot:number;loaded:number;used:number;id:number;fine:boolean};
++/** Dirty page texels can share one upload within a row. Untouched bytes in
++ * the span come from the authoritative CPU table, including cleared slots. */
++export function terrainPageSpans(changes:number[]){
++ const rows=new Map<number,{start:number;end:number}>();
++ for(const p of changes){const row=Math.floor(p/4/800),span=rows.get(row);
++  if(span){span.start=Math.min(span.start,p);span.end=Math.max(span.end,p+4);}
++  else rows.set(row,{start:p,end:p+4});
++ }
++ return [...rows.values()];
++}
+ /** Both resolutions share unit 15 and a bounded atlas. The first row stores
+  * indirection tables; other cells store paired height/mip squares. */
+ export class TerrainStream {
+@@ -31,7 +41,7 @@ export class TerrainStream {
+  private locations=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
+  requests=0;bytes=0;failures=0;
+  private gl:WebGLRenderingContext;private mobile:boolean;private notify:()=>void;private work:SceneWork;
+- constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/'){
++ constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/',private rowUploads=false){
+   this.gl=gl;this.mobile=mobile;this.notify=notify;this.work=work;
+   this.columns=mobile?4:6;this.edge=CELL*this.columns;this.capacity=(this.columns*this.columns-this.columns)/2;
+   this.texture=gl.createTexture();if(!this.texture)throw Error('Cannot allocate terrain atlas');
+@@ -81,7 +91,8 @@ export class TerrainStream {
+   }
+   for(const p of this.pageKeys)if(!active.has(p)){this.pages.fill(0,p,p+4);changes.push(p);}
+   this.pageKeys=active;
+-  for(const p of changes)textureSubImage2D(gl,gl.TEXTURE_2D,0,(p/4)%800,Math.floor(p/4/800),1,1,gl.RGBA,gl.UNSIGNED_BYTE,this.pages.subarray(p,p+4));
++  const spans=this.rowUploads?terrainPageSpans(changes):changes.map(start=>({start,end:start+4}));
++  for(const {start,end} of spans)textureSubImage2D(gl,gl.TEXTURE_2D,0,(start/4)%800,Math.floor(start/4/800),(end-start)/4,1,gl.RGBA,gl.UNSIGNED_BYTE,this.pages.subarray(start,end));
+   if(fading&&!this.timer)this.timer=window.setTimeout(()=>{this.timer=0;this.notify();},50);
+  }
+  private decode(buffer:ArrayBuffer,signal:AbortSignal){return new Promise<Uint8Array[]>((resolve,reject)=>{

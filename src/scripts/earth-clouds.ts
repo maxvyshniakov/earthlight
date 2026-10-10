@@ -214,7 +214,14 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
   // Near-nadir views cross only a thin shell and do not need the 96 samples
   // reserved for long horizon paths (each lit sample also traces a shadow).
   float pathLength=max(0.,exitDistance-entry);
+#ifdef BOUNDED_RAY_WORK
+  if(pathLength<=0.)return vec3(0.);
+#endif
+#ifdef BALANCED_CLOUD_STEPS
+  float viewSteps=clamp(ceil(pathLength*6371.),16.,96.);
+#else
   float viewSteps=clamp(ceil(pathLength*6371./.65),16.,96.);
+#endif
   float stepLength=pathLength/viewSteps;
   vec4 stormA,stormB;
   stormRaySources(ray,entry,exitDistance,stormA,stormB);

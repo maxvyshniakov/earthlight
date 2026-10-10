@@ -253,8 +253,14 @@ try{
   await run('open',`${base}/?t=${time}&motion=0&quality=fixed`);await wait(settled);
   const state=await evaluate(`(()=>{const e=document.querySelector('orbital-sky'),i=e.querySelector('[data-look=grain]');i.value='0';i.dispatchEvent(new Event('input'));const c=e.querySelector('canvas'),gl=c.getContext('webgl');return {time:${time},ready:e.hasAttribute('data-ready'),error:gl.getError(),data:{...e.dataset},canvas:[c.width,c.height]};})()`);
   assert.equal(state.ready,true);assert.equal(state.error,0);assert.equal(state.data.assetFailures,'0');
+  assert.deepEqual([state.data.terrainWork,state.data.terrainRefinement,state.data.cloudSteps],['bounded','pixel','balanced']);
   await run('screenshot',`${out}/frame-${time}.png`);results.push(state);console.log(`frame ${time}: clean`);
  }
+ // The historical renderer remains available for matched comparisons.
+ await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&terrainWork=legacy&terrainRefinement=full&cloudSteps=full`);await wait(settled);
+ const legacyWork=await evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {work:[e.dataset.terrainWork,e.dataset.terrainRefinement,e.dataset.cloudSteps],failures:e.dataset.assetFailures,error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
+ assert.deepEqual(legacyWork.work,['legacy','full','full']);assert.equal(legacyWork.failures,'0');assert.equal(legacyWork.error,0);
+ results.push({legacyWork});console.log('ray work: optimized defaults and explicit legacy settings render cleanly');
  // Refine failures must retain preview images and still complete focus.
  for(const failure of ['psf','detail','all']){
   await run('open',`${base}/?t=1338.89&motion=0&quality=fixed`);await wait(settled);

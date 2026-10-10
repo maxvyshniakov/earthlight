@@ -100,6 +100,11 @@ float terrainIntersection(vec3 ray,float seaDistance){
    if(length(point)-1.<=terrainHeight(point,0.)){
      float lo=previous,hi=t;
      for(int j=0;j<11;j++){
+#ifdef PIXEL_TERRAIN_REFINEMENT
+       // Bound view-ray uncertainty to a quarter of the pixel cone.
+       // Keep a two-metre floor for very close inspection.
+       if(hi-lo<=max(2./6371000.,lo/(resolution.y*FOCAL)*.25))break;
+#endif
        float mid=(lo+hi)*.5;
        vec3 p=cameraPosition+ray*mid;
        if(length(p)-1.>terrainHeight(p,0.))lo=mid;else hi=mid;
@@ -144,12 +149,20 @@ float terrainLightVisibility(vec3 point,vec3 lightDirection){
    float distance=first*pow(1.35,float(i));
    if(distance>40000./6371000.)break;
    vec3 p=origin+lightDirection*distance;
+#ifdef BOUNDED_RAY_WORK
+   // Heights use the same 9 km bound as terrainIntersection. Once an
+   // outward ray clears it, every remaining sample is also above terrain.
+   if(dot(p,lightDirection)>=0. && dot(p,p)>1.001413*1.001413)break;
+#endif
    float support=max(footprint*.5,distance*.00465);
    float sampleTexel=6.2831853/terrainSamplingWidthAt(earthUV(normalize(p)));
    float lod=max(0.,log2(max(1.,support/sampleTexel)));
    float clearance=length(p)-1.-terrainHeight(p,lod);
    float softness=max(bias,support);
    visibility=min(visibility,smoothstep(-softness,0.,clearance));
+#ifdef BOUNDED_RAY_WORK
+   if(visibility<=0.)break;
+#endif
  }
  return visibility;
 }
