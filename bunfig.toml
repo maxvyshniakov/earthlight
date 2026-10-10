@@ -1,0 +1,7 @@
+[run]
+# Run package binaries with Bun even when their shebang names Node.
+bun = true
+
+[install]
+# Platform binaries come from optional dependencies; verify clean installs.
+ignoreScripts = true

@@ -8,7 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 async function main() {
   const [sourceArgument, ref = 'HEAD', ...extra] = process.argv.slice(2);
-  if (!sourceArgument || extra.length) throw new Error('Usage: npm run sync:site -- <site-dir> [ref]');
+  if (!sourceArgument || extra.length) throw new Error('Usage: bun run sync:site <site-dir> [ref]');
   const source = await realpath(sourceArgument);
   const target = await realpath(root);
   const sourceRoot = await realpath(execFileSync('git', ['-C', source, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim());

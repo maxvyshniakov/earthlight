@@ -1,5 +1,5 @@
 // Offline Fourier-optics LUT. No runtime FFT or external image asset.
-// Run with Node 24: node scripts/build-optical-psf.mjs
+// Run with Bun: bun scripts/build-optical-psf.mjs
 import { writeFileSync } from 'node:fs';
 const N=512, size=256, span=64, states=3;
 // Preserve the existing photometric normalization across every iris opening.

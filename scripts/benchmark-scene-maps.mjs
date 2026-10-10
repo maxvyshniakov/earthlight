@@ -1,5 +1,5 @@
 // Lossless references reconstructed from the NASA source plates, not AVIFs.
-// node scripts/benchmark-scene-maps.mjs [/tmp/orbital-reference] [/tmp/orbit-optimization]
+// bun scripts/benchmark-scene-maps.mjs [/tmp/orbital-reference] [/tmp/orbit-optimization]
 import sharp from 'sharp';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';

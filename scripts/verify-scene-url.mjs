@@ -1,4 +1,4 @@
-// Run against a built preview: node scripts/verify-scene-url.mjs http://127.0.0.1:4322
+// Run against a built preview: bun scripts/verify-scene-url.mjs http://127.0.0.1:4322
 // Uses an isolated browser session and does not attach to a user's tab.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';

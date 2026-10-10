@@ -1,4 +1,4 @@
-// node scripts/verify-shader-startup.mjs http://127.0.0.1:4347 /tmp/shader-startup [webgl1|webgl2]
+// bun scripts/verify-shader-startup.mjs http://127.0.0.1:4347 /tmp/shader-startup [webgl1|webgl2]
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';

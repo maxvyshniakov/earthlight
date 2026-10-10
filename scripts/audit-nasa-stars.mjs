@@ -1,5 +1,5 @@
 // Independent image/catalog cross-check. The EXR stays outside the repository.
-// node scripts/audit-nasa-stars.mjs /path/to/hiptyc_2020_8k_gal.exr
+// bun scripts/audit-nasa-stars.mjs /path/to/hiptyc_2020_8k_gal.exr
 import {spawnSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 import {Rotation_EQJ_GAL} from 'astronomy-engine';

@@ -94,12 +94,12 @@ under `/tmp/orbit-cloud-edges-v2-20261010/`; PNGs themselves are not tracked.
 ## Reproduce the archived prototype
 
 Use a separate worktree for `codex/cloud-edge-refinement-experiment`, install
-with Node 24 and npm, build, and serve that checkout. Then run:
+with Bun, build, and serve that checkout. Then run:
 
 ```sh
 EDGE_FRAMES=32 EDGE_GPU_VIEWS=clouds \
 AGENT_BROWSER_ARGS=--disable-frame-rate-limit,--disable-gpu-vsync,--disable-background-timer-throttling,--disable-renderer-backgrounding \
-node scripts/verify-cloud-edges.mjs http://127.0.0.1:4351 /tmp/orbit-cloud-edges
+bun scripts/verify-cloud-edges.mjs http://127.0.0.1:4351 /tmp/orbit-cloud-edges
 ```
 
 The archived branch accepts `render=clouds-half&cloudEdges=1` and

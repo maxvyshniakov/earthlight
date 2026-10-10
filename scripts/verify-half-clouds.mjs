@@ -1,4 +1,4 @@
-// node scripts/verify-half-clouds.mjs http://127.0.0.1:4347 /tmp/orbit-half-clouds
+// bun scripts/verify-half-clouds.mjs http://127.0.0.1:4347 /tmp/orbit-half-clouds
 // Image metrics are observations, not an acceptance threshold for this prototype.
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';

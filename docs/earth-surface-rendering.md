@@ -142,7 +142,7 @@ This is a local regression indicator, not a perceptual flicker score.
 
 Final local playback sample: 94 frames in 4.002 seconds (~23.5 FPS), WebGL error 0.
 Forced context restoration with the explicit-LOD extension hidden also compiled
-and returned to a ready scene with error 0. `npm run verify`: 22 tests passed,
+and returned to a ready scene with error 0. `bun run verify`: 22 tests passed,
 Astro check and build clean. Diagnostic image settings were reset afterward.
 
 

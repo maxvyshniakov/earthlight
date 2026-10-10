@@ -2,14 +2,13 @@
 // Different storm models; compare CPU cost, not image equivalence.
 // No timing assertion: this is a local CPU microbenchmark, not frame/power data.
 import {execFileSync} from 'node:child_process';
-import {stripTypeScriptTypes} from 'node:module';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {stormLights} from '../src/scripts/storm-light.ts';
 import {issFrame} from '../src/scripts/iss-orbit.ts';
 const baseline='815ede7';
 const source=execFileSync('git',['show',`${baseline}:src/scripts/storm-light.ts`],{encoding:'utf8'});
-const reference=await import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(source)).toString('base64')}`);
+const reference=await import(`data:text/javascript;base64,${Buffer.from(new Bun.Transpiler({loader:'ts'}).transformSync(source)).toString('base64')}`);
 const states=[];
 for(const t of [0,17.9,18,71,610.87,1122.38,1645.72,3235.65,5400,-100])
 for(const yaw of [0,90,180])for(const pitch of [0,-45])for(const rate of [.25,10,120,-10]){

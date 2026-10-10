@@ -1,4 +1,4 @@
-import test from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {terrainResponse} from '../server/terrain-source.mjs';
 import {isSelectedPath,sanitizeImportedText} from './extraction-manifest.mjs';

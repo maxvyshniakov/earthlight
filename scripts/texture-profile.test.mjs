@@ -1,4 +1,4 @@
-import test from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import {textureProfile,galaxyIrradianceLod} from '../src/scripts/texture-profile.ts';

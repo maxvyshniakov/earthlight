@@ -1,4 +1,6 @@
-import test from 'node:test';
+import {test,spyOn,mock,afterEach} from 'bun:test';
+
+afterEach(()=>mock.restore());
 import assert from 'node:assert/strict';
 import { issFrame } from '../src/scripts/iss-orbit.ts';
 import { tileAt, visibleSurfaceTiles, visibleGalaxyTiles, SurfaceTiles } from '../src/scripts/night-tiles.ts';
@@ -50,8 +52,8 @@ test('galaxy detail follows sky direction, prioritizes centre and excludes Earth
  assert.ok(wrap.some(id=>id%32===0)&&wrap.some(id=>id%32===31));
 });
 
-for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atlas bounds loads, evicts after seek, closes decodes, and cancels on disposal`,async t=>{
-  let now=1000;t.mock.method(performance,'now',()=>now);
+for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atlas bounds loads, evicts after seek, closes decodes, and cancels on disposal`,async()=>{
+  let now=1000;spyOn(performance,'now').mockImplementation(()=>now);
   const cell=(layer==='cloud'||layer==='galaxy')?544:572,columns=layer==='terrain'?40:(layer==='cloud'||layer==='galaxy')?32:160,rows=layer==='terrain'?20:(layer==='cloud'||layer==='galaxy')?16:80;
   const ids=Array.from({length:columns*rows},(_,i)=>i);
   const originals={fetch:globalThis.fetch,createImageBitmap:globalThis.createImageBitmap,window:globalThis.window,document:globalThis.document};

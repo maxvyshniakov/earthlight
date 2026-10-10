@@ -44,7 +44,7 @@ It records pixel differences separately from capability/lifecycle assertions.
 Run against a stable build, with exclusive GPU use:
 
 ```sh
-node scripts/verify-webgl2.mjs http://127.0.0.1:4347 /tmp/orbit-webgl2
+bun scripts/verify-webgl2.mjs http://127.0.0.1:4347 /tmp/orbit-webgl2
 ```
 
 The local headless launch flags and their limitations are documented in

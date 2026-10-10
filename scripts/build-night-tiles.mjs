@@ -1,5 +1,5 @@
 // NASA Black Marble 2016, 500 m. Originals live outside the repository.
-// node scripts/build-night-tiles.mjs /tmp/orbital-reference
+// bun scripts/build-night-tiles.mjs /tmp/orbital-reference
 import sharp from 'sharp';
 import { mkdir, readFile, writeFile, stat, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';

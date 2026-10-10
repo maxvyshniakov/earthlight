@@ -1,5 +1,5 @@
 // Local visual experiment only. No production imports or default asset changes.
-// node scripts/terrain-detail-experiment.mjs <Copernicus N41 W114 COG> <output>
+// bun scripts/terrain-detail-experiment.mjs <Copernicus N41 W114 COG> <output>
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {gzipSync} from 'node:zlib';
 import {build} from 'esbuild';

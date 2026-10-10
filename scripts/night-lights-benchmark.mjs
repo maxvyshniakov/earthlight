@@ -1,5 +1,5 @@
 // Local, reproducible Black Marble codec experiment. Does not change site assets.
-// node scripts/night-lights-benchmark.mjs /path/to/B2_gray.jpg /path/to/B2.jpg /tmp/night-lights-lab
+// bun scripts/night-lights-benchmark.mjs /path/to/B2_gray.jpg /path/to/B2.jpg /tmp/night-lights-lab
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';

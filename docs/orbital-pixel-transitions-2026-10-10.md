@@ -79,4 +79,4 @@ The owned browser tab was closed. Original Android keep-awake was restored and r
 
 Open: iPhone/Safari and its low-power mode; sustained day/night/cloud quality; repeated final transition cycles and temperature-controlled repeats; true presentation/filmstrip timing; cold-cache/network startup; long-frame elimination; visual acceptance of cloud edges and real-time motion.
 
-To repeat, use the Node 24 device driver setup and `DEVICE_TRANSITION_ONCE=1 DEVICE_TRANSITION_AURORA_SMOKE=1 node scripts/verify-device-transitions.mjs <preview-url> <output-dir>`. Without `ONCE`, the harness records two cloud transitions. Reserve the unlocked foreground phone first; the harness changes scene controls only in its owned tab.
+To repeat, use the Bun device driver setup and `DEVICE_TRANSITION_ONCE=1 DEVICE_TRANSITION_AURORA_SMOKE=1 bun scripts/verify-device-transitions.mjs <preview-url> <output-dir>`. Without `ONCE`, the harness records two cloud transitions. Reserve the unlocked foreground phone first; the harness changes scene controls only in its owned tab.

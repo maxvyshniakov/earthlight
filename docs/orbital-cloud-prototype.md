@@ -115,12 +115,12 @@ the main renderer and remains the experiment's baseline. The run does not establ
 Build first and serve the built snapshot. Do not run GPU measurements concurrently.
 
 ```sh
-npm run verify
-npm run preview -- --port 4347 --host 127.0.0.1
-node scripts/verify-scene-url.mjs http://127.0.0.1:4347
-node scripts/verify-half-clouds.mjs http://127.0.0.1:4347 /tmp/orbit-half-clouds
-node scripts/benchmark-candidate-pairs.mjs http://127.0.0.1:4347 /tmp/orbit-half-pairs clouds-half day,night,clouds compact
-node scripts/benchmark-orbit-costs.mjs http://127.0.0.1:4347 /tmp/orbit-costs
+bun run verify
+bun run preview --port 4347 --host 127.0.0.1
+bun scripts/verify-scene-url.mjs http://127.0.0.1:4347
+bun scripts/verify-half-clouds.mjs http://127.0.0.1:4347 /tmp/orbit-half-clouds
+bun scripts/benchmark-candidate-pairs.mjs http://127.0.0.1:4347 /tmp/orbit-half-pairs clouds-half day,night,clouds compact
+bun scripts/benchmark-orbit-costs.mjs http://127.0.0.1:4347 /tmp/orbit-costs
 ```
 
 The half-cloud check fixes manual exposure and grain, captures five views and an
@@ -148,7 +148,7 @@ not interpreted as scene performance.
 
 ## Initial prototype validation (before startup/API work)
 
-- `npm run verify`: 92 tests passed; Astro reported no errors, warnings or hints;
+- `bun run verify`: 92 tests passed; Astro reported no errors, warnings or hints;
   build passed. The measured client bundle retained SHA-256
   `8aa94cfc3494b3b71e0ed1ca617874a9fa6e108f26332d7d79016c9bbffa4aea`,
   matching the measured snapshot.

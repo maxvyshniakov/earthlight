@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 // NASA Black Marble 2016 color composite and Solar System Scope 8K clouds.
 // See public/media/orbit/README.md for source URLs and attribution.
 const [nightSource, cloudSource, daySource] = process.argv.slice(2);
-if (!nightSource || !cloudSource || !daySource) throw new Error('Usage: node scripts/build-earth-maps.mjs BLACK_MARBLE_3KM.jpg CLOUDS_8K.jpg DAY_8K.jpg');
+if (!nightSource || !cloudSource || !daySource) throw new Error('Usage: bun scripts/build-earth-maps.mjs BLACK_MARBLE_3KM.jpg CLOUDS_8K.jpg DAY_8K.jpg');
 sharp.concurrency(2);
 const smoothstep = (low, high, value) => {
   const t = Math.max(0, Math.min(1, (value-low)/(high-low)));

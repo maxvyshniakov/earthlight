@@ -3,7 +3,7 @@ import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { extractArchive } from './fetch-assets.mjs';
+import { extractArchive, isDownloadedAsset } from './fetch-assets.mjs';
 
 const excludedScripts = new Set([
   'check-cloudflare-access.mjs', 'with-cloudflare.mjs', 'configure-storybook-access.mjs',
@@ -14,18 +14,70 @@ const excludedScripts = new Set([
 const singleFiles = new Set([
   'src/data/iss-orbit.json', 'src/data/optical-psf.json',
   'src/components/OrbitalSky.astro', 'src/components/OrbitHud.astro', 'src/components/SkyCredits.astro',
-  'server/terrain-source.mjs', 'server/terrain-middleware.mjs', '.nvmrc', 'tsconfig.json',
+  'server/terrain-source.mjs', 'server/terrain-middleware.mjs', 'tsconfig.json',
 ]);
+// Runtime and wrapper configuration belongs to Earthlight, even when the source
+// gains similarly named files later.
+const wrapperFiles = new Set(['.nvmrc', '.bun-version', 'bunfig.toml', 'bun.lock', 'bun.lockb', 'package.json', 'package-lock.json']);
 const legacyTextures = new Set(['earth-day.avif', 'earth-day-8k.avif', 'earth-clouds.avif', 'earth-clouds-8k.avif']);
 
 export function isSelectedPath(path) {
+  if (wrapperFiles.has(path)) return false;
   if (singleFiles.has(path) || path.startsWith('src/scripts/')) return true;
   if (path.startsWith('scripts/')) return !excludedScripts.has(path.slice(8)) && !/(?:cloudflare|storybook|github-package|^deploy[-.])/i.test(path.slice(8));
   if (path.startsWith('public/media/orbit/')) return !legacyTextures.has(path.slice('public/media/orbit/'.length));
   return path.startsWith('docs/evidence/') || /^docs\/(?:earth-surface-rendering|night-lights-[^/]+|orbital-[^/]+|scene-optimization)\.md$/.test(path);
 }
 
+export function normalizeImportedTest(path,text){
+ if(!path.endsWith('.test.mjs'))return text;
+ if(path==='scripts/scene-assets-startup.test.mjs'){
+  if(!text.includes("import test from 'node:test';"))return text;
+  text=text.replace("import test from 'node:test';","import {test,afterEach,spyOn,mock,jest} from 'bun:test';")
+   .replace(/t\.mock\.method\(([^,]+),('[^']+'),/g,'spyOn($1,$2).mockImplementation(')
+   .replaceAll('async t=>','async()=>')
+   .replaceAll("t.mock.timers.enable({apis:['setTimeout']});","jest.useFakeTimers({doNotFake:['setImmediate','nextTick','performance']});")
+   .replaceAll('t.mock.timers.tick(','jest.advanceTimersByTime(');
+  return text+'\nafterEach(()=>{mock.restore();jest.useRealTimers();});\n';
+ }
+ text=text.replace("import test from 'node:test';","import {test} from 'bun:test';");
+ if(['scripts/night-tiles.test.mjs','scripts/terrain-detail.test.mjs'].includes(path)){
+  text=text.replace("import {test} from 'bun:test';","import {test,spyOn,mock,afterEach} from 'bun:test';\n\nafterEach(()=>mock.restore());")
+   .replace(/t\.mock\.method\(([^,]+),('[^']+'),/g,'spyOn($1,$2).mockImplementation(')
+   .replaceAll('async t=>','async()=>');
+ }
+ if(path==='scripts/shader-programs.test.mjs'){
+  text=text.replace("import {test} from 'bun:test';","import {test,afterEach} from 'bun:test';\n\nconst cleanups=[];\nafterEach(()=>{for(const cleanup of cleanups.splice(0).reverse())cleanup();});")
+   .replace('function fixture(t,{parallel=true}={})','function fixture({parallel=true}={})')
+   .replaceAll('t.after(','cleanups.push(').replaceAll('fixture(t,','fixture(').replaceAll('fixture(t)','fixture()').replaceAll('async t=>','async()=>');
+ }
+ if(path==='scripts/cloud-buffer.test.mjs'){
+  text=text.replace(/import \{readFileSync\} from 'node:fs';\nimport ts from 'typescript';\n[\s\S]*?const \{WorldBuffer\}=await load\('world-buffer'\);/,"import {CloudBuffer} from '../src/scripts/cloud-buffer.ts';\nimport {WorldBuffer} from '../src/scripts/world-buffer.ts';");
+ }
+ return text;
+}
+
 export function sanitizeImportedText(path, text) {
+  text = normalizeImportedTest(path, text);
+  // Preserve the recorded command/runtime of the original release validation.
+  if ((path.startsWith('scripts/') || path.endsWith('.md')) && path !== 'docs/orbital-release-validation-2026-10-10.md') {
+    text = text.replace(/\bnpm run ([\w:.-]+)(?: --(?=\s|$))?/g, 'bun run $1')
+      .replace(/\bnpm ci\b/g, 'bun install --frozen-lockfile')
+      .replace(/\bnpm (?:install|i)\b/g, 'bun install')
+      .replace(/\bnpm exec\b/g, 'bunx --bun')
+      .replace(/\bnpx\b/g, 'bunx --bun')
+      .replace(/\bnode --test\b/g, 'bun test')
+      .replace(/\bnode (?=(?:\.\/)?scripts\/)/g, 'bun ')
+      .replace(/^#!\/usr\/bin\/env node$/gm, '#!/usr/bin/env bun')
+      .replace(/Run with Node 24:/g, 'Run with Bun:')
+      .replace(/Requires Node 24/g, 'Requires Bun')
+      .replace(/with Node 24 and npm, build/g, 'with Bun, build')
+      .replace(/use the Node 24 device driver setup/g, 'use the Bun device driver setup');
+  }
+  if (path === 'scripts/benchmark-storm-light.mjs') {
+    text = text.replace(/import\s*\{\s*stripTypeScriptTypes\s*\}\s*from\s*['"]node:module['"];?\n?/g, '')
+      .replaceAll('stripTypeScriptTypes(source)', "new Bun.Transpiler({loader:'ts'}).transformSync(source)");
+  }
   // Edge runtimes reject redirect:error. The existing !upstream.ok branch
   // refuses manual 3xx responses without following them to another origin.
   if (path === 'server/terrain-source.mjs') text = text.replaceAll("redirect:'error'", "redirect:'manual'");
@@ -67,7 +119,8 @@ export function listSnapshotFiles(sourceDir, fullSHA) {
 }
 
 export function binaryAssetTree(sourceDir, fullSHA) {
-  const entries = listSnapshotFiles(sourceDir, fullSHA).filter(entry => entry.path.startsWith('public/media/orbit/'));
+  const prefix = 'public/media/orbit/';
+  const entries = listSnapshotFiles(sourceDir, fullSHA).filter(entry => entry.path.startsWith(prefix) && isDownloadedAsset(entry.path.slice(prefix.length)));
   return createHash('sha256').update(entries.map(entry => `${entry.path}\0${entry.oid}\n`).join('')).digest('hex');
 }
 

@@ -1,6 +1,6 @@
 import {PointReflections} from '../src/scripts/point-reflections.ts';
 import {draggedCamera} from '../src/scripts/orbit-camera-drag.ts';
-import test from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';

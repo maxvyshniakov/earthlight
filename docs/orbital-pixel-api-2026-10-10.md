@@ -81,7 +81,7 @@ port to the phone and Chrome's debugging socket to localhost:9223, unlock the
 phone, and leave Chrome foregrounded:
 
 ```sh
-node scripts/benchmark-device-api.mjs http://127.0.0.1:4350 /tmp/orbit-device-api
+bun scripts/benchmark-device-api.mjs http://127.0.0.1:4350 /tmp/orbit-device-api
 ```
 
 `DEVICE_API_CASES` selects comma-separated case names, for example

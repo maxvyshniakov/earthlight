@@ -17,23 +17,23 @@ effects are illustrative; the orbital elements are a saved snapshot.
 
 ## Run
 
-Use Node 24, npm, and GitHub CLI authenticated for this private repository.
+Use Bun 1.3.14 and GitHub CLI authenticated for this private repository.
 
 ```sh
-npm ci
-npm run assets
-npm run dev
+bun install --frozen-lockfile
+bun run assets
+bun run dev
 ```
 
-Open `http://localhost:4321/`. `npm run preview` serves the production build,
+Open `http://localhost:4321/`. `bun run preview` serves the production build,
 including the same narrow terrain proxy as the development server.
 
 ## Verify
 
 ```sh
-npm run verify
-npm run preview -- --port 4325
-npm run verify:scene -- http://127.0.0.1:4325 /tmp/earthlight-browser-proof
+bun run verify
+bun run preview --port 4325
+bun run verify:scene http://127.0.0.1:4325 /tmp/earthlight-browser-proof
 ```
 
 The browser suite uses `rtk proxy agent-browser`. Device-specific benchmarks
@@ -42,14 +42,17 @@ including the original DEM1 terrain maps used to check the DEM2 encoding.
 
 ## Assets and credits
 
-The large scene data archive lives in a pinned GitHub Release. `npm run assets`
+The large scene data archive lives in a pinned GitHub Release. `bun run assets`
 checks its SHA-256 before extraction. Release metadata is in
 `source-snapshot.json`; small loading previews and attribution files remain in
-Git. Fetching the full archive is a development step, not a page-load cost.
+Git. Downloading assets preserves the documentation and notices from Git.
+Fetching the full archive is a development step, not a page-load cost.
 
 The four legacy Solar System Scope day/cloud maps are excluded. The historical
 night-light comparison lab requires those separately attributed maps; it is
 not part of the demo or verification suite.
+The historical storm benchmark also requires the original site's Git history
+for its comparison baseline; it cannot run in this repository's fresh history.
 
 See [NOTICE](NOTICE.md) and [data provenance](public/media/orbit/README.md) for
 source credits, transformations and terms. Code and third-party data have
@@ -60,7 +63,7 @@ separate licensing.
 Source: `personal-site@82f3c1c888b7de93ddc793962dfacdc53572b584`.
 
 ```sh
-npm run sync:site -- /path/to/personal-site <commit-or-ref>
+bun run sync:site /path/to/personal-site <commit-or-ref>
 ```
 
 Synchronization resolves one full commit, imports the shared manifest, removes

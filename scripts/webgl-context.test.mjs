@@ -1,4 +1,4 @@
-import test from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {prepareShaderSource,textureImage2D,textureSubImage2D,halfFloatTarget,drawBuffersApi} from '../src/scripts/webgl-context.ts';
 import {auroraMode,auroraEnabled} from '../src/scripts/scene-effects.ts';

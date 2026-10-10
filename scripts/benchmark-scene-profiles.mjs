@@ -1,5 +1,5 @@
 // Hardware GPU queries in an isolated browser; no synchronous GPU waits.
-// npm run benchmark:scene -- http://127.0.0.1:4347 /tmp/orbit-profiles
+// bun run benchmark:scene http://127.0.0.1:4347 /tmp/orbit-profiles
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';

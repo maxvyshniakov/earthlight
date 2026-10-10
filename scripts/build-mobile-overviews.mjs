@@ -1,5 +1,5 @@
 // Build 2K candidates from the original NASA plates, without recompressing AVIF.
-// node scripts/build-mobile-overviews.mjs /tmp/orbital-reference
+// bun scripts/build-mobile-overviews.mjs /tmp/orbital-reference
 import sharp from 'sharp';
 import {mkdir,stat} from 'node:fs/promises';
 import {join} from 'node:path';

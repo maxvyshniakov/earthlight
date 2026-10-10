@@ -1,5 +1,5 @@
 // NASA Blue Marble Next Generation, October 2004, 500 m. Originals live outside the repository.
-// node scripts/build-day-tiles.mjs /tmp/orbital-reference/day
+// bun scripts/build-day-tiles.mjs /tmp/orbital-reference/day
 import sharp from 'sharp';
 import { mkdir, readFile, writeFile, stat, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';

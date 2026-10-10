@@ -249,7 +249,7 @@ WebGL context restoration.
 
 ### Optical response
 
-`node scripts/build-optical-psf.mjs` generates three 256 × 256 RGB diffraction
+`bun scripts/build-optical-psf.mjs` generates three 256 × 256 RGB diffraction
 profiles packed vertically into one 256 × 768 atlas (589,824 bytes). Each is the
 squared Fourier transform of a different iris opening: rounded six blades,
 partly withdrawn blades, and a nearly circular wider pupil. The widest state
@@ -294,7 +294,7 @@ References for the method (no code or assets copied):
 ### Milky Way
 
 The independent raster check is reproducible with
-`node scripts/audit-nasa-stars.mjs /path/to/hiptyc_2020_8k_gal.exr`.
+`bun scripts/audit-nasa-stars.mjs /path/to/hiptyc_2020_8k_gal.exr`.
 It projects J2000 HYG directions into NASA's galactic image and measures nearby
 RGB peaks and aperture flux, correcting pixel solid angle by cos(latitude).
 Of 523 stars with V ≤ 4, 500 have no other such star within 0.6 degrees.
@@ -720,14 +720,14 @@ Repeatable frames: `/?motion=0&t=0` (night), `t=1950` (dawn), `t=3000`
 (day), and `t=4800` (dusk). `surface=0` disables the image maps for debugging;
 it does not restore the previous orbital or atmospheric model.
 
-`npm run verify` checks the orbit's altitude/inclination, westward ground-track
+`bun run verify` checks the orbit's altitude/inclination, westward ground-track
 shift, camera basis and horizon, consistent solar coordinates, and eclipse/day
 phase sequence. It also checks catalog anchors/proper motion, celestial frame
 agreement with an independent horizon projection, and topocentric Moon/planet
 directions, the Galactic pole/center, lunar phase flux/occultation, and the optical
 LUT energy and boundary, then runs Astro diagnostics and the site build.
 
-`npm run verify:scene -- http://127.0.0.1:4322 /tmp/orbit-browser-proof`
+`bun run verify:scene http://127.0.0.1:4322 /tmp/orbit-browser-proof`
 uses an isolated agent-browser session to capture seven orbital positions,
 inject failed asset requests, restore a lost context, and exercise playback.
 Build first when the local server serves `dist`. Browser tooling must already be
@@ -831,10 +831,10 @@ view moves away. Failed jobs back off, and offscreen atlas memory is released.
 
 The public source bucket has no browser CORS headers. `/media/orbit/dem90/`
 accepts only bounded GLO-90 source coordinates through a fixed-origin proxy.
-`npm run dev` and `npm run preview` provide this route locally; the production platform
+`bun run dev` and `bun run preview` provide this route locally; the production platform
 uses `server/worker.mjs` and the existing protected custom domains. No remote
 deployment is implied by local verification. Rebuild availability using
-`node scripts/build-terrain-availability.mjs`.
+`bun scripts/build-terrain-availability.mjs`.
 
 Shadow rays start on the sampled surface and filter subpixel blockers using
 the projected pixel footprint and solar angular size. Normals keep a common

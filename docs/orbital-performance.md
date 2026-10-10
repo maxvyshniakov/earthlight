@@ -134,10 +134,10 @@ detail and motion cadence for the largest reduction.
 Serve the static build locally, then run:
 
 ```sh
-node scripts/benchmark-storm-light.mjs
-npm run benchmark:scene -- http://127.0.0.1:4347 /tmp/orbit-pipeline all reference,optimized
-npm run benchmark:scene -- http://127.0.0.1:4347 /tmp/orbit-profiles
-npm run verify:profiles -- http://127.0.0.1:4347 /tmp/orbit-profile-checks
+bun scripts/benchmark-storm-light.mjs
+bun run benchmark:scene http://127.0.0.1:4347 /tmp/orbit-pipeline all reference,optimized
+bun run benchmark:scene http://127.0.0.1:4347 /tmp/orbit-profiles
+bun run verify:profiles http://127.0.0.1:4347 /tmp/orbit-profile-checks
 ```
 
 The benchmark requires hardware timer queries, rejects disjoint samples and
@@ -146,7 +146,7 @@ JavaScript submission duration for GPU timing. An optional third argument select
 `day`, `night`, `horizon`, `clouds`, `moon` or `all`. A fourth argument is the
 comma-separated profile list, starting with `reference`. Optimized screenshots
 are compared pixel-by-pixel, excluding the different selector labels.
-`SCENE_PROFILE=optimized npm run verify:scene -- <base> <output>` runs the
+`SCENE_PROFILE=optimized bun run verify:scene <base> <output>` runs the
 existing WebGL/interaction regression suite against this candidate.
 
 The browser checks cover selection, camera and control preservation, actual
@@ -155,13 +155,13 @@ layout, homepage links and the unchanged default selection.
 
 ## Validation
 
-- `npm run verify`: 73 tests passed; Astro check reported no errors, warnings
+- `bun run verify`: 73 tests passed; Astro check reported no errors, warnings
   or hints; dev-URL static build passed.
-- `SCENE_PROFILE=optimized npm run verify:scene`: complete browser suite passed,
+- `SCENE_PROFILE=optimized bun run verify:scene`: complete browser suite passed,
   including lighting/optical fixtures, seven scene frames, failed assets, context
   restoration, viewport rotation, capability fallbacks, focus, flight, touch and
   calendar. Motion measured 23.83 fps at scale 1.0 with WebGL error 0.
-- `npm run verify:profiles`: all five profiles, camera/settings preservation,
+- `bun run verify:profiles`: all five profiles, camera/settings preservation,
   context restoration, 390px layout and homepage links passed. Low-power playback
   measured 17.80 fps; settled pause produced zero frames.
 - Five full-resolution reference/optimized image comparisons passed.
@@ -169,7 +169,7 @@ layout, homepage links and the unchanged default selection.
 ## Dev deployment
 
 Deployed the local working tree on 2026-10-09 using the dev site URL and
-`npm run cf -- deploy --env dev`. Active Worker version:
+`bun run cf deploy --env dev`. Active Worker version:
 `1eede60a-db91-4c61-a5a3-03a7f70230fc` (100% traffic).
 Authenticated Chrome loaded Optimized pipeline at render scale 1.0 with zero
 asset failures and WebGL error 0. Anonymous page and JavaScript requests redirect to

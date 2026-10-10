@@ -64,8 +64,8 @@ hidden at 29.35 seconds. Its no-frame period is not renderer performance data.
 ## Reproduction and remaining checks
 
 ```sh
-DEVICE_API_CASES=adaptive-compact-webgl,adaptive-clouds-half-webgl2 DEVICE_API_SECONDS=30 node scripts/benchmark-device-api.mjs http://127.0.0.1:4351 /tmp/orbit-device-adaptation
-node scripts/verify-device-startup.mjs http://127.0.0.1:4351 /tmp/orbit-device-startup
+DEVICE_API_CASES=adaptive-compact-webgl,adaptive-clouds-half-webgl2 DEVICE_API_SECONDS=30 bun scripts/benchmark-device-api.mjs http://127.0.0.1:4351 /tmp/orbit-device-adaptation
+bun scripts/verify-device-startup.mjs http://127.0.0.1:4351 /tmp/orbit-device-startup
 ```
 
 Both scripts restore the phone's original keep-awake setting and close only

@@ -6,7 +6,7 @@ import {readFileSync,writeFileSync,statSync} from 'node:fs';
 import {gzipSync} from 'node:zlib';
 import {createHash} from 'node:crypto';
 const [source,landFile]=process.argv.slice(2);
-if(!source||!landFile)throw Error('Usage: node scripts/build-terrain-map.mjs ETOPO.tif ne_10m_land.geojson');
+if(!source||!landFile)throw Error('Usage: bun scripts/build-terrain-map.mjs ETOPO.tif ne_10m_land.geojson');
 sharp.concurrency(2);
 const land=JSON.parse(readFileSync(landFile));
 const polygons=land.features.flatMap(f=>f.geometry.type==='MultiPolygon'?f.geometry.coordinates:[f.geometry.coordinates]);

@@ -1,14 +1,7 @@
-import test from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import ts from 'typescript';
-
-const load=async name=>import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(
-  readFileSync(new URL(`../src/scripts/${name}.ts`,import.meta.url),'utf8'),
-  {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}},
-).outputText.replace('./webgl-context.ts',new URL('../src/scripts/webgl-context.ts',import.meta.url).href)).toString('base64'));
-const {CloudBuffer}=await load('cloud-buffer');
-const {WorldBuffer}=await load('world-buffer');
+import {CloudBuffer} from '../src/scripts/cloud-buffer.ts';
+import {WorldBuffer} from '../src/scripts/world-buffer.ts';
 
 function fakeGL({missing,failAbove=Infinity,webgl2=false}={}){
   let next=0,unit=0,target=null;

@@ -1,4 +1,4 @@
-// node scripts/verify-texture-profile.mjs http://127.0.0.1:4347 /tmp/orbit-textures
+// bun scripts/verify-texture-profile.mjs http://127.0.0.1:4347 /tmp/orbit-textures
 // Optional TEXTURE_API=webgl2. Image metrics report trade-offs, not acceptance.
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';

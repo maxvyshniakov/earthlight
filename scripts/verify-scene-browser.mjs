@@ -2,7 +2,7 @@ import { galacticLightShader } from '../src/scripts/galactic-light.ts';
 import { surfaceMapShader } from '../src/scripts/surface-map.ts';
 import { airglowLightShader } from '../src/scripts/airglow-light.ts';
 // Uses an isolated agent-browser session; never attaches to the user's tab.
-// npm run verify:scene -- http://127.0.0.1:4322 /tmp/orbit-browser-proof
+// bun run verify:scene http://127.0.0.1:4322 /tmp/orbit-browser-proof
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';

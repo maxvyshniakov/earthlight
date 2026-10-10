@@ -1,4 +1,6 @@
-import test from 'node:test';
+import {test,spyOn,mock,afterEach} from 'bun:test';
+
+afterEach(()=>mock.restore());
 import assert from 'node:assert/strict';
 import {packTerrainPatch,parentTerrainTile,terrainSourceName,DEM_CELL} from '../src/scripts/terrain-detail.ts';
 import {terrainSource,terrainResponse} from '../server/terrain-source.mjs';
@@ -37,8 +39,8 @@ test('DEM proxy accepts only the fixed public dataset and handles upstream failu
   assert.equal((await terrainResponse(new Request(url),async()=>upstream)).status,expected);
  }
 });
-test('shared terrain atlas bounds uploads, retries failures slowly and releases offscreen memory',async t=>{
- let now=1000;t.mock.method(performance,'now',()=>now);
+test('shared terrain atlas bounds uploads, retries failures slowly and releases offscreen memory',async()=>{
+ let now=1000;spyOn(performance,'now').mockImplementation(()=>now);
  const originals={fetch:globalThis.fetch,window:globalThis.window,document:globalThis.document,createImageBitmap:globalThis.createImageBitmap};
  const uploads=[];let tileRequests=0,deleted=0;
  globalThis.window=globalThis;globalThis.document={hidden:false};

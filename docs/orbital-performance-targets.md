@@ -130,7 +130,7 @@ reviewing the page composition.
 the scroll-position diagnostic in an isolated agent-browser session:
 
 ```sh
-rtk node scripts/benchmark-orbit-costs.mjs http://127.0.0.1:4347 /tmp/orbit-costs
+rtk bun scripts/benchmark-orbit-costs.mjs http://127.0.0.1:4347 /tmp/orbit-costs
 ```
 
 The optional third argument is `clouds` or `scroll` to measure only that part.

@@ -1,6 +1,6 @@
 import { sceneComposition } from '../src/scripts/scene-viewport.ts';
 import {OrbitNavigation,routeFrame,routePeriod,blendPose,altitude,MIN_ALTITUDE,MAX_ALTITUDE} from '../src/scripts/orbit-navigation.ts';
-import test from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import { OrbitPlayback } from '../src/scripts/orbit-playback.ts';
 import { issFrame, ORBIT_SECONDS, START_DATE, DEFAULT_ORBIT_SECONDS, initialOrbitSeconds, dot, add, scale, normalize } from '../src/scripts/iss-orbit.ts';

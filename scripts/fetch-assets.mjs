@@ -149,6 +149,11 @@ export async function sha256File(file) {
   return hash.digest('hex');
 }
 
+// Documentation and third-party notices are maintained in Git, not the archive.
+export function isDownloadedAsset(name) {
+  return !/\.(?:md|txt)$/i.test(name);
+}
+
 export async function fetchAssets() {
   const { assets } = JSON.parse(await readFile(join(root, 'source-snapshot.json'), 'utf8'));
   if (assets?.needsRefresh) throw new Error('Source assets changed. Publish a matching archive and update source-snapshot.json first.');
@@ -158,7 +163,7 @@ export async function fetchAssets() {
     execFileSync('gh', ['release', 'download', assets.tag, '--repo', 'maxvyshniakov/earthlight', '--pattern', assets.file, '--dir', scratch], { stdio: 'inherit' });
     const archive = join(scratch, assets.file);
     if (await sha256File(archive) !== assets.sha256) throw new Error('Asset archive SHA-256 does not match source-snapshot.json');
-    const entries = await extractArchive(archive, join(root, 'public/media/orbit'));
+    const entries = await extractArchive(archive, join(root, 'public/media/orbit'), { select: isDownloadedAsset });
     console.log(`Installed ${entries.filter(entry => entry.type === '0').length} asset files from ${assets.tag}.`);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 }

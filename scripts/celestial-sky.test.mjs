@@ -1,4 +1,4 @@
-import test from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Body, Equator, Illumination, MakeTime, MoonPhase, Observer, ObserverVector, RotateVector, Rotation_EQJ_HOR, SiderealTime, Vector } from 'astronomy-engine';

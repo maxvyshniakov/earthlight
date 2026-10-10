@@ -139,7 +139,7 @@ No channel had an added interframe difference above four levels. The test also
 asserts eight distinct camera poses, identical poses across profiles, nonblank
 captures and no WebGL errors.
 
-`npm run verify` passed all 76 tests, Astro checking (zero errors, warnings or
+`bun run verify` passed all 76 tests, Astro checking (zero errors, warnings or
 hints) and the static build. The compact renderer passed the complete scene
 browser suite, including source optics, missing assets, context restoration,
 rotation, capability fallback, save-data, drag, flight, touch and calendar state.
@@ -223,23 +223,23 @@ native tab, where `visibilityState` said visible but RAF did not run.
 ## Reproduce
 
 ```sh
-npm run verify
-npm run benchmark:scene -- http://127.0.0.1:4347 /tmp/orbit-candidates day,night,clouds reference,density,atmosphere,lighting,combined,split,compact,reference
-npm run benchmark:pairs -- http://127.0.0.1:4347 /tmp/orbit-pairs
-node scripts/verify-candidate-motion.mjs http://127.0.0.1:4347 /tmp/orbit-motion
-SCENE_PROFILE=compact npm run verify:scene -- http://127.0.0.1:4347 /tmp/orbit-compact-proof
-npm run verify:profiles -- http://127.0.0.1:4347 /tmp/orbit-profile-proof
-node scripts/verify-scene-device.mjs safari-mcp http://127.0.0.1:4347 /tmp/orbit-safari
-node scripts/verify-scene-device.mjs android http://127.0.0.1:4347 /tmp/orbit-android
-node scripts/benchmark-device-pairs.mjs android http://127.0.0.1:4347 /tmp/orbit-android-pairs
-node scripts/verify-device-adaptive.mjs android http://127.0.0.1:4347 /tmp/orbit-android-adaptive
+bun run verify
+bun run benchmark:scene http://127.0.0.1:4347 /tmp/orbit-candidates day,night,clouds reference,density,atmosphere,lighting,combined,split,compact,reference
+bun run benchmark:pairs http://127.0.0.1:4347 /tmp/orbit-pairs
+bun scripts/verify-candidate-motion.mjs http://127.0.0.1:4347 /tmp/orbit-motion
+SCENE_PROFILE=compact bun run verify:scene http://127.0.0.1:4347 /tmp/orbit-compact-proof
+bun run verify:profiles http://127.0.0.1:4347 /tmp/orbit-profile-proof
+bun scripts/verify-scene-device.mjs safari-mcp http://127.0.0.1:4347 /tmp/orbit-safari
+bun scripts/verify-scene-device.mjs android http://127.0.0.1:4347 /tmp/orbit-android
+bun scripts/benchmark-device-pairs.mjs android http://127.0.0.1:4347 /tmp/orbit-android-pairs
+bun scripts/verify-device-adaptive.mjs android http://127.0.0.1:4347 /tmp/orbit-android-adaptive
 ```
 
 For Android, keep the device unlocked, authorize ADB, reverse device TCP 4347 to
 host TCP 4347 and forward host TCP 9223 to `localabstract:chrome_devtools_remote`.
 Restore any temporary keep-awake setting and remove those forwards afterward.
 
-`npm run prepare:atmosphere` regenerates the committed table. Its test checks the
+`bun run prepare:atmosphere` regenerates the committed table. Its test checks the
 artifact against the generator and evaluates 26,466 transmission values, including
 low altitude and grazing rays. A failed download retains the original integration.
 
@@ -298,7 +298,7 @@ previews without requesting either refinement.
 
 The new asset is derived from the existing graded map using Lanczos3 and AVIF
 quality 80, 4:4:4, effort 4. Regenerate it with
-`node scripts/prepare-galaxy-overview.mjs`; this adds no runtime dependency.
+`bun scripts/prepare-galaxy-overview.mjs`; this adds no runtime dependency.
 
 Offline comparisons are a quality screen, not an in-scene acceptance result.
 At 4096×2048, the resampled candidate differs by 4.22 byte levels on average

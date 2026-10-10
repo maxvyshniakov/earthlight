@@ -75,8 +75,8 @@ Download all eight `BlackMarble_2016_{A,B,C,D}{1,2}_gray.jpg` files from NASA's
 maps page into a directory outside the repository, then run:
 
 ```sh
-node scripts/build-night-tiles.mjs /tmp/orbital-reference
-npm run verify
+bun scripts/build-night-tiles.mjs /tmp/orbital-reference
+bun run verify
 ```
 
 The builder processes source plates sequentially, copies the true border strips
@@ -85,7 +85,7 @@ Original 21,600-pixel maps and benchmark intermediates are not shipped.
 
 ## Verification
 
-`npm run verify` passes 20 tests, Astro check and the static build. Tile tests
+`bun run verify` passes 20 tests, Astro check and the static build. Tile tests
 cover polar/dateline coordinates, visibility and empty-region exclusion, cache
 capacity, request concurrency, eviction, decoded-image release and disposal.
 

@@ -145,7 +145,7 @@ the day overview to 4K once, retaining 2K until the upload succeeds. Shrinking
 or adaptive scaling does not churn downloads, and upgrade failure retains the
 working overview. The small/large margin prevents boundary oscillation.
 
-Rebuild with `node scripts/build-mobile-overviews.mjs /path/to/originals`.
+Rebuild with `bun scripts/build-mobile-overviews.mjs /path/to/originals`.
 Only the accepted day map is written under `public/media/orbit/mobile/`;
 rejected candidates go to `/tmp/orbit-mobile-candidates` (optional second path).
 
@@ -176,7 +176,7 @@ DEM1 assets remain as regression references; the browser requests DEM2.
 
 ## Codec experiment
 
-`node scripts/benchmark-scene-maps.mjs /tmp/orbital-reference /tmp/orbit-optimization`
+`bun scripts/benchmark-scene-maps.mjs /tmp/orbital-reference /tmp/orbit-optimization`
 reconstructs lossless references from original NASA plates and tests three
 768-square regions of each map. This measures relevant regional detail, not
 whole-image compression ratios. Mean results:
@@ -269,8 +269,8 @@ not hardware presentation timestamps. Texture resolution is unchanged.
 
 ## Verification and remaining limits
 
-Run `npm run verify` for unit tests, Astro diagnostics and build. Run
-`npm run verify:scene -- http://127.0.0.1:4322 /tmp/orbit-browser-proof`
+Run `bun run verify` for unit tests, Astro diagnostics and build. Run
+`bun run verify:scene http://127.0.0.1:4322 /tmp/orbit-browser-proof`
 against the built site for seven scene frames, failed assets, context restore,
 mobile playback after seeking, viewport rotation, Save-Data and delayed-detail focus. The browser
 suite writes screenshots/results to the requested directory and closes its own

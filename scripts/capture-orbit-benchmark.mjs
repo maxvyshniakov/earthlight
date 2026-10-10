@@ -1,5 +1,5 @@
 // Capture fixed frames through the isolated benchmark server using agent-browser.
-// node scripts/capture-orbit-benchmark.mjs stars|textures /tmp/orbit-codecs
+// bun scripts/capture-orbit-benchmark.mjs stars|textures /tmp/orbit-codecs
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

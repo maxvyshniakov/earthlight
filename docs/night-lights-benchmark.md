@@ -102,12 +102,12 @@ low-resolution fallback. The experiment does not change the main page.
 
 ## Reproduce
 
-Requires Node 24, project dependencies and both NASA B2 source JPEGs.
+Requires Bun, project dependencies and both NASA B2 source JPEGs.
 Keep large source and comparison assets outside the repository.
 
-1. Run node scripts/night-lights-benchmark.mjs /path/to/BlackMarble_2016_B2_gray.jpg /path/to/BlackMarble_2016_B2.jpg /tmp/night-lights-lab
-2. Run node scripts/tile-night-lights-lab.mjs /tmp/night-lights-lab
-3. Run node scripts/serve-night-lights-lab.mjs /tmp/night-lights-lab 4340
+1. Run bun scripts/night-lights-benchmark.mjs /path/to/BlackMarble_2016_B2_gray.jpg /path/to/BlackMarble_2016_B2.jpg /tmp/night-lights-lab
+2. Run bun scripts/tile-night-lights-lab.mjs /tmp/night-lights-lab
+3. Run bun scripts/serve-night-lights-lab.mjs /tmp/night-lights-lab 4340
 4. Open http://127.0.0.1:4340/. Measurements are available at /bench/results.json.
 
 The server binds to loopback and does not publish the experiment.
