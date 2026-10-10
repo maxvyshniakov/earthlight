@@ -1,8 +1,8 @@
 # Third-party notices
 
-Earthlight's code and its data have separate terms. A code license does not
-relicense the imagery, catalogs, terrain or dependencies below. The project's
-code license has not yet been selected.
+Earthlight's code is licensed under the [MIT License](LICENSE). That license
+covers the code only. The imagery, catalogs, terrain and dependencies below
+keep their own terms, and anyone reusing the scene data must follow them.
 
 ## Stars
 

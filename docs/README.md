@@ -28,7 +28,6 @@ prototypes and phone checks. Each note records the build, device and browser
 it measured, so its numbers describe that setup rather than the current
 renderer.
 
-## Other
+## Media
 
-- [Licensing notes](licensing.md): open questions about the code license.
 - [`media/`](media/): README images captured from the demo.

@@ -129,8 +129,13 @@ the [data provenance notes](public/media/orbit/README.md).
 
 ## License
 
-Not yet licensed. Code and data are licensed separately: the third-party data
-keeps its own terms, listed in [NOTICE](NOTICE.md).
+The code is [MIT](LICENSE). The scene data keeps its sources' terms, listed in
+[NOTICE](NOTICE.md); for example, the star catalog is CC BY-SA 4.0.
+
+If you use Earthlight in something you make, I would appreciate a visible
+credit near the scene, such as "Earthlight by Max Vyshniakov" linking to
+[earthlight.maxvyshniakov.com](https://earthlight.maxvyshniakov.com).
+The license does not require it, but it helps people find the project.
 
 ---
 
