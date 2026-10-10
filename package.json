@@ -1,6 +1,6 @@
 {
   "name": "earthlight",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -11,7 +11,7 @@
     "build": "astro build",
     "preview": "node scripts/preview.mjs",
     "check": "astro check",
-    "verify": "node --test scripts/extraction-tools.test.mjs scripts/iss-orbit.test.mjs scripts/celestial-sky.test.mjs scripts/night-tiles.test.mjs scripts/earth-terrain.test.mjs scripts/terrain-detail.test.mjs scripts/scene-runtime.test.mjs scripts/scene-quality.test.mjs scripts/cloud-buffer.test.mjs scripts/webgl-context.test.mjs scripts/shader-programs.test.mjs scripts/texture-profile.test.mjs scripts/browser-module.test.mjs scripts/scene-assets-startup.test.mjs && npm run check && npm run build",
+    "verify": "node --test scripts/extraction-tools.test.mjs scripts/worker-compat.test.mjs scripts/iss-orbit.test.mjs scripts/celestial-sky.test.mjs scripts/night-tiles.test.mjs scripts/earth-terrain.test.mjs scripts/terrain-detail.test.mjs scripts/scene-runtime.test.mjs scripts/scene-quality.test.mjs scripts/cloud-buffer.test.mjs scripts/webgl-context.test.mjs scripts/shader-programs.test.mjs scripts/texture-profile.test.mjs scripts/browser-module.test.mjs scripts/scene-assets-startup.test.mjs && npm run check && npm run build",
     "verify:scene": "node scripts/verify-scene-browser.mjs",
     "benchmark:scene": "node scripts/benchmark-scene-profiles.mjs",
     "verify:profiles": "node scripts/verify-scene-profiles.mjs",

@@ -14,7 +14,7 @@ export async function terrainResponse(request,fetcher=fetch) {
   if(!url)return new Response('Not found',{status:404});
   if(request.method!=='GET')return new Response('Method not allowed',{status:405,headers:{Allow:'GET'}});
   try{
-    const upstream=await fetcher(url,{redirect:'error',signal:request.signal});
+    const upstream=await fetcher(url,{redirect:'manual',signal:request.signal});
     if(!upstream.ok){await upstream.body?.cancel();return new Response('Terrain unavailable',{status:upstream.status===404?404:502});}
     const length=Number(upstream.headers.get('content-length'));
     if(!Number.isInteger(length)||length<=0||length>16*1024*1024){await upstream.body?.cancel();return new Response('Invalid terrain size',{status:502});}

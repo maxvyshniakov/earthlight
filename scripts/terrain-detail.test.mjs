@@ -29,7 +29,7 @@ test('DEM proxy accepts only the fixed public dataset and handles upstream failu
  const url='http://localhost/media/orbit/dem90/N41W114.tif';
  const response=await terrainResponse(new Request(url),async(u,options)=>{
   assert.match(u,/^https:\/\/copernicus-dem-90m.s3.amazonaws.com\/Copernicus_DSM_COG_30_N41_00_W114_00_DEM\//);
-  assert.equal(options.redirect,'error');return new Response('dem',{headers:{'content-length':'3'}});
+  assert.equal(options.redirect,'manual');return new Response('dem',{headers:{'content-length':'3'}});
  });
  assert.equal(response.status,200);assert.equal(await response.text(),'dem');
  assert.equal((await terrainResponse(new Request(url,{method:'POST'}),()=>assert.fail())).status,405);

@@ -9,6 +9,7 @@ const excludedScripts = new Set([
   'check-cloudflare-access.mjs', 'with-cloudflare.mjs', 'configure-storybook-access.mjs',
   'deploy-storybook.mjs', 'prepare-storybook.mjs', 'github-package-urls.mjs', 'github-package-urls.test.mjs',
   'extraction-manifest.mjs', 'sync-from-site.mjs', 'fetch-assets.mjs', 'extraction-tools.test.mjs',
+  'worker-compat.test.mjs',
 ]);
 const singleFiles = new Set([
   'src/data/iss-orbit.json', 'src/data/optical-psf.json',
@@ -25,6 +26,10 @@ export function isSelectedPath(path) {
 }
 
 export function sanitizeImportedText(path, text) {
+  // Edge runtimes reject redirect:error. The existing !upstream.ok branch
+  // refuses manual 3xx responses without following them to another origin.
+  if (path === 'server/terrain-source.mjs') text = text.replaceAll("redirect:'error'", "redirect:'manual'");
+  if (path === 'scripts/terrain-detail.test.mjs') text = text.replaceAll("options.redirect,'error'", "options.redirect,'manual'");
   if (path === 'public/media/orbit/README.md') text = text.replaceAll('Copernicus WorldDEM-30', 'Copernicus WorldDEM-90');
   if (path.startsWith('docs/')) {
     text = text.replace(/https?:\/\/(?:dev\.)?maxvyshniakov\.com/g, 'http://localhost:4321')
@@ -77,7 +82,7 @@ export async function copySnapshot(sourceDir, fullSHA, targetDir) {
     execFileSync('git', ['-C', sourceDir, 'archive', '--format=tar', `--output=${archive}`, fullSHA, '--', ...roots], { stdio: 'pipe' });
     await extractArchive(archive, targetDir, { select: path => selected.has(path) });
     for (const { path } of files) {
-      if (!path.startsWith('docs/') && !path.startsWith('scripts/') && path !== 'public/media/orbit/README.md') continue;
+      if (!path.startsWith('docs/') && !path.startsWith('scripts/') && path !== 'public/media/orbit/README.md' && path !== 'server/terrain-source.mjs') continue;
       if (!/\.(?:md|json|mjs|js|ts|py|txt)$/.test(path)) continue;
       const destination = join(targetDir, path);
       const original = await readFile(destination, 'utf8');
