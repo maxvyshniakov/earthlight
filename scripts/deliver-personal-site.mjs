@@ -38,7 +38,10 @@ export async function deliver(site){
   // A normal push rejects concurrent edits. Rebase only this generated commit,
   // then verify the entire resulting site again before retrying; never force.
   for(let attempt=0;attempt<3;attempt++){
-    if(attempt){git(site,'fetch','origin','dev');git(site,'rebase','origin/dev');}
+    if(attempt){
+      git(site,'fetch','origin','dev');
+      git(site,'-c','user.name=Earthlight delivery','-c','user.email=earthlight-delivery@users.noreply.github.com','rebase','origin/dev');
+    }
     run(site,'bun',['install','--frozen-lockfile']);
     run(site,'bun',['run','verify']);
     if(!current()){console.log('A newer Earthlight commit superseded this run before publication.');return;}
