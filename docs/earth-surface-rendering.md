@@ -29,6 +29,11 @@ the global daytime overview from 8K to 4K. Uniform ocean/polar fill is omitted:
 6615 of 12800 tiles remain, totaling 70.68 MiB on disk. Only visible tiles load.
 All native plates remain outside the repository; the manifest records SHA-256.
 
+Day/night tile selection and mip filtering include the reciprocal cosine of
+latitude: longitude texels converge at the poles. Unresolved polar detail fades
+to the overview instead of forming sharp wedges against it. The CPU applies the
+same footprint before requesting tiles; close views can still resolve them.
+
 Three native 572-square crops (India coast, Himalaya, desert) compared AVIF Q50
 (effort 2, 4:4:4), AVIF Q65 (effort 4, 4:4:4), and WebP Q85. The measured results
 are in `evidence/earth-surface-codecs.json`. Q50 costs 18–36 KB in these examples, versus

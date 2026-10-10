@@ -1,4 +1,4 @@
-/** Hysteresis over GPU samples, not viewport width. Texture fidelity and the
+/** Hysteresis over delivered frames or GPU samples. Texture fidelity and the
  * path-dependent cloud integration budget is preserved; only the target scales.
  */
 export class SceneQuality {
@@ -157,6 +157,7 @@ export class SceneTimer {
  private active:object|null=null;
  private pending:object[]=[];
  private frame=0;
+ private usingCadence=false;
  private gl:WebGLRenderingContext;
  constructor(gl:WebGLRenderingContext){
   this.gl=gl;
@@ -171,11 +172,21 @@ export class SceneTimer {
    }:null;
   }else this.ext=gl.getExtension('EXT_disjoint_timer_query');
  }
- observeAnimationFrame(now:number,cadenceFactor=1){if(!this.ext)this.quality.observeAnimationFrame(now,cadenceFactor);}
- resetCadence(){if(!this.ext)this.quality.resetCadence();}
- observeCadence(milliseconds:number,now:number){if(!this.ext)this.quality.observeCadence(milliseconds,now);}
+ private useCadence(){
+  if(this.usingCadence)return;
+  this.usingCadence=true;
+  // GPU duration omits browser/compositor delivery delays, and an advertised
+  // timer may never yield usable results. Animated output owns its FPS budget.
+  // Keep GPU and frame-interval samples out of each other's windows.
+  this.quality.resetCadence();
+  if(this.ext)for(const query of this.pending)this.ext.deleteQueryEXT(query);
+  this.pending=[];
+ }
+ observeAnimationFrame(now:number,cadenceFactor=1){this.useCadence();this.quality.observeAnimationFrame(now,cadenceFactor);}
+ resetCadence(){this.usingCadence=false;this.quality.resetCadence();}
+ observeCadence(milliseconds:number,now:number){this.useCadence();this.quality.observeCadence(milliseconds,now);}
  begin(){
-  if(!this.ext)return;
+  if(!this.ext||this.usingCadence)return;
   const ext=this.ext;
   if(this.gl.getParameter(ext.GPU_DISJOINT_EXT)){for(const q of this.pending)ext.deleteQueryEXT(q);this.pending=[];return;}
   this.pending=this.pending.filter(q=>{

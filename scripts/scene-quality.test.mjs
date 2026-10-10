@@ -1,7 +1,36 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {SceneQuality} from '../src/scripts/scene-quality.ts';
+import {SceneQuality,SceneTimer} from '../src/scripts/scene-quality.ts';
+
+for(const api of ['webgl','webgl2'])test(`${api} timer support cannot hide sustained 20 FPS delivery`,()=>{
+ const allocated=[],deleted=[];
+ const ext={TIME_ELAPSED_EXT:1,GPU_DISJOINT_EXT:2,QUERY_RESULT_AVAILABLE_EXT:3,QUERY_RESULT_EXT:4,
+  createQueryEXT:()=>{const q={};allocated.push(q);return q;},beginQueryEXT(){},endQueryEXT(){},
+  getQueryObjectEXT:()=>false,deleteQueryEXT:q=>deleted.push(q)};
+ const gl={getExtension:()=>ext,getParameter:()=>false};
+ if(api==='webgl2')Object.assign(gl,{createQuery:ext.createQueryEXT,beginQuery:ext.beginQueryEXT,
+  endQuery:ext.endQueryEXT,getQueryParameter:ext.getQueryObjectEXT,deleteQuery:ext.deleteQueryEXT,
+  QUERY_RESULT_AVAILABLE:3,QUERY_RESULT:4});
+ const timer=new SceneTimer(gl);
+ timer.begin();timer.end(); // A driver query that never completes.
+ assert.equal(allocated.length,1);
+ let now=0;
+ for(let i=0;i<240;i++){
+  now+=1000/24;timer.observeAnimationFrame(now);timer.observeCadence(1000/24,now);timer.begin();timer.end();
+ }
+ assert.equal(timer.quality.scale,1,'Healthy playback preserves resolution');
+ assert.deepEqual(deleted,allocated,'Playback releases pending GPU queries');
+ for(let i=0;i<48;i++){
+  now+=50;timer.observeAnimationFrame(now);timer.observeCadence(50,now);timer.begin();timer.end();
+ }
+ assert.equal(timer.quality.scale,.9,'The delivered frame budget applies with either timer API');
+ assert.equal(allocated.length,1,'Playback does not poll/allocate redundant GPU timers');
+ timer.resetCadence();
+ for(let i=0;i<12;i++){timer.begin();timer.end();}
+ assert.ok(allocated.length>1,'Paused interactive rendering retains GPU timing');
+ timer.dispose();assert.equal(deleted.length,allocated.length);
+});
 
 function stream(q,seconds,interval=1000/24,start=0){
  let now=start;

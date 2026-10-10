@@ -4,6 +4,14 @@ import { issFrame } from '../src/scripts/iss-orbit.ts';
 import { tileAt, visibleSurfaceTiles, visibleGalaxyTiles, SurfaceTiles } from '../src/scripts/night-tiles.ts';
 
 const all=new Set(Array.from({length:12800},(_,i)=>i));
+test('unresolved polar day/night detail uses the overview but close views still stream',()=>{
+ for(const pole of [-1,1])for(const layer of ['day','night']){
+  const view={camera:[0,0,pole*1.066],cameraBasis:[1,0,0,0,pole,0,0,0,-pole],sun:[0,0,layer==='day'?pole:-pole]};
+  assert.deepEqual(visibleSurfaceTiles(view,1280,720,all,31,layer),[],`${layer} at pole ${pole}`);
+  view.camera=[0,0,pole*1.001];view.focal=10;
+  assert.ok(visibleSurfaceTiles(view,1280,720,all,31,layer).length>0,'Resolved close-up retains detail');
+ }
+});
 test('tile coordinates wrap at the dateline and clamp at both poles',()=>{
   assert.equal(tileAt(-180,90),0);
   assert.equal(tileAt(180,90),0);

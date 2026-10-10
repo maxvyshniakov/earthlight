@@ -216,7 +216,7 @@ void main() {
     light=up*sin(angles.y)+(north*cos(angles.x)+east*sin(angles.x))*cos(angles.y);
 #endif
     vec2 mapUV=earthUV(geo);
-    float footprint=groundDistance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay)));
+    float footprint=groundDistance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay))*max(.02,length(geo.xy)));
     vec3 material=vec3(.55);
 #if TERRAIN_VIEW != 1
     material=detailedDay(mapUV,footprint,surfaceAlbedo(mapUV));
@@ -318,7 +318,9 @@ void main() {
     float ground=1.-skyMask;
     vec3 original=vec3(0.);
     vec2 mapUV=earthUV(geo);
-    float footprint=distance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay)));
+    // Equirectangular texels narrow with latitude. Without this factor the
+    // polar cap selects unresolved tile detail in wedges meeting at the pole.
+    float footprint=distance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay))*max(.02,length(geo.xy)));
     vec3 albedo=detailedDay(mapUV,footprint,surfaceAlbedo(mapUV));
     vec3 surface=vec3(0.);
     float lamp=detailedNight(mapUV,footprint,cityEmission(mapUV));

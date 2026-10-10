@@ -223,17 +223,14 @@ in `earth-surface-rendering.md` and the asset README.
   The accepted photographic grade remains at the output boundary.
 - A 5 × 1 prepass attenuates lunar, solar and bright-point lens ghosts by clouds
   and air along the source ray. It does not ray-trace a real lens prescription.
-- GPU queries initially sample one in three frames; six valid measurements give
-  the first decision in roughly one second at 24 FPS. Steady-state sampling uses
-  one in twelve frames and twelve samples, asynchronously, with at most two
-  pending queries. Cooldowns prevent oscillation.
-  Scale reduces in 10% steps to 60% when cost exceeds 34 ms, recovers in 5% steps
-  below 17 ms. Texture detail and cloud march steps are preserved.
-- Browsers without GPU timer queries use 24 animated frame intervals instead.
-  A 90th-percentile interval above 58 ms reduces scale by 10%, with a five-second
-  cooldown and the same 60% floor. Pauses and background time are excluded.
-  This fallback only reduces scale: presentation cadence cannot establish GPU
-  headroom for recovery. `?quality=fixed` disables both controllers.
+- Paused interactive draws use sparse asynchronous GPU queries where available,
+  with at most two pending queries. Playback instead measures delivered frame
+  intervals on every browser, so driver timing cannot hide sustained low FPS.
+  Mean delivery above 46 ms reduces scale toward a 45% floor; startup and severe
+  overload use shorter windows. Stable delivery permits small upward probes
+  with rollback and retry backoff. Pauses and background time are excluded.
+  Texture detail and cloud march steps are preserved. `?quality=fixed` disables
+  adaptation.
 
 ## Mobile browser toolbars
 

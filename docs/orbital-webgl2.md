@@ -25,9 +25,10 @@ No byte heights are block-compressed. Renderable floating-point targets still
 require `EXT_color_buffer_float`; missing support keeps the existing byte or
 inline fallback. Half-cloud MRT uses native `drawBuffers`.
 
-GPU quality control uses native query objects with
-`EXT_disjoint_timer_query_webgl2`. Without it, the existing cadence estimate is
-used, including small recovery probes with rollback and retry backoff. No `finish()` or readback is added to normal playback.
+Paused interactive quality control uses native query objects with
+`EXT_disjoint_timer_query_webgl2`. Playback uses delivered frame intervals with
+or without the extension, including small recovery probes with rollback and
+retry backoff. No `finish()` or readback is added to normal playback.
 
 These API choices follow the [WebGL2 specification](https://registry.khronos.org/webgl/specs/2.0/),
 [floating-point render-target extension](https://registry.khronos.org/webgl/extensions/EXT_color_buffer_float/)

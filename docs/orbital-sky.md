@@ -682,20 +682,19 @@ fade values change. Cloud detail has true neighbor gutters and isolated mip
 levels, matching the day/night cache. Save-Data requests and devices below a 4K
 texture limit use only previews and compact sky inputs, without streaming tiles.
 
-Where available, asynchronous GPU timer queries initially sample one in three
-frames and decide after six valid samples (roughly one second at 24 FPS).
-Subsequent windows use twelve samples, one in twelve frames at full resolution
-or one in three while recovering. Completed queries are polled every frame.
-Sustained over-budget rendering reduces buffer dimensions in 10% steps to 45%;
-GPU costs above 80 ms take a larger, cost-proportional step with a 1.5-second
-cooldown. Samples up to five seconds remain valid: the previous 250 ms cutoff
-silently ignored severe overload. Recovery uses smaller steps and longer
-cooldowns. Cloud integration steps and texture detail remain unchanged. Without
-the extension, 24 animated frame intervals provide a fallback: a 90th percentile
-above 58 ms lowers scale by 10%. Six consecutive intervals over 120 ms trigger
-earlier proportional recovery. The normal cooldown is five seconds; severe
-overload uses 1.5 seconds. It does not infer GPU headroom for
-upscaling. `quality=fixed` disables both forms of adaptation for comparisons.
+Playback uses delivered frame intervals on every browser, including those with
+GPU timer extensions. GPU duration alone misses browser/compositor delays, and
+an available extension need not yield usable query results. Playback releases
+pending queries and keeps GPU costs out of its frame-interval sample windows.
+Sustained mean delivery above 46 ms lowers buffer dimensions toward a 45% floor;
+startup and severe overload use shorter windows. Stable delivery allows small
+upward probes, with rollback and retry backoff when the larger size is too slow.
+Pauses and background time are excluded.
+
+Paused interactive draws retain asynchronous GPU timing where supported: six
+samples for the first decision, then twelve, with at most two pending queries.
+Cloud integration steps and texture detail remain unchanged. `quality=fixed`
+disables adaptation for comparisons.
 
 Mobile day/cloud atlases hold up to 17 tiles (six cells across); the cheaper
 single-channel night atlas holds up to 31, bounded by the device texture limit,

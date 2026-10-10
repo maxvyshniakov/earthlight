@@ -99,7 +99,10 @@ export function visibleSurfaceTiles(view:View,width:number,height:number,availab
     const gx=c[0]+x*distance,gy=c[1]+y*distance,gz=c[2]+z*distance;
     const solar=gx*sun[0]+gy*sun[1]+gz*sun[2];
     if(layer!=='cloud'&&layer!=='terrain'&&layer!=='terrainFine'&&(layer==='night'?solar>.08:solar<-.12))continue;
-    const footprint=distance*(columns*interior/(2*Math.PI))/(height*focal*Math.max(.02,-gx*x-gy*y-gz*z));
+    // Match the day/night shader's longitude footprint before fetching tiles
+    // that it would immediately replace with the filtered overview at a pole.
+    const longitudeScale=layer==='day'||layer==='night'?Math.max(.02,Math.hypot(gx,gy)/radius):1;
+    const footprint=distance*(columns*interior/(2*Math.PI))/(height*focal*Math.max(.02,-gx*x-gy*y-gz*z)*longitudeScale);
     if(footprint>=32)continue;
     const kx=Math.min(columns-1,Math.floor((Math.atan2(gy,gx)/(2*Math.PI)+.5)*columns));
     const ky=Math.min(rows-1,Math.max(0,Math.floor((.5-Math.asin(Math.max(-1,Math.min(1,gz/radius)))/Math.PI)*rows)));
