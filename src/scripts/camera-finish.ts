@@ -9,7 +9,7 @@ import { poissonQuantiles, POISSON_COLUMNS, POISSON_ROWS } from './sensor-noise'
 import { CameraExposure } from './camera-exposure';
 import { cameraModelShader } from './camera-model';
 export const CAMERA_EXPOSURE_EV=0;
-export type LensFrame={moon:[number,number,number];sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number};
+export type LensFrame={moon:[number,number,number];sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number};
 const fragmentSource = `
 precision highp float;
 precision highp sampler2D;
@@ -31,6 +31,8 @@ uniform vec4 pointGhosts[3];
 uniform float pointGhostAmount;
 uniform sampler2D sourceAttenuation;
 uniform float hasAttenuation;
+uniform float zoomExcess;
+#define FOCAL (1.25*(1.+zoomExcess))
 ${sceneColorShader}
 ${cameraModelShader}
 float cameraOpening;
@@ -47,8 +49,11 @@ vec3 reflectionsAt(vec2 p,float aspect){
   if(sunGhost.z>0.){
     // Finite solar disk broadens the conjugate image even with a closed iris.
     // Keep reflection energy below the sensor shoulder, not alpha-composited.
-    ghostSourceRadius=${SOLAR_RADIUS}*1.25;
-    float projectionArea=1.25*1.25*pow(1.+dot(sunGhost.xy,sunGhost.xy)/(1.25*1.25),1.5);
+#ifndef FOCAL
+#define FOCAL 1.25
+#endif
+    ghostSourceRadius=${SOLAR_RADIUS}*FOCAL;
+    float projectionArea=FOCAL*FOCAL*pow(1.+dot(sunGhost.xy,sunGhost.xy)/(FOCAL*FOCAL),1.5);
     result+=lensReflections(p,sunGhost.xy,aspect,1.)*sunGhost.z*${SOLAR_IRRADIANCE}*projectionArea*sunReflectionAmount*sourceEnergy(.3);
   }
   ghostSourceRadius=0.;
@@ -199,7 +204,7 @@ export class CameraFinish {
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
       this.position=gl.getAttribLocation(this.program,'position');
-      for(const name of ['scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
       this.exposure=new CameraExposure(gl,prepared?.exposure);
       this.defocus=new CameraDefocus(gl,this.pixelType,prepared?.defocus);
     } catch(error){this.dispose();throw error;}
@@ -219,7 +224,7 @@ export class CameraFinish {
   }
   render(pixelRatio:number,grainFrame:number,grainAmount:number,chromaticAmount:number,focusRadius:number,lens:LensFrame,exposureCompensation=0,manualExposure:number|null=null){
     const gl=this.gl;
-    const exposure=this.exposure!.update(this.texture!,this.linear,this.displayP3,performance.now(),lens.sun,this.width/this.height,lens.attenuation,manualExposure);
+    const exposure=this.exposure!.update(this.texture!,this.linear,this.displayP3,performance.now(),lens.sun,this.width/this.height,lens.attenuation,manualExposure,lens.focal);
     const image=this.defocus!.render(this.texture!,exposure,this.width,this.height,pixelRatio,focusRadius);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,this.width,this.height);gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,exposure);
@@ -237,6 +242,7 @@ export class CameraFinish {
     gl.uniform1f(this.uniforms.grainAmount,grainAmount);
     gl.uniform1f(this.uniforms.chromaticAmount,chromaticAmount);
     gl.uniform1f(this.uniforms.focusRadius,focusRadius);
+    gl.uniform1f(this.uniforms.zoomExcess,(lens.focal??1.25)/1.25-1);
     gl.uniform1f(this.uniforms.sceneLinear,this.linear?1:0);
     // Compensation follows metering, so automatic adaptation cannot cancel
     // the user's adjustment. It remains in linear light before highlights.

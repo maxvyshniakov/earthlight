@@ -4,8 +4,8 @@ export function textureProfile(params: URLSearchParams) {
   return params.get('texture') === 'compact' ? 'compact' : 'reference';
 }
 
-export function galaxyOverview(compact: boolean) {
-  return '/media/orbit/' + (compact ? 'mobile/galaxy-2048.avif' : 'milky-way.avif');
+export function galaxyOverview(compact: boolean,base='/media/orbit/') {
+  return base.replace(/\/+$/, '') + '/' + (compact ? 'mobile/galaxy-2048.avif' : 'milky-way.avif');
 }
 
 /** Match the 64-texel-wide irradiance footprint used by the original 4K map. */

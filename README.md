@@ -102,19 +102,37 @@ navigate with it.
 
 ## Run it locally
 
-Requires [Bun](https://bun.sh) 1.3.14. Scene data (~270 MB) is stored in a
-pinned GitHub Release, not in Git. While the repository is private, the
-download goes through an authenticated [GitHub CLI](https://cli.github.com).
+Requires [Bun](https://bun.sh) 1.3.14. Scene data is downloaded from a checksummed, versioned Static Assets release.
+Private R2 archives preserve the releases; browser traffic does not access R2.
 
 ```sh
 bun install --frozen-lockfile
-bun run assets      # download and verify the scene data
+bun run assets      # download and verify the pinned scene data
 bun run dev         # http://localhost:4321/
 ```
 
 `bun run verify` runs the unit tests, type checks and a production build. Unit
 tests need the downloaded scene data. `bun run verify:scene <url> <output-dir>`
 drives the rendered scene in an isolated agent-browser session.
+
+## Embed the background
+
+The `earthlight/background` Astro component uses the same renderer without
+navigation or controls. It leaves page input alone and keeps a static poster
+when reduced motion is requested. The full explorer lives on the Earthlight
+subdomain; consumers do not need an `/orbit/` page.
+
+```astro
+---
+import Background from 'earthlight/background';
+import assets from 'earthlight/assets-manifest';
+---
+<Background assetBaseURL={`https://media.maxvyshniakov.com/earthlight/${assets.version}/`} />
+<a href="https://earthlight.maxvyshniakov.com/">Explore Earthlight</a>
+```
+
+See [integration and releases](docs/integration.md) for local development,
+package updates, asset publication and deployment.
 
 ## Credits
 

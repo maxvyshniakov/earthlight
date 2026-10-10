@@ -1,20 +1,20 @@
 import { galaxyOverview } from './texture-profile.ts';
 import { SceneWork, scenePriority } from './scene-work.ts';
 export type ImageLayer='day'|'night'|'clouds'|'galaxy';
-export type AssetKey=ImageLayer|'stars'|'psf'|'terrain';
+export type AssetKey=ImageLayer|'stars'|'psf'|'terrain'|'modis';
 export type AssetPlan={key:AssetKey;url:string;preview?:boolean};
 export type AssetUpload=(asset:AssetPlan,blob:Blob)=>Promise<void>;
 
-export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean,saveData=false,compactSurface=false,compactTextures=false):AssetPlan[]{
+export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean,saveData=false,compactSurface=false,compactTextures=false,assetBaseURL='/media/orbit/'):AssetPlan[]{
  saveData ||= maxTexture<4096;
- const root='/media/orbit/';
+ const root=assetBaseURL.replace(/\/+$/, '')+'/';
  const large=desktop&&!saveData&&maxTexture>=8192;
  return [
   ...(['day','night','clouds','galaxy'] as ImageLayer[]).map(key=>({key,url:`${root}preview/${key}.webp`,preview:true})),
   {key:'psf',url:root+'optical-psf.bin',preview:true},
   {key:'stars',url:root+'stars-hyg.bin',preview:true},
   ...(saveData?[]:[
-   {key:'galaxy' as const,url:galaxyOverview(compactTextures)},
+   {key:'galaxy' as const,url:galaxyOverview(compactTextures,assetBaseURL)},
    {key:'day' as const,url:root+(compactSurface?'mobile/day-2048.avif':'earth-day-bmng.avif')},
    {key:'night' as const,url:root+`earth-night${large?'-8k':''}.avif`},
    {key:'clouds' as const,url:root+`earth-clouds-nasa-${large?8192:4096}.avif`},

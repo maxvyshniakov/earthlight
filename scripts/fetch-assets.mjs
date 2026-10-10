@@ -155,17 +155,28 @@ export function isDownloadedAsset(name) {
 }
 
 export async function fetchAssets() {
-  const { assets } = JSON.parse(await readFile(join(root, 'source-snapshot.json'), 'utf8'));
-  if (assets?.needsRefresh) throw new Error('Source assets changed. Publish a matching archive and update source-snapshot.json first.');
-  if (!assets || !/^[a-f0-9]{64}$/.test(assets.sha256) || !/^assets-[a-f0-9]{12,40}$/.test(assets.tag) || !/^earthlight-assets-[a-f0-9]{12,40}\.tar$/.test(assets.file)) throw new Error('Missing or invalid pinned asset release metadata');
-  const scratch = await mkdtemp(join(tmpdir(), 'earthlight-assets-'));
-  try {
-    execFileSync('gh', ['release', 'download', assets.tag, '--repo', 'maxvyshniakov/earthlight', '--pattern', assets.file, '--dir', scratch], { stdio: 'inherit' });
-    const archive = join(scratch, assets.file);
-    if (await sha256File(archive) !== assets.sha256) throw new Error('Asset archive SHA-256 does not match source-snapshot.json');
-    const entries = await extractArchive(archive, join(root, 'public/media/orbit'), { select: isDownloadedAsset });
-    console.log(`Installed ${entries.filter(entry => entry.type === '0').length} asset files from ${assets.tag}.`);
-  } finally { await rm(scratch, { recursive: true, force: true }); }
+  const manifest=JSON.parse(await readFile(join(root,'assets-manifest.json'),'utf8'));
+  if(manifest.schema!==1||! /^[a-f0-9]{16}$/.test(manifest.version)||!Array.isArray(manifest.files))throw Error('Invalid asset manifest');
+  const destination=join(root,'public/media/orbit');
+  const files=manifest.files.map(file=>{
+    if(safeArchivePath(file.path)!==file.path||! /^[a-f0-9]{64}$/.test(file.sha256)||!Number.isSafeInteger(file.bytes)||file.bytes<0)throw Error('Invalid asset entry');
+    return file;
+  });
+  let index=0,downloaded=0;
+  await Promise.all(Array.from({length:8},async()=>{
+    while(index<files.length){
+      const file=files[index++],path=join(destination,file.path);
+      await ensureSafeDestination(destination,file.path,false);
+      if(await sha256File(path).catch(()=>null)===file.sha256)continue;
+      const response=await fetch(`https://media.maxvyshniakov.com/earthlight/${manifest.version}/${file.path}`,{signal:AbortSignal.timeout(30000)});
+      if(!response.ok)throw Error(`Asset unavailable (${response.status}): ${file.path}`);
+      const bytes=new Uint8Array(await response.arrayBuffer());
+      if(bytes.length!==file.bytes||createHash('sha256').update(bytes).digest('hex')!==file.sha256)throw Error(`Checksum mismatch: ${file.path}`);
+      const handle=await open(path,'w');try{await handle.writeFile(bytes);}finally{await handle.close();}
+      downloaded++;
+    }
+  }));
+  console.log(`Verified ${files.length} assets for ${manifest.version}; downloaded ${downloaded}.`);
 }
 
 if (process.argv[1] && await realpath(resolve(process.argv[1])).catch(() => null) === fileURLToPath(import.meta.url)) {

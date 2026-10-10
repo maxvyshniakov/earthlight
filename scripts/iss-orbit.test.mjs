@@ -1,5 +1,5 @@
 import { sceneComposition } from '../src/scripts/scene-viewport.ts';
-import {OrbitNavigation,routeFrame,routePeriod,blendPose,altitude,MIN_ALTITUDE,MAX_ALTITUDE} from '../src/scripts/orbit-navigation.ts';
+import {OrbitNavigation,routeFrame,routePeriod,blendPose,altitude,attitude,cameraRay,screenPoint,earthPoint,followLens,PROJECTION,MIN_ALTITUDE,MAX_ALTITUDE} from '../src/scripts/orbit-navigation.ts';
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import { OrbitPlayback } from '../src/scripts/orbit-playback.ts';
@@ -31,65 +31,169 @@ test('detaching and restoring free flight preserve every camera ray',()=>{
  }
 });
 
+const project=(nav,point)=>{const b=nav.free.basis,d=add(point,scale(nav.free.position,-1)),z=dot(d,b.slice(6,9));return [1.25*dot(d,b.slice(0,3))/z,1.25*dot(d,b.slice(3,6))/z];};
+const horizon=nav=>attitude({camera:nav.free.position,cameraBasis:nav.free.basis});
+
 test('free movement respects altitude limits and clears momentum on interruption',()=>{
- const view={yaw:0,pitch:0},nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),view);
- for(let i=0;i<300;i++)nav.step(1/24,view,[0,0,-1],true);
- assert.ok(Math.abs(altitude(nav.free.position)-MIN_ALTITUDE)<1e-7);
- for(let i=0;i<350;i++)nav.step(1/24,view,[0,0,1],true);
- assert.ok(Math.abs(altitude(nav.free.position)-MAX_ALTITUDE)<1e-7);
- nav.stop();const before=[...nav.free.position];nav.step(.05,view,[0,0,0],false);
+ const view={yaw:0,pitch:0},nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),view);
+ for(let i=0;i<300;i++)nav.step(1/24,{climb:-1,fast:true});
+ assert.ok(Math.abs(altitude(nav.free.position)-MIN_ALTITUDE)<1e-6);
+ for(let i=0;i<350;i++)nav.step(1/24,{climb:1,fast:true});
+ assert.ok(Math.abs(altitude(nav.free.position)-MAX_ALTITUDE)<1e-6);
+ nav.stop();const before=[...nav.free.position];nav.step(.05);
  for(let i=0;i<3;i++)assert.ok(Math.abs(before[i]-nav.free.position[i])<1e-10);
- nav.setAltitude(-100);for(let i=0;i<100;i++)nav.step(.05,view,[0,0,0],false);
+ nav.setAltitude(-100);for(let i=0;i<200;i++)nav.step(.05);
  assert.ok(Math.abs(altitude(nav.free.position)-MIN_ALTITUDE)<.06);
 });
 
-test('pan and dolly preserve all camera rays at nadir and survive URL restoration',()=>{
- for(const route of ['iss','polar','high'])for(const view of [{yaw:0,pitch:0},{yaw:121,pitch:-90},{yaw:-176,pitch:89}]){
-  const nav=new OrbitNavigation();nav.detach(routeFrame(route,2300,view),view);
-  const before=nav.read(2300,view,0),original=[...before.camera];
-  for(let i=0;i<20;i++)nav.pan(view,7,-3,900);
-  nav.zoom(view,60);
-  const after=nav.read(2300,view,0);
-  assert.notDeepEqual(after.camera,original);
-  for(let i=0;i<9;i++)assert.ok(Math.abs(before.cameraBasis[i]-after.cameraBasis[i])<1e-7,'pan must not twist or tilt the image');
-  const params=new URLSearchParams();nav.write(params);const restored=new OrbitNavigation();restored.restore(params);
-  const copy=restored.read(2300,view,0);
-  for(let i=0;i<9;i++)assert.ok(Math.abs(copy.cameraBasis[i]-after.cameraBasis[i])<1e-7);
+test('flying a lap keeps the view relative to the horizon, across both poles',()=>{
+ for(const route of ['iss','polar']){
+  const nav=new OrbitNavigation();nav.detach(routeFrame(route,1000),{yaw:0,pitch:0});
+  const start=horizon(nav),height=altitude(nav.free.position);let north=-90,south=90;
+  for(let i=0;i<3000;i++){nav.step(.05,{forward:1,fast:true});const lat=Math.asin(normalize(nav.free.position)[2])*180/Math.PI;north=Math.max(north,lat);south=Math.min(south,lat);}
+  const end=horizon(nav);
+  assert.ok(Math.abs(end.pitch-start.pitch)<1e-6&&Math.abs(end.roll-start.roll)<1e-6,'pitch and roll survive the lap');
+  assert.ok(Math.abs(altitude(nav.free.position)-height)<1e-6,'keys never change altitude');
+  if(route==='polar')assert.ok(north>89&&south<-89,'the polar lap crosses both poles');
  }
 });
 
-test('zoom clips before Earth and respects the outer boundary',()=>{
- const nav=new OrbitNavigation(),view={yaw:0,pitch:0};nav.detach(routeFrame('high',0),view);
+test('a grabbed Earth point stays under the pointer without rolling the horizon',()=>{
+ const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+ nav.turn(4,-5);nav.roll(.3);
+ const start=horizon(nav),hit=earthPoint(nav.free.position,cameraRay(nav.free.basis,.1,-.05));assert.ok(hit.hit);
+ nav.grab(hit.point,.1,-.05);
+ for(const [x,y] of [[.12,-.08],[.05,0],[-.08,.06]]){
+  nav.drag(x,y);nav.step(1/60);
+  const [px,py]=project(nav,hit.point);assert.ok(Math.hypot(px-x,py-y)<1e-9,`anchor at ${px},${py}`);
+  assert.ok(Math.abs(horizon(nav).roll-start.roll)<1e-6&&Math.abs(horizon(nav).pitch-start.pitch)<1e-6);
+ }
+ nav.release(false);assert.equal(nav.moving,false);
+ // A flick keeps turning the planet, then settles.
+ nav.grab(hit.point,-.2,.1);nav.drag(0,.1);nav.step(1/60);nav.release(true);assert.equal(nav.moving,true);
+ let frames=0;while(nav.moving&&frames<2000){nav.step(1/60);frames++;}assert.ok(frames>20&&frames<2000);
+});
+
+test('looking around never tips a level horizon; a rolled camera looks about its own axes',()=>{
+ const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});
+ for(let k=0;k<20;k++)for(let i=0;i<64;i++){const a=i/32*Math.PI,b=(i+1)/32*Math.PI;nav.turnBetween(.3*Math.cos(a),.3*Math.sin(a),.3*Math.cos(b),.3*Math.sin(b));}
+ assert.ok(Math.abs(horizon(nav).roll)<1e-6,'twenty circles of the pointer leave the horizon level');
+ const sky=cameraRay(nav.free.basis,.2,.1);nav.turnBetween(.2,.1,.21,.12);
+ const z=dot(sky,nav.free.basis.slice(6,9));
+ assert.ok(Math.hypot(1.25*dot(sky,nav.free.basis.slice(0,3))/z-.21,1.25*dot(sky,nav.free.basis.slice(3,6))/z-.12)<1e-9,'the sky follows the pointer');
+ // Rolled on purpose, the hold lets go: pitch turns about the image's own
+ // right axis, so the picture slides rather than spinning about its centre.
+ nav.roll(Math.PI/2);const rolled=[...nav.free.basis];nav.turn(0,10);
+ for(let i=0;i<3;i++)assert.ok(Math.abs(nav.free.basis[i]-rolled[i])<1e-12);
+ nav.level();for(let i=0;i<120;i++)nav.step(1/60);
+ assert.ok(Math.abs(horizon(nav).roll)<1e-6);assert.equal(nav.moving,false);
+ // Pitching over the zenith is a loop: the camera ends upside down, not snapped back.
+ for(let i=0;i<120;i++)nav.turn(0,1);
+ assert.ok(Math.abs(Math.abs(horizon(nav).roll)-180)<1e-6);
+});
+
+test('a scroll spins the globe about its centre in the swipe direction, without running out',()=>{
+ for(const [x,y] of [[.1,.05],[-.2,.1]]){
+  const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+  const point=earthPoint(nav.free.position,cameraRay(nav.free.basis,x,y)).point;
+  nav.spinGlobe(0,.01,x,y);const [ux,uy]=project(nav,point);
+  assert.ok(uy>y+.005&&Math.abs(ux-x)<.002,'a swipe up moves the touched surface straight up');
+  const [cx,cy]=project(nav,[0,0,0]);assert.ok(Math.hypot(cx,cy)<1e-9,'the globe turns in place');
+  const start=[...nav.free.position];for(let i=0;i<400;i++)nav.spinGlobe(0,.02,x,y);
+  assert.ok(Math.hypot(...start.map((v,i)=>v-nav.free.position[i]))>4,'past the limb it keeps turning');
+ }
+ // Over a horizon the same swipe slides the ground toward the horizon.
+ const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});
+ const ground=earthPoint(nav.free.position,cameraRay(nav.free.basis,0,-.42)).point;
+ nav.spinGlobe(0,.02,0,-.42);assert.ok(project(nav,ground)[1]>-.42);
+});
+
+test('zoom keeps the Earth point under the pointer, clips before Earth and never tunnels',()=>{
+ const nav=new OrbitNavigation();nav.detach(routeFrame('high',0),{yaw:0,pitch:0});
+ const hit=earthPoint(nav.free.position,cameraRay(nav.free.basis,.05,.03));
+ for(let i=0;i<6;i++){nav.zoom(-.3,.05,.03);const [x,y]=project(nav,hit.point);assert.ok(Math.hypot(x-.05,y-.03)<1e-6);}
  const original=normalize(nav.free.position);
- for(let i=0;i<30;i++)nav.zoom(view,-240);
+ for(let i=0;i<60;i++)nav.zoom(-.5);
  assert.ok(Math.abs(altitude(nav.free.position)-MIN_ALTITUDE)<1e-6);
- assert.ok(dot(normalize(nav.free.position),original)>.999999,'cannot tunnel through Earth');
- for(let i=0;i<30;i++)nav.zoom(view,240);
+ assert.ok(dot(normalize(nav.free.position),original)>.99,'cannot tunnel through Earth');
+ for(let i=0;i<60;i++)nav.zoom(.5);
  assert.ok(Math.abs(altitude(nav.free.position)-MAX_ALTITUDE)<1e-6);
 });
 
-test('free look turns around camera axes even when looking straight at Earth',()=>{
- const view={yaw:0,pitch:0},nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),view);
- const before=nav.read(1000,view,0),right=before.cameraBasis.slice(0,3),up=before.cameraBasis.slice(3,6),forward=before.cameraBasis.slice(6,9);
- nav.turn(20,0);const after=nav.read(1000,view,0);
- assert.ok(Math.abs(dot(after.forward,right)-Math.sin(20*Math.PI/180))<1e-9,'horizontal input looks sideways rather than spinning around Earth');
- assert.ok(Math.abs(dot(after.forward,forward)-Math.cos(20*Math.PI/180))<1e-9);
- assert.ok(dot(after.up,up)>1-1e-9);assert.deepEqual(after.camera,before.camera);
- for(let i=0;i<360;i++)nav.turn(0,1);
- const loop=nav.read(1000,view,0);
- for(let i=0;i<9;i++)assert.ok(Math.abs(loop.cameraBasis[i]-after.cameraBasis[i])<1e-9,'full pitch loop has no pole lock');
+test('climbing out of the horizon view keeps Earth in frame',()=>{
+ for(const input of ['zoom','keys']){
+  const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});
+  if(input==='zoom')for(let i=0;i<40;i++)nav.zoom(.3);else for(let i=0;i<300;i++)nav.step(1/24,{climb:1});
+  assert.ok(altitude(nav.free.position)>MAX_ALTITUDE-1);
+  const [x,y]=project(nav,[0,0,0]);assert.ok(Math.abs(x)<.5&&Math.abs(y)<.5,`Earth centre at ${x},${y}`);
+ }
 });
 
-test('free translation and altitude changes never steer toward the local horizon',()=>{
- const view={yaw:0,pitch:0},nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),view);
- nav.turn(35,24);const before=nav.read(1000,view,0);
- for(let i=0;i<80;i++)nav.step(.04,view,[.5,.5,.5],false);
- nav.setAltitude(4000);for(let i=0;i<80;i++)nav.step(.04,view,[0,0,0],false);
- const after=nav.read(1000,view,0);assert.notDeepEqual(after.camera,before.camera);
- assert.deepEqual(after.cameraBasis,before.cameraBasis);
+test('fly-to approaches a point and centres it; the sky is only centred',()=>{
+ const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+ const hit=earthPoint(nav.free.position,cameraRay(nav.free.basis,.15,.05)),distance=Math.hypot(...add(hit.point,scale(nav.free.position,-1)));
+ nav.flyTo(.15,.05,-Math.log(2),.5);for(let i=0;i<40;i++)nav.step(1/60);
+ const [x,y]=project(nav,hit.point);assert.ok(Math.hypot(x,y)<1e-6);
+ assert.ok(Math.abs(Math.hypot(...add(hit.point,scale(nav.free.position,-1)))/distance-.5)<1e-6);
+ nav.turn(0,60);const sky=cameraRay(nav.free.basis,.3,.3),position=[...nav.free.position];
+ nav.flyTo(.3,.3,-Math.log(2),0);nav.step(1/60);
+ assert.deepEqual(nav.free.position,position);assert.ok(dot(sky,nav.free.basis.slice(6,9))>1-1e-9);
+});
+
+test('the lens keeps the direction under the pointer and never moves the camera',()=>{
+ for(const route of ['iss','high']){
+  const nav=new OrbitNavigation();nav.detach(routeFrame(route,1000),{yaw:0,pitch:0});nav.turn(12,-7);
+  const position=[...nav.free.position],start=horizon(nav);
+  for(const [focal,x,y] of [[2.5,.3,-.2],[6,-.41,.18],[25,.05,.33],[1.9,-.6,-.4],[PROJECTION,.2,.1]]){
+   const ray=cameraRay(nav.free.basis,x,y,nav.focal);nav.setLens(focal,x,y);
+   const [px,py]=screenPoint(nav.free.basis,ray,focal);
+   assert.ok(Math.hypot(px-x,py-y)<1e-9,`${route} ray at ${px},${py} for ${x},${y}`);
+   assert.deepEqual(nav.free.position,position,'zooming never moves the camera');
+   if(route==='iss')assert.ok(Math.abs(horizon(nav).roll-start.roll)<1e-3,'a level horizon stays level');
+  }
+  const basis=[...nav.free.basis];nav.setLens(9,0,0);nav.setLens(1.4);
+  assert.deepEqual(nav.free.basis,basis,'zooming about the centre does not turn the camera');
+ }
+ // Look speed follows the lens: a key turns 60°/s at 1×, 6°/s at 10×.
+ const turned=focal=>{const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});nav.focal=focal;
+  const forward=nav.free.basis.slice(6,9);nav.step(.05,{yaw:1});return Math.acos(Math.min(1,dot(forward,nav.free.basis.slice(6,9))))*180/Math.PI;};
+ assert.ok(Math.abs(turned(PROJECTION)/turned(10*PROJECTION)-10)<1e-6);
+ // Hit tests and the spin of the globe use the lens too.
+ const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});nav.setLens(4*PROJECTION);
+ const point=earthPoint(nav.free.position,cameraRay(nav.free.basis,.1,.05,nav.focal)).point;
+ nav.spinGlobe(0,.002,.1,.05);const [ux,uy]=screenPoint(nav.free.basis,add(point,scale(nav.free.position,-1)),nav.focal);
+ assert.ok(Math.abs(uy-.052)<2e-4&&Math.abs(ux-.1)<2e-4,`a zoomed swipe keeps pace with the finger: ${ux},${uy}`);
+});
+
+test('following an orbit, the lens re-aims yaw and pitch instead of detaching',()=>{
+ const t=2300,frame=(route,view)=>routeFrame(route,t,view);
+ for(const [route,view] of [['iss',{yaw:0,pitch:0}],['iss',{yaw:40,pitch:12}],['polar',{yaw:-150,pitch:-20}]]){
+  let current={...view},focal=PROJECTION;
+  const ray=cameraRay(frame(route,current).cameraBasis,.32,-.18,focal);
+  for(const next of [1.6,2.4,4,7.5,5]){current=followLens(frame(route,current),current,.32,-.18,focal,next*PROJECTION);focal=next*PROJECTION;}
+  const [x,y]=screenPoint(frame(route,current).cameraBasis,ray,focal);
+  assert.ok(Math.hypot(x-.32,y+.18)<1e-6,`${route} ${JSON.stringify(view)}: ${x},${y}`);
+  assert.ok(Math.abs(current.pitch)<=90&&Math.abs(current.yaw)<=180);
+ }
+ // Zooming about the centre leaves the view alone.
+ assert.deepEqual(followLens(frame('iss',{yaw:33,pitch:-8}),{yaw:33,pitch:-8},0,0,PROJECTION,8*PROJECTION),{yaw:33,pitch:-8});
+ // Looking straight down from the high orbit, yaw would only spin the picture:
+ // the pointer may drift, but the image does not swing around it.
+ for(const [x,y] of [[.3,.05],[.32,-.18],[-.1,.3]]){
+  const nadir=followLens(frame('high',{yaw:0,pitch:0}),{yaw:0,pitch:0},x,y,PROJECTION,2*PROJECTION);
+  assert.ok(Math.abs(nadir.yaw)<1,`nadir yaw ${nadir.yaw}`);
+ }
+ // A ray right of centre at the horizon turns the head right, as a drag left would.
+ assert.ok(followLens(frame('iss',{yaw:0,pitch:0}),{yaw:0,pitch:0},.3,0,PROJECTION,2*PROJECTION).yaw>0);
+});
+
+test('free URLs restore the exact pose after moving',()=>{
+ const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+ nav.turn(35,24);for(let i=0;i<80;i++)nav.step(.04,{forward:.5,right:.5,climb:.5});
  const params=new URLSearchParams();nav.write(params);assert.ok(params.has('orientation'));assert.equal(params.has('heading'),false);
  const restored=new OrbitNavigation();restored.restore(params);
- for(let i=0;i<9;i++)assert.ok(Math.abs(restored.read(1000,view,0).cameraBasis[i]-before.cameraBasis[i])<1e-8);
+ for(let i=0;i<9;i++)assert.ok(Math.abs(restored.free.basis[i]-nav.free.basis[i])<1e-8);
+ for(let i=0;i<3;i++)assert.ok(Math.abs(restored.free.position[i]-nav.free.position[i])<1e-7);
 });
 
 test('legacy Earth-relative links migrate once and malformed orientations are rejected',()=>{

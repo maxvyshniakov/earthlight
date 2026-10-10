@@ -2,8 +2,13 @@
 // The photograph provides coverage, not measured height/density: the vertical
 // profile and small-scale erosion below are a bounded reconstruction.
 import {stormLightShader} from './storm-light.ts';
+import {modisOrbitShader} from './modis-orbit.ts';
 export const cloudShader=`
+#ifndef FOCAL
+#define FOCAL 1.25
+#endif
 uniform float cloudMapWidth;
+${modisOrbitShader}
 vec3 cloudCoordinates(vec3 point){
   point.xy=rotate(time*.000008)*point.xy;
   return point;
@@ -37,7 +42,12 @@ float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed)
 }
 float cloudCoverage(vec3 point,float footprint,bool detailed){
   vec3 n=normalize(cloudCoordinates(point));
-  return cloudCoverageAt(earthUV(n),max(.15,length(n.xy)),footprint,detailed);
+  float coverage=cloudCoverageAt(earthUV(n),max(.15,length(n.xy)),footprint,detailed);
+#ifdef MODIS_PATCH
+  float weight;vec4 field=modisSample(point,footprint,weight);
+  coverage=mix(coverage,field.r,weight);
+#endif
+  return coverage;
 }
 // Once an octave is below the sampling footprint its contribution is exactly
 // the mean. Avoid evaluating eight-corner noise that will be discarded.
@@ -46,46 +56,120 @@ float filteredCloudNoise(vec3 point,float frequency,float footprint){
   if(fade>=1.)return .5;
   return mix(noise(point*frequency),.5,fade);
 }
-float cloudDensity(vec3 point,float footprint,bool detailed){
+float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   float height=(length(point)-1.)*6371.;
   if(height<.6 || height>12.)return 0.;
   float coverage=cloudCoverage(point,footprint,detailed);
   if(coverage<.001)return 0.;
-  // Optical coverage sets density, not a height-map surface. A soft sheet
-  // stays translucent face-on and becomes opaque along a long grazing path.
+  // Coverage is observed; cloud families and heights are illustrative. Blend
+  // regional regimes rather than stamping the same vertical bell everywhere.
   vec3 material=cloudCoordinates(point),horizontal=normalize(material);
   float regional=filteredCloudNoise(horizontal+vec3(17.,31.,9.)/38.,38.,footprint);
-  float neighborhood=cloudCoverage(point,max(footprint,.0025),false);
-  float convection=smoothstep(.66,.90,regional)*smoothstep(.55,.9,neighborhood);
-  float base=.85+1.05*regional;
-  float bottom=base+.65*(1.-smoothstep(.12,.72,coverage));
-  float center=3.+regional*.4+convection*.6;
-  float width=1.2+.3*regional+convection*.6;
-  float profile=smoothstep(bottom,bottom+.9,height)*exp(-.5*pow((height-center)/width,2.))
-    *(1.-smoothstep(10.,12.,height));
-  if(profile<.001)return 0.;
-  // Density variations stretch into wisps; they cannot emboss a hard roof.
-  float coarse=filteredCloudNoise(material*vec3(.45,1.,.8),1800.,footprint);
-  float fine=filteredCloudNoise(material,4200.,footprint);
-  float textureDensity=.65+.25*coarse+.10*fine;
-  float extinction=mix(.12,.22,convection);
-  return pow(coverage,1.35)*profile*textureDensity*extinction;
+  float neighborhood=regional>.46?cloudCoverage(point,max(footprint,.0025),false):coverage;
+  float convection=smoothstep(.57,.78,regional)*smoothstep(.64,.90,neighborhood);
+  float sheet=1.-smoothstep(.34,.60,regional);
+  float ice=smoothstep(.46,.70,regional)*(1.-smoothstep(.45,.82,neighborhood));
+  if(height>6.5 && convection+ice<.001)return 0.;
+#ifdef TEXTURE_SHAPED_CLOUDS
+  // Keep observed fine structure. Only the broad regime is illustrative;
+  // brightness is not a measured cloud genus or a retrieved cloud height.
+  // No extra texture, no fine 3D noise and no holes carved into dense decks.
+  float lowBase=.7+.45*regional,lowTop=1.9+.8*coverage;
+  float deck=smoothstep(lowBase,lowBase+.45,height)
+    *(1.-smoothstep(lowTop-.35,lowTop+.35,height));
+  float base=1.15+.35*regional,top=2.3+2.9*smoothstep(.12,.90,coverage);
+  float cumulus=smoothstep(base,base+.5,height)
+    *(1.-smoothstep(top-.65,top+.25,height));
+  float towerTop=8.3+2.5*coverage;
+  float tower=smoothstep(1.1,1.7,height)*(1.-smoothstep(towerTop-.8,towerTop+.2,height));
+  float anvil=exp(-.5*pow((height-9.3)/.8,2.));
+  float cirrus=exp(-.5*pow((height-9.5)/.65,2.));
+  float density=(1.-convection)*(sheet*deck*.65+(1.-sheet)*cumulus*.55)
+    +convection*(tower*.65+anvil*.16)+ice*cirrus*.09;
+  return pow(coverage,1.35)*density*.925*(1.-smoothstep(11.5,12.,height));
+#else
+  // Rotate the cellular domain and mix scales so value-noise grid axes do not
+  // become rows of identical puffs when viewed straight down.
+  vec3 cellPoint=vec3(dot(horizontal,vec3(.36,.48,-.8)),
+    dot(horizontal,vec3(-.8,.6,0.)),dot(horizontal,vec3(.48,.64,.6)));
+  float coarse=filteredCloudNoise(cellPoint,1200.,footprint);
+  float fine=filteredCloudNoise(material*vec3(.45,1.,.8),3600.,footprint);
+  float cells=.75*coarse+.25*fine;
+  float resolved=1.-smoothstep(.3,1.,footprint*1200.);
+  // Dense observed decks retain a connected body. Small-scale noise shapes
+  // their tops, but must not punch clear columns through an overcast field.
+  // Broken coverage can still erode into separate cumulus and wispy edges.
+  float connected=smoothstep(.32,.78,min(coverage,neighborhood));
+  float topCells=mix(cells,.5+(cells-.5)*.45,connected*(1.-convection));
+
+  // Low decks have shallow, cellular tops. Broken cumulus has a common base
+  // and separate rounded tops; coverage still prevents invented cloud at sea.
+  float lowBase=.7+.45*regional,lowTop=1.8+.9*topCells;
+  float deck=smoothstep(lowBase,lowBase+.45,height)
+    *(1.-smoothstep(lowTop-.35,lowTop+.35,height));
+  float cellular=mix(1.,smoothstep(.20,.58,cells),resolved*(1.-coverage*.65)*(1.-connected*.8));
+  float base=1.15+.35*regional,top=2.6+3.1*topCells*smoothstep(.12,.80,coverage);
+  float cumulus=smoothstep(base,base+.5,height)*(1.-smoothstep(top-.65,top+.25,height));
+  float pockets=mix(1.,smoothstep(.24,.64,cells+.15*(fine-.5)),resolved*(1.-connected*.9));
+
+  // Only selected broad, optically thick systems grow deep towers and anvils.
+  // The high, translucent component can coexist with a low layer.
+  float towerTop=8.5+2.5*cells;
+  float tower=smoothstep(1.1,1.7,height)*(1.-smoothstep(towerTop-.8,towerTop+.2,height));
+  float anvil=exp(-.5*pow((height-9.3)/.8,2.));
+  float cirrus=exp(-.5*pow((height-9.5)/.65,2.))*(.45+.55*fine);
+  float density=(1.-convection)*(sheet*deck*cellular*.65+(1.-sheet)*cumulus*pockets*.55)
+    +convection*(tower*pockets*.65+anvil*.16)+ice*cirrus*.12;
+  return pow(coverage,1.35)*density*(.85+.15*fine)*(1.-smoothstep(11.5,12.,height));
+#endif
 }
-float cloudShadowAlong(vec3 point,vec3 lightDirection){
+float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
+#ifdef MODIS_GUIDANCE
+  float weight;vec4 field=modisSample(point,footprint,weight);
+  float guided=weight>0.?modisDensity(field,(length(point)-1.)*6371.,halfSpan):0.;
+  if(weight>=.999)return guided;
+  return mix(cloudBaseDensity(point,footprint,detailed),guided,weight);
+#else
+  return cloudBaseDensity(point,footprint,detailed);
+#endif
+}
+float cloudDensity(vec3 point,float footprint,bool detailed){return cloudIntegratedDensity(point,footprint,detailed,0.);}
+float cloudLightTransmission(vec3 point,vec3 lightDirection,float samples){
+  // Trace the whole cloud shell, including high clouds and oblique sunlight.
+  // A fixed 25 km ray silently missed both. Trim the empty space below base.
+  const float outer=1.0018835,inner=1.00009418;
+  float b=dot(point,lightDirection),c=dot(point,point);
+  float disc=b*b-c+outer*outer;
+  if(disc<=0.)return 1.;
+  float start=max(0.,-b-sqrt(disc)),end=-b+sqrt(disc);
+  float hole=b*b-c+inner*inner;
+  if(hole>0.){
+    float near=-b-sqrt(hole),far=-b+sqrt(hole);
+    if(c<inner*inner)start=max(start,far);
+    else if(near>0.)end=min(end,near);
+  }
+  if(end<=start)return 1.;
+  float pixelFootprint=length(point-cameraPosition)/(resolution.y*FOCAL);
   float tau=0.;
-  // Integrate the original 25.5 km support with filtered shadow samples.
-  float pixelFootprint=length(point-cameraPosition)/(resolution.y*1.25);
-  float distance=0.;
-  // Resolve nearby self-shadow with detail; distant shadow samples use the
-  // overview. Broad neighborhood/depth also needs no high-frequency tile data.
-  for(int j=0;j<4;j++){
-    float width=j==0?.00012:j==1?.00036:j==2?.00108:.00244;
-    tau+=cloudDensity(point+lightDirection*(distance+width*.5),max(pixelFootprint,width*.5),j==0)*width*6371.;
-    distance+=width;
+  float lateral=sqrt(max(0.,1.-pow(dot(normalize(point),lightDirection),2.)));
+  for(int j=0;j<12;j++){
+    if(float(j)>=samples || tau>8.)break;
+    float a=float(j)/samples,z=(float(j)+1.)/samples;
+    // Self-shadow changes fastest just above the current cloud sample.
+    if(samples<10.){a*=a;z*=z;}
+    float width=(end-start)*(z-a),distance=start+(end-start)*(a+z)*.5;
+    // Filter lateral travel, not the vertical thickness of a shadow slice.
+    // The finite solar disc also softens distant cloud shadows naturally.
+    float footprint=max(pixelFootprint,max(distance*.00465,width*lateral*.35));
+    // Surface shadows retain atlas detail; only the distant part of a cloud's
+    // self-shadow uses the overview, after its sharp local structure is traced.
+    vec3 samplePoint=point+lightDirection*distance;
+    tau+=cloudIntegratedDensity(samplePoint,footprint,samples>=10.||j<3,width*3185.5*abs(dot(normalize(samplePoint),lightDirection)))*width*6371.;
   }
   return exp(-tau);
 }
-float cloudShadow(vec3 point){return cloudShadowAlong(point,sunDirection);}
+float cloudShadowAlong(vec3 point,vec3 lightDirection){return cloudLightTransmission(point,lightDirection,12.);}
+float cloudShadow(vec3 point){return cloudLightTransmission(point,sunDirection,6.);}
 // Five source rays are evaluated in a tiny prepass, never once per screen pixel.
 // The same coverage, height profile and filtering drive visible clouds and the
 // light reaching the lens. Scattering into the ray does not feed lens ghosts.
@@ -102,7 +186,8 @@ vec3 lensTransmission(vec3 ray){
   for(int i=0;i<96;i++){
    if(cloudTau>8.)break;
    float distance=entry+(float(i)+.5)*width;
-   cloudTau+=cloudDensity(cameraPosition+ray*distance,max(distance/(resolution.y*1.25),width*.5),true)*width*6371.;
+   vec3 samplePoint=cameraPosition+ray*distance;
+   cloudTau+=cloudIntegratedDensity(samplePoint,max(distance/(resolution.y*FOCAL),width*.5),true,width*3185.5*abs(dot(normalize(samplePoint),ray)))*width*6371.;
   }
  }
  float limit=10.;
@@ -154,13 +239,18 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
     if(float(i)>=viewSteps)break;
     if(transmission<.015)break;
     vec3 point=cameraPosition+ray*(entry+(float(i)+.5)*stepLength);
-    float pixelFootprint=length(point-cameraPosition)/(resolution.y*1.25);
+    float pixelFootprint=length(point-cameraPosition)/(resolution.y*FOCAL);
 #ifdef HALF_CLOUD_PASS
     pixelFootprint*=2.;
 #endif
     float footprint=max(pixelFootprint,stepLength*.5);
-    float rho=cloudDensity(point,footprint,true);
+    float rho=cloudIntegratedDensity(point,footprint,true,stepLength*3185.5*abs(dot(normalize(point),ray)));
     if(rho>.001){
+#ifdef MODIS_GUIDANCE
+      // Light the cloud mass inside the interval, not its possibly empty
+      // centre. Otherwise thin layers strobe as viewSteps changes by one.
+      point=modisLightingPoint(point,ray,stepLength*3185.5*abs(dot(normalize(point),ray)),footprint);
+#endif
       vec3 normal=normalize(point);
       float mu=dot(normal,sunDirection),sb=dot(point,sunDirection);
       float earthDisc=sb*sb-dot(point,point)+1.;

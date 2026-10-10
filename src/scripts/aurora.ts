@@ -6,9 +6,9 @@ import type {ShaderProgramBatch} from './shader-programs';
 export const magneticNorth=[1410.8,-4545.4,29351.8].map((v,_,a)=>v/Math.hypot(...a));
 
 /** Conservative frustum test of spheres enclosing the two emitting caps. */
-export function auroraInView(camera:number[],basis:number[],aspect:number){
+export function auroraInView(camera:number[],basis:number[],aspect:number,focal=1.25){
  const outer=1+420/6371,center=outer*Math.cos(.76),radius=outer*Math.sin(.76);
- const tx=aspect/(2*1.25),ty=1/(2*1.25);
+ const tx=aspect/(2*focal),ty=1/(2*focal);
  for(const sign of [-1,1]){
   const p=magneticNorth.map((v,i)=>v*center*sign-camera[i]);
   const distance=Math.hypot(...p),eye=Math.hypot(...camera);
@@ -274,13 +274,15 @@ uniform vec2 resolution;
 uniform vec3 cameraPosition,sunDirection;
 uniform mat3 cameraBasis;
 uniform float time;
+uniform float zoomExcess;
+#define FOCAL (1.25*(1.+zoomExcess))
 ${auroraShader}
 void main(){
  vec2 p=(gl_FragCoord.xy/resolution-.5)*vec2(resolution.x/resolution.y,1.);
- vec3 ray=normalize(cameraBasis*normalize(vec3(p,1.25)));
+ vec3 ray=normalize(cameraBasis*normalize(vec3(p,FOCAL)));
  // Half-float storage preserves smooth dim radiance before auto-exposure.
  // Keep the same square-root encoding on the dithered RGBA8 fallback.
- vec3 encoded=sqrt(clamp(auroraEmission(ray,1./(resolution.y*1.25))/${AURORA_RADIANCE_RANGE.toFixed(1)},0.,1.));
+ vec3 encoded=sqrt(clamp(auroraEmission(ray,1./(resolution.y*FOCAL))/${AURORA_RADIANCE_RANGE.toFixed(1)},0.,1.));
  #ifdef AURORA_BYTE_TARGET
  float dither=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))-.5;
  encoded+=step(vec3(.000001),encoded)*dither/255.;
@@ -337,7 +339,7 @@ export class Aurora {
    }
    gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
    this.position=gl.getAttribLocation(this.program,'position');
-   for(const name of ['resolution','cameraPosition','cameraBasis','sunDirection','time'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+   for(const name of ['resolution','cameraPosition','cameraBasis','sunDirection','time','zoomExcess'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
    for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
    for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
@@ -358,7 +360,7 @@ export class Aurora {
    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Incomplete footprint target');
   }catch(error){this.dispose();throw error;}finally{for(const shader of shaders)gl.deleteShader(shader);}
  }
- render(width:number,height:number,camera:number[],basis:number[],sun:number[],time:number){
+ render(width:number,height:number,camera:number[],basis:number[],sun:number[],time:number,focal=1.25){
   // Preserve resolved rays near the horizon too. Small drawing buffers keep a
   // bounded mobile budget; the main renderer can still lower its own scale.
   const budget=280000;
@@ -372,7 +374,7 @@ export class Aurora {
    this.size=[w,h];
    this.empty=false;
   }
-  if(!auroraInView(camera,basis,width/height)){
+  if(!auroraInView(camera,basis,width/height,focal)){
    if(!this.empty){gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);this.empty=true;}
    gl.viewport(0,0,w,h);return;
   }
@@ -389,7 +391,7 @@ export class Aurora {
   gl.viewport(0,0,w,h);gl.useProgram(this.program);
   gl.bindTexture(gl.TEXTURE_2D,this.fieldTexture);
   gl.uniform2f(this.uniforms.resolution,w,h);gl.uniform3fv(this.uniforms.cameraPosition,camera);
-  gl.uniformMatrix3fv(this.uniforms.cameraBasis,false,basis);gl.uniform3fv(this.uniforms.sunDirection,sun);gl.uniform1f(this.uniforms.time,time);
+  gl.uniformMatrix3fv(this.uniforms.cameraBasis,false,basis);gl.uniform3fv(this.uniforms.sunDirection,sun);gl.uniform1f(this.uniforms.time,time);gl.uniform1f(this.uniforms.zoomExcess,focal/1.25-1);
   gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.enableVertexAttribArray(this.position);gl.vertexAttribPointer(this.position,2,gl.FLOAT,false,0,0);
   gl.drawArrays(gl.TRIANGLES,0,3);
  }

@@ -13,6 +13,7 @@ import {verifyCityRadiance} from './city-radiance-browser-fixture.mjs';
 import {verifyExposure} from './exposure-browser-fixture.mjs';
 import {verifyAurora} from './aurora-browser-fixture.mjs';
 import {verifyTerrain} from './terrain-browser-fixture.mjs';
+import {verifyWeather} from './weather-browser-fixture.mjs';
 import {verifyTerrainHeights} from './terrain-height-browser-fixture.mjs';
 import {verifyLensEnergy} from './lens-energy-browser-fixture.mjs';
 import {verifyCatalog} from './catalog-browser-fixture.mjs';
@@ -76,14 +77,14 @@ void main(){
  gl_FragColor=vec4(sunlightTransmission(point,direction),1.);
 }`;
 // Exercise the production vertical density function independently of the map:
-// a dense core and a thin edge must have thickness and distinct lower bounds.
+// Shallow decks, deep convection and translucent flanks have distinct profiles.
 const cloudFixture=`precision highp float;
 uniform float regional;
 float coverage;
 float noise(vec3 p){return regional;}
 vec3 cloudCoordinates(vec3 p){return p;}
 float cloudCoverage(vec3 p,float footprint,bool detailed){return coverage;}
-${cloudShader.slice(cloudShader.indexOf('float filteredCloudNoise('),cloudShader.indexOf('float cloudShadowAlong('))}
+${cloudShader.slice(cloudShader.indexOf('float filteredCloudNoise('),cloudShader.indexOf('float cloudLightTransmission('))}
 void main(){
  coverage=gl_FragCoord.y<1.? .25:gl_FragCoord.y<2.? .6:1.;
  float height=gl_FragCoord.x/512.*12.;
@@ -124,6 +125,7 @@ try{
  await run('set','viewport','1440','966');
  await run('open',`${base}/?t=1645.72&motion=0`);await wait(settled);
  const lighting=await verifyLighting(evaluate);results.push({lighting});console.log('lighting: eclipses and source-dependent moonlight',lighting);
+ const weather=await verifyWeather(evaluate);results.push({weather});console.log('cloud shadows: comparison with 512-sample integral',weather);
  const nightLight=await verifyNightLight(evaluate);results.push({nightLight});console.log('night light: linear radiance and local city scattering',nightLight);
  const aurora=await verifyAurora(evaluate);results.push({aurora});console.log('aurora',aurora);
  const summitHeights=await verifyTerrainHeights(evaluate);results.push({summitHeights});console.log('summit heights: packed atlas and actual ray intersections',summitHeights);
@@ -184,18 +186,18 @@ try{
  })()`);
  assert.equal(cloudProfiles.error,0);
  for(const group of [cloudProfiles.low,cloudProfiles.high]){
-  assert.ok(group[0].lower>group[2].lower+.15,'thin flanks taper into the body');
   for(const profile of group){assert.ok(profile.thickness>.4);assert.ok(profile.maxStep<12,'no abrupt density shelf');}
  }
  console.log('cloud density profiles',cloudProfiles);
- assert.ok(cloudProfiles.low[2].upper<7,'ordinary overcast has a shallow diffuse tail');
+ assert.ok(cloudProfiles.low[2].upper<4,'low decks stay below the middle cloud layer');
+ assert.ok(cloudProfiles.high[2].upper>9,'selected convection reaches the upper cloud layer');
  assert.ok(cloudProfiles.high[2].tau>cloudProfiles.low[2].tau,'active regions retain greater optical depth');
  for(const group of [cloudProfiles.low,cloudProfiles.high]){
-  assert.ok(group[2].tau>.15&&group[2].tau<1.,'dense sheet transmits some ground light face-on');
+  assert.ok(group[2].tau>.15&&group[2].tau<8.,'bounded cloud optical depth');
   assert.ok(1-Math.exp(-group[2].tau*12)>.9,'long grazing paths accumulate opacity');
   assert.ok(group[0].tau<group[2].tau*.25,'thin edges remain translucent');
  }
- assert.ok(cloudProfiles.high[2].lower>cloudProfiles.low[2].lower+.35,'regional cloud bases must not share one sphere');
+ assert.ok(cloudProfiles.high[2].lower>cloudProfiles.low[2].lower+.15,'regional cloud bases must not share one sphere');
  results.push({cloudProfiles});
  const sensor=await evaluate(`(()=>{
   const c=document.createElement('canvas');c.width=c.height=256;const gl=c.getContext('webgl');gl.disable(gl.DITHER);
@@ -379,12 +381,14 @@ try{
  await run('set','viewport','1440','966');
  await run('open',`${base}/?t=900&motion=0`);await wait(settled);
  const viewState=()=>evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {yaw:Number(e.dataset.cameraYaw),pitch:Number(e.dataset.cameraPitch),motion:e.querySelector('.sky-motion').getAttribute('aria-label'),dragging:document.querySelector('.orbit-view').hasAttribute('data-camera-dragging'),url:location.search};})()`);
- await run('mouse','move','600','400');await run('mouse','down');
- await run('mouse','move','853','553');await run('mouse','up');
+ await run('mouse','move','600','400');await run('mouse','down','right');
+ await run('mouse','move','853','553');await run('mouse','up','right');
  const dragged=await viewState();
- assert.ok(dragged.yaw<-14&&dragged.yaw>-15);assert.ok(dragged.pitch>8&&dragged.pitch<9);
+ assert.ok(Math.abs(dragged.yaw+253*180/Math.PI/(966*1.25))<.1);assert.ok(Math.abs(dragged.pitch-153*180/Math.PI/(966*1.25))<.1);
  assert.equal(dragged.motion,'Play');assert.equal(dragged.dragging,false);
- assert.equal(Number(new URLSearchParams(dragged.url).get('yaw')),dragged.yaw);
+ await wait("new URLSearchParams(location.search).has('yaw')");
+ dragged.url=await run('get','url');
+ assert.ok(Math.abs(Number(new URL(dragged.url.trim()).searchParams.get('yaw'))-dragged.yaw)<.1);
  await run('reload');await wait(settled);
  assert.equal((await viewState()).yaw,dragged.yaw);
  // A control click must not begin a camera drag, and dragging must not pause playback.

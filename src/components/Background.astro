@@ -1,0 +1,21 @@
+---
+import {assetURL} from '../scripts/asset-location';
+interface Props { assetBaseURL?: string; }
+const {assetBaseURL='/media/orbit/'}=Astro.props;
+---
+<earthlight-background data-asset-base={assetBaseURL} aria-hidden="true">
+  <div class="poster" style={{backgroundImage:`url("${assetURL('preview/poster.webp',assetBaseURL)}")`}}></div>
+  <canvas></canvas>
+</earthlight-background>
+<script>
+  import {EarthlightBackground} from '../scripts/background';
+  if(!customElements.get('earthlight-background'))customElements.define('earthlight-background',EarthlightBackground);
+</script>
+<style>
+  earthlight-background { display: contents; pointer-events: none; }
+  canvas,.poster { position: fixed; inset: 0 0 auto; width: 100%; height: 100vh; height: 100lvh; z-index: -1; pointer-events: none; }
+  .poster { background-color: #020304; background-position: center; background-size: cover; }
+  canvas { opacity: 0; transition: opacity .6s ease; }
+  earthlight-background[data-ready] canvas { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { canvas { display: none; } }
+</style>

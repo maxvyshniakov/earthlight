@@ -359,11 +359,13 @@ test('aurora culling retains every visible polar-volume sample across camera tur
 });
 
 test('camera drag crosses the seam continuously and stops at the poles',()=>{
- assert.deepEqual(draggedCamera(179,0,-20,0,550),{yaw:-179,pitch:0});
- assert.deepEqual(draggedCamera(-179,0,20,0,550),{yaw:179,pitch:0});
+ // One viewport height of drag turns the view by the pinhole's central angle.
+ const k=180/Math.PI/1.25/550,near=(a,b)=>Math.abs(a-b)<1e-9;
+ const right=draggedCamera(179,0,-2/k,0,550),left=draggedCamera(-179,0,2/k,0,550);
+ assert.ok(near(right.yaw,-179)&&right.pitch===0);assert.ok(near(left.yaw,179)&&left.pitch===0);
  assert.equal(draggedCamera(0,85,0,500,550).pitch,90);
  assert.equal(draggedCamera(0,-85,0,-500,550).pitch,-90);
- assert.ok(Math.abs(draggedCamera(0,0,1,1,550).yaw+.1)<1e-10);
+ assert.ok(near(draggedCamera(0,0,1,1,550).yaw,-k));
  assert.deepEqual(draggedCamera(31,-17,0,0,550),{yaw:31,pitch:-17});
 });
 

@@ -1,0 +1,21 @@
+{
+  "name": "earthlight",
+  "main": "server/worker.mjs",
+  "compatibility_date": "2026-10-10",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "earthlight.maxvyshniakov.com",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": [
+      "/media/orbit/dem90/*"
+    ]
+  }
+}

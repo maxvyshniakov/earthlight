@@ -41,7 +41,7 @@ export function stormPulse(time:number,start:number,width:number,window:number){
   const interval=Math.max(.0001,window);
   return (primitive(time+interval/2)-primitive(time-interval/2))/interval;
 }
-export function stormLights(time:number,rate:number,camera:ArrayLike<number>,basis:ArrayLike<number>,aspect:number,fps=24){
+export function stormLights(time:number,rate:number,camera:ArrayLike<number>,basis:ArrayLike<number>,aspect:number,fps=24,focal=1.25){
  // Full-frame integration preserves short flashes at accelerated playback.
  const window=Math.max(1/48,Math.abs(rate)/fps),c=Math.cos(time*.000008),s=Math.sin(time*.000008);
  const active:Array<{point:number[];energy:number;score:number}>=[];
@@ -55,7 +55,7 @@ export function stormLights(time:number,rate:number,camera:ArrayLike<number>,bas
    const depth=dx*basis[6]+dy*basis[7]+dz*basis[8];
    if(depth< -radius)return 0;
    const horizontal=dx*basis[0]+dy*basis[1]+dz*basis[2],vertical=dx*basis[3]+dy*basis[4]+dz*basis[5];
-   if(Math.abs(horizontal)>Math.max(0,depth)*aspect/2.5+radius||Math.abs(vertical)>Math.max(0,depth)/2.5+radius)return 0;
+   if(Math.abs(horizontal)>Math.max(0,depth)*aspect/(2*focal)+radius||Math.abs(vertical)>Math.max(0,depth)/(2*focal)+radius)return 0;
    const distance2=dx*dx+dy*dy+dz*dz;
    if(camera2>1.01){
     const along=Math.max(0,Math.min(1,-(dx*camera[0]+dy*camera[1]+dz*camera[2])/distance2));
@@ -100,6 +100,10 @@ void stormRaySources(vec3 ray,float entry,float end,out vec4 first,out vec4 seco
     // must not admit a source into a gap in the detailed visible cloud.
     float body=cloudCoverage(source.xyz,.0025,false);
     if(body<.65)continue;
+    // Electrical candidates must also belong to a deep convective column.
+    // A dense low deck (or thin cirrus above it) is not a thunderstorm.
+    float upperDensity=cloudDensity(normalize(source.xyz)*(1.+8./6371.),.00035,true);
+    if(upperDensity<.04)continue;
     float cover=cloudCoverage(source.xyz,.00035,true);
     source.w*=smoothstep(.70,.90,cover)*smoothstep(.65,.85,body);
     float score=source.w*exp(-km2/(2.*14.*14.));

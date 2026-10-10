@@ -1,6 +1,6 @@
 {
   "name": "earthlight",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -18,7 +18,11 @@
     "benchmark:pairs": "bun scripts/benchmark-candidate-pairs.mjs",
     "verify:motion": "bun scripts/verify-candidate-motion.mjs",
     "assets": "bun scripts/fetch-assets.mjs",
-    "sync:site": "bun scripts/sync-from-site.mjs"
+    "assets:prepare": "bun scripts/prepare-assets.mjs",
+    "assets:publish": "bun scripts/publish-assets.mjs",
+    "package": "bun run assets:prepare && bun pm pack --destination .packages",
+    "media:prepare": "bun scripts/prepare-media.mjs",
+    "build:deploy": "bun scripts/build-app.mjs"
   },
   "dependencies": {
     "astro": "7.3.5",
@@ -37,7 +41,10 @@
     "./astro": "./src/components/OrbitalSky.astro",
     "./element": "./src/scripts/orbital-sky.ts",
     "./terrain": "./server/terrain-source.mjs",
-    "./terrain-middleware": "./server/terrain-middleware.mjs"
+    "./terrain-middleware": "./server/terrain-middleware.mjs",
+    "./background": "./src/components/Background.astro",
+    "./astro-integration": "./server/astro-integration.mjs",
+    "./assets-manifest": "./assets-manifest.json"
   },
   "files": [
     "src/components",
@@ -46,7 +53,9 @@
     "server",
     "NOTICE.md",
     "public/media/orbit/*.txt",
-    "public/media/orbit/README.md"
+    "public/media/orbit/README.md",
+    "assets-manifest.json",
+    "assets/background"
   ],
   "author": "Max Vyshniakov",
   "license": "MIT",

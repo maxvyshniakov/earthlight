@@ -1,16 +1,16 @@
 import {test,afterEach} from 'bun:test';
-
-const cleanups=[];
-afterEach(()=>{for(const cleanup of cleanups.splice(0).reverse())cleanup();});
 import assert from 'node:assert/strict';
 import {ShaderProgramBatch} from '../src/scripts/shader-programs.ts';
+
+const cleanup=[];
+afterEach(()=>{for(const restore of cleanup.splice(0).reverse())restore();});
 
 function fixture({parallel=true}={}){
  const calls=[],frames=new Map();let next=0,lost=false;
  const before={requestAnimationFrame:globalThis.requestAnimationFrame,cancelAnimationFrame:globalThis.cancelAnimationFrame};
  globalThis.requestAnimationFrame=callback=>{const id=++next;frames.set(id,callback);return id;};
  globalThis.cancelAnimationFrame=id=>frames.delete(id);
- cleanups.push(()=>{for(const [key,value] of Object.entries(before)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}});
+ cleanup.push(()=>{for(const [key,value] of Object.entries(before)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}});
  const gl={
   VERTEX_SHADER:1,FRAGMENT_SHADER:2,LINK_STATUS:3,COMPILE_STATUS:4,
   getExtension:()=>parallel?{COMPLETION_STATUS_KHR:5}:null,

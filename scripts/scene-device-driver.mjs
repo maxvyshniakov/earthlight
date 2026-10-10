@@ -3,7 +3,7 @@ import {spawn,execFileSync} from 'node:child_process';
 import {createInterface} from 'node:readline';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-export async function sceneDevice(browser,base){
+export async function sceneDevice(browser,base,options={}){
 let evaluate,navigate,close,capabilities,touchDrag,installInitScript,captureScreenshot;
 if(browser==='safari-mcp'){
   const process=spawn('safaridriver',['--mcp']);let sequence=0;const pending=new Map();
@@ -52,7 +52,7 @@ if(browser==='safari-mcp'){
   });
   // Android Target.createTarget makes a WebContents without a visible native
   // Chrome tab. Its visibilityState can say visible while RAF never runs.
-  const initial=`${base}/?device-test=${Date.now()}&motion=0`;
+  const initial=options.initialPath?new URL(options.initialPath,base).href:`${base}/?device-test=${Date.now()}&motion=0`;
   const quotedInitial="'"+initial.replaceAll("'","'\\''")+"'";
   execFileSync('rtk',['proxy','adb','shell','am','start','-a','android.intent.action.VIEW','-d',quotedInitial,'-p','com.android.chrome'],{stdio:'ignore'});
   let target;

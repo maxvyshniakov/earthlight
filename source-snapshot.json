@@ -1,9 +1,10 @@
 {
   "repository": "maxvyshniakov/personal-site",
-  "commit": "82f3c1c888b7de93ddc793962dfacdc53572b584",
+  "commit": "945fe7a6bd7e1da2f4b4b2ca02af0083b0813110",
   "assets": {
     "tag": "assets-82f3c1c888b7",
     "file": "earthlight-assets-82f3c1c888b7.tar",
     "sha256": "7b354882f6e3044998309d0a2c7f2a231c7227f0f55b5d0c87541e261e836edb"
-  }
+  },
+  "note": "Final import from personal-site. Asset releases are now pinned by assets-manifest.json; the original GitHub archive is retained here only as extraction provenance."
 }

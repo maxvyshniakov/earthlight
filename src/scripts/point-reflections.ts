@@ -22,16 +22,16 @@ export class PointReflections {
     for(let i=0;i<data.length;i+=8)if(data[i+6]<.75)this.stars.push(Array.from(data.slice(i,i+8)));
   }
   update(starToFixed:number[],basis:number[],camera:number[],years:number,planets:number[],
-         aspect:number,pixelHeight:number,sceneTime:number,cssHeight=pixelHeight):Float32Array {
+         aspect:number,pixelHeight:number,sceneTime:number,cssHeight=pixelHeight,focal=1.25):Float32Array {
     const candidates:Candidate[]=[];
     const add=(id:number,direction:number[],magnitude:number,bv:number)=>{
       if(magnitude>=.75)return;
       const z=dot(direction,basis.slice(6,9));
       if(z<=0.)return;
-      const x=1.25*dot(direction,basis.slice(0,3))/z,y=1.25*dot(direction,basis.slice(3,6))/z;
+      const x=focal*dot(direction,basis.slice(0,3))/z,y=focal*dot(direction,basis.slice(3,6))/z;
       const edge=1-smooth(.92,1.35,Math.max(Math.abs(x)/(aspect*.5),Math.abs(y)/.5));
       if(edge<=0.)return;
-      const visible=visibleSourceDisk(camera,direction,1/(pixelHeight*1.25));
+      const visible=visibleSourceDisk(camera,direction,1/(pixelHeight*focal));
       // Atmospheric/cloud transmission is applied once by sourceAttenuation.
       // No saturation curve or independent boost for dim sources.
       const energy=pointImageFlux(magnitude,cssHeight)*edge*visible;

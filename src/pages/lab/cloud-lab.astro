@@ -1,0 +1,33 @@
+---
+import {cloudFamilies} from '../../scripts/cloud-families';
+---
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><meta name="robots" content="noindex" /><title>Облака · лаборатория Orbit</title></head>
+<body>
+<main id="cloud-lab">
+<header><a href="/">← Orbit</a><span>Эксперимент · региональная модель</span><h1>Форма и жизнь облаков</h1><p>Сейчас дорабатываем два случая: кучевые над океаном и прозрачные перистые над нижним слоем. Это проверка формы и света; фотореализм пока не достигнут.</p><nav aria-label="Сцены для сравнения"><a href="?family=2&amp;view=oblique&amp;sun=33&amp;time=66.47&amp;seed=7">Кучевые · боковой свет</a> · <a href="?family=5&amp;view=oblique&amp;sun=33&amp;time=66.47&amp;seed=7">Перистые · два слоя</a></nav></header>
+<div class="layout">
+<section class="scene" aria-label="Облачная сцена"><canvas aria-label="Трёхмерная модель облаков"></canvas><p id="status" role="status">Подготовка сцены…</p></section>
+<form onsubmit="return false">
+<label>Облачность<select id="family">{cloudFamilies.map((f,i)=><option value={i}>{f.name}</option>)}</select></label>
+<p id="description">{cloudFamilies[0].description}</p><a id="reference" href="https://science.nasa.gov/earth/earth-observatory/" target="_blank" rel="noreferrer">Референс семейства ↗</a>
+<label id="cell-control" hidden>Ячейки<select id="cells"><option value="0">Закрытые</option><option value="1">Открытые</option></select></label>
+<label>Ракурс<select id="view"><option value="oblique">Косой · 150 км</option><option value="top">Сверху · 150 км</option><option value="limb">К горизонту · 150 км</option></select></label>
+<label>Высота Солнца <output id="sun-value">25°</output><input id="sun" type="range" min="6" max="80" value="25" step="1" /></label>
+<label>Направление света<select id="azimuth"><option value="-45">Сбоку</option><option value="90">Навстречу камере</option><option value="-90">За камерой</option></select></label>
+<label>Время <output id="time-value">0 мин</output><input id="time" type="range" min="0" max="180" value="0" step="0.01" /></label>
+<div class="actions"><button id="play" type="button" aria-pressed="false">▶ Развитие · 60×</button><button id="reset-time" type="button">В начало</button></div>
+<label>Seed<input id="seed" type="number" min="0" max="999" step="1" value="7" /></label>
+<label>Экспозиция <output id="ev-value">0 EV</output><input id="ev" type="range" min="-2" max="2" value="0" step="0.25" /></label>
+<label>Просмотр<select id="diagnostic"><option value="0">Свет и тени</option><option value="1">Оптическая толщина</option></select></label>
+<button id="share" type="button">Скопировать ссылку на этот кадр</button><p id="share-status" role="status"></p>
+</form>
+</div>
+<section class="notes"><h2>Что здесь показано</h2><p>Фототекстуры поверх этой модели не планируются: объём, прозрачность и тени должны работать сами. Настройки ниже нужны для диагностики; от вас не требуется их подбирать. При смене Солнца форма остаётся той же. В плотном слое сохраняется тело; в кучевых — просветы и общая нижняя граница. У гроз верхушки развиваются и растекаются, у перистых верхний и нижний слои смещаются по-разному. Перемотка воспроизводит ту же погоду.</p><p>Это отдельный эксперимент. Глобальная погода Orbit пока не заменена. В ячейках ещё заметна процедурная повторяемость, а грозовые верхушки требуют доработки формы и детализации. География, осадки, ночная подсветка городов и молнии будут подключаться после проверки формы. Камера находится над сферической Землёй; показан условный регион без привязки к карте. Экспозиция фиксирована, атмосферная дымка упрощена.</p><p>Скорость ветра и жизненные циклы заданы для сравнения; это не прогноз. Полный расчёт теней здесь дорогой, особенно у грозовых комплексов. Это эталон для сравнения будущих упрощений; производительность на телефоне ещё предстоит измерить. Вкладка перестаёт рисовать кадры, когда скрыта или воспроизведение остановлено.</p></section>
+</main>
+<script>import '../../scripts/cloud-lab';</script>
+</body></html>
+<style is:global>
+:root{color-scheme:dark;font:16px/1.5 system-ui;background:#101619;color:#e5eceb}*{box-sizing:border-box}body{margin:0}main{max-width:1500px;padding:28px;margin:auto}header a{color:#b4d8cc}header span{float:right;color:#a8bbbf;font-size:14px}h1{font-size:clamp(28px,4vw,42px);margin:28px 0 8px;line-height:1.15}header p{color:#a8bbbf;max-width:820px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:24px;align-items:start;margin-top:28px}.scene{position:sticky;top:24px;min-width:0}canvas{display:block;width:100%;aspect-ratio:1.5;background:#05090d;border:1px solid #314149;border-radius:12px}#status{font:12px/1.6 ui-monospace,monospace;color:#a8bbbf}form{background:#182126;padding:20px;border:1px solid #314149;border-radius:12px}label{display:block;margin-bottom:16px}#reference{display:block;font-size:14px;margin:-8px 0 20px}select,input[type=number]{width:100%;margin-top:6px;min-height:42px;background:#253138;border:1px solid #455b64;color:inherit;border-radius:6px;padding:6px 10px;font:inherit}input[type=range]{display:block;width:100%;min-height:32px;accent-color:#b4d8cc}output{float:right;font-variant-numeric:tabular-nums;color:#b4d8cc}button{font:inherit;color:inherit;background:#253138;border:1px solid #455b64;border-radius:6px;min-height:42px;padding:7px 10px;cursor:pointer}button:hover{background:#36474e}.actions{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}#description{font-size:14px;color:#a8bbbf;min-height:84px}#share-status{font-size:13px;margin:8px 0 0}.notes{max-width:970px;color:#a8bbbf}h2{color:#e5eceb}a{color:#b4d8cc}:focus-visible{outline:2px solid #b4d8cc;outline-offset:3px}[hidden]{display:none!important}@media(max-width:850px){main{padding:16px}.layout{grid-template-columns:1fr}.scene{position:static}form{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}label{margin:0}#description,#reference,.actions,#share,#share-status{grid-column:1/-1}#description{min-height:0;margin:0}header span{float:none;display:block;margin-top:10px}}@media(max-width:450px){form{grid-template-columns:1fr}canvas{aspect-ratio:1.25}}
+</style>

@@ -1,6 +1,4 @@
-import {test,spyOn,mock,afterEach} from 'bun:test';
-
-afterEach(()=>mock.restore());
+import {test,afterEach,spyOn,mock} from 'bun:test';
 import assert from 'node:assert/strict';
 import {packTerrainPatch,parentTerrainTile,terrainSourceName,DEM_CELL} from '../src/scripts/terrain-detail.ts';
 import {terrainSource,terrainResponse} from '../server/terrain-source.mjs';
@@ -90,3 +88,5 @@ test('fine DEM deduplicates parent downloads, caps decoded cache and cancels wor
   atlas=null;
  }finally{atlas?.dispose();Object.assign(globalThis,originals);}
 });
+
+afterEach(()=>{mock.restore();});

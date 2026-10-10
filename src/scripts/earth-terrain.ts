@@ -30,6 +30,9 @@ export function decodeTerrain(buffer:ArrayBuffer){
 }
 
 export const terrainShader=`
+#ifndef FOCAL
+#define FOCAL 1.25
+#endif
 uniform float terrainReady;
 uniform float terrainWidth;
 #ifdef TERRAIN_STREAM
@@ -111,7 +114,7 @@ vec3 terrainNormal(vec3 point,float distance){
  vec3 n=normalize(point);
  if(terrainReady<.5)return n;
  vec2 uv=earthUV(n);
- float pixel=distance/(resolution.y*1.25*max(.06,-dot(n,normalize(point-cameraPosition))));
+ float pixel=distance/(resolution.y*FOCAL*max(.06,-dot(n,normalize(point-cameraPosition))));
  float width=terrainSamplingWidthAt(uv);
  float texels=pixel*width/(6.2831853*max(.15,length(n.xy)));
  float lod=max(0.,log2(max(1.,texels)));
@@ -132,7 +135,7 @@ float terrainLightVisibility(vec3 point,vec3 lightDirection){
  vec3 radial=normalize(point);
  float width=terrainSamplingWidthAt(earthUV(radial));
  float texel=6.2831853/width;
- float footprint=length(point-cameraPosition)/(resolution.y*1.25*max(.12,-dot(radial,normalize(point-cameraPosition))));
+ float footprint=length(point-cameraPosition)/(resolution.y*FOCAL*max(.12,-dot(radial,normalize(point-cameraPosition))));
  float bias=12./6371000.;
  vec3 origin=radial*(1.+terrainHeight(point,0.)+bias);
  float visibility=1.;
@@ -166,9 +169,11 @@ float oceanReflection(vec3 n,vec3 v,vec3 l,float footprint){
  float nv=dot(n,v),nl=dot(n,l);
  if(nv<=0.||nl<=0.)return 0.;
  float weather=waterField(n,17.,footprint);
- float patches=waterField(n+vec3(4.,9.,2.),260.,footprint);
- float bands=waterField(n+vec3(7.,1.,5.),1100.,footprint);
- float wind=clamp(2.+9.*weather+(patches-.5)*7.+(bands-.5)*3.,1.5,13.);
+ // Most unresolved waves belong in the slope distribution. Strong kilometre
+ // scale changes in its variance made the glint resemble mottled varnish.
+ // Keep broad wind systems and weak mesoscale variation, not a gloss texture.
+ float gust=waterField(n+vec3(4.,9.,2.),65.,footprint);
+ float wind=clamp(3.+8.*weather+(gust-.5)*1.2,2.,12.);
  vec3 east=normalize(cross(abs(n.z)<.98?vec3(0.,0.,1.):vec3(0.,1.,0.),n));
  vec3 north=cross(n,east);
  float heading=6.2831853*waterField(n+vec3(3.,7.,11.),8.,footprint);

@@ -1,0 +1,299 @@
+---
+import { MIN_ALTITUDE, MAX_ALTITUDE } from '../scripts/orbit-navigation';
+// Altitude tape positions are logarithmic, matching how the camera climbs.
+const position = (km: number) => (1 - Math.log(km / MIN_ALTITUDE) / Math.log(MAX_ALTITUDE / MIN_ALTITUDE)) * 100;
+const ticks = [200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000, 20000, 30000, 50000];
+const labels: Record<number, string> = { 200: '200', 500: '500', 1000: '1K', 2000: '2K', 5000: '5K', 10000: '10K', 20000: '20K', 50000: '50K' };
+const markers = [{ km: 420, name: 'ISS' }, { km: 800, name: 'Polar' }, { km: 20000, name: 'High' }, { km: 35786, name: 'GEO' }];
+const verbs = [
+  { id: 'fly', name: 'Fly', how: { mouse: 'Drag Earth', trackpad: 'Drag Earth, scroll to spin', touch: 'Drag Earth' }, keys: [['KeyW', 'W'], ['KeyA', 'A'], ['KeyS', 'S'], ['KeyD', 'D']] },
+  { id: 'look', name: 'Look', how: { mouse: 'Right-drag or ⇧ drag', trackpad: '⇧ scroll anywhere', touch: 'Two fingers or sky' }, keys: [['ArrowLeft', '←'], ['ArrowUp', '↑'], ['ArrowDown', '↓'], ['ArrowRight', '→']] },
+  { id: 'approach', name: 'Approach', how: { mouse: 'Wheel · double-click', trackpad: 'Pinch · double-click', touch: 'Pinch · double-tap' }, keys: [['KeyR', 'R'], ['KeyF', 'F']] },
+  { id: 'lens', name: 'Zoom', how: { mouse: '⇧ wheel', trackpad: '⇧ pinch', touch: '1× 3× 10× buttons' }, keys: [['KeyZ', 'Z'], ['KeyX', 'X']] },
+  { id: 'roll', name: 'Roll', how: { mouse: '<span class="hud-alt">⌥</span> drag', trackpad: '<span class="hud-alt">⌥</span> drag or rotate', touch: 'Twist two fingers' }, keys: [['KeyQ', 'Q'], ['KeyE', 'E']] },
+] as const;
+const modalities = ['mouse', 'trackpad', 'touch'] as const;
+const icons: Record<string, string> = {
+  fly: '<path class="i-arc" d="M1.5 12.5a11 11 0 0 1 11-9" /><path class="i-move" d="m10 1.5 2.8 2-2 2.7" />',
+  look: '<circle cx="7" cy="7" r="5.2" /><circle class="i-move" cx="7" cy="7" r="1.6" fill="currentColor" stroke="none" />',
+  approach: '<g class="i-move"><path d="M2 2 5.2 5.2M2 5V2h3" /><path d="M12 12 8.8 8.8M12 9v3H9" /></g>',
+  lens: '<circle cx="6" cy="6" r="4.6" /><path d="m9.4 9.4 3.1 3.1" /><path class="i-move" d="M4.2 6h3.6M6 4.2v3.6" />',
+  roll: '<g class="i-move"><path d="M11.8 7A4.8 4.8 0 1 1 10.4 3.6" /><path d="M11.4 1.2v2.9H8.5" /></g>',
+};
+// Lens magnifications; 1× is the 1.25 pinhole, about 30 mm full-frame.
+const lensPresets = [1, 3, 10];
+const help = [
+  ['Fly over Earth', 'W A S D', 'Drag Earth', 'Drag Earth; scroll over it to spin the globe', 'Drag Earth'],
+  ['Look around', 'Arrow keys', 'Right-drag or ⇧-drag anywhere, or drag the sky', '⇧-scroll or ⇧-drag anywhere, or scroll over the sky', 'Two-finger drag, or drag the sky'],
+  ['Closer · farther', 'R · F, + · −', 'Wheel, toward the pointer', 'Pinch, toward the pointer', 'Pinch, or double-tap and drag'],
+  ['Zoom the lens', 'Z · X', '⇧-wheel, about the pointer', '⇧-pinch, about the pointer', 'Lens buttons'],
+  ['Fly to a point', '', 'Double-click; ⇧ backs away', 'Double-click; ⇧ backs away', 'Double-tap; two-finger tap backs away'],
+  ['Roll', 'Q · E', '⌥-drag around the centre', 'Rotate (Safari), or ⌥-drag', 'Twist two fingers'],
+  ['Level the horizon', 'H', 'Click the horizon gauge', 'Click the horizon gauge', 'Tap the horizon gauge'],
+  ['Faster', 'Hold ⇧', '', '', ''],
+  ['Follow an orbit', '1 · 2 · 3', 'ISS · Polar · High', 'ISS · Polar · High', 'ISS · Polar · High'],
+  ['Pause time', 'Space', '', '', ''],
+];
+---
+<div class="orbit-hud" data-modality="mouse">
+  <div class="hud-top">
+    <nav class="hud-modes" aria-label="Camera">
+      <button type="button" data-route="iss" aria-pressed="true"><kbd data-key="Digit1">1</kbd>ISS</button>
+      <button type="button" data-route="polar" aria-pressed="false"><kbd data-key="Digit2">2</kbd>Polar</button>
+      <button type="button" data-route="high" aria-pressed="false"><kbd data-key="Digit3">3</kbd>High</button>
+      <button type="button" data-flight-mode="free" aria-pressed="false" title="Fly from here"><span class="hud-free-dot" aria-hidden="true"></span>Free</button>
+      <button class="hud-help" type="button" popovertarget="flight-help" aria-label="All flight controls" title="All controls (?)">?</button>
+    </nav>
+    <ol class="hud-verbs" aria-label="Try each control">
+      {verbs.map(verb => <li class="hud-verb" data-verb={verb.id}>
+        <span class="verb-name"><svg class="verb-icon" data-icon={verb.id} width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" set:html={icons[verb.id]} /><svg class="verb-check" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="m2 5.2 2 2L8 3" /></svg>{verb.name}</span>
+        {modalities.map(m => <span class="verb-how" data-for={m} set:html={verb.how[m]} />)}
+        <span class="verb-keys">{verb.keys.map(([code, label]) => <kbd data-key={code}>{label}</kbd>)}</span>
+      </li>)}
+    </ol>
+  </div>
+
+  <div class="hud-instruments">
+    <button class="hud-attitude" type="button" aria-label="Level the horizon" title="Level the horizon (H)">
+      <svg viewBox="-24 -24 48 48" width="48" height="48" aria-hidden="true">
+        <defs><clipPath id="hud-gauge-clip"><circle r="19" /></clipPath></defs>
+        <g clip-path="url(#hud-gauge-clip)"><g class="gauge-horizon">
+          <rect class="gauge-ground" x="-48" y="0" width="96" height="96" />
+          <line class="gauge-line" x1="-48" x2="48" y1="0" y2="0" />
+          <path class="gauge-ladder" d="M-6 -9h12M-4 -4.5h8M-4 4.5h8M-6 9h12" />
+        </g></g>
+        <circle class="gauge-ring" r="19" />
+        <path class="gauge-ticks" d="M0 -19v-3M9.5 -16.5l1.5 -2.6M-9.5 -16.5l-1.5 -2.6M16.5 -9.5l2.6 -1.5M-16.5 -9.5l-2.6 -1.5" />
+        <path class="gauge-wings" d="M-13 0h7l2 2.5l2 -2.5l2 2.5l2 -2.5h7" />
+      </svg>
+      <span class="hud-readout">
+        <span>HDG <b data-attitude="heading">000°</b></span>
+        <span>PIT <b data-attitude="pitch">+00°</b></span>
+        <span>ROL <b data-attitude="roll">+00°</b></span>
+      </span>
+      <span class="hud-level"><kbd data-key="KeyH">H</kbd><span data-attitude="state">Level</span></span>
+    </button>
+    <div class="hud-lens" role="group" aria-label="Lens 1×, 30 mm">
+      <div class="lens-presets">
+        {lensPresets.map(zoom => <button type="button" class="lens-preset" data-lens={zoom} data-active={zoom === 1 ? '' : undefined} aria-pressed={zoom === 1 ? 'true' : 'false'} aria-label={`${zoom}× lens, ${30 * zoom} mm`}><span class="lens-number">{zoom}</span>×</button>)}
+      </div>
+      <div class="lens-readout" aria-hidden="true">
+        <span class="lens-value">1×</span><span class="lens-focal">30 mm</span>
+        <span class="lens-keys"><kbd data-key="KeyZ">Z</kbd><kbd data-key="KeyX">X</kbd></span>
+      </div>
+    </div>
+    <div class="hud-altimeter">
+      <kbd class="hud-key" data-key="KeyR" aria-hidden="true">R</kbd>
+      <div id="sky-altitude" class="hud-tape" role="slider" tabindex="0" aria-label="Altitude" aria-orientation="vertical" aria-valuemin={MIN_ALTITUDE} aria-valuemax={MAX_ALTITUDE} aria-valuenow="420" aria-valuetext="420 km">
+        <div class="hud-scale" aria-hidden="true">
+          {ticks.map(km => <span class:list={['hud-tick', { major: labels[km] }]} style={`top:${position(km)}%`}>{labels[km] && <b>{labels[km]}</b>}</span>)}
+          {markers.map(marker => <span class="hud-marker" style={`top:${position(marker.km)}%`}>{marker.name}</span>)}
+        </div>
+        <div class="hud-now" aria-hidden="true"><output class="altitude-output">420 km</output></div>
+      </div>
+      <kbd class="hud-key" data-key="KeyF" aria-hidden="true">F</kbd>
+    </div>
+  </div>
+
+  <span class="hud-pulse" aria-hidden="true" hidden></span>
+  <div class="hud-fpm" aria-hidden="true" hidden><svg viewBox="-18 -12 36 24" width="36" height="24"><circle r="5" /><path d="M-16 0h11M5 0h11M0 -5v-6" /></svg><span class="hud-speed"></span></div>
+  <div class="hud-cursor" aria-hidden="true" hidden><span class="hud-cursor-ring"></span><span class="hud-cursor-label"></span></div>
+</div>
+
+<div id="flight-help" class="flight-help" popover="auto" role="dialog" aria-labelledby="flight-help-heading" data-modality="mouse">
+  <header><h2 id="flight-help-heading">Flight controls</h2><p>Whatever is under your pointer moves with it: drag Earth to fly over it, drag the sky to look around. Hold ⇧ to stay put and work the camera instead.</p>
+    <button class="flight-help-close" type="button" popovertarget="flight-help" popovertargetaction="hide" aria-label="Close flight controls"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></header>
+  <div class="flight-help-table" role="table" aria-label="Controls by input">
+    <div role="row" class="flight-help-head"><span role="columnheader"></span><span role="columnheader" data-col="keyboard">Keyboard</span><span role="columnheader" data-col="mouse">Mouse</span><span role="columnheader" data-col="trackpad">Trackpad</span><span role="columnheader" data-col="touch">Touch</span></div>
+    {help.map(([action, ...cells]) => <div role="row"><span role="rowheader">{action}</span>{cells.map((cell, i) => <span role="cell" data-col={['keyboard', ...modalities][i]}>{cell || '—'}</span>)}</div>)}
+  </div>
+  <footer><button class="flight-help-replay" type="button">Show the tutorial again</button></footer>
+</div>
+
+<style>
+  .orbit-hud { --hud-glass: rgb(6 8 12 / 34%); --hud-line: rgb(255 255 255 / 16%); --hud-dim: rgb(255 255 255 / 58%); --hud-accent: #d3a784; --hud-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; position: fixed; inset: 0; z-index: 4; pointer-events: none; color: #fff; font: 11px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: opacity .5s ease; }
+  :global(orbital-sky:not([data-ready])) .orbit-hud { opacity: 0; }
+  :global(orbital-sky[data-hud-idle]) .orbit-hud:not([data-teaching]) { opacity: 0; transition-duration: 1.4s; }
+  .hud-modes, .hud-verbs, .hud-instruments { pointer-events: auto; }
+  .orbit-hud { user-select: none; -webkit-user-select: none; }
+  .orbit-hud kbd, .flight-help kbd { display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 3px; box-sizing: border-box; border: 1px solid rgb(255 255 255 / 30%); border-bottom-width: 2px; border-radius: 4px; color: #fff; font: 600 9px/1 var(--hud-mono); text-transform: none; transition: background-color .08s, color .08s, transform .08s, border-color .08s; }
+  .orbit-hud kbd[data-pressed] { background: #fff; border-color: #fff; color: #000; transform: translateY(1px); }
+  .hud-modes, .hud-attitude, .hud-lens, .hud-verb, .hud-cursor-label { background: var(--hud-glass); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); box-shadow: inset 0 0 0 1px var(--hud-line); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :is(button, [role="slider"]):focus-visible { outline: 2px solid var(--hud-accent); outline-offset: 3px; }
+
+  /* Camera presets and free flight. */
+  .hud-top { position: fixed; top: max(16px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 8px; }
+  .hud-modes { display: flex; gap: 2px; padding: 3px; border-radius: 12px; }
+  .hud-modes button { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 7px; border: 0; border-radius: 9px; background: none; color: var(--hud-dim); font: 600 10px/1 var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; transition: background-color .15s, color .15s; }
+  .hud-modes button:hover { color: #fff; }
+  .hud-modes button[aria-pressed="true"] { background: rgb(255 255 255 / 14%); color: #fff; }
+  .hud-modes kbd { border-color: rgb(255 255 255 / 22%); color: inherit; }
+  .hud-modes [data-flight-mode] { padding-left: 11px; }
+  .hud-free-dot { width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
+  [data-flight-mode][aria-pressed="true"] .hud-free-dot { background: var(--hud-accent); box-shadow: 0 0 0 3px rgb(211 167 132 / 25%), 0 0 12px var(--hud-accent); animation: hud-beacon 2.4s ease-in-out infinite; }
+  @keyframes hud-beacon { 50% { box-shadow: 0 0 0 5px rgb(211 167 132 / 0%), 0 0 4px var(--hud-accent); } }
+
+  /* Logarithmic altitude tape; drag it, scroll over it, or use R and F. */
+  /* Centred in the space below the camera presets, clear of the tutorial cards. */
+  .hud-instruments { position: fixed; right: max(16px, env(safe-area-inset-right)); top: calc(50% + 32px); transform: translateY(-50%); display: grid; justify-items: end; gap: 14px; }
+  .hud-altimeter { display: grid; justify-items: end; gap: 10px; }
+  .hud-key { margin-right: 38px; }
+  .hud-tape { --alt: 82%; position: relative; width: 112px; height: clamp(180px, calc(46vh - 70px), 360px); cursor: ns-resize; touch-action: none; border-radius: 6px; }
+  .hud-scale { position: absolute; inset: 0 46px 0 0; border-right: 1px solid rgb(255 255 255 / 34%); }
+  .hud-tick { position: absolute; right: 0; width: 5px; height: 1px; background: rgb(255 255 255 / 34%); }
+  .hud-tick.major { width: 9px; background: rgb(255 255 255 / 60%); }
+  .hud-tick b { position: absolute; right: 14px; top: -6px; color: var(--hud-dim); font: 500 9px/12px var(--hud-mono); }
+  .hud-marker { position: absolute; left: calc(100% + 8px); transform: translateY(-50%); color: var(--hud-accent); font: 600 8px/1 var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; opacity: .85; pointer-events: none; }
+  .hud-marker::before { content: ''; position: absolute; left: -8px; top: 50%; width: 5px; height: 1px; background: currentColor; }
+  .hud-now { position: absolute; left: 0; right: 46px; top: var(--alt); height: 0; border-top: 1px solid #fff; }
+  .hud-now::after { content: ''; position: absolute; right: -7px; top: -4px; border: 4px solid transparent; border-right: 6px solid #fff; border-left: 0; }
+  .hud-now output { position: absolute; right: 12px; top: -10px; padding: 3px 6px; border-radius: 5px; background: #fff; color: #000; font: 700 9px/14px var(--hud-mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .hud-tape:hover .hud-now output, .hud-tape:focus-visible .hud-now output { box-shadow: 0 0 0 3px rgb(255 255 255 / 25%); }
+  .hud-tape:focus-visible { outline-offset: 6px; }
+
+  /* Horizon gauge: click to level. */
+  .hud-attitude { display: grid; grid-template-columns: 48px auto; align-items: center; gap: 6px 10px; padding: 9px 12px 9px 10px; border: 0; border-radius: 12px; text-align: left; }
+  .hud-attitude svg { overflow: visible; }
+  .gauge-horizon { transform: rotate(var(--roll, 0deg)) translateY(var(--pitch, 0px)); transition: transform .06s linear; }
+  .gauge-ground { fill: rgb(211 167 132 / 26%); }
+  .gauge-line { stroke: #fff; stroke-width: 1.2; }
+  .gauge-ladder { stroke: rgb(255 255 255 / 45%); stroke-width: .8; }
+  .gauge-ring { fill: none; stroke: rgb(255 255 255 / 40%); stroke-width: 1; }
+  .gauge-ticks { stroke: rgb(255 255 255 / 55%); stroke-width: 1; }
+  .gauge-wings { fill: none; stroke: var(--hud-accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .hud-readout { display: grid; gap: 1px; justify-self: end; color: var(--hud-dim); font: 500 9px/12px var(--hud-mono); letter-spacing: .05em; white-space: nowrap; }
+  .hud-readout b { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .hud-level { grid-column: 1 / -1; display: flex; align-items: center; gap: 5px; color: #fff; font: 600 9px/12px var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; }
+  .hud-level kbd { min-width: 14px; height: 14px; }
+  .hud-attitude[data-tilted] .hud-level { color: var(--hud-accent); }
+  .hud-attitude:not([data-tilted]) .hud-level { opacity: .45; }
+  .hud-attitude:hover { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 34%); }
+
+  /* Lens presets, phone-camera style: the lit preset shows the exact magnification. */
+  .hud-lens { justify-self: stretch; display: grid; justify-items: center; gap: 5px; padding: 4px 4px 6px; border-radius: 14px; }
+  .lens-presets { display: flex; gap: 3px; }
+  .lens-preset { width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: rgb(255 255 255 / 6%); color: var(--hud-dim); font: 600 10px/34px var(--hud-mono); letter-spacing: -.03em; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color .15s, color .15s, box-shadow .15s, transform .25s cubic-bezier(.3, 1.5, .5, 1); }
+  .lens-preset:hover { background: rgb(255 255 255 / 14%); color: #fff; }
+  .lens-preset[data-active] { background: rgb(0 0 0 / 42%); color: var(--hud-accent); box-shadow: inset 0 0 0 1px rgb(211 167 132 / 55%); transform: scale(1.06); }
+  .lens-preset:active { transform: scale(.94); }
+  .lens-readout { display: flex; align-items: center; color: var(--hud-dim); font: 500 9px/12px var(--hud-mono); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .lens-value { color: #fff; font-weight: 600; }
+  .lens-focal::before { content: '·'; margin: 0 5px; }
+  .lens-keys { display: flex; gap: 3px; margin-left: 8px; }
+
+  /* The four verbs, ticked off as each is tried, then folded away. */
+  .hud-verbs { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .hud-verb { display: grid; align-content: space-between; gap: 5px; width: 128px; padding: 8px 10px 9px; box-sizing: border-box; border-radius: 12px; transition: opacity .4s, transform .4s, box-shadow .3s; }
+  .verb-name { display: flex; align-items: center; gap: 5px; color: var(--hud-dim); font: 600 9px/12px var(--hud-mono); letter-spacing: .08em; text-transform: uppercase; }
+  .verb-icon { flex: 0 0 14px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+  .hud-verb[data-next] { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 30%); }
+  .hud-verb[data-next] .verb-name { color: #fff; }
+  .hud-verb[data-next] :global(.i-move) { animation: var(--icon-motion) 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  [data-icon="fly"] { --icon-motion: icon-fly; }
+  [data-icon="look"] { --icon-motion: icon-look; }
+  [data-icon="approach"] { --icon-motion: icon-approach; }
+  [data-icon="lens"] { --icon-motion: icon-lens; }
+  [data-icon="roll"] { --icon-motion: icon-roll; }
+  @keyframes icon-fly { 50% { transform: translate(1.5px, 1px) rotate(12deg); } }
+  @keyframes icon-look { 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+  @keyframes icon-approach { 50% { transform: scale(.72); } }
+  @keyframes icon-lens { 50% { transform: scale(1.45); } }
+  @keyframes icon-roll { to { transform: rotate(360deg); } }
+  .hud-verb[data-learned] .verb-icon { display: none; }
+  .verb-check { display: none; fill: none; stroke: var(--hud-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .verb-how { display: none; font-size: 11px; line-height: 1.3; }
+  .orbit-hud[data-modality="mouse"] .verb-how[data-for="mouse"], .orbit-hud[data-modality="trackpad"] .verb-how[data-for="trackpad"], .orbit-hud[data-modality="touch"] .verb-how[data-for="touch"] { display: block; }
+  .verb-keys { display: flex; gap: 3px; }
+  .orbit-hud[data-modality="touch"]:not([data-keyboard]) .verb-keys, .orbit-hud[data-modality="touch"]:not([data-keyboard]) .hud-key, .orbit-hud[data-modality="touch"]:not([data-keyboard]) .lens-keys, .orbit-hud[data-modality="touch"]:not([data-keyboard]) .hud-modes kbd, .orbit-hud[data-modality="touch"]:not([data-keyboard]) .hud-level kbd { display: none; }
+  .hud-verb[data-learned] .verb-name { color: var(--hud-accent); }
+  .hud-verb[data-learned] .verb-check { display: block; }
+  .hud-verb[data-just-learned] { animation: hud-learned .7s ease; }
+  @keyframes hud-learned { 30% { transform: translateY(-4px); box-shadow: inset 0 0 0 1px var(--hud-accent), 0 0 24px rgb(211 167 132 / 35%); } }
+  .orbit-hud[data-learned] .hud-verbs { display: none; }
+  .hud-modes .hud-help { width: 30px; margin-left: 4px; padding: 0; justify-content: center; box-shadow: inset 1px 0 rgb(255 255 255 / 14%); border-radius: 0 9px 9px 0; font-size: 12px; }
+
+  /* A cursor caption until each gesture has been tried once. */
+  .hud-cursor { position: fixed; left: 0; top: 0; pointer-events: none; transform: translate(var(--x, -100px), var(--y, -100px)); }
+  .hud-cursor[hidden] { display: none; }
+  .hud-cursor-ring { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 70%); }
+  .hud-cursor[data-kind="look"] .hud-cursor-ring { border-radius: 0; box-shadow: none; background: linear-gradient(#fff, #fff) center / 1px 22px no-repeat, linear-gradient(#fff, #fff) center / 22px 1px no-repeat; opacity: .6; }
+  .hud-cursor[data-kind="roll"] .hud-cursor-ring { box-shadow: none; border: 1px dashed rgb(255 255 255 / 80%); animation: hud-spin 3s linear infinite; }
+  @keyframes hud-spin { to { transform: rotate(360deg); } }
+  .hud-cursor-label { position: absolute; left: 16px; top: 12px; padding: 4px 7px; border-radius: 6px; font: 600 9px/12px var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+  .hud-cursor[data-quiet] .hud-cursor-label { display: none; }
+  .hud-fpm { position: fixed; left: 0; top: 0; display: flex; align-items: center; gap: 4px; color: var(--hud-accent); pointer-events: none; transform: translate(calc(var(--x, -100px) - 18px), calc(var(--y, -100px) - 12px)); filter: drop-shadow(0 0 3px rgb(0 0 0 / 60%)); }
+  .hud-fpm[hidden] { display: none; }
+  .hud-fpm svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+  .hud-speed { font: 600 9px/1 var(--hud-mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .hud-pulse[hidden] { display: none; }
+  .hud-pulse { position: fixed; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--hud-accent); pointer-events: none; animation: hud-pulse .7s ease-out forwards; }
+  @keyframes hud-pulse { from { transform: scale(.2); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+
+  @media (max-width: 760px) {
+    .hud-top { left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); transform: none; justify-items: end; }
+    .hud-modes button { padding: 0 9px; gap: 0; }
+    .hud-modes [data-flight-mode] { gap: 5px; }
+    .hud-modes kbd { display: none; }
+    .hud-verbs { justify-self: stretch; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+    .hud-verb { width: auto; padding: 7px 7px; }
+    .verb-how { font-size: 10px; }
+    .verb-keys { flex-wrap: wrap; }
+    .hud-attitude { width: auto; grid-template-columns: 40px; padding: 6px; }
+    .hud-attitude svg { width: 40px; height: 40px; }
+    .hud-readout, .hud-level { display: none; }
+    /* Above the settings button, clear of the tutorial cards. */
+    .hud-instruments { top: auto; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 48px); transform: none; gap: 10px; }
+    .hud-altimeter { right: max(8px, env(safe-area-inset-right)); }
+    .hud-tape { height: clamp(140px, 28vh, 260px); width: 64px; }
+    .hud-scale, .hud-now { right: 10px; }
+    .hud-key { margin-right: 2px; }
+    .hud-marker { display: none; }
+    /* A vertical lens pill, long end on top like the altitude tape. */
+    .hud-lens { justify-self: end; margin-right: 6px; padding: 3px 3px 5px; border-radius: 20px; }
+    .lens-presets { flex-direction: column-reverse; }
+    .lens-value, .lens-focal::before, .lens-keys { display: none; }
+    .lens-readout { font-size: 8px; letter-spacing: 0; }
+  }
+  @media (max-width: 520px) {
+    .hud-verb { padding: 6px 5px 7px; }
+    .verb-name { flex-direction: column; align-items: flex-start; gap: 3px; font-size: 8.5px; letter-spacing: .02em; }
+    .verb-how { font-size: 9.5px; }
+  }
+  /* Short screens, such as a phone on its side: everything fits beside the scene. */
+  @media (max-height: 560px) {
+    .hud-instruments { gap: 8px; }
+    .hud-tape { height: clamp(120px, 30vh, 200px); }
+    .lens-readout { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .orbit-hud, .orbit-hud *, .hud-pulse { transition: none !important; animation: none !important; } }
+
+  .flight-help { box-sizing: border-box; inset: 0; margin: auto; width: min(760px, calc(100vw - 32px)); height: fit-content; max-height: calc(100dvh - 48px); overflow: auto; padding: 24px; border: 0; border-radius: 18px; background: rgb(6 8 12 / 62%); backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 14%); color: #fff; color-scheme: dark; font: 12px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .flight-help::backdrop { background: rgb(0 0 0 / 25%); }
+  .flight-help header { position: relative; padding-right: 40px; margin-bottom: 18px; }
+  .flight-help h2 { margin: 0 0 6px; font-size: 18px; font-weight: 500; letter-spacing: -.02em; }
+  .flight-help p { margin: 0; color: rgb(255 255 255 / 66%); }
+  .flight-help-close { position: absolute; top: -4px; right: -8px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: none; }
+  .flight-help-close:hover { background: rgb(255 255 255 / 8%); }
+  .flight-help-table { display: grid; grid-template-columns: minmax(110px, 1.1fr) repeat(4, minmax(0, 1fr)); }
+  .flight-help-table [role="row"] { display: contents; }
+  .flight-help-table span { padding: 9px 10px 9px 0; border-top: 1px solid rgb(255 255 255 / 9%); }
+  .flight-help-head span { border-top: 0; padding-top: 0; color: rgb(255 255 255 / 50%); font: 600 9px/12px 'SFMono-Regular', Menlo, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
+  [role="rowheader"] { color: rgb(255 255 255 / 72%); }
+  .flight-help [data-col] { transition: color .2s; }
+  .flight-help:is([data-modality="mouse"]) [data-col="mouse"], .flight-help[data-modality="trackpad"] [data-col="trackpad"], .flight-help[data-modality="touch"] [data-col="touch"], .flight-help[data-keyboard] [data-col="keyboard"] { color: #fff; }
+  .flight-help:not([data-modality="mouse"]) [role="cell"][data-col="mouse"], .flight-help:not([data-modality="trackpad"]) [role="cell"][data-col="trackpad"], .flight-help:not([data-modality="touch"]) [role="cell"][data-col="touch"], .flight-help:not([data-keyboard]) [role="cell"][data-col="keyboard"] { color: rgb(255 255 255 / 48%); }
+  .flight-help [role="columnheader"][data-col] { position: relative; }
+  .flight-help[data-modality="mouse"] [role="columnheader"][data-col="mouse"], .flight-help[data-modality="trackpad"] [role="columnheader"][data-col="trackpad"], .flight-help[data-modality="touch"] [role="columnheader"][data-col="touch"] { color: #d3a784; }
+  .flight-help footer { margin-top: 18px; }
+  .flight-help-replay { padding: 0; border: 0; background: none; color: rgb(255 255 255 / 60%); text-decoration: underline; text-underline-offset: 3px; }
+  .flight-help-replay:hover { color: #fff; }
+  .flight-help button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  @media (max-width: 640px) {
+    .flight-help { padding: 20px 16px; }
+    .flight-help-table { grid-template-columns: minmax(96px, 1fr) minmax(0, 1.3fr); }
+    .flight-help [data-col]:not([data-col="keyboard"]) { display: none; }
+    .flight-help[data-modality="touch"] [data-col="touch"], .flight-help[data-modality="mouse"] [data-col="mouse"], .flight-help[data-modality="trackpad"] [data-col="trackpad"] { display: block; }
+    .flight-help-table { grid-template-columns: minmax(96px, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); }
+  }
+</style>

@@ -28,6 +28,10 @@ precision highp float;
 precision highp sampler2D;
 uniform vec2 resolution;
 uniform float time;
+// Lens focal length in viewport heights. The wide end is 1.25; an unset
+// uniform therefore renders the wide lens rather than nothing.
+uniform float zoomExcess;
+#define FOCAL (1.25*(1.+zoomExcess))
 uniform vec4 pointGhosts[3];
 uniform float galaxyAmount;
 uniform sampler2D surfaceMap;
@@ -177,14 +181,14 @@ float cityEmission(vec2 uv) {
 
 vec2 screenPosition(vec3 direction) {
   vec3 v=vec3(dot(direction,cameraBasis[0]),dot(direction,cameraBasis[1]),dot(direction,cameraBasis[2]));
-  return 1.25*v.xy/max(.001,v.z);
+  return FOCAL*v.xy/max(.001,v.z);
 }
 
 void main() {
   vec2 uv = gl_FragCoord.xy/resolution;
   float aspect = resolution.x/resolution.y;
   vec2 p = (uv-.5)*vec2(aspect,1.0);
-  vec3 viewRay=normalize(vec3(p,1.25));
+  vec3 viewRay=normalize(vec3(p,FOCAL));
   vec3 earthRay=normalize(cameraBasis*viewRay);
   float b=dot(cameraPosition,earthRay);
   float discriminant=b*b-dot(cameraPosition,cameraPosition)+1.;
@@ -212,7 +216,7 @@ void main() {
     light=up*sin(angles.y)+(north*cos(angles.x)+east*sin(angles.x))*cos(angles.y);
 #endif
     vec2 mapUV=earthUV(geo);
-    float footprint=groundDistance*13751./(resolution.y*1.25*max(.02,-dot(geo,earthRay)));
+    float footprint=groundDistance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay)));
     vec3 material=vec3(.55);
 #if TERRAIN_VIEW != 1
     material=detailedDay(mapUV,footprint,surfaceAlbedo(mapUV));
@@ -249,12 +253,12 @@ void main() {
     if(dot(body,cameraBasis[2])>0.)color+=lensPsf(delta,sourcePosition)*brightness;
   }
   float moonDistance=length(earthRay-moon.xyz);
-  float pixel=1./(resolution.y*1.25);
+  float pixel=1./(resolution.y*FOCAL);
   float lunarRadius=moon.w;
   float disk=1.-smoothstep(lunarRadius-pixel,lunarRadius+pixel,moonDistance);
   color*=1.-disk;
   vec2 lunarCenter=screenPosition(moon.xyz);
-  float radiusPixels=lunarRadius*cssHeight*1.25;
+  float radiusPixels=lunarRadius*cssHeight*FOCAL;
   float lunarField=clamp(length(lunarCenter)/1.25,0.,1.);
   float lunarSupport=46.+43.*lunarField*lunarField;
   // Convolve a resolved illuminated lunar disk with the SAME lens PSF as stars.
@@ -272,7 +276,7 @@ void main() {
   color=pow(max(color,vec3(0.)),vec3(1./2.2));
   color*=skyMask;
   vec2 solarCenter=screenPosition(sunDirection);
-  float solarPixels=${SOLAR_RADIUS}*cssHeight*1.25;
+  float solarPixels=${SOLAR_RADIUS}*cssHeight*FOCAL;
   vec2 solarDelta=(p-solarCenter)*cssHeight;
   vec3 solarDisk=vec3(0.);
   if(solarVisibility>0. && dot(sunDirection,cameraBasis[2])>0. && length(solarDelta)<solarPixels+130.){
@@ -284,7 +288,7 @@ void main() {
       vec2 offset=vec2(cos(angle),sin(angle))*sqrt((float(i)+.5)/24.)*solarPixels;
       // Occlude each piece of the source BEFORE spreading its light through
       // the lens. A small footprint makes partial eclipses continuous.
-      vec3 sourceRay=normalize(cameraBasis*vec3(solarCenter+offset/cssHeight,1.25));
+      vec3 sourceRay=normalize(cameraBasis*vec3(solarCenter+offset/cssHeight,FOCAL));
       float earthAngle=asin(clamp(dot(normalize(cameraPosition),sourceRay),-1.,1.))
         +acos(1./length(cameraPosition));
       float sampleRadius=${SOLAR_RADIUS}/sqrt(24.);
@@ -314,11 +318,11 @@ void main() {
     float ground=1.-skyMask;
     vec3 original=vec3(0.);
     vec2 mapUV=earthUV(geo);
-    float footprint=distance*13751./(resolution.y*1.25*max(.02,-dot(geo,earthRay)));
+    float footprint=distance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay)));
     vec3 albedo=detailedDay(mapUV,footprint,surfaceAlbedo(mapUV));
     vec3 surface=vec3(0.);
     float lamp=detailedNight(mapUV,footprint,cityEmission(mapUV));
-    float groundShadow=direct>0.?cloudShadow(surfacePoint+sunDirection*.00003)*terrainSunVisibility(surfacePoint):1.;
+    float groundShadow=direct>0.?cloudShadowAlong(surfacePoint+sunDirection*.00003,sunDirection)*terrainSunVisibility(surfacePoint):1.;
     vec3 surfaceSunTransmission=sunlightTransmission(surfacePoint,sunDirection);
     vec3 incidentSun=surfaceSunTransmission*vec3(1.,.97,.92);
     // Direct sunlight loses blue to the air. Return the downward portion as
@@ -345,12 +349,12 @@ void main() {
       *max(0.,dot(normal,geo))*(1.-water);
     vec3 reflected=vec3(0.);
     if(water>.001){
-      float sunGlint=oceanReflection(geo,-earthRay,sunDirection,distance/(resolution.y*1.25*max(.05,-dot(geo,earthRay))))*groundShadow;
+      float sunGlint=oceanReflection(geo,-earthRay,sunDirection,distance/(resolution.y*FOCAL*max(.05,-dot(geo,earthRay))))*groundShadow;
       // Incoming sunlight crosses the air before reflection. The existing
       // view integral applies the separate water-to-camera path exactly once.
       reflected+=incidentSun*sunGlint*solarIrradiance;
       // Parallax from the orbital camera to the reflecting water patch.
-      float moonGlint=oceanReflection(geo,-earthRay,moonDirection,distance/(resolution.y*1.25*max(.05,-dot(geo,earthRay))));
+      float moonGlint=oceanReflection(geo,-earthRay,moonDirection,distance/(resolution.y*FOCAL*max(.05,-dot(geo,earthRay))));
       if(moonGlint>.0001)reflected+=incidentMoon*moonGlint*lunarShadow;
     }
     surface=pow(pow(max(surface,vec3(0.)),vec3(2.2))+lunarDiffuse+skyDiffuse+reflected*water,vec3(1./2.2));
@@ -414,7 +418,7 @@ void main(){
   float source=floor(gl_FragCoord.x);
   vec3 ray=moon.xyz;
   if(source>.5)ray=sunDirection;
-  if(source>1.5)for(int i=0;i<3;i++)if(abs(source-float(i+2))<.5)ray=normalize(cameraBasis*vec3(pointGhosts[i].xy,1.25));
+  if(source>1.5)for(int i=0;i<3;i++)if(abs(source-float(i+2))<.5)ray=normalize(cameraBasis*vec3(pointGhosts[i].xy,FOCAL));
   gl_FragColor=vec4(lensTransmission(ray),1.);
 }
 `;
@@ -426,7 +430,7 @@ uniform sampler2D worldScene;
 void main(){
   vec2 uv=gl_FragCoord.xy/resolution;
   vec2 p=(uv-.5)*vec2(resolution.x/resolution.y,1.);
-  vec3 earthRay=normalize(cameraBasis*normalize(vec3(p,1.25)));
+  vec3 earthRay=normalize(cameraBasis*normalize(vec3(p,FOCAL)));
   vec4 world=texture2D(worldScene,uv);
   vec3 color=world.rgb;
   float groundDistance=world.a;
@@ -448,7 +452,7 @@ uniform vec2 cloudResolution;
 void main(){
   vec2 uv=(floor(gl_FragCoord.xy/cloudResolution*resolution)+.5)/resolution;
   vec2 p=(uv-.5)*vec2(resolution.x/resolution.y,1.);
-  vec3 ray=normalize(cameraBasis*normalize(vec3(p,1.25)));
+  vec3 ray=normalize(cameraBasis*normalize(vec3(p,FOCAL)));
   vec4 world=texture2D(worldScene,uv);
   float b=dot(cameraPosition,ray),c=dot(cameraPosition,cameraPosition);
   float groundDistance=world.a< -1.?-1.:-b-sqrt(max(0.,b*b-c+1.))+world.a;

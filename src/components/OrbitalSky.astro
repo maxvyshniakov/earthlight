@@ -1,12 +1,14 @@
 ---
+import {assetURL} from '../scripts/asset-location';
 import SkyCredits from './SkyCredits.astro';
+import OrbitHud from './OrbitHud.astro';
 import { sceneProfiles, comparisonProfileGroups as profileGroups } from '../scripts/scene-profile';
-interface Props { standalone?: boolean; }
-const { standalone = false } = Astro.props;
+interface Props { standalone?: boolean; assetBaseURL?: string; terrainBaseURL?: string; exploreURL?: string; }
+const { standalone = true, assetBaseURL = import.meta.env.PUBLIC_EARTHLIGHT_ASSET_BASE_URL || '/media/orbit/', terrainBaseURL = '/media/orbit/dem90/', exploreURL = '/' } = Astro.props;
 ---
-<orbital-sky data-composition={standalone ? "orbit" : "page"}>
+<orbital-sky data-asset-base={assetBaseURL} data-terrain-base={terrainBaseURL} data-explore-url={exploreURL} data-composition={standalone ? "orbit" : "page"}>
   <div class="sky-viewport" aria-hidden="true"></div>
-  <div class="sky-fallback" aria-hidden="true"></div>
+  <div class="sky-fallback" aria-hidden="true" style={{backgroundImage:`url("${assetURL('preview/poster.webp',assetBaseURL)}")`}}></div>
   <canvas aria-hidden="true"></canvas>
   <aside class="scene-comparison" hidden aria-label="Scene comparison">
     <label for="scene-profile">Render comparison</label>
@@ -14,9 +16,19 @@ const { standalone = false } = Astro.props;
       {profileGroups.map(group => <optgroup label={group.label}>{group.names.map(name => <option value={name}>{sceneProfiles[name].label}</option>)}</optgroup>)}
     </select>
     <p id="scene-profile-description"></p>
+    <label for="cloud-shape">Cloud shape</label>
+    <select id="cloud-shape"><option value="current">Current</option><option value="texture">Texture-shaped · experiment</option></select>
+    <p>Same satellite map; compare shape and shadows. Height and cloud types are still illustrative.</p>
+  </aside>
+  <aside class="modis-study scene-comparison" hidden aria-label="MODIS comparison">
+    <label for="modis-study-mode">Тихий океан · MODIS, 1 июня 2025</label>
+    <select id="modis-study-mode"><option value="photo">A · Снимок + прежняя форма</option><option value="modis">B · Тот же снимок + данные MODIS</option></select>
+    <p>Сравни высоту облаков, прозрачность тонких полос и тени на океане. Камера и экспозиция при переключении сохраняются.</p>
+    <nav aria-label="Cloud comparison views"><a data-modis-view="day" href={exploreURL}>День</a> · <a data-modis-view="low" href={exploreURL}>Низкое солнце</a> · <a data-modis-view="oblique" href={exploreURL}>Вдоль облаков</a></nav>
+    <details><summary>Об этом сравнении</summary><p>Участок 12° × 12°. Снимок задаёт мелкий рисунок; данные MODIS — соотношение низкого, среднего и высокого слоёв и их плотность. Границы слоёв условные. За пределами участка — прежняя карта. Это проверка изображения, не воспроизведение погоды. <a href={assetURL('modis-demo/orbit-patch.json',assetBaseURL)} target="_blank" rel="noopener">Данные и источник</a></p></details>
   </aside>
   <div class="sky-controls" hidden>
-    {standalone ? <span class="sky-title">ISS Orbit Replay</span> : <a class="sky-title sky-orbit-link sky-action" href="/orbit/" aria-label="ISS Orbit Replay — open Orbit">ISS Orbit Replay<svg class="orbit-link-icon" width="8" height="8" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></a>}
+    {standalone ? <span class="sky-title">ISS Orbit Replay</span> : <a class="sky-title sky-orbit-link sky-action" href={exploreURL} aria-label="ISS Orbit Replay — open Orbit">ISS Orbit Replay<svg class="orbit-link-icon" width="8" height="8" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></a>}
     <button class="sky-settings-toggle" type="button" popovertarget="sky-settings" aria-label="Your view" title="Your view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg></button>
     <time class="sky-time sky-numbers">06 Oct 2026 · 01:32:27 UTC</time>
     <p class="sky-coordinates sky-numbers">—° N · —° E · — km</p>
@@ -27,11 +39,6 @@ const { standalone = false } = Astro.props;
   <div id="sky-settings" class="sky-panel" popover="auto" role="dialog" aria-labelledby="sky-settings-heading">
     <header class="panel-header"><h2 id="sky-settings-heading">Your view</h2><button class="panel-close panel-icon" type="button" popovertarget="sky-settings" popovertargetaction="hide" aria-label="Close Your view"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></header>
     <div class="setting-section">
-      {standalone && <>
-        <div class="setting route-setting"><label class="setting-name" for="sky-route">Route</label><select id="sky-route" aria-label="Route"><option value="iss">ISS orbit</option><option value="polar">Polar orbit</option><option value="high">High orbit</option></select></div>
-        <div class="flight-modes" role="group" aria-label="Camera mode"><button type="button" data-flight-mode="follow" aria-pressed="true" title="Return to orbit">Follow orbit</button><button type="button" data-flight-mode="free" aria-pressed="false">Free flight</button></div>
-        <div class="setting"><label class="setting-name" for="sky-altitude">Altitude</label><output class="altitude-output">420 km</output><input id="sky-altitude" data-fill="none" type="range" min="0" max="1" step="0.001" value="0.18" aria-label="Altitude above Earth" /></div>
-      </>}
       <div class="sky-track setting"><label class="setting-name" for="sky-range-1">Orbit position</label><span class="setting-value"><output>Night</output><button class="reset-value" type="button" aria-label="Reset Orbit position" title="Reset Orbit position"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-1" data-fill="none" type="range" min="0" max="100" step="0.05" value="0" aria-label="Position in ISS orbit" /></div>
       <div class="setting"><label class="setting-name" for="sky-range-2">Camera direction</label><span class="setting-value"><output data-view-output="yaw">Forward</output><button class="reset-value" type="button" aria-label="Reset Camera direction" title="Reset Camera direction"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-2" data-fill="none" data-neutral data-view="yaw" type="range" min="-180" max="180" step="0.1" value="0" aria-label="Camera direction" /></div>
       <div class="setting"><label class="setting-name" for="sky-range-3">Camera tilt</label><span class="setting-value"><output data-view-output="pitch">Default</output><button class="reset-value" type="button" aria-label="Reset Camera tilt" title="Reset Camera tilt"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 0 4M3 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button></span><input id="sky-range-3" data-fill="center" data-neutral data-view="pitch" type="range" min="-90" max="90" step="0.1" value="0" aria-label="Camera tilt" /></div>
@@ -53,7 +60,7 @@ const { standalone = false } = Astro.props;
     </div>
     <footer class="panel-footer"><button class="reset-all" type="button">Reset all</button><button class="sky-motion panel-icon" type="button" aria-label="Pause" title="Pause"><svg class="motion-play" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" data-hidden><path d="m5 3 8 5-8 5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg><svg class="motion-pause" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 3v10M11 3v10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></footer>
   </div>
-  {standalone && <aside class="flight-hint" hidden aria-label="Free flight controls"><button type="button" class="flight-hint-close" aria-label="Dismiss flight controls">×</button><div class="flight-hint-desktop"><p>Two fingers or drag to look · Shift to pan</p><p>Pinch or <kbd>Ctrl / ⌘</kbd> + scroll to zoom</p><p><kbd>W A S D</kbd> move · <kbd>Q / E</kbd> camera down / up · <kbd>Shift</kbd> faster</p><p><kbd>Space</kbd> pauses time. Choose Follow orbit to return.</p></div><div class="flight-hint-touch"><p>One finger to look · Two fingers to pan</p><p>Pinch to zoom. Choose Follow orbit to return.</p></div></aside>}
+  {standalone && <OrbitHud />}
   <div id="sky-credits" class="sky-panel credits-panel" popover="auto" role="dialog" aria-labelledby="sky-credits-heading">
     <header class="panel-header"><h2 id="sky-credits-heading">Image Credits</h2><button class="panel-close panel-icon" type="button" popovertarget="sky-credits" popovertargetaction="hide" aria-label="Close image credits"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></header>
     <SkyCredits />
@@ -73,12 +80,21 @@ const { standalone = false } = Astro.props;
   .scene-comparison label { display: block; color: #ffffff99; font-size: 11px; }
   .scene-comparison select { width: 100%; min-height: 36px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; color-scheme: dark; }
   .scene-comparison p { margin: 4px 0 0; color: #ffffffb3; }
+  .modis-study { top: 70px; left: 24px; right: auto; }
+  .modis-study nav { margin-top: 10px; }
+  .modis-study a { color: #d1e6ff; }
+  .modis-study details { margin-top: 8px; color: #ffffffa8; }
+  orbital-sky:is([data-cloud-study="photo"], [data-cloud-study="modis"]) :global(.hud-verbs) { display: none; }
+  @media (max-width: 700px) {
+    .modis-study { top: max(68px, calc(env(safe-area-inset-top) + 60px)); left: 16px; right: 16px; width: calc(100vw - 32px); }
+    .modis-study > p { display: none; }
+  }
   /* Browser bars reveal more of this stable surface without resizing GPU targets. */
   canvas, .sky-fallback { position: fixed; inset: 0 0 auto; width: 100%; height: 100vh; height: 100lvh; z-index: -1; pointer-events: none; }
   .sky-viewport { position: fixed; inset: 0 auto auto 0; width: 0; height: 100vh; height: 100svh; visibility: hidden; pointer-events: none; }
   canvas { opacity: 0; transition: opacity .6s ease; }
   orbital-sky[data-ready] canvas { opacity: 1; }
-  .sky-fallback { background: #020304 url('/media/orbit/preview/poster.webp') center / cover no-repeat; transition: opacity .6s ease; }
+  .sky-fallback { background: #020304 center / cover no-repeat; transition: opacity .6s ease; }
   orbital-sky[data-ready] .sky-fallback { opacity: 0; }
   .sky-controls { position: absolute; left: calc((100% - 100vw) / 2 + max(var(--page-gutter, 24px), env(safe-area-inset-left))); bottom: max(24px, env(safe-area-inset-bottom)); z-index: 5; display: grid; grid-auto-rows: 12px; gap: 2px; pointer-events: auto; color: #fff; --control-hover: rgb(255 255 255 / 12%); text-transform: uppercase; letter-spacing: .025em; font: 9px/12px 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; text-shadow: none; }
   .sky-controls button { text-shadow: none; }
@@ -116,18 +132,6 @@ const { standalone = false } = Astro.props;
   .setting-name { color: rgb(255 255 255 / 60%); }
   .route-setting select { max-width: 180px; min-height: 30px; color: #fff; background: transparent; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
   .route-setting option { background: #111; }
-  .flight-modes { display: flex; gap: 4px; background: #ffffff0a; border-radius: 8px; padding: 3px; }
-  .flight-modes button { flex: 1; padding: 7px 4px; border: 0; border-radius: 5px; background: transparent; color: rgb(255 255 255 / 60%); }
-  .flight-modes button[aria-pressed="true"] { background: #ffffff18; color: #fff; }
-  .flight-modes button:hover { color: #fff; }
-  .flight-hint { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 100px); width: max-content; padding: 14px 36px 14px 16px; border-radius: 12px; background: rgb(0 0 0 / 30%); backdrop-filter: blur(24px); color: #fff; pointer-events: auto; font: 12px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; z-index: 6; }
-  .flight-hint[hidden] { display: none; }
-  .flight-hint p { margin: 0; }
-  .flight-hint-touch { display: none; }
-  @media (hover: none) and (pointer: coarse) { .flight-hint-desktop { display: none; } .flight-hint-touch { display: block; } }
-  .flight-hint kbd { font: inherit; font-weight: 600; }
-  .flight-hint-close { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border: 0; border-radius: 50%; color: #fff; background: none; cursor: pointer; font-size: 18px; }
-  .flight-hint-close:hover { background: #ffffff18; }
   .setting output { font-variant-numeric: tabular-nums; color: inherit; font-size: 11px; font-weight: 600; min-width: 40px; text-align: right; }
   .setting-value { position: relative; display: flex; align-items: center; }
   .setting-value output { display: block; transition: transform .12s ease; }

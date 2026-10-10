@@ -16,6 +16,7 @@ export async function verifyLighting(evaluate){
   .replaceAll('${optics.integral.toFixed(8)}','1.')
   .replaceAll('${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)}',String(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)));
  const solar=`precision highp float;
+ #define FOCAL 1.25
  uniform vec3 sunDirection;uniform mat3 cameraBasis;uniform float solarVisibility;
  const vec3 cameraPosition=vec3(0.,0.,2.);
  vec2 screenPosition(vec3 d){return 1.25*vec2(dot(d,cameraBasis[0]),dot(d,cameraBasis[1]))/dot(d,cameraBasis[2]);}

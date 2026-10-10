@@ -15,6 +15,8 @@ uniform vec2 resolution;
 uniform float pixelRatio;
 uniform float maxPointSize;
 uniform float years;
+uniform float zoomExcess;
+#define FOCAL (1.25*(1.+zoomExcess))
 varying vec3 tint;
 varying float energy;
 varying float pixelScale;
@@ -25,8 +27,8 @@ ${pointBrightnessShader}
 void main() {
   vec3 earthDirection=starToFixed*normalize(direction+velocity*years);
   vec3 view=vec3(dot(earthDirection,cameraBasis[0]),dot(earthDirection,cameraBasis[1]),dot(earthDirection,cameraBasis[2]));
-  gl_Position=view.z>.01 ? vec4(2.5*view.x/(view.z*resolution.x/resolution.y),2.5*view.y/view.z,0.,1.) : vec4(2.,2.,2.,1.);
-  sourcePosition=1.25*view.xy/max(view.z,.01);
+  gl_Position=view.z>.01 ? vec4(2.*FOCAL*view.x/(view.z*resolution.x/resolution.y),2.*FOCAL*view.y/view.z,0.,1.) : vec4(2.,2.,2.,1.);
+  sourcePosition=FOCAL*view.xy/max(view.z,.01);
   centerPixel=(gl_Position.xy*.5+.5)*resolution;
   // Pogson magnitude scale in linear light. A finite optical footprint
   // integrates subpixel stars without independent procedural twinkling.
@@ -124,7 +126,7 @@ export class CatalogStars {
       gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,texture);
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
-      for(const name of ['starToFixed','cameraBasis','resolution','years','pixelRatio','maxPointSize','opticalPsf','linearOutput','cameraState'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      for(const name of ['starToFixed','cameraBasis','resolution','years','zoomExcess','pixelRatio','maxPointSize','opticalPsf','linearOutput','cameraState'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
     } catch(error) { this.dispose();throw error; }
     finally { shaders.forEach(shader=>gl.deleteShader(shader)); }
   }
@@ -136,7 +138,7 @@ export class CatalogStars {
     gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);
   }
 
-  render(width:number,height:number,pixelRatio:number,starToFixed:number[],cameraBasis:number[],years:number,cameraState:WebGLTexture) {
+  render(width:number,height:number,pixelRatio:number,starToFixed:number[],cameraBasis:number[],years:number,cameraState:WebGLTexture,focal=1.25) {
     const gl=this.gl;
     gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer);
@@ -160,6 +162,7 @@ export class CatalogStars {
       gl.uniform1f(this.uniforms.pixelRatio,pixelRatio);
       gl.uniform1f(this.uniforms.maxPointSize,this.maxPointSize);
       gl.uniform1f(this.uniforms.years,years);
+      gl.uniform1f(this.uniforms.zoomExcess,focal/1.25-1);
       gl.uniform1i(this.uniforms.opticalPsf,4);
       gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,cameraState);
       gl.uniform1i(this.uniforms.cameraState,2);

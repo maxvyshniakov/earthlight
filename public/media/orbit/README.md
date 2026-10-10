@@ -241,3 +241,32 @@ measurements, runtime budgets, limitations and reproduction commands.
 `milky-way.avif` with `scripts/prepare-galaxy-overview.mjs`. It keeps the existing
 source attribution and grading; it reduces global diffuse-sky detail and nominal
 texture storage. Catalog stars and streamed galaxy tiles are unchanged.
+
+`modis-demo/` contains an isolated regional research dataset for
+`/orbit/modis-demo/`, not production Orbit textures. Source: NASA GIBS Aqua MODIS
+daily maps for June 1–3, 2025, 91–79 W / 32–20 S. The manifest records every WMS
+URL, bounds, encoding and reconstruction assumptions. Rebuild with
+`bun scripts/prepare-modis-demo.mjs` (download cache: `/tmp/orbit-modis-cache`).
+
+The PNG numerical channels are decoded from the published GIBS palettes, not raw
+Level-2 retrievals. Low/middle/high top-height groups are separate before height
+filtering. Quality masks preserve missing retrievals and clear flags. Optional
+`*-reconstructed.png` assets use an illumination-dependent ocean mask inferred
+from the visible photograph, and nearest cloud properties within 24 pixels.
+They may override conflicting coarse clear flags and must not be described as
+measurements. The visible RGB photograph is only displayed as a reference.
+Its intensity contributes to the optional mask, not directly to rendered color.
+See the manifest for the inferred height relief and minimum-height assumptions.
+
+[MODIS cloud algorithms](https://atmosphere-imager.gsfc.nasa.gov/products/cloud/algorithm-overview)
+describe the retrieved quantities and limitations. NASA imagery credit applies
+to the source references; these derived demonstration assets are not a forecast.
+
+
+`modis-demo/orbit-patch.png` is a co-registered 2048² regional research texture
+for the opt-in Orbit A/B (`cloudStudy=photo|modis`). See `orbit-patch.json` for
+exact NASA GIBS URLs and channel encoding. The photo-derived coverage is
+illumination-dependent; height/tau are broadly filtered quantized retrieval
+previews. Missing properties are not interpreted as clear sky. Vertical layers
+are illustrative. Generate with `scripts/prepare-modis-orbit.mjs` after the
+MODIS demo importer. This texture is not part of default Orbit loading.

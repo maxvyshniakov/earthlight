@@ -2,6 +2,9 @@ import {galaxyOverviewShader} from './texture-profile.ts';
 import {galaxyTileShader} from './night-tiles.ts';
 // Shared diffuse sky radiance for the camera and reflected night illumination.
 export const galacticLightShader=`
+#ifndef FOCAL
+#define FOCAL 1.25
+#endif
 ${galaxyOverviewShader}
 #ifdef GALAXY_TILES
 ${galaxyTileShader}
@@ -29,7 +32,7 @@ vec3 milkyWay(vec3 direction) {
     #ifdef SKY_EXPLICIT_GRAD
     float footprint=max(length(dx*vec2(16384.,8192.)),length(dy*vec2(16384.,8192.)));
     #else
-    float footprint=16384./(6.283185307*resolution.y*1.25*max(.1,length(g.xy)));
+    float footprint=16384./(6.283185307*resolution.y*FOCAL*max(.1,length(g.xy)));
     #endif
     sampleColor=detailedGalaxy(uv,footprint,sampleColor);
   #endif

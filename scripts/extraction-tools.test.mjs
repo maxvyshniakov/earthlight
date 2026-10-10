@@ -1,6 +1,6 @@
 import { test, afterEach } from 'bun:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, readFile, mkdir, symlink, copyFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -189,48 +189,6 @@ test('asset fingerprint ignores versioned README changes and detects binary chan
   assert.notEqual(binaryAssetTree(directory, commit()), original);
 });
 
-test('sync rejects dirty targets, records a fixed commit, removes old files and flags changed assets', async () => {
-  const directory = await scratch();
-  const source = join(directory, 'source');
-  const target = join(directory, 'target');
-  const git = (cwd, args) => execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).trim();
-  const commit = (cwd, message) => {
-    git(cwd, ['add', '-A']);
-    git(cwd, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', message]);
-    return git(cwd, ['rev-parse', 'HEAD']);
-  };
-  await mkdir(join(source, 'src/scripts'), { recursive: true });
-  await mkdir(join(source, 'public/media/orbit'), { recursive: true });
-  await mkdir(join(target, 'scripts'), { recursive: true });
-  git(source, ['init', '-q']);
-  git(target, ['init', '-q']);
-  await writeFile(join(source, 'src/scripts/old.ts'), 'old');
-  await writeFile(join(source, 'public/media/orbit/example.bin'), 'old asset');
-  const original = commit(source, 'original');
-  await copySnapshot(source, original, target);
-  for (const name of ['fetch-assets.mjs', 'sync-from-site.mjs', 'extraction-manifest.mjs']) await copyFile(new URL(name, import.meta.url), join(target, 'scripts', name));
-  await writeFile(join(target, '.gitignore'), 'public/media/orbit/**\n');
-  await writeFile(join(target, 'README.md'), `Source: \`personal-site@${original}\`\n`);
-  await writeFile(join(target, 'source-snapshot.json'), JSON.stringify({ repository: 'maxvyshniakov/personal-site', commit: original, assets: { tag: 'assets-aaaaaaaaaaaa', file: 'earthlight-assets-aaaaaaaaaaaa.tar', sha256: 'a'.repeat(64) } }));
-  commit(target, 'extracted');
-  await rm(join(source, 'src/scripts/old.ts'));
-  await writeFile(join(source, 'src/scripts/new.ts'), 'new committed');
-  await writeFile(join(source, 'public/media/orbit/example.bin'), 'new asset');
-  const next = commit(source, 'next');
-  await writeFile(join(source, 'src/scripts/new.ts'), 'uncommitted source work');
-  await writeFile(join(target, 'dirty.txt'), 'keep me');
-  const sync = () => execFileSync(process.execPath, [join(target, 'scripts/sync-from-site.mjs'), source], { encoding: 'utf8', stdio: 'pipe' });
-  assert.throws(sync, /clean worktree/);
-  assert.equal(await readFile(join(target, 'src/scripts/old.ts'), 'utf8'), 'old');
-  await rm(join(target, 'dirty.txt'));
-  sync();
-  const snapshot = JSON.parse(await readFile(join(target, 'source-snapshot.json'), 'utf8'));
-  assert.equal(snapshot.commit, next);
-  assert.equal(snapshot.assets.needsRefresh, true);
-  assert.equal(snapshot.assets.tag, 'assets-aaaaaaaaaaaa');
-  assert.equal(snapshot.assets.sourceCommit, next);
-  assert.equal(await readFile(join(target, 'README.md'), 'utf8'), `Source: \`personal-site@${next}\`\n`);
-  assert.equal(await readFile(join(target, 'src/scripts/new.ts'), 'utf8'), 'new committed');
-  await assert.rejects(readFile(join(target, 'src/scripts/old.ts')), { code: 'ENOENT' });
-  assert.equal(await readFile(join(source, 'src/scripts/new.ts'), 'utf8'), 'uncommitted source work');
+test('retired sync cannot overwrite Earthlight from a consumer', () => {
+  assert.throws(() => execFileSync(process.execPath, [new URL('./sync-from-site.mjs', import.meta.url).pathname, '/unused'], {stdio:'pipe'}), /Earthlight is now the scene source/);
 });

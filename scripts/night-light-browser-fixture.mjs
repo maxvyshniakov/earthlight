@@ -38,13 +38,13 @@ export async function verifyNightLight(evaluate,explicitLod=true){
    gl_FragColor=vec4(vec3(energy*2.),1.);
  }`;
  const storm=`precision highp float;
- uniform sampler2D cloudMap;uniform float blocked;uniform float gap;
+ uniform sampler2D cloudMap;uniform float blocked;uniform float gap;uniform float cloudRegime;
  const vec3 cameraPosition=vec3(1.06,0.,0.),sunDirection=vec3(-1.,0.,0.);
  const vec2 resolution=vec2(256.,2.);
  const vec3 airExtinction=vec3(0.);
  const float time=0.;
  mat2 rotate(float a){return mat2(1.);}
- float noise(vec3 p){return .5;}
+ float noise(vec3 p){return cloudRegime;}
  vec2 earthUV(vec3 n){return vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592654+.5);}
  float detailedCloud(vec2 uv,float footprint,float fallback){return gap>.5&&abs(uv.x-.5)<.003?0.:fallback;}
  vec3 cityCloudLight(vec3 p){return vec3(0.);}
@@ -91,10 +91,13 @@ export async function verifyNightLight(evaluate,explicitLod=true){
  const lowUplight=field(.5).slice(256),highUplight=field(8).slice(256);
  const calibration=[0,32,128,255].map(value=>{pixels.fill(value);upload();return field(3);});
  const stormProgram=program(${JSON.stringify(storm)});
+ gl.uniform1f(gl.getUniformLocation(stormProgram,'cloudRegime'),.75);
  gl.uniform1f(gl.getUniformLocation(stormProgram,'cloudMapWidth'),2048);
  pixels.fill(255);upload();
  const flash=(energy,blocked)=>{const sources=new Float32Array(32);sources.set([1+3.6/6371,0,0,energy]);gl.uniform4fv(gl.getUniformLocation(stormProgram,'stormSources[0]'),sources);gl.uniform1f(gl.getUniformLocation(stormProgram,'blocked'),blocked);return draw().slice(0,1024);};
  const lit=flash(.02,0),off=flash(0,0),occluded=flash(.02,1);
+ gl.uniform1f(gl.getUniformLocation(stormProgram,'cloudRegime'),.25);const lowDeck=flash(.02,0);
+ gl.uniform1f(gl.getUniformLocation(stormProgram,'cloudRegime'),.75);
  gl.uniform1f(gl.getUniformLocation(stormProgram,'gap'),1);const detailedGap=flash(.02,0);
  gl.uniform1f(gl.getUniformLocation(stormProgram,'gap'),0);
  pixels.fill(140);upload();const thin=flash(.02,0);
@@ -102,7 +105,7 @@ export async function verifyNightLight(evaluate,explicitLod=true){
  const activationProgram=program(${JSON.stringify(activation)});
  const district=value=>{gl.uniform1f(gl.getUniformLocation(activationProgram,'district'),value);return draw().slice(0,1024).filter((_,i)=>i%4===0);};
  const early=district(.1),late=district(.9);
- const result={linear,p3,city,day,cloud,empty,clearHaze,denseHaze,lowUplight,highUplight,calibration,early,late,storm:{lit,off,occluded,clear,thin,detailedGap},error:gl.getError()};gl.getExtension('WEBGL_lose_context').loseContext();return result;
+ const result={linear,p3,city,day,cloud,empty,clearHaze,denseHaze,lowUplight,highUplight,calibration,early,late,storm:{lit,off,occluded,clear,thin,detailedGap,lowDeck},error:gl.getError()};gl.getExtension('WEBGL_lose_context').loseContext();return result;
  })()`);
  assert.equal(result.error,0);
  for(const samples of [result.linear,result.p3]){
@@ -132,7 +135,7 @@ export async function verifyNightLight(evaluate,explicitLod=true){
  const flash=channels(result.storm.lit),flashPeak=Math.max(...flash);
  assert.ok(flashPeak>20&&flashPeak<255,'cloud flash is visible without diagnostic clipping');
  assert.ok(Math.max(...flash.slice(0,48),...flash.slice(-48))<flashPeak*.03,'flash stays local to its storm cell');
- for(const key of ['off','clear','occluded','thin','detailedGap'])assert.equal(Math.max(...channels(result.storm[key])),0,`no flash for ${key}`);
+ for(const key of ['off','clear','occluded','thin','detailedGap','lowDeck'])assert.equal(Math.max(...channels(result.storm[key])),0,`no flash for ${key}`);
  assert.ok(result.storm.lit[128*4+2]>result.storm.lit[128*4],'flash has a cool cloud-scattered surround');
  for(const values of [result.early,result.late]){
    assert.equal(values[0],255);assert.equal(values.at(-1),0);

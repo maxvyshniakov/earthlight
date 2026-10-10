@@ -22,6 +22,8 @@ uniform float manualEV;
 uniform float automatic;
 uniform sampler2D sourceAttenuation;
 uniform float hasAttenuation;
+uniform float zoomExcess;
+#define FOCAL (1.25*(1.+zoomExcess))
 ${sceneColorShader}
 ${cameraModelShader}
 void main(){
@@ -53,11 +55,11 @@ void main(){
   }
   // Account for the finite solar disk even when it falls between meter taps.
   // The meter contribution is independent of the artistic reflection slider.
-  float radius=${(SOLAR_RADIUS*1.25).toFixed(8)};
+  float radius=${SOLAR_RADIUS.toFixed(8)}*FOCAL;
   float inFrame=(1.-smoothstep(aspect*.5-radius,aspect*.5+radius,abs(sunMeter.x)))
     *(1.-smoothstep(.5-radius,.5+radius,abs(sunMeter.y)));
   vec3 transmission=hasAttenuation>.5?texture2D(sourceAttenuation,vec2(.3,.5)).rgb:vec3(1.);
-  float sunMean=${SOLAR_IRRADIANCE}*1.5625/aspect*sunMeter.z*inFrame*dot(transmission,weights);
+  float sunMean=${SOLAR_IRRADIANCE}*FOCAL*FOCAL/aspect*sunMeter.z*inFrame*dot(transmission,weights);
   float cumulative=0.,logSum=0.,retained=0.;
   for(int bin=0;bin<24;bin++){
     float count=mass[bin];
@@ -113,7 +115,7 @@ export class CameraExposure {
         if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program)??'Exposure link failed');
       }
       this.position=gl.getAttribLocation(program,'p');
-      for(const name of ['scene','previous','sceneLinear','displayP3','elapsed','initialized','sunMeter','aspect','manualEV','automatic','sourceAttenuation','hasAttenuation'])this.uniforms[name]=gl.getUniformLocation(program,name);
+      for(const name of ['scene','previous','sceneLinear','displayP3','elapsed','initialized','sunMeter','aspect','manualEV','automatic','sourceAttenuation','hasAttenuation','zoomExcess'])this.uniforms[name]=gl.getUniformLocation(program,name);
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
       for(let i=0;i<2;i++){
         const texture=gl.createTexture(),framebuffer=gl.createFramebuffer();
@@ -128,7 +130,7 @@ export class CameraExposure {
     }catch(error){this.dispose();throw error;}
     finally{shaders.forEach(shader=>gl.deleteShader(shader));gl.bindFramebuffer(gl.FRAMEBUFFER,null);}
   }
-  update(scene:WebGLTexture,linear:boolean,p3:boolean,now:number,sun:[number,number,number]=[0,0,0],aspect=1,attenuation:WebGLTexture|null=null,manualEV:number|null=null){
+  update(scene:WebGLTexture,linear:boolean,p3:boolean,now:number,sun:[number,number,number]=[0,0,0],aspect=1,attenuation:WebGLTexture|null=null,manualEV:number|null=null,focal=1.25){
     const gl=this.gl,next=1-this.index;
     gl.bindFramebuffer(gl.FRAMEBUFFER,this.targets[next].framebuffer);gl.viewport(0,0,1,1);gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,scene);
@@ -136,7 +138,7 @@ export class CameraExposure {
     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,attenuation??scene);
     gl.uniform1i(this.uniforms.sourceAttenuation,2);
     gl.uniform1f(this.uniforms.hasAttenuation,attenuation?1:0);
-    gl.uniform1f(this.uniforms.automatic,manualEV===null?1:0);gl.uniform1f(this.uniforms.manualEV,manualEV??0);gl.uniform3fv(this.uniforms.sunMeter,sun);gl.uniform1f(this.uniforms.aspect,aspect);
+    gl.uniform1f(this.uniforms.automatic,manualEV===null?1:0);gl.uniform1f(this.uniforms.manualEV,manualEV??0);gl.uniform3fv(this.uniforms.sunMeter,sun);gl.uniform1f(this.uniforms.aspect,aspect);gl.uniform1f(this.uniforms.zoomExcess,focal/1.25-1);
     gl.uniform1i(this.uniforms.scene,0);gl.uniform1i(this.uniforms.previous,1);
     gl.uniform1f(this.uniforms.sceneLinear,linear?1:0);gl.uniform1f(this.uniforms.displayP3,p3?1:0);
     gl.uniform1f(this.uniforms.initialized,this.lastTime===null?0:1);

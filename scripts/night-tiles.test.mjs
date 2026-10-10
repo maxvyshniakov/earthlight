@@ -1,6 +1,4 @@
-import {test,spyOn,mock,afterEach} from 'bun:test';
-
-afterEach(()=>mock.restore());
+import {test,afterEach,spyOn,mock} from 'bun:test';
 import assert from 'node:assert/strict';
 import { issFrame } from '../src/scripts/iss-orbit.ts';
 import { tileAt, visibleSurfaceTiles, visibleGalaxyTiles, SurfaceTiles } from '../src/scripts/night-tiles.ts';
@@ -120,3 +118,5 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
     Object.assign(globalThis,originals);
   }
 });
+
+afterEach(()=>{mock.restore();});

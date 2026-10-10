@@ -1,41 +1,68 @@
-export function draggedCamera(yaw:number,pitch:number,dx:number,dy:number,height:number){
-  const degrees=55/Math.max(1,height);
+import type { CameraController, CameraSession, CameraIntent } from './orbit-camera.ts';
+
+// Degrees per pixel at the image centre, from the lens focal length in
+// viewport heights (1.25 at the wide end), so the sky stays under the pointer.
+export function draggedCamera(yaw:number,pitch:number,dx:number,dy:number,height:number,focal=1.25){
+  const degrees=180/Math.PI/focal/Math.max(1,height);
   return {yaw:((yaw-dx*degrees+180)%360+360)%360-180,pitch:Math.max(-90,Math.min(90,pitch+dy*degrees))};
 }
+export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.sky-panel,.sky-controls,.scene-comparison,.orbit-hud,.flight-help';
 
-/** Orbit page only. Pointer movement is coalesced before sharing slider state. */
-export function createCameraDrag(surface:HTMLElement,look:(dx:number,dy:number)=>void,pan:(dx:number,dy:number)=>void){
-  let drag:{pointer:number;x:number;y:number;pan:boolean}|null=null;
-  let frame=0,dx=0,dy=0,panning=false;
-  const flush=()=>{cancelAnimationFrame(frame);frame=0;if(dx||dy){(panning?pan:look)(dx,dy);dx=dy=0;}};
+/** Mouse and pen. Left button grabs whatever is under it; right or middle
+ * button, or Shift, always looks; Option/Alt twists the image. Orbit page only. */
+export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraIntent)=>void){
+  let drag:{pointer:number;session:CameraSession;x:number;y:number}|null=null,frame=0;
+  let hovering:{x:number;y:number}|null=null;
+  const control=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
+  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1||event.button===2?'look':event.button!==0?null:event.altKey?'roll':event.shiftKey?'look':'auto';
+  const flush=()=>{cancelAnimationFrame(frame);frame=0;drag?.session.move(drag.x,drag.y);};
   const end=(event?:PointerEvent)=>{
     if(!drag||(event&&event.pointerId!==drag.pointer))return;
-    const pointer=drag.pointer;drag=null;flush();delete surface.dataset.cameraDragging;
+    const {pointer,session}=drag;flush();drag=null;
+    session.end(event?.type==='pointerup');delete surface.dataset.cameraDragging;
     if(surface.hasPointerCapture(pointer))surface.releasePointerCapture(pointer);
   };
   const start=(event:PointerEvent)=>{
-    if(drag||event.pointerType==='touch'||!event.isPrimary||event.button!==0||(event.target as Element).closest('a,button,input,select,.sky-panel,.sky-controls,.flight-hint,.scene-comparison'))return;
+    if(drag||event.pointerType==='touch'||!event.isPrimary||control(event.target))return;
+    const kind=intent(event);if(!kind)return;
+    const session=camera.press(event.clientX,event.clientY,kind);if(!session)return;
     surface.focus({preventScroll:true});
-    drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,pan:event.shiftKey};panning=event.shiftKey;
-    surface.setPointerCapture(event.pointerId);surface.dataset.cameraDragging='';event.preventDefault();
+    drag={pointer:event.pointerId,session,x:event.clientX,y:event.clientY};
+    surface.setPointerCapture(event.pointerId);surface.dataset.cameraDragging=session.kind;event.preventDefault();
+    hover(null,0,'auto');
   };
   const move=(event:PointerEvent)=>{
-    if(!drag||event.pointerId!==drag.pointer)return;
-    if(drag.pan!==event.shiftKey){
-      flush();Object.assign(drag,{x:event.clientX,y:event.clientY,pan:event.shiftKey});panning=event.shiftKey;return;
+    if(event.pointerType==='touch')return;
+    if(!drag){
+      hovering=control(event.target)?null:{x:event.clientX,y:event.clientY};
+      if(hovering)hover(hovering.x,hovering.y,event.altKey?'roll':event.shiftKey?'look':'auto');else hover(null,0,'auto');
+      return;
     }
-    dx+=event.clientX-drag.x;dy+=event.clientY-drag.y;drag.x=event.clientX;drag.y=event.clientY;
+    if(event.pointerId!==drag.pointer)return;
+    drag.x=event.clientX;drag.y=event.clientY;
     if(!frame)frame=requestAnimationFrame(flush);
   };
+  const leave=()=>{hovering=null;if(!drag)hover(null,0,'auto');};
+  // Holding Shift or Option changes what a drag would do before the pointer moves.
+  const modifier=(event:KeyboardEvent)=>{if((event.key==='Shift'||event.key==='Alt')&&hovering&&!drag)hover(hovering.x,hovering.y,event.altKey?'roll':event.shiftKey?'look':'auto');};
+  // A right-button drag must not open the browser menu over the scene.
+  const menu=(event:MouseEvent)=>{if(!control(event.target))event.preventDefault();};
+  const double=(event:MouseEvent)=>{if(!control(event.target)&&event.button===0){event.preventDefault();camera.flyTo(event.clientX,event.clientY,event.shiftKey);}};
+  const blur=()=>end();
   surface.addEventListener('pointerdown',start);
   surface.addEventListener('pointermove',move);
+  surface.addEventListener('pointerleave',leave);
+  surface.addEventListener('contextmenu',menu);
+  surface.addEventListener('dblclick',double);
   for(const type of ['pointerup','pointercancel','lostpointercapture'])surface.addEventListener(type,end as EventListener);
-  const blur=()=>end();
   window.addEventListener('blur',blur);
+  window.addEventListener('keydown',modifier);window.addEventListener('keyup',modifier);
   return ()=>{
     end();cancelAnimationFrame(frame);
     surface.removeEventListener('pointerdown',start);surface.removeEventListener('pointermove',move);
+    surface.removeEventListener('pointerleave',leave);surface.removeEventListener('contextmenu',menu);surface.removeEventListener('dblclick',double);
     for(const type of ['pointerup','pointercancel','lostpointercapture'])surface.removeEventListener(type,end as EventListener);
     window.removeEventListener('blur',blur);
+    window.removeEventListener('keydown',modifier);window.removeEventListener('keyup',modifier);
   };
 }

@@ -31,7 +31,7 @@ export class TerrainStream {
  private locations=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
  requests=0;bytes=0;failures=0;
  private gl:WebGLRenderingContext;private mobile:boolean;private notify:()=>void;private work:SceneWork;
- constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork()){
+ constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/'){
   this.gl=gl;this.mobile=mobile;this.notify=notify;this.work=work;
   this.columns=mobile?4:6;this.edge=CELL*this.columns;this.capacity=(this.columns*this.columns-this.columns)/2;
   this.texture=gl.createTexture();if(!this.texture)throw Error('Cannot allocate terrain atlas');
@@ -39,7 +39,7 @@ export class TerrainStream {
   for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
   for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
   for(const fine of [false,true])void work.network.run(scenePriority.tile,this.abort.signal,async()=>{
-   const r=await fetch('/media/orbit/terrain-tiles/'+(fine?'copernicus.json':'manifest.json'),{signal:this.abort.signal});if(!r.ok)throw Error('Terrain manifest unavailable');return r.json();
+   const r=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/terrain-tiles/'+(fine?'copernicus.json':'manifest.json'),{signal:this.abort.signal});if(!r.ok)throw Error('Terrain manifest unavailable');return r.json();
   }).then(data=>{
    if(this.disposed)return;const ids=fine?data:data.tiles;
    if(!Array.isArray(ids)||!ids.every(id=>Number.isInteger(id)&&id>=0&&id<(fine?64800:800)))throw Error('Invalid terrain manifest');
@@ -99,7 +99,7 @@ export class TerrainStream {
   const controller=new AbortController(),signal=controller.signal;
   this.requests++;
   const promise=this.work.network.run(scenePriority.tile,signal,async()=>{
-   const r=await fetch('/media/orbit/dem90/'+terrainSourceName(parent)+'.tif',{signal,priority:'low'});if(!r.ok)throw Error('DEM unavailable');const b=await r.arrayBuffer();this.bytes+=b.byteLength;return b;
+   const r=await fetch(this.terrainBaseURL.replace(/\/+$/, '')+'/'+terrainSourceName(parent)+'.tif',{signal,priority:'low'});if(!r.ok)throw Error('DEM unavailable');const b=await r.arrayBuffer();this.bytes+=b.byteLength;return b;
   }).then(buffer=>this.work.decode.run(scenePriority.tile,signal,()=>this.decode(buffer,signal))).then(patches=>{
    if(!this.disposed&&!signal.aborted){this.parentCache.set(parent,patches);while(this.parentCache.size>2)this.parentCache.delete(this.parentCache.keys().next().value!);}return patches;
   }).finally(()=>{if(this.parents.get(parent)?.controller===controller)this.parents.delete(parent);});
@@ -116,7 +116,7 @@ export class TerrainStream {
     let pixels:Uint8Array|undefined,image:ImageBitmap|undefined;
     try{
      if(fine){const patches=await this.fineData(id);pixels=patches[(Math.floor(id/720)%2)*2+id%2];}
-     else{this.requests++;const blob=await this.work.network.run(scenePriority.tile,signal,async()=>{const r=await fetch('/media/orbit/terrain-tiles/'+id+'.png',{signal});if(!r.ok)throw Error('Terrain unavailable');return r.blob();});this.bytes+=blob.size;image=await this.work.decode.run(scenePriority.tile,signal,()=>createImageBitmap(blob,{colorSpaceConversion:'none',premultiplyAlpha:'none'}));}
+     else{this.requests++;const blob=await this.work.network.run(scenePriority.tile,signal,async()=>{const r=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/terrain-tiles/'+id+'.png',{signal});if(!r.ok)throw Error('Terrain unavailable');return r.blob();});this.bytes+=blob.size;image=await this.work.decode.run(scenePriority.tile,signal,()=>createImageBitmap(blob,{colorSpaceConversion:'none',premultiplyAlpha:'none'}));}
      if(this.disposed||signal.aborted||!this.wanted.includes(key))return;
      let slot=0;const used=new Set([...this.entries.values()].map(e=>e.slot));
      for(let i=this.columns;i<this.columns*this.columns-1;i+=2)if(!used.has(i)){slot=i;break;}

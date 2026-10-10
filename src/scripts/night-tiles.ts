@@ -11,7 +11,6 @@ export const TILE_COLUMNS=160;
 export const TILE_ROWS=80;
 type Layer='night'|'day'|'cloud'|'galaxy'|'terrain'|'terrainFine';
 const dimensions=(layer:Layer)=>layer==='terrainFine'?{columns:720,rows:360,interior:600,cell:632}:layer==='terrain'?{columns:40,rows:20,interior:540,cell:572}:(layer==='cloud'||layer==='galaxy')?{columns:32,rows:16,interior:512,cell:544}: {columns:160,rows:80,interior:540,cell:572};
-const root=(layer:Layer)=>`/media/orbit/${layer}-tiles/`;
 
 function tileShader(layer:Layer){
   const {columns,rows,interior,cell}=dimensions(layer);
@@ -74,7 +73,7 @@ export const dayTileShader=tileShader('day');
 export const cloudTileShader='#ifdef CLOUD_TILES\n'+tileShader('cloud')+'\n#else\nfloat detailedCloud(vec2 uv,float footprint,float fallback){return fallback;}\n#endif\n';
 
 
-type View={camera:ArrayLike<number>;cameraBasis:ArrayLike<number>;sun:ArrayLike<number>;galacticBasis?:ArrayLike<number>};
+type View={camera:ArrayLike<number>;cameraBasis:ArrayLike<number>;sun:ArrayLike<number>;galacticBasis?:ArrayLike<number>;focal?:number};
 export function tileAt(longitude:number,latitude:number){
   const x=Math.floor(((longitude+180)%360+360)%360/360*TILE_COLUMNS);
   const y=Math.min(TILE_ROWS-1,Math.max(0,Math.floor((90-latitude)/180*TILE_ROWS)));
@@ -88,10 +87,10 @@ export function visibleSurfaceTiles(view:View,width:number,height:number,availab
   const {columns,rows,interior}=dimensions(layer);
   const radius=layer==='cloud'?1.0018835:1;
   const scores=new Map<number,number>(),visible=new Set<number>();
-  const c=view.camera,m=view.cameraBasis,sun=view.sun;
+  const c=view.camera,m=view.cameraBasis,sun=view.sun,focal=view.focal??1.25;
   const camera2=c[0]*c[0]+c[1]*c[1]+c[2]*c[2];
   for(let iy=0;iy<28;iy++)for(let ix=0;ix<64;ix++){
-    const vx=((ix+.5)/64-.5)*width/height,vy=.5-(iy+.5)/28,vz=1.25;
+    const vx=((ix+.5)/64-.5)*width/height,vy=.5-(iy+.5)/28,vz=focal;
     let x=m[0]*vx+m[3]*vy+m[6]*vz,y=m[1]*vx+m[4]*vy+m[7]*vz,z=m[2]*vx+m[5]*vy+m[8]*vz;
     const length=Math.hypot(x,y,z);x/=length;y/=length;z/=length;
     const b=c[0]*x+c[1]*y+c[2]*z,disc=b*b-camera2+radius*radius;
@@ -100,7 +99,7 @@ export function visibleSurfaceTiles(view:View,width:number,height:number,availab
     const gx=c[0]+x*distance,gy=c[1]+y*distance,gz=c[2]+z*distance;
     const solar=gx*sun[0]+gy*sun[1]+gz*sun[2];
     if(layer!=='cloud'&&layer!=='terrain'&&layer!=='terrainFine'&&(layer==='night'?solar>.08:solar<-.12))continue;
-    const footprint=distance*(columns*interior/(2*Math.PI))/(height*1.25*Math.max(.02,-gx*x-gy*y-gz*z));
+    const footprint=distance*(columns*interior/(2*Math.PI))/(height*focal*Math.max(.02,-gx*x-gy*y-gz*z));
     if(footprint>=32)continue;
     const kx=Math.min(columns-1,Math.floor((Math.atan2(gy,gx)/(2*Math.PI)+.5)*columns));
     const ky=Math.min(rows-1,Math.max(0,Math.floor((.5-Math.asin(Math.max(-1,Math.min(1,gz/radius)))/Math.PI)*rows)));
@@ -123,15 +122,15 @@ export function visibleSurfaceTiles(view:View,width:number,height:number,availab
  * The catalog basis columns match dot(direction, galacticBasis[i]) in GLSL. */
 export function visibleGalaxyTiles(view:View,width:number,height:number,available:Set<number>,limit:number){
   const g=view.galacticBasis;if(!g||height<=0)return [];
-  const m=view.cameraBasis,c=view.camera,camera2=c[0]**2+c[1]**2+c[2]**2,scores=new Map<number,number>();
+  const m=view.cameraBasis,c=view.camera,camera2=c[0]**2+c[1]**2+c[2]**2,scores=new Map<number,number>(),focal=view.focal??1.25;
   for(let iy=0;iy<24;iy++)for(let ix=0;ix<40;ix++){
     const px=((ix+.5)/40-.5)*width/height,py=.5-(iy+.5)/24;
-    let x=m[0]*px+m[3]*py+m[6]*1.25,y=m[1]*px+m[4]*py+m[7]*1.25,z=m[2]*px+m[5]*py+m[8]*1.25;
+    let x=m[0]*px+m[3]*py+m[6]*focal,y=m[1]*px+m[4]*py+m[7]*focal,z=m[2]*px+m[5]*py+m[8]*focal;
     const norm=Math.hypot(x,y,z);x/=norm;y/=norm;z/=norm;
     const b=c[0]*x+c[1]*y+c[2]*z;if(b<0&&b*b>=camera2-1)continue;
     const gx=x*g[0]+y*g[1]+z*g[2],gy=x*g[3]+y*g[4]+z*g[5],gz=x*g[6]+y*g[7]+z*g[8];
     const kx=Math.floor(((.5-Math.atan2(gy,gx)/(2*Math.PI))+1)%1*32),ky=Math.min(15,Math.floor((.5-Math.asin(Math.max(-1,Math.min(1,gz)))/Math.PI)*16));
-    const footprint=16384/(2*Math.PI*height*1.25*Math.max(.1,Math.hypot(gx,gy)));
+    const footprint=16384/(2*Math.PI*height*focal*Math.max(.1,Math.hypot(gx,gy)));
     if(footprint>=4)continue;
     for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
       if(ky+dy<0||ky+dy>=16)continue;
@@ -175,7 +174,7 @@ export class SurfaceTiles {
   requests=0;
   bytes=0;
 
-  constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork()){
+  constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork(),private assetBaseURL='/media/orbit/'){
     this.work=work;
     this.gl=gl;this.notify=notify;this.layer=layer;this.dimensions=dimensions(layer);this.unit=layer==='terrain'?15:layer==='galaxy'?14:layer==='night'?7:layer==='day'?6:9;this.format=layer==='day'||layer==='galaxy'||layer==='terrain'?gl.RGBA:gl.LUMINANCE;
     const {columns,rows,cell,interior}=this.dimensions;
@@ -190,7 +189,7 @@ export class SurfaceTiles {
     for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
     for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
     this.work.network.run(scenePriority.tile,this.abort.signal,async()=>{
-      const response=await fetch(root(this.layer)+'manifest.json',{signal:this.abort.signal});
+      const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.layer+'-tiles/'+'manifest.json',{signal:this.abort.signal});
       if(!response.ok)throw new Error('Surface tile manifest unavailable');
       return response.json();
     }).then(data=>{
@@ -273,7 +272,7 @@ export class SurfaceTiles {
       const controller=new AbortController();this.pending.set(id,controller);this.requests++;
       const timeout=window.setTimeout(()=>controller.abort(),12000);
       this.work.network.run(scenePriority.tile,controller.signal,async()=>{
-        const response=await fetch(root(this.layer)+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
+        const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.layer+'-tiles/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
         if(!response.ok)throw new Error('Surface tile unavailable');
         return response.blob();
       }).then(blob=>this.work.decode.run(scenePriority.tile,controller.signal,async()=>{
