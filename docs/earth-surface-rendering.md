@@ -52,6 +52,18 @@ support, a global 8K desktop / 4K mobile map remains available. The former full
 The large maps have missing polar coverage; this is not fabricated. These are
 historical illustrative cloud patterns, not weather at the replay timestamp.
 
+The default `clouds=balanced` preset (Clouds → Balanced) retains the original
+photographic coverage and illustrative height profile. It scales weak-column
+optical thickness by .72, smoothly returning to 1 for dense cores. Faint sheets
+and soft edges remain visible at full-disc scale. This is an artistic density
+adjustment, not retrieved optical thickness or weather matching the UI date.
+`clouds=original` restores the previous density, and `clouds=off` removes clouds
+and their shadows. Old `clouds=broken` links use Balanced: the earlier .32
+coverage cutoff was rejected because it left only sparse bright cores.
+The MODIS study keeps its own input by default. See the
+[full-disc revision](lab/2026-10-11-cloud-balanced.md).
+
+
 Build scripts and official source URLs are in `public/media/orbit/README.md`.
 
 ## Light transport and limits

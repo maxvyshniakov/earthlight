@@ -16,7 +16,7 @@ import { createOrbitRenderer, type SceneLook } from './orbit-renderer';
 import { SceneFocus } from './scene-assets';
 import { sceneBufferSize, sceneComposition, focusRenderScale } from './scene-viewport';
 import { sceneProfile } from './scene-profile';
-import {auroraMode as readAuroraMode} from './scene-effects';
+import {auroraMode as readAuroraMode,cloudMode as readCloudMode} from './scene-effects';
 import {isWebGL2,sceneContext} from './webgl-context';
 import {modisStudyURL} from './modis-study-view';
 
@@ -46,6 +46,7 @@ export class OrbitalSky extends HTMLElement {
     const lookInputs = [...this.querySelectorAll<HTMLInputElement>('[data-look]')];
     const exposureMode=this.querySelector<HTMLSelectElement>('#sky-exposure-mode')!;
     const auroraMode=this.querySelector<HTMLSelectElement>('#sky-aurora')!;
+    const cloudsMode=this.querySelector<HTMLSelectElement>('#sky-clouds')!;
     const auroraStatus=this.querySelector<HTMLElement>('#sky-aurora-status')!;
     const fixedExposure=this.querySelector<HTMLInputElement>('#sky-fixed-exposure')!;
     const viewInputs=[...this.querySelectorAll<HTMLInputElement>('[data-view]')];
@@ -66,6 +67,8 @@ export class OrbitalSky extends HTMLElement {
     // Repeatable frames and opt-in render comparisons.
     const params = new URLSearchParams(location.search);
     auroraMode.value=readAuroraMode(params);
+    cloudsMode.value=readCloudMode(params);
+    cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis'].includes(params.get('cloudStudy')??'');
     exposureMode.value=params.get('exposure-mode')==='manual'?'manual':'auto';
     const restoredFixed=Number(params.get('exposure-fixed'));
     if(Number.isFinite(restoredFixed))fixedExposure.value=String(Math.max(-5.5,Math.min(4.1,restoredFixed)));
@@ -534,6 +537,9 @@ export class OrbitalSky extends HTMLElement {
     };
     const restoreAll = () => {
       const resetAurora=auroraMode.value!=='auto';
+      const cloudDefaults=new URLSearchParams(location.search);cloudDefaults.delete('clouds');
+      const resetClouds=cloudsMode.value!==readCloudMode(cloudDefaults);
+      cloudsMode.value=readCloudMode(cloudDefaults);
       auroraMode.value='auto';
       const now=performance.now();
       speedInput.value=speedInput.defaultValue;
@@ -549,14 +555,14 @@ export class OrbitalSky extends HTMLElement {
       lookInputs.forEach(input=>{input.value=input.defaultValue;});
       exposureMode.value="auto";fixedExposure.value=fixedExposure.defaultValue;
       const url=new URL(pendingURL??location.href);
-      for(const key of ['t','yaw','pitch','motion','still','moon','route','flight','position','heading','elevation','roll','orientation','lens','aurora'])url.searchParams.delete(key);
+      for(const key of ['t','yaw','pitch','motion','still','moon','route','flight','position','heading','elevation','roll','orientation','lens','aurora','clouds'])url.searchParams.delete(key);
       for(const input of [...lookInputs,speedInput])url.searchParams.delete(input===speedInput?'rate':`look-${input.dataset.look}`);
       updateURL(url);
       look.moonPhase=null;updateMoonLabel();
       updateSpeedLabel();updateViewLabels();
       exposureUntil=now+EXPOSURE_SETTLE_MS;
       changeLook();
-      if(resetAurora){reloadScene();return;}
+      if(resetAurora||resetClouds){reloadScene();return;}
       sync();
     };
     const resetValueButtons=[...this.querySelectorAll<HTMLButtonElement>('.reset-value')];
@@ -742,6 +748,11 @@ export class OrbitalSky extends HTMLElement {
       else url.searchParams.set('aurora',auroraMode.value==='on'?'1':'0');
       reloadScene(url);
     };
+    const changeClouds=()=>{
+      const url=new URL(pendingURL??location.href);
+      url.searchParams.set('clouds',cloudsMode.value);
+      reloadScene(url);
+    };
     const updateAuroraStatus=()=>{
       auroraStatus.textContent=this.dataset.aurora==='unsupported'?'Aurora is unavailable on this device.':auroraMode.value==='auto'?'Auto turns aurora off on phones and tablets.':'';
       auroraStatus.hidden=!auroraStatus.textContent;
@@ -750,6 +761,7 @@ export class OrbitalSky extends HTMLElement {
     auroraObserver.observe(this,{attributes:true,attributeFilter:['data-aurora']});
     updateAuroraStatus();
     auroraMode.addEventListener('change',changeAurora);
+    cloudsMode.addEventListener('change',changeClouds);
     profileSelect.addEventListener('change',changeProfile);
     cloudShapeSelect.addEventListener('change',changeCloudShape);
     calendarInputs.forEach(input=>input.addEventListener('input',changeCalendar));
@@ -844,6 +856,7 @@ export class OrbitalSky extends HTMLElement {
       lookInputs.forEach(input=>input.removeEventListener('input',changeLook));
       exposureMode.removeEventListener('change',changeLook);fixedExposure.removeEventListener('input',changeLook);
       auroraObserver.disconnect();auroraMode.removeEventListener('change',changeAurora);
+      cloudsMode.removeEventListener('change',changeClouds);
       resetAll.removeEventListener('click',restoreAll);
       resetValueButtons.forEach(button=>button.removeEventListener('click',restoreValue));
       moonInput.removeEventListener('input',changeMoon);

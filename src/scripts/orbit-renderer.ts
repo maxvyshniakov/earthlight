@@ -5,6 +5,7 @@ import {ShaderProgramBatch} from './shader-programs';
 import {textureProfile} from './texture-profile';
 import {CloudBuffer} from './cloud-buffer';
 import {CloudLightingAtlas, cloudLightingSource} from './cloud-lighting';
+import {OceanField,oceanPrototype,oceanPrototypeSource} from './ocean-prototype';
 import {WorldBuffer} from './world-buffer';
 import { SceneWork, scenePriority } from './scene-work';
 import { Aurora } from './aurora';
@@ -23,7 +24,7 @@ import { configureSceneColor } from './scene-color';
 import { PointReflections } from './point-reflections';
 import { SceneTimer } from './scene-quality';
 import { sceneProfile } from './scene-profile';
-import {auroraEnabled,auroraMode} from './scene-effects';
+import {auroraEnabled,auroraMode,cloudMode} from './scene-effects';
 import { SceneAssets, sceneAssetPlan, type AssetPlan } from './scene-assets';
 import { sceneBufferSize, compactSurfaceOverview } from './scene-viewport';
 import { vertexSource, fragmentSource, sourceTransmissionFragment, volumeFragment, halfCloudFragment, halfCloudVolumeFragment } from './orbital-shader';
@@ -40,9 +41,13 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       ?terrainSun.map((v,i)=>i?Math.max(-90,Math.min(90,v)):((v%360)+360)%360):null;
     const terrainHeader=terrainView?`#define TERRAIN_VIEW ${terrainView}\n${diagnosticSun?`#define TERRAIN_SUN vec2(${diagnosticSun.map(v=>v.toFixed(4)).join(',')})\n`:''}`:'';
     const profile=sceneProfile(params);
+    const clouds=cloudMode(params);
+    const requestedOcean=oceanPrototype(params);
+    const oceanMode=requestedOcean&&OceanField.supported(gl)?requestedOcean:null;
+    let oceanField:OceanField|null=null;
     const compactWorld=['compact','clouds-half'].includes(profile.name);
     const separateVolume=!terrainView&&['split','compact','clouds-half'].includes(profile.name)&&WorldBuffer.supported(gl,compactWorld);
-    const textureLighting=separateVolume&&profile.name==='compact'&&params.get('cloudLighting')!=='raymarch'
+    const textureLighting=clouds!=='off'&&separateVolume&&profile.name==='compact'&&params.get('cloudLighting')!=='raymarch'
       &&!['photo','modis'].includes(params.get('cloudStudy')??'')&&CloudLightingAtlas.supported(gl);
     let cloudLighting:CloudLightingAtlas|null=null;
     let cloudBuffer:CloudBuffer|null=null,cloudProgram:WebGLProgram|null=null;
@@ -84,8 +89,9 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     let modisTexture:WebGLTexture|null=null;
     const supportsTerrain=!background&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>8 && gl.getParameter(gl.MAX_TEXTURE_SIZE)>=4096;
     const supportsTerrainTiles=supportsTerrain&&streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&params.get('terrain')!=='0'&&params.get('terrainDetail')!=='0';
-    const supportsGalaxyTiles=streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>14&&params.get('galaxyDetail')!=='0';
-    const supportsCloudTiles=!modisStudy&&streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>9&&params.get('cloudDetail')!=='0';
+    // Lab prototypes borrow the detailed galaxy sampler; its overview remains.
+    const supportsGalaxyTiles=!oceanMode&&streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>14&&params.get('galaxyDetail')!=='0';
+    const supportsCloudTiles=clouds!=='off'&&!modisStudy&&streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>9&&params.get('cloudDetail')!=='0';
     let starData:Float32Array|null=null;
     let psfData:Uint8Array|null=null;
     let psfTexture:WebGLTexture|null=null;
@@ -123,6 +129,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       aurora?.dispose();aurora=null;
       cloudBuffer?.dispose();cloudBuffer=null;
       cloudLighting?.dispose();cloudLighting=null;
+      oceanField?.dispose();oceanField=null;
       if(fallbackVolumeProgram)gl.deleteProgram(fallbackVolumeProgram);fallbackVolumeProgram=null;
       if(cloudProgram)gl.deleteProgram(cloudProgram);cloudProgram=null;
       worldBuffer?.dispose();worldBuffer=null;
@@ -287,6 +294,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       state.shaderStartup='compiling';state.shaderMode=batch.parallel?'parallel':'synchronous';state.textureProfile=textureProfile(params);
       state.shaderCompileMs='0';
       state.cloudShape=modisStudy||params.get('cloudShape')==='texture'?'texture':'current';
+      state.clouds=clouds;
       state.cloudStudy=modisStudy?params.get('cloudStudy')!:'off';
       state.modisReady='0';
       state.terrainWork=params.get('terrainWork')==='legacy'?'legacy':'bounded';
@@ -301,6 +309,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         delete state.cloudBuffer;
         state.cloudPass=cloudBuffer?'half':profile.name==='clouds-half'?(separateVolume?'compact-fallback':'inline-fallback'):'inline';
         const cloudLod=shaderLod(gl);
+        const oceanPlan=oceanMode?OceanField.prepare(batch,oceanMode):null;
         const skyGrad=cloudLod&&shaderDerivatives(gl);
         const cloudHeader=(cloudLod?'#extension GL_EXT_shader_texture_lod : enable\n#define CLOUD_EXPLICIT_LOD 1\n':'')
           +(skyGrad?'#extension GL_OES_standard_derivatives : enable\n#define SKY_EXPLICIT_GRAD 1\n':'')
@@ -309,9 +318,10 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           +(state.terrainWork==='bounded'?'#define BOUNDED_RAY_WORK 1\n':'')
           +(state.terrainRefinement==='pixel'?'#define PIXEL_TERRAIN_REFINEMENT 1\n':'')
           +(state.cloudSteps==='balanced'?'#define BALANCED_CLOUD_STEPS 1\n':'')
+          +(clouds==='balanced'?'#define BALANCED_CLOUDS 1\n':clouds==='off'?'#define CLOUDS_DISABLED 1\n':'')
           +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
-        const skyProgram=batch.add('Orbital scene',vertexSource,cloudHeader+terrainHeader+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+fragmentSource);
+        const skyProgram=batch.add('Orbital scene',vertexSource,cloudHeader+terrainHeader+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
         const attenuationProgram=supportsSourceAttenuation?batch.add('Source transmission',vertexSource,cloudHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+sourceTransmissionFragment):null;
         const lightingPlan=textureLighting?CloudLightingAtlas.prepare(batch,cloudHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')):null;
         const volumePlans=new Map<string,WebGLProgram>();
@@ -470,6 +480,8 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL,params.get('terrainUpload')==='tile'?'tile':'strips',params.get('terrainCache')==='small'?'small':'working',params.get('terrainDecoder')==='pool'?'pool':'single',params.get('terrainSource')==='packed'?'packed':'tiff');}
         if(supportsGalaxyTiles)galaxyTiles=new SurfaceTiles(gl,canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches,notify,'galaxy',work,base);
         if(starData)catalog.upload(starData);
+        if(oceanPlan){gl.bindBuffer(gl.ARRAY_BUFFER,buffer);oceanField=new OceanField(gl,batch.take(oceanPlan),params.get('oceanResolution')==='1024'?1024:2048,oceanMode==='regions'?1:oceanMode==='advected'?8:4);}
+        state.ocean=oceanMode??'original';state.oceanBytes=String(oceanField?.bytes??0);state.oceanWidth=String(oceanField?.width??0);
         initialized=true;state.shaderStartup='ready';
         return true;
       } catch (error) {
@@ -591,6 +603,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(!finish.linear)gl.disable(gl.DITHER);
       if(terrainView){gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,width,height);}
       if(worldBuffer)worldBuffer.begin(width,height);
+      oceanField?.bind(program);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       if(worldBuffer&&volumeProgram){
         for(const cloudPass of cloudBuffer&&cloudProgram?[true,false]:[false]){

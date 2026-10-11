@@ -39,6 +39,8 @@ float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed)
     float paired=cloudMapSample(vec2(fract(uv.x-2.*seam),uv.y),lod,texels,detailed);
     mapped=mix(mapped,(mapped+paired)*.5,repair);
   }
+  // Keep the photograph's faint sheets and soft edges. Raising this cutoff
+  // erases them at full-disc scale and leaves only disconnected bright cores.
   return smoothstep(.025,.94,mapped);
 }
 float cloudCoverage(vec3 point,float footprint,bool detailed){
@@ -91,9 +93,17 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   // prevents an illustrative crown from becoming a separate opaque white lid.
   float column=top-base-.5*baseFeather-.25*topFeather;
   float density=profile*1.4/max(.5,column);
+#ifdef BALANCED_CLOUDS
+  // Gently thin weak columns without changing their extent or height. Dense
+  // cores retain their optical thickness; all light paths share this density.
+  density*=mix(.72,1.,smoothstep(.2,.8,coverage));
+#endif
   return pow(coverage,1.35)*density*(1.-smoothstep(11.5,12.,height));
 }
 float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
+#ifdef CLOUDS_DISABLED
+  return 0.;
+#endif
 #ifdef MODIS_GUIDANCE
   float weight;vec4 field=modisSample(point,footprint,weight);
   float guided=weight>0.?modisDensity(field,(length(point)-1.)*6371.,halfSpan):0.;
@@ -105,6 +115,9 @@ float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float half
 }
 float cloudDensity(vec3 point,float footprint,bool detailed){return cloudIntegratedDensity(point,footprint,detailed,0.);}
 float cloudLightTransmission(vec3 point,vec3 lightDirection,float samples){
+#ifdef CLOUDS_DISABLED
+  return 1.;
+#endif
   // Trace the whole cloud shell, including high clouds and oblique sunlight.
   // A fixed 25 km ray silently missed both. Trim the empty space below base.
   const float outer=1.0018835,inner=1.00009418;
@@ -168,6 +181,9 @@ ${stormLightShader}
 vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out float atmosphereDistance){
   transmission=1.;
   atmosphereDistance=groundDistance;
+#ifdef CLOUDS_DISABLED
+  return vec3(0.);
+#endif
   const float outer=1.0018835;
   const float inner=1.00009418;
   float b=dot(cameraPosition,ray),c=dot(cameraPosition,cameraPosition);
