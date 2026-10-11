@@ -70,17 +70,23 @@ float hash(vec2 p) {
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.x + p3.y) * p3.z);
 }
-
-
+// Interpolated noise needs identical values at corners shared by adjacent
+// cells. The fractional jitter hash above produced discontinuities on Mali.
+// Keep this permutation integer-valued and below 2^24 until normalization.
+float latticePermute(float x) { return mod((34.*x+1.)*x,289.); }
+float latticeHash(vec2 p) {
+  vec2 q=mod(p,289.);
+  return latticePermute(latticePermute(q.x)+q.y)/289.;
+}
 float noise(vec3 p) {
   vec3 i = floor(p), f = fract(p);
   f = f * f * (3.0 - 2.0 * f);
   vec2 q = i.xy + vec2(37.0, 17.0) * i.z;
-  float a = mix(mix(hash(q), hash(q + vec2(1,0)), f.x),
-                mix(hash(q + vec2(0,1)), hash(q + vec2(1,1)), f.x), f.y);
+  float a = mix(mix(latticeHash(q), latticeHash(q + vec2(1,0)), f.x),
+                mix(latticeHash(q + vec2(0,1)), latticeHash(q + vec2(1,1)), f.x), f.y);
   q += vec2(37,17);
-  float b = mix(mix(hash(q), hash(q + vec2(1,0)), f.x),
-                mix(hash(q + vec2(0,1)), hash(q + vec2(1,1)), f.x), f.y);
+  float b = mix(mix(latticeHash(q), latticeHash(q + vec2(1,0)), f.x),
+                mix(latticeHash(q + vec2(0,1)), latticeHash(q + vec2(1,1)), f.x), f.y);
   return mix(a,b,f.z);
 }
 mat2 rotate(float a) { float c = cos(a), s = sin(a); return mat2(c,-s,s,c); }

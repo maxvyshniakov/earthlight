@@ -2,6 +2,7 @@ import {verifySwipeRecovery} from './swipe-browser-fixture.mjs';
 import {verifyTileSeams} from './tile-seam-browser-fixture.mjs';
 import {verifyCanvasResize} from './canvas-resize-browser-fixture.mjs';
 import {verifyTextureBitmap} from './texture-bitmap-browser-fixture.mjs';
+import {verifyNoiseContinuity} from './noise-continuity-browser-fixture.mjs';
 import { galacticLightShader } from '../src/scripts/galactic-light.ts';
 import { surfaceMapShader } from '../src/scripts/surface-map.ts';
 import { airglowLightShader } from '../src/scripts/airglow-light.ts';
@@ -135,6 +136,7 @@ void main(){
 try{
  await run('set','viewport','1440','966');
  await run('open',`${base}/?t=1645.72&motion=0`);await wait(settled);
+ const noiseContinuity=await verifyNoiseContinuity(evaluate);results.push({noiseContinuity});console.log('noise: continuous lattice boundaries on the GPU',noiseContinuity);
  const tileSeams=await verifyTileSeams(evaluate);results.push({tileSeams});console.log('tile seams: partial residency, fade, corners and dateline',tileSeams);
  const lighting=await verifyLighting(evaluate);results.push({lighting});console.log('lighting: eclipses and source-dependent moonlight',lighting);
  const weather=await verifyWeather(evaluate);results.push({weather});console.log('cloud shadows: comparison with 512-sample integral',weather);
