@@ -108,7 +108,7 @@ test('whole DEM upload preserves every atlas byte and publishes only after compl
   atlas.fineData=async()=>[pixels,pixels,pixels,pixels];
   // Last paired cells exercise the atlas edge, beyond the indirection row.
   for(let slot=columns;slot<columns*columns-2;slot+=2)atlas.entries.set('c'+slot,{slot,loaded:0,used:0,id:slot,fine:false});
-  atlas.wanted=['f0'];atlas.pump();
+  atlas.allocated=true;atlas.wanted=['f0'];atlas.pump();
   try{
    while(atlas.pending.size){
     await new Promise(r=>setImmediate(r));

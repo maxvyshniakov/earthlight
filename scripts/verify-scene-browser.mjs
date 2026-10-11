@@ -1,3 +1,4 @@
+import {verifySwipeRecovery} from './swipe-browser-fixture.mjs';
 import {verifyTileSeams} from './tile-seam-browser-fixture.mjs';
 import {verifyCanvasResize} from './canvas-resize-browser-fixture.mjs';
 import {verifyTextureBitmap} from './texture-bitmap-browser-fixture.mjs';
@@ -71,6 +72,12 @@ void main(){
  vec2 uv=vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592654+.5);
  gl_FragColor=vec4(surfaceAlbedo(uv),1.);
 }`;
+// Exercise the production night sampler too: a coarse mip can invent city
+// emission over the ocean at the longitude branch cut.
+const nightSeamFixture=surfaceSeamFixture.replace('uniform sampler2D surfaceMap;',
+ 'uniform sampler2D surfaceMap;uniform sampler2D nightMap;')
+ .replace('void main(){',sceneShader.slice(sceneShader.indexOf('float cityEmission('),sceneShader.indexOf('vec2 screenPosition('))+'void main(){')
+ .replace('vec4(surfaceAlbedo(uv),1.)','vec4(vec3(cityEmission(uv)),1.)');
 const sunlightFixture=`precision highp float;
 ${atmosphericLightShader}
 void main(){
@@ -95,6 +102,7 @@ void main(){
  gl_FragColor=vec4(vec3(density),1.);
 }`;
 const cloudSeamFixture=`precision highp float;
+uniform float ev;
 uniform sampler2D cloudMap;
 const float time=0.;
 mat2 rotate(float a){return mat2(1.);}
@@ -102,7 +110,7 @@ vec2 earthUV(vec3 n){return vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592
 float detailedCloud(vec2 uv,float footprint,float fallback){return fallback;}
 ${cloudShader.slice(0,cloudShader.indexOf('// Once an octave'))}
 void main(){
- float longitude=(gl_FragCoord.x/256.-.5)*.032*6.283185307;
+ float longitude=(gl_FragCoord.x/256.-.5)*.032*6.283185307+ev;
  vec3 n=vec3(cos(longitude)*.5,sin(longitude)*.5,-.866025404);
  gl_FragColor=vec4(vec3(cloudCoverage(n,.00001,true)),1.);
 }`;
@@ -153,11 +161,15 @@ try{
   const sunlight=Array.from(render(${JSON.stringify(sunlightFixture)},181,2,0));
   const seamClouds=Array.from(render(${JSON.stringify(cloudSeamFixture)},256,1,0)).filter((_,i)=>i%4===0);
   if(seamClouds[0]<250||seamClouds.at(-1)>5||Math.max(...seamClouds.slice(1).map((v,i)=>Math.abs(v-seamClouds[i])))>5)throw Error('cloud plate seam is discontinuous');
+  const dateClouds=Array.from(render(${JSON.stringify(cloudSeamFixture)},256,1,Math.PI)).filter((_,i)=>i%4===0);
+  if(dateClouds[0]>5||dateClouds.at(-1)<250||Math.max(...dateClouds.slice(1).map((v,i)=>Math.abs(v-dateClouds[i])))>5)throw Error('cloud date-line seam is discontinuous');
   const highlights=Array.from(render(${JSON.stringify(highlightFixture)},256,2,0));
   const seam=[false,true].map(explicit=>{const header=explicit?'#extension GL_EXT_shader_texture_lod : enable\\n#extension GL_OES_standard_derivatives : enable\\n#define SKY_EXPLICIT_GRAD 1\\n':'';return Math.min(...render(header+${JSON.stringify(skySeamFixture)},64,4,0));});
   const surfaceSeam=[false,true].map(explicit=>{const header=explicit?'#extension GL_EXT_shader_texture_lod : enable\\n#extension GL_OES_standard_derivatives : enable\\n#define SKY_EXPLICIT_GRAD 1\\n':'';return Math.min(...render(header+${JSON.stringify(surfaceSeamFixture)},64,4,0));});
-  return {sunlight,highlights,seam,surfaceSeam};
+  const nightSeam=[false,true].map(explicit=>{const header=explicit?'#extension GL_EXT_shader_texture_lod : enable\\n#extension GL_OES_standard_derivatives : enable\\n#define SKY_EXPLICIT_GRAD 1\\n':'';return Math.min(...render(header+${JSON.stringify(nightSeamFixture)},64,4,0));});
+  return {sunlight,highlights,seam,surfaceSeam,nightSeam};
  })()`);
+ for(const minimum of optical.nightSeam)assert.equal(minimum,255,'Night longitude seam must preserve the local source without a coarse mip');
  for(const minimum of optical.surfaceSeam)assert.equal(minimum,255,'Earth longitude seam must not select a dark coarse mip');
  for(const minimum of optical.seam)assert.equal(minimum,255,'panorama seam must not select a dark coarse mip');
  for(let i=0;i<256;i++){
@@ -167,7 +179,7 @@ try{
   if(i>=170)assert.deepEqual(warm,[255,255,255],'overexposed cores approach white');
   if(i>0)for(let c=0;c<3;c++)assert.ok(warm[c]>=optical.highlights[(i-1)*4+c],'highlight channels remain monotonic');
  }
- results.push({highlights:{warmMid:optical.highlights.slice(40*4,40*4+3),whiteCore:optical.highlights.slice(180*4,180*4+3)},skySeam:optical.seam,surfaceSeam:optical.surfaceSeam});
+ results.push({highlights:{warmMid:optical.highlights.slice(40*4,40*4+3),whiteCore:optical.highlights.slice(180*4,180*4+3)},skySeam:optical.seam,surfaceSeam:optical.surfaceSeam,nightSeam:optical.nightSeam});
  // Compare GPU extinction against a high-resolution independent midpoint integral.
  for(let i=0;i<=180;i++){
   const angle=i*.5*Math.PI/180,b=Math.sin(angle),distance=-b+Math.sqrt(b*b+1.018835**2-1);
@@ -431,6 +443,7 @@ try{
  const textureBitmap=await verifyTextureBitmap(evaluate);results.push({textureBitmap});console.log('texture crops: exact numeric bytes at atlas edges',textureBitmap);
  const flight=await verifyFlight({run,evaluate,wait,base});results.push({flight});console.log('flight: routes, bounds, pause, URL restoration and input ownership',flight);
  const touch=await verifyTouch({run,evaluate,wait,base});results.push({touch});console.log('touch: look, pan, pinch and native controls',touch);
+ const swipes=await verifySwipeRecovery({run,evaluate,wait,base});results.push({swipes});console.log('swipes: bounded uploads and paused recovery',swipes);
  const calendar=await verifyCalendar({run,evaluate,wait,base});results.push({calendar});console.log('calendar: lighting, camera independence, URL restoration and reset',calendar);
  await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));
 }finally{await run('close');}

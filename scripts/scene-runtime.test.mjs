@@ -1,3 +1,4 @@
+import {SceneFrameClock} from '../src/scripts/scene-frame-clock.ts';
 import {PointReflections} from '../src/scripts/point-reflections.ts';
 import {draggedCamera} from '../src/scripts/orbit-camera-drag.ts';
 import {test} from 'bun:test';
@@ -385,3 +386,62 @@ test('point reflections initialize after the catalog arrives in a paused scene',
  assert.ok(moving.width*moving.height<1_805_000);
  assert.ok(still.width*still.height<4_805_000&&still.width>moving.width*1.5);
  });
+
+
+test('flight frames follow 60 Hz input and return to passive cadence',()=>{
+ for(const hz of [60,120]){
+  const clock=new SceneFrameClock();let frames=0;
+  for(let i=1;i<=hz*2;i++){const now=i*1000/hz;clock.interact(now);if(clock.due(now))frames++;}
+  assert.ok(Math.abs(frames-120)<=1,`delivered ${frames} on ${hz} Hz`);
+  clock.due(2250);assert.equal(clock.fps,24);
+  clock.reset(2250);frames=0;
+  for(let i=1;i<=hz*5;i++)if(clock.due(2250+i*1000/hz))frames++;
+  assert.equal(frames,120,'passive 24 FPS keeps fractional deadlines');
+ }
+});
+test('delayed input coalesces without catch-up draws or post-render drift',()=>{
+ const clock=new SceneFrameClock();clock.interact(0);
+ assert.equal(clock.due(0),true);assert.equal(clock.due(0),false);
+ assert.equal(clock.due(100),true);assert.equal(clock.due(100),false);
+ assert.equal(clock.due(116.667),true);
+ clock.reset(1000);clock.interact(1000);
+ assert.equal(clock.due(1016.667),true);
+ assert.equal(clock.due(1022),false,'finishing a costly draw does not add another frame');
+ assert.equal(clock.due(1033.333),true);
+});
+
+test('fast flight defers optional decode and GPU writes, preserves preview, then resumes',async()=>{
+ const work=new SceneWork(),abort=new AbortController(),events=[];
+ work.observeView([1,0,0],[1,0,0,0,1,0,0,0,1],0);
+ work.observeView([1,.02,0],[1,0,0,0,1,0,0,0,1],16);
+ assert.equal(work.moving,true);
+ const tile=work.decode.run(scenePriority.tile,abort.signal,async()=>{
+  events.push('decode');await work.upload(scenePriority.tile,abort.signal,()=>events.push('tile'));
+ });
+ const cancelled=new AbortController();
+ const dropped=work.upload(scenePriority.tile,cancelled.signal,()=>events.push('cancelled')).catch(()=>{});
+ cancelled.abort();
+ const previews=Array.from({length:6},()=> 'preview');
+ await Promise.all(previews.map(()=>work.upload(scenePriority.preview,abort.signal,()=>events.push('preview'))));
+ assert.deepEqual(events,previews,'all preview batches must bypass the motion hold');
+ assert.equal(work.moving,true,'previews must finish before the detail hold expires');
+ await Promise.all([tile,dropped]);
+ assert.equal(work.moving,false);
+ assert.deepEqual(events,[...previews,'decode','tile'],'queued detail resumes without another user event');
+ const slow=new SceneWork();slow.observeView([1,0,0],[1,0,0,0,1,0,0,0,1],0);
+ slow.observeView([1,.00002,0],[1,0,0,0,1,0,0,0,1],16);
+ assert.equal(slow.moving,false,'normal orbital motion keeps streaming');
+});
+
+test('an already downscaled scene uses an even 30 Hz interaction cadence',()=>{
+ const clock=new SceneFrameClock();let frames=0;
+ for(let i=1;i<=120;i++){const now=i*1000/60;clock.interact(now,30);if(clock.due(now))frames++;}
+ assert.ok(Math.abs(frames-60)<=1);assert.equal(clock.fps,30);
+});
+test('fast changing views cannot trigger upscale probes but retain overload recovery',()=>{
+ const quality=new SceneQuality();quality.scale=.65;let now=0;
+ for(let i=0;i<1200;i++){now+=1000/30;quality.observeCadence(1000/30,now,false);}
+ assert.equal(quality.scale,.65,'extra gesture frames do not imply spare GPU capacity');
+ for(let i=0;i<90;i++){now+=100;quality.observeCadence(100,now,false);}
+ assert.ok(quality.scale<.65,'overload still reduces the target during interaction');
+});

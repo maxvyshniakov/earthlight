@@ -176,7 +176,9 @@ vec3 airglowEmission(vec3 ray,float groundDistance){
 float cityEmission(vec2 uv) {
   // Terrain was removed at source resolution. Thresholding filtered samples
   // here erased distant cities as their signal averaged into dark neighbors.
-  return texture2D(nightMap,uv).r;
+  // Share the albedo's wrapped longitude derivatives. At the date line,
+  // implicit LOD otherwise averages distant cities into a bright ocean stripe.
+  return surfaceMapSample(nightMap,uv).r;
 }
 
 vec2 screenPosition(vec3 direction) {

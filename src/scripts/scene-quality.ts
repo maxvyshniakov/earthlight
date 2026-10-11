@@ -41,7 +41,10 @@ export class SceneQuality {
  private overloadedWindows=0;
  // A capped 24 FPS stream cannot prove spare GPU capacity. Try a small upscale
  // after sustained delivery, then roll it back if the new size misses deadlines.
- observeCadence(milliseconds:number,now:number){
+ observeCadence(milliseconds:number,now:number,allowUpscale=true){
+  // Fast changing views do not establish spare capacity for a larger buffer.
+  // Keep downward adaptation, but wait for quiet playback before probing up.
+  if(!allowUpscale)this.probeAfter=Math.max(this.probeAfter,now+8000);
   if(!Number.isFinite(milliseconds)||milliseconds<=0||milliseconds>5000||!Number.isFinite(now)){
    this.samples=[];this.stableSince=null;this.overloadedWindows=0;this.materialPending=false;this.severeStalls=[];return false;
   }
@@ -184,7 +187,7 @@ export class SceneTimer {
  }
  observeAnimationFrame(now:number,cadenceFactor=1){this.useCadence();this.quality.observeAnimationFrame(now,cadenceFactor);}
  resetCadence(){this.usingCadence=false;this.quality.resetCadence();}
- observeCadence(milliseconds:number,now:number){this.useCadence();this.quality.observeCadence(milliseconds,now);}
+ observeCadence(milliseconds:number,now:number,allowUpscale=true){this.useCadence();this.quality.observeCadence(milliseconds,now,allowUpscale);}
  begin(){
   if(!this.ext||this.usingCadence)return;
   const ext=this.ext;

@@ -30,12 +30,13 @@ float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed)
   float lod=max(0.,log2(max(1.,texels)));
   float mapped=cloudMapSample(uv,lod,texels,detailed);
   // The NASA W/E photographic plates disagree south of 50 degrees at their
-  // meridian join. Blend paired geography only inside this narrow seam band;
+  // joins at Greenwich AND the date line. Blend paired geography only inside
+  // these narrow seam bands;
   // all density, shadow and lens-transmission paths share the correction.
-  float seam=uv.x-.5;
+  float seam=mod(uv.x+.25,.5)-.25;
   float repair=(1.-smoothstep(.20,.23,uv.y))*(1.-smoothstep(0.,.012,abs(seam)));
   if(repair>0.){
-    float paired=cloudMapSample(vec2(.5-seam,uv.y),lod,texels,detailed);
+    float paired=cloudMapSample(vec2(fract(uv.x-2.*seam),uv.y),lod,texels,detailed);
     mapped=mix(mapped,(mapped+paired)*.5,repair);
   }
   return smoothstep(.025,.94,mapped);

@@ -1,4 +1,5 @@
 import {sceneLook} from './scene-defaults';
+import {SceneFrameClock} from './scene-frame-clock';
 import { createCameraDrag, draggedCamera } from './orbit-camera-drag';
 import { createTouchCamera } from './orbit-touch';
 import { createFlightControls, type FlightCommand } from './flight-controls';
@@ -99,9 +100,8 @@ export class OrbitalSky extends HTMLElement {
       input.value=String(cameraView[key]);
     }
     let frame = 0,drawRequest=0,urlUpdateFrame=0;
-    let lastRenderTime=-Infinity;
+    const frameClock=new SceneFrameClock(profile.fps);
     let scrollTimer=0;
-    let lastDraw=0;
     let pendingURL:URL|null=null;
     const updateURL=(url:URL)=>{
       calendar.write(url.searchParams);
@@ -262,7 +262,7 @@ export class OrbitalSky extends HTMLElement {
     const flushDraw=(now:number)=>{
       drawRequest=0;
       if(disposed||lost||document.hidden||(!paused&&this.hasAttribute('data-ready')))return;
-      if(now-lastRenderTime<1000/profile.fps){drawRequest=requestAnimationFrame(flushDraw);return;}
+      if(!frameDue(now)){drawRequest=requestAnimationFrame(flushDraw);return;}
       renderFrame();
     };
     const draw=()=>{
@@ -280,7 +280,6 @@ export class OrbitalSky extends HTMLElement {
       const result=renderer.render(orbit,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,look,focusRadius,speed,inspection);
       if(!result)return;
       const now=performance.now();
-      lastRenderTime=now;
       if(standalone){
         hud?.frame(orbit,!!navigation.free,navigation.route,navigation.motion);
         this.dataset.cameraPosition=orbit.camera.map(v=>v.toFixed(8)).join(',');
@@ -294,7 +293,10 @@ export class OrbitalSky extends HTMLElement {
         exposureTimer=window.setTimeout(()=>{if(!disposed&&!lost&&!document.hidden)draw();},1000/24);
       }
       this.dataset.exposure=now<exposureUntil?'adapting':'settled';
-      const inspect=standalone&&paused&&now>=exposureUntil&&focusRadius===0&&!matchMedia('(pointer: coarse)').matches;
+      // Loading detail refreshes exposure, but must not shrink an already
+      // inspected image. Otherwise a weak GPU oscillates between two sizes,
+      // repeatedly loading and discarding tiles visible only at the larger one.
+      const inspect=standalone&&paused&&(inspection||now>=exposureUntil)&&!frameClock.interacting(now)&&focusRadius===0&&!matchMedia('(pointer: coarse)').matches;
       if(inspect!==inspection){inspection=inspect;this.dataset.inspection=String(inspect);cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
       Object.assign(this.dataset,result.state);
       this.dataset.renderScale=(result.scale*focusRenderScale(focusRadius)).toFixed(2);
@@ -334,21 +336,26 @@ export class OrbitalSky extends HTMLElement {
       frame = 0;
       if (paused || document.hidden || lost || !this.hasAttribute('data-ready')) return;
       renderer.observeAnimationFrame(now,profile.fps/24);
-      const interval = 1000/profile.fps;
-      if (now - lastDraw >= interval) {
-        if(lastAnimationDraw&&focusRadius===0)renderer.observeCadence((now-lastAnimationDraw)*profile.fps/24,now);
+      if (frameDue(now)) {
+        if(lastAnimationDraw&&focusRadius===0)renderer.observeCadence((now-lastAnimationDraw)*profile.fps/24,now,!frameClock.interacting(now));
         lastAnimationDraw=focusRadius===0?now:0;
         grainIndex=(grainIndex+1)%65536;
         renderFrame();
-        // Carry the remainder: on 60Hz screens this alternates 2/3 refreshes
-        // instead of rounding the requested frame rate down to a divisor of 60.
-        lastDraw = now-(now-lastDraw)%interval;
       }
       frame = requestAnimationFrame(tick);
     };
+    // Flight gestures follow display refresh (up to 60 Hz); passive playback
+    // retains its 24 FPS budget. Keep the fractional deadline when paused too,
+    // instead of starting a new full interval after each render finishes.
+    const frameDue=(now:number)=>{
+      const previous=frameClock.fps,due=frameClock.due(now);
+      if(previous!==frameClock.fps)lastAnimationDraw=0;
+      this.dataset.targetFps=String(frameClock.fps);
+      return due;
+    };
     const sync = () => {
       clearTimeout(exposureTimer);
-      lastDraw=performance.now();
+      frameClock.reset(performance.now());
       clearTimeout(focusTimer);
       if(renderer&&this.hasAttribute('data-ready')&&this.dataset.focus!=='sharp')updateFocus();
       cancelAnimationFrame(frame);
@@ -585,7 +592,7 @@ export class OrbitalSky extends HTMLElement {
     applyLook();
     const dragSurface=this.dataset.composition==='orbit'?this.closest<HTMLElement>('.orbit-view'):null;
     // Throttled rather than debounced, so a long glide keeps its link current.
-    const cameraChanged=()=>{lastStatus=-1;exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;draw();if(!navigationURLTimer)navigationURLTimer=window.setTimeout(()=>{navigationURLTimer=0;saveNavigation();},180);};
+    const cameraChanged=()=>{const now=performance.now();frameClock.interact(now,qualityScale<.9?30:60);lastStatus=-1;exposureUntil=now+EXPOSURE_SETTLE_MS;draw();if(!navigationURLTimer)navigationURLTimer=window.setTimeout(()=>{navigationURLTimer=0;saveNavigation();},180);};
     const lookCamera=(view:typeof cameraView)=>{
       for(const input of viewInputs)input.value=String(view[input.dataset.view as keyof typeof view]);
       Object.assign(cameraView,view);updateViewLabels();updateOrbitLink();cameraChanged();saveNavigation();

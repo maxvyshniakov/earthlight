@@ -116,6 +116,9 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
     assert.equal(uploads.length,uploaded,'settled page table is not uploaded every frame');
     assert.equal(atlas.stats().revision,settledRevision,'unchanged coverage does not restart lighting');
     atlas.update(layer==='galaxy'?galaxyView(true):issFrame(layer==='night'?1000:3400,.22),1600,1100,{});
+    assert.equal(atlas.stats().pending,0,'fast motion does not bypass the selection interval');
+    now+=181;
+    atlas.update(layer==='galaxy'?galaxyView(true):issFrame(layer==='night'?1000:3400,.22),1600,1100,{});
     assert.equal(atlas.stats().pending,3);
     const next=requests.slice(processed);next.forEach(r=>r.resolve());await flush();
     assert.ok(atlas.stats().resident<=capacity,'cache size stays bounded after a jump');

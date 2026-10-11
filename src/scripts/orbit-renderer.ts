@@ -97,7 +97,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     let sourceProgram:WebGLProgram|null=null;
     let sourcePosition=0;
     const sourceUniforms:Record<string,WebGLUniformLocation|null>={};
-    const work=new SceneWork();
+    const work=new SceneWork(notify);
     // Tile constructors enqueue optional manifests before assets.start(). Keep
     // those requests from occupying every connection ahead of the previews.
     const releasePreviewNetwork=work.network.holdBelow(scenePriority.preview);
@@ -152,6 +152,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if (program) gl.deleteProgram(program);
       buffer = null;
       program = null;
+      work.resetMotion();
     };
     const upload=async(asset:AssetPlan,blob:Blob)=>{
       const current=generation,signal=uploadAbort.signal;
@@ -533,6 +534,8 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const points=pointReflections.update(
         sky.starToFixed,orbit.cameraBasis,orbit.camera,sky.yearsSinceJ2000,sky.planets,
         width/height,height,sceneTime,cssHeight,focal);
+      work.observeView(orbit.camera,orbit.cameraBasis,performance.now());
+      state.streamingMotion=work.moving?'deferred':'ready';
       galaxyTiles?.update({...orbit,galacticBasis:sky.galacticBasis},width,height,program);
       terrainTiles?.update(orbit,width,height,program);
       gl.uniformMatrix3fv(orbitUniforms.galacticBasis,false,sky.galacticBasis);
@@ -559,7 +562,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(cloudLighting){
         const stats=cloudTiles?.stats();
         cloudLighting.update(orbit.camera,orbit.sun,sceneTime,width,height,imageWidths.clouds??1,cloudTiles?.layout(),
-          JSON.stringify([imageWidths.clouds,stats?.revision]),assets.settled&&(!stats||(stats.pending===0&&stats.fading===0)),state);
+          JSON.stringify([imageWidths.clouds,stats?.revision]),!work.moving&&assets.settled&&(!stats||(stats.pending===0&&stats.fading===0)),state);
         finish.resume();gl.useProgram(program);
         gl.enableVertexAttribArray(scenePosition);gl.vertexAttribPointer(scenePosition,2,gl.FLOAT,false,0,0);
       }
@@ -678,7 +681,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     return {render,state,assets,
       observeAnimationFrame(now:number,cadenceFactor=1){timer?.observeAnimationFrame(now,cadenceFactor);},
       resetCadence(){timer?.resetCadence();},
-      observeCadence(milliseconds:number,now:number){timer?.observeCadence(milliseconds,now);},
+      observeCadence(milliseconds:number,now:number,allowUpscale=true){timer?.observeCadence(milliseconds,now,allowUpscale);},
       load(){void start();},
       contextLost(){lost=true;generation++;initialization=null;assets.suspend();release();for(const k of Object.keys(state))delete state[k];for(const k of Object.keys(imageWidths))delete imageWidths[k];},
       contextRestored(){if(disposed)return Promise.resolve(false);lost=false;return start(true);},

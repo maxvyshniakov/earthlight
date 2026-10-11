@@ -162,7 +162,7 @@ export class CloudLightingAtlas {
     const gl=this.gl,status=this.schedule.update(camera,sun,time,stamp,settled,now);
     this.ready=status.ready;
     const bake=this.schedule.pending;
-    if(bake){
+    if(bake&&settled){
       if(bake.chunk===0)this.bakeResolution=[width,height];
       gl.useProgram(this.program);
       gl.uniform4fv(this.uniforms.bakePatch,bake.patch);

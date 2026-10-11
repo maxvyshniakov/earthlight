@@ -161,7 +161,9 @@ export class SurfaceTiles {
   private disposed=false;
   private timer=0;
   private lastSelection=-Infinity;
-  private previousCamera:number[]=[];
+  private previousView:number[]=[];
+  private selectionTimer=0;
+  private wasMoving=false;
   private notify:()=>void;
   private layer:Layer;
   private format:number;
@@ -211,24 +213,33 @@ export class SurfaceTiles {
     const {columns,rows}=this.dimensions;
     const count=columns*rows;
     const now=performance.now();
-    const moved=this.previousCamera.some((v,i)=>Math.abs(v-view.camera[i])>.002);
-    if(now-this.lastSelection>180||moved){
-      this.lastSelection=now;this.previousCamera=Array.from(view.camera);
+    if(this.wasMoving&&!this.work.moving)this.lastSelection=-Infinity;
+    this.wasMoving=this.work.moving;
+    const pose=[...Array.from(view.camera),...Array.from(view.cameraBasis),width,height,view.focal??1.25];
+    // A fast swipe used to bypass the interval every frame for every layer,
+    // repeatedly selecting and aborting tiles before they could finish loading.
+    if(now-this.lastSelection>180){
+      this.lastSelection=now;
+      this.previousView=pose;clearTimeout(this.selectionTimer);this.selectionTimer=0;
       this.wanted=visibleSurfaceTiles(view,width,height,this.available,this.capacity,this.layer);
       const desired=new Set(this.wanted);
       for(const [id,controller] of this.pending)if(!desired.has(id))controller.abort();
       for(const id of this.wanted){const entry=this.resident.get(id);if(entry)entry.used=now;}
       if(this.wanted.length){
         this.lastNeeded=now;
-        if(!this.allocated){
+        if(!this.allocated&&!this.work.moving){
           this.bind();textureImage2D(this.gl,this.gl.TEXTURE_2D,0,this.format,this.edge,this.edge,0,this.format,this.gl.UNSIGNED_BYTE,null);
           this.allocated=true;this.tableDirty=true;
         }
-      }else if(this.allocated&&now-this.lastNeeded>2000&&this.pending.size===0){
+      }else if(this.allocated&&!this.work.moving&&now-this.lastNeeded>2000&&this.pending.size===0){
         this.bind();textureImage2D(this.gl,this.gl.TEXTURE_2D,0,this.format,1,1,0,this.format,this.gl.UNSIGNED_BYTE,null);
         this.allocated=false;this.resident.clear();this.pages.fill(0);this.tableDirty=true;
       }
       this.pump();
+    }else if(!this.selectionTimer&&pose.some((v,i)=>Math.abs(v-this.previousView[i])>1e-6)){
+      // Paused input may stop before the next selection. Revisit the final
+      // pose even when no upload/fade would otherwise request another draw.
+      this.selectionTimer=window.setTimeout(()=>{this.selectionTimer=0;if(!this.disposed)this.notify();},181-(now-this.lastSelection));
     }
     this.bind();
     if(!this.uniforms.has(program))this.uniforms.set(program,{atlas:this.gl.getUniformLocation(program,this.layer+'TileAtlas'),layout:this.gl.getUniformLocation(program,this.layer+'TileLayout')});
@@ -257,7 +268,7 @@ export class SurfaceTiles {
   }
 
   private pump(){
-    if(this.disposed||document.hidden)return;
+    if(this.disposed||document.hidden||!this.allocated)return;
     const cell=this.dimensions.cell;
     for(const id of this.wanted){
       if(this.pending.size>=3)break;
@@ -324,7 +335,7 @@ export class SurfaceTiles {
   layout(){return [this.allocated?this.edge:0,this.columns];}
   stats(){const now=performance.now();return {revision:this.revision,fading:[...this.resident.values()].filter(entry=>now-entry.loaded<650).length,resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
   dispose(){
-    this.disposed=true;this.abort.abort();clearTimeout(this.timer);
+    this.disposed=true;this.abort.abort();clearTimeout(this.timer);clearTimeout(this.selectionTimer);
     for(const controller of this.pending.values())controller.abort();
     this.pending.clear();this.resident.clear();
     if(!this.gl.isContextLost())this.gl.deleteTexture(this.texture);

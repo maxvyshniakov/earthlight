@@ -31,6 +31,7 @@ export class TerrainStream {
  private disposed=false;
  private allocated=false;
  private selected=-Infinity;
+ private wasMoving=false;
  private needed=0;
  private timer=0;
  private pages=new Uint8Array(800*360*4);
@@ -65,6 +66,8 @@ export class TerrainStream {
  private bind(){this.gl.activeTexture(this.gl.TEXTURE15);this.gl.bindTexture(this.gl.TEXTURE_2D,this.texture);}
  update(view:View,width:number,height:number,program:WebGLProgram){
   if(this.disposed)return;const now=performance.now(),gl=this.gl;
+  if(this.wasMoving&&!this.work.moving)this.selected=-Infinity;
+  this.wasMoving=this.work.moving;
   if(now-this.selected>250){
    this.selected=now;
    const fine=visibleSurfaceTiles(view,width,height,this.fine,this.capacity-(this.mobile?2:5),'terrainFine');
@@ -74,8 +77,8 @@ export class TerrainStream {
    for(const [id,p] of this.parents)if(!parents.has(id))p.controller.abort();
    for(const [key,c] of this.pending)if(!this.wanted.includes(key))c.abort();
    for(const key of this.wanted){const e=this.entries.get(key);if(e)e.used=now;}
-   if(this.wanted.length){this.needed=now;if(!this.allocated){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,this.edge,this.edge,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=true;this.pages.fill(0);this.pageKeys.clear();}}
-   else if(this.allocated&&now-this.needed>2000&&!this.pending.size){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=false;this.entries.clear();this.parentCache.clear();}
+   if(this.wanted.length){this.needed=now;if(!this.allocated&&!this.work.moving){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,this.edge,this.edge,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=true;this.pages.fill(0);this.pageKeys.clear();}}
+   else if(this.allocated&&!this.work.moving&&now-this.needed>2000&&!this.pending.size){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=false;this.entries.clear();this.parentCache.clear();}
    this.pump();
   }
   this.bind();if(!this.locations.has(program))this.locations.set(program,{atlas:gl.getUniformLocation(program,'terrainTileAtlas'),layout:gl.getUniformLocation(program,'terrainTileLayout')});
@@ -131,7 +134,7 @@ export class TerrainStream {
   this.parents.set(parent,{controller,promise});return promise;
  }
  private pump(){
-  if(this.disposed||document.hidden)return;
+  if(this.disposed||document.hidden||!this.allocated)return;
   for(const key of this.wanted){
    if(this.pending.size>=2)break;
    if(this.entries.has(key)||this.pending.has(key)||(this.failed.get(key)??0)>performance.now())continue;

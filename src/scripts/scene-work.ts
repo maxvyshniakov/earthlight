@@ -42,6 +42,44 @@ export class SceneWork {
  readonly decode=new WorkQueue(2);
  private uploads:{priority:number;queued:number;run:()=>void;cancel:()=>void;signal:AbortSignal}[]=[];
  private timer:ReturnType<typeof setTimeout>|undefined;
+ private resumeTimer:ReturnType<typeof setTimeout>|undefined;
+ private releaseNetwork:(()=>void)|undefined;
+ private releaseDecode:(()=>void)|undefined;
+ private previousView:{camera:number[];forward:number[];time:number}|undefined;
+ constructor(private notify=()=>{}){}
+ get moving(){return this.releaseNetwork!==undefined;}
+ /** Large atlas writes can serialize with the preceding GPU frame. During
+  * fast flight retain resident detail and the complete overview, then resume
+  * bounded streaming after the camera slows down. Preview work never waits. */
+ observeView(camera:ArrayLike<number>,basis:ArrayLike<number>,now:number){
+  const current={camera:Array.from(camera),forward:Array.from(basis).slice(6,9),time:now},previous=this.previousView;
+  this.previousView=current;
+  if(!previous)return;
+  const seconds=(now-previous.time)/1000;
+  if(seconds<=0)return;
+  const travel=Math.hypot(...current.camera.map((v,i)=>v-previous.camera[i]))/seconds;
+  const turn=Math.hypot(...current.forward.map((v,i)=>v-previous.forward[i]))/seconds;
+  if(travel<.08&&turn<.2)return;
+  this.deferDetail();
+ }
+ deferDetail(){
+  this.releaseNetwork??=this.network.holdBelow(scenePriority.preview);
+  this.releaseDecode??=this.decode.holdBelow(scenePriority.preview);
+  clearTimeout(this.resumeTimer);
+  this.resumeTimer=setTimeout(()=>{
+   this.resumeDetail();
+   this.notify();
+  },500);
+ }
+ private resumeDetail(){
+  clearTimeout(this.resumeTimer);this.resumeTimer=undefined;
+  const network=this.releaseNetwork,decode=this.releaseDecode;
+  this.releaseNetwork=this.releaseDecode=undefined;
+  network?.();decode?.();
+  if(this.uploads.length&&this.timer===undefined)this.timer=setTimeout(()=>this.pump(),0);
+ }
+ /** Owners abort their jobs before releasing a context's motion hold. */
+ resetMotion(){this.previousView=undefined;this.resumeDetail();}
  /** Upload callbacks must be synchronous and rebind their own GL state.
   * At most four small uploads / 3 ms of submission per 16 ms opportunity.
   * A single driver call cannot be preempted; large inputs must use strips. */
@@ -60,7 +98,11 @@ export class SceneWork {
   const start=performance.now();
   this.uploads.sort((a,b)=>(a.priority-(start-a.queued)/2000)-(b.priority-(start-b.queued)/2000));
   let count=0;
-  while(this.uploads.length&&count++<4&&performance.now()-start<3)this.uploads.shift()!.run();
-  if(this.uploads.length)this.timer=setTimeout(()=>this.pump(),16);
+  while(this.uploads.length&&count++<4&&performance.now()-start<3){
+   const next=this.uploads.findIndex(job=>!this.moving||job.priority===scenePriority.preview);
+   if(next<0)break;
+   this.uploads.splice(next,1)[0].run();
+  }
+  if(this.uploads.some(job=>!this.moving||job.priority===scenePriority.preview))this.timer=setTimeout(()=>this.pump(),16);
  }
 }
