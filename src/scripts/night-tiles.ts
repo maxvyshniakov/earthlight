@@ -1,3 +1,4 @@
+import {cropTextureBitmap} from './texture-bitmap.ts';
 import {textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import { SceneWork, scenePriority } from './scene-work.ts';
 // Bounded virtual textures: night lights in unit 7, daytime in 6, clouds in 9,
@@ -45,18 +46,14 @@ ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='gala
   if(slot<.5)return fallback;
   float fade=${layer}Fade(key);
   vec2 local=fract(grid);
-  ${layer==='cloud'||layer==='terrain'?`
-  float fadeCode=floor(fade*255.+.5);
-  fade=floor(fadeCode/16.)/15.;
-  float neighbor=mod(fadeCode,16.)/15.;
-  float edge=min(min(local.x,1.-local.x),min(local.y,1.-local.y));
-  fade*=mix(neighbor,1.,smoothstep(0.,.03,edge));
-  `:`
-  if(local.x<.03)fade*=mix(${layer}Fade(key-vec2(1.,0.)),1.,smoothstep(0.,.03,local.x));
-  if(local.x>.97)fade*=mix(${layer}Fade(key+vec2(1.,0.)),1.,smoothstep(0.,.03,1.-local.x));
-  if(local.y<.03)fade*=mix(${layer}Fade(key-vec2(0.,1.)),1.,smoothstep(0.,.03,local.y));
-  if(local.y>.97)fade*=mix(${layer}Fade(key+vec2(0.,1.)),1.,smoothstep(0.,.03,1.-local.y));
-  `}
+  // Each shared edge uses the same pair of fades on both sides. A single
+  // minimum over all neighbours creates seams when an unrelated edge is empty.
+  vec2 edge=smoothstep(vec2(0.),vec2(.03),min(local,1.-local));
+  vec2 stepTo=vec2(local.x<.5?-1.:1.,local.y<.5?-1.:1.);
+  if(edge.x<1.)fade*=mix(${layer}Fade(key+vec2(stepTo.x,0.)),1.,edge.x);
+  if(edge.y<1.)fade*=mix(${layer}Fade(key+vec2(0.,stepTo.y)),1.,edge.y);
+  // At corners all four tiles must agree, including the diagonal neighbour.
+  if(edge.x<1.&&edge.y<1.)fade*=mix(${layer}Fade(key+stepTo),1.,max(edge.x,edge.y));
   float lod=clamp(log2(max(1.,footprint*${layer==='cloud'||layer==='galaxy'||layer==='terrain'?'1.':'.5'})),0.,4.);
   // At four source texels the cloud overview resolves this footprint already.
   // Explicit trilinear filtering of isolated mip levels. Their gutters contain
@@ -173,6 +170,7 @@ export class SurfaceTiles {
   private allocated=false;
   private lastNeeded=0;
   private tableDirty=true;
+  private revision=0;
   private uniforms=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
   requests=0;
   bytes=0;
@@ -242,15 +240,7 @@ export class SurfaceTiles {
     let fading=false;
     for(const [id,entry] of this.resident){
       const fade=Math.max(0,Math.min(1,(now-entry.loaded)/650));
-      let value=Math.round(fade*255);
-      if(this.layer==='cloud'||this.layer==='terrain'){
-        const x=id%columns,y=Math.floor(id/columns);
-        const adjacent=[[x-1,y],[x+1,y],[x,y-1],[x,y+1]].map(([nx,ny])=>Math.max(0,Math.min(rows-1,ny))*columns+(nx+columns)%columns);
-        const neighbor=Math.min(...adjacent.map(key=>{
-          const other=this.resident.get(key);return other?Math.max(0,Math.min(1,(now-other.loaded)/650)):0;
-        }));
-        value=Math.round(fade*15)*16+Math.round(neighbor*15);
-      }
+      const value=Math.round(fade*255);
       if(this.pages[id]!==entry.slot||this.pages[id+count]!==value)this.tableDirty=true;
       this.pages[id]=entry.slot;this.pages[id+count]=value;
       fading ||= fade<1&&Number.isFinite(entry.loaded);
@@ -261,7 +251,7 @@ export class SurfaceTiles {
       const table=this.format===gl.RGBA?this.colorPages:this.pages;
       if(this.format===gl.RGBA)for(let i=0;i<this.pages.length;i++)table[i*4]=this.pages[i];
       textureSubImage2D(gl,gl.TEXTURE_2D,0,0,0,columns,rows*2,this.format,gl.UNSIGNED_BYTE,table);
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT,4);this.tableDirty=false;
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT,4);this.tableDirty=false;this.revision++;
     }
     if(fading&&!this.timer)this.timer=window.setTimeout(()=>{this.timer=0;if(!this.disposed)this.notify();},42);
   }
@@ -296,7 +286,7 @@ export class SurfaceTiles {
           if(this.layer==='terrain'){
             // Lossless prepacked numeric mipmaps: never resize packed heights.
             for(let half=0;half<2;half++){
-              const square=await createImageBitmap(image,half*cell,0,cell,cell,{colorSpaceConversion:'none',premultiplyAlpha:'none'});
+              const square=await cropTextureBitmap(image,half*cell,0,cell,cell);
               try{await this.work.upload(scenePriority.tile,controller.signal,()=>{
                 this.bind();const target=slot+half;
                 textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,(target%this.columns)*cell,Math.floor(target/this.columns)*cell,this.format,this.gl.UNSIGNED_BYTE,square);
@@ -332,7 +322,7 @@ export class SurfaceTiles {
   }
 
   layout(){return [this.allocated?this.edge:0,this.columns];}
-  stats(){return {resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
+  stats(){const now=performance.now();return {revision:this.revision,fading:[...this.resident.values()].filter(entry=>now-entry.loaded<650).length,resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
   dispose(){
     this.disposed=true;this.abort.abort();clearTimeout(this.timer);
     for(const controller of this.pending.values())controller.abort();

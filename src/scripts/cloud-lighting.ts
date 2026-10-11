@@ -6,6 +6,20 @@ import {fragmentSource,vertexSource} from './orbital-shader';
 // Two 2048 x 1024 textures cost 16 MiB, including the unfinished replacement.
 const TILE=512,WIDTH=2048,HEIGHT=1024,STRIPE=64,CHUNKS=64;
 const SPAN=Math.PI/6;
+/** Use recent submission cadence to bound optional bake work. No nested GPU
+ * queries or completion waits: the scene quality timer owns GPU queries. */
+export class CloudBakeBudget {
+ private last=0;
+ private samples:number[]=[];
+ rows(now:number){
+  const delta=now-this.last;this.last=now;
+  if(delta>2000)this.samples=[];
+  else if(delta>0){this.samples.push(delta);if(this.samples.length>8)this.samples.shift();}
+  if(this.samples.length<3)return 32;
+  const sorted=[...this.samples].sort((a,b)=>a-b),cost=sorted[Math.floor(sorted.length*.7)];
+  return cost>75?16:cost>50?32:64;
+ }
+}
 const helper=`
 uniform sampler2D cloudLightingAtlas;
 uniform float cloudLightingReady;
@@ -97,9 +111,10 @@ export class CloudLightingSchedule {
     }
     return {ready,work:!!this.pending||refresh};
   }
-  advance(){
+  advance(rows=STRIPE){
     if(!this.pending)return false;
-    if(++this.pending.chunk<CHUNKS)return false;
+    this.pending.chunk+=rows/STRIPE;
+    if(this.pending.chunk<CHUNKS)return false;
     this.current=this.pending;this.pending=null;this.generation++;return true;
   }
 }
@@ -115,9 +130,11 @@ export class CloudLightingAtlas {
   private bakeResolution=[1,1];
   private ready=false;
   private wake:ReturnType<typeof setTimeout>|undefined;
+  private budget=new CloudBakeBudget();
+  private bakeDraws=0;
   static supported(gl:WebGLRenderingContext){return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&gl.getParameter(gl.MAX_TEXTURE_SIZE)>=2048;}
   static prepare(batch:ShaderProgramBatch,header:string){return batch.add('Cloud lighting bake',vertexSource,header+bakeSource);}
-  constructor(private gl:WebGLRenderingContext,private program:WebGLProgram,private notify:()=>void){
+  constructor(private gl:WebGLRenderingContext,private program:WebGLProgram,private notify:()=>void,private mode:'fixed'|'budget'='fixed'){
     this.position=gl.getAttribLocation(program,'position');
     const unit=gl.getParameter(gl.ACTIVE_TEXTURE);gl.activeTexture(gl.TEXTURE15);
     const binding=gl.getParameter(gl.TEXTURE_BINDING_2D),target=gl.getParameter(gl.FRAMEBUFFER_BINDING);
@@ -141,7 +158,8 @@ export class CloudLightingAtlas {
   }
   update(camera:number[],sun:number[],time:number,width:number,height:number,mapWidth:number,layout:Float32Array|number[]|undefined,stamp:string,settled:boolean,state:Record<string,string>){
     clearTimeout(this.wake);this.wake=undefined;
-    const gl=this.gl,status=this.schedule.update(camera,sun,time,stamp,settled,performance.now());
+    const now=performance.now(),rows=this.mode==='budget'?this.budget.rows(now):STRIPE;
+    const gl=this.gl,status=this.schedule.update(camera,sun,time,stamp,settled,now);
     this.ready=status.ready;
     const bake=this.schedule.pending;
     if(bake){
@@ -154,13 +172,15 @@ export class CloudLightingAtlas {
       gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer);
       gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.textures[1-this.active],0);
       gl.viewport(0,0,WIDTH,HEIGHT);
-      // One 512 x 64 stripe (four heights) per frame. Never expose partial data.
-      const tile=Math.floor(bake.chunk/8),row=bake.chunk%8;
-      gl.enable(gl.SCISSOR_TEST);gl.scissor((tile%4)*TILE,Math.floor(tile/4)*TILE+row*STRIPE,TILE,STRIPE);
+      // Same atlas pixels and shader. Stop at a tile boundary when the budget
+      // grows partway through a tile; never expose an unfinished replacement.
+      const tile=Math.floor(bake.chunk/8),row=(bake.chunk%8)*STRIPE,count=Math.min(rows,TILE-row);
+      gl.enable(gl.SCISSOR_TEST);gl.scissor((tile%4)*TILE,Math.floor(tile/4)*TILE+row,TILE,count);
       gl.enableVertexAttribArray(this.position);gl.vertexAttribPointer(this.position,2,gl.FLOAT,false,0,0);
       const dither=gl.isEnabled(gl.DITHER);gl.disable(gl.DITHER);
       try{gl.drawArrays(gl.TRIANGLES,0,3);}finally{gl.disable(gl.SCISSOR_TEST);if(dither)gl.enable(gl.DITHER);}
-      if(this.schedule.advance()){this.active=1-this.active;this.ready=true;}
+      this.bakeDraws++;
+      if(this.schedule.advance(count)){this.active=1-this.active;this.ready=true;}
     }
     // A paused explorer still completes its bake. The renderer's notify path
     // coalesces this with normal playback; disposal/context loss cancels it.
@@ -170,6 +190,7 @@ export class CloudLightingAtlas {
     state.cloudLightingProgress=String(this.schedule.pending?.chunk??0);
     state.cloudLightingBytes=String(WIDTH*HEIGHT*4*2);
     state.cloudLightingPatch=JSON.stringify(this.schedule.current?.patch??[]);
+    state.cloudLightingBake=this.mode;state.cloudLightingRows=String(rows);state.cloudLightingDraws=String(this.bakeDraws);
   }
   bind(program:WebGLProgram){
     const gl=this.gl;

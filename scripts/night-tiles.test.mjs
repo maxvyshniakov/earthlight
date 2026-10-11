@@ -62,10 +62,11 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
   let now=1000;spyOn(performance,'now').mockImplementation(()=>now);
   const cell=(layer==='cloud'||layer==='galaxy')?544:572,columns=layer==='terrain'?40:(layer==='cloud'||layer==='galaxy')?32:160,rows=layer==='terrain'?20:(layer==='cloud'||layer==='galaxy')?16:80;
   const ids=Array.from({length:columns*rows},(_,i)=>i);
-  const originals={fetch:globalThis.fetch,createImageBitmap:globalThis.createImageBitmap,window:globalThis.window,document:globalThis.document};
+  const originals={fetch:globalThis.fetch,createImageBitmap:globalThis.createImageBitmap,window:globalThis.window,document:globalThis.document,OffscreenCanvas:globalThis.OffscreenCanvas};
   const requests=[];let closes=0,deletes=0;const uploads=[];
   globalThis.window=globalThis;
   globalThis.document={hidden:false};
+  globalThis.OffscreenCanvas=class{constructor(width,height){this.width=width;this.height=height;}getContext(){return {drawImage(){}};}transferToImageBitmap(){return {width:this.width,height:this.height,close(){closes++;}};}};
   globalThis.createImageBitmap=async(...args)=>{const options=args.at(-1);return {width:args.length>2?args[3]:options.resizeWidth||cell*(layer==='terrain'?2:1),height:args.length>2?args[4]:options.resizeHeight||cell,close(){closes++;}};};
   globalThis.fetch=async(url,options)=>{
     if(url.endsWith('manifest.json'))return {ok:true,json:async()=>({version:1,interior:cell-32,gutter:16,columns,rows,tiles:ids})};
@@ -104,10 +105,16 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
     assert.equal(atlas.stats().resident,atlas.stats().wanted);
     assert.ok(atlas.stats().resident<=capacity);
     assert.equal(closes,atlas.stats().resident*(layer==='terrain'?3:5));
+    assert.equal(atlas.stats().fading,atlas.stats().resident,'new images are still fading after network completion');
+    const previousRevision=atlas.stats().revision;
     now+=1000;
     const program={};atlas.update(first,1600,1100,program);
+    assert.equal(atlas.stats().fading,0);
+    assert.ok(atlas.stats().revision>previousRevision,'committed coverage changes the lighting input revision');
+    const settledRevision=atlas.stats().revision;
     const uploaded=uploads.length;atlas.update(first,1600,1100,program);
     assert.equal(uploads.length,uploaded,'settled page table is not uploaded every frame');
+    assert.equal(atlas.stats().revision,settledRevision,'unchanged coverage does not restart lighting');
     atlas.update(layer==='galaxy'?galaxyView(true):issFrame(layer==='night'?1000:3400,.22),1600,1100,{});
     assert.equal(atlas.stats().pending,3);
     const next=requests.slice(processed);next.forEach(r=>r.resolve());await flush();

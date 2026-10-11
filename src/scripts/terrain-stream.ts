@@ -1,3 +1,5 @@
+import {TerrainDecoder} from './terrain-decoder.ts';
+import {cropTextureBitmap} from './texture-bitmap.ts';
 import {textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {SceneWork,scenePriority} from './scene-work.ts';
 import {visibleSurfaceTiles} from './night-tiles.ts';
@@ -19,7 +21,12 @@ export class TerrainStream {
  private failed=new Map<string,number>();
  private parents=new Map<number,{controller:AbortController;promise:Promise<Uint8Array[]>}>();
  private parentCache=new Map<number,Uint8Array[]>();
- private workers=new Set<()=>void>();
+ private decoder:TerrainDecoder;
+ private packedDecoder:TerrainDecoder;
+ private packed=new Set<number>();
+ private packedDisabled=new Set<number>();
+ private packedManifest:Promise<void>=Promise.resolve();
+ private packedFallbacks=0;packedDecodes=0;
  private abort=new AbortController();
  private disposed=false;
  private allocated=false;
@@ -29,10 +36,17 @@ export class TerrainStream {
  private pages=new Uint8Array(800*360*4);
  private pageKeys=new Set<number>();
  private locations=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
- requests=0;bytes=0;failures=0;
+ requests=0;bytes=0;failures=0;decodes=0;
  private gl:WebGLRenderingContext;private mobile:boolean;private notify:()=>void;private work:SceneWork;
- constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/'){
+ constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/',private uploadMode:'strips'|'tile'='strips',private cacheMode:'small'|'working'='working',private decoderMode:'single'|'pool'='single',private sourceMode:'tiff'|'packed'='tiff'){
   this.gl=gl;this.mobile=mobile;this.notify=notify;this.work=work;
+  this.decoder=new TerrainDecoder(decoderMode);this.packedDecoder=new TerrainDecoder(decoderMode,'packed');
+  if(sourceMode==='packed')this.packedManifest=work.network.run(scenePriority.tile,this.abort.signal,async()=>{
+   const r=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/terrain-packed/v1/manifest.json',{signal:AbortSignal.any([this.abort.signal,AbortSignal.timeout(8000)])});
+   if(!r.ok)throw Error('Packed terrain manifest unavailable');const manifest=await r.json();
+   if(manifest.version!==1||!Array.isArray(manifest.files)||!manifest.files.every((f:{id:number})=>Number.isInteger(f.id)&&f.id>=0&&f.id<64800))throw Error('Invalid packed terrain manifest');
+   if(!this.disposed)for(const f of manifest.files)this.packed.add(f.id);
+  }).catch(()=>{});
   this.columns=mobile?4:6;this.edge=CELL*this.columns;this.capacity=(this.columns*this.columns-this.columns)/2;
   this.texture=gl.createTexture();if(!this.texture)throw Error('Cannot allocate terrain atlas');
   this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
@@ -84,24 +98,35 @@ export class TerrainStream {
   for(const p of changes)textureSubImage2D(gl,gl.TEXTURE_2D,0,(p/4)%800,Math.floor(p/4/800),1,1,gl.RGBA,gl.UNSIGNED_BYTE,this.pages.subarray(p,p+4));
   if(fading&&!this.timer)this.timer=window.setTimeout(()=>{this.timer=0;this.notify();},50);
  }
- private decode(buffer:ArrayBuffer,signal:AbortSignal){return new Promise<Uint8Array[]>((resolve,reject)=>{
-  const worker=new Worker(new URL('./terrain-detail.worker.ts',import.meta.url),{type:'module'});
-  const done=()=>{worker.terminate();signal.removeEventListener('abort',cancel);this.workers.delete(cancel);};
-  const cancel=()=>{done();reject(Error('Terrain decode cancelled'));};
-  if(signal.aborted){cancel();return;}this.workers.add(cancel);signal.addEventListener('abort',cancel,{once:true});
-  worker.onmessage=event=>{done();if(event.data.error)reject(Error(event.data.error));else resolve(event.data.patches);};
-  worker.onerror=event=>{done();reject(Error(event.message));};worker.postMessage({buffer},[buffer]);
- });}
+ private decode(buffer:ArrayBuffer,parent:number,signal:AbortSignal,packed=false){
+  this.decodes++;if(packed)this.packedDecodes++;
+  return (packed?this.packedDecoder:this.decoder).run(buffer,parent,signal);
+ }
+ private async loadParent(parent:number,signal:AbortSignal){
+  await this.packedManifest;if(signal.aborted)throw Error('Terrain decode cancelled');
+  const packed=this.packed.has(parent)&&!this.packedDisabled.has(parent);
+  const fetchDecode=async(usePacked:boolean)=>{
+   const url=usePacked?this.assetBaseURL.replace(/\/+$/, '')+'/terrain-packed/v1/'+terrainSourceName(parent)+'.dem':this.terrainBaseURL.replace(/\/+$/, '')+'/'+terrainSourceName(parent)+'.tif';
+   const buffer=await this.work.network.run(scenePriority.tile,signal,async()=>{
+    const r=await fetch(url,{signal,priority:'low'});if(!r.ok)throw Error('DEM unavailable');const b=await r.arrayBuffer();this.bytes+=b.byteLength;return b;
+   });
+   return this.work.decode.run(scenePriority.tile,signal,()=>this.decode(buffer,parent,signal,usePacked));
+  };
+  if(packed){try{return await fetchDecode(true);}catch(error){if(signal.aborted||this.disposed)throw error;this.packedDisabled.add(parent);this.packedFallbacks++;}}
+  return fetchDecode(false);
+ }
  private fineData(id:number){
   const parent=parentTerrainTile(id),cached=this.parentCache.get(parent);
   if(cached){this.parentCache.delete(parent);this.parentCache.set(parent,cached);return Promise.resolve(cached);}
   const pending=this.parents.get(parent);if(pending&&!pending.controller.signal.aborted)return pending.promise;
   const controller=new AbortController(),signal=controller.signal;
   this.requests++;
-  const promise=this.work.network.run(scenePriority.tile,signal,async()=>{
-   const r=await fetch(this.terrainBaseURL.replace(/\/+$/, '')+'/'+terrainSourceName(parent)+'.tif',{signal,priority:'low'});if(!r.ok)throw Error('DEM unavailable');const b=await r.arrayBuffer();this.bytes+=b.byteLength;return b;
-  }).then(buffer=>this.work.decode.run(scenePriority.tile,signal,()=>this.decode(buffer,signal))).then(patches=>{
-   if(!this.disposed&&!signal.aborted){this.parentCache.set(parent,patches);while(this.parentCache.size>2)this.parentCache.delete(this.parentCache.keys().next().value!);}return patches;
+  const promise=this.loadParent(parent,signal).then(patches=>{
+   if(!this.disposed&&!signal.aborted){this.parentCache.set(parent,patches);while(this.parentCache.size>(this.cacheMode==='working'?(this.mobile?4:6):2)){
+     const wanted=new Set(this.wanted.filter(k=>k[0]==='f').map(k=>parentTerrainTile(Number(k.slice(1)))));
+     const stale=(this.cacheMode==='working'?[...this.parentCache.keys()].find(id=>!wanted.has(id)):undefined)??this.parentCache.keys().next().value!;
+     this.parentCache.delete(stale);
+    }}return patches;
   }).finally(()=>{if(this.parents.get(parent)?.controller===controller)this.parents.delete(parent);});
   this.parents.set(parent,{controller,promise});return promise;
  }
@@ -124,16 +149,21 @@ export class TerrainStream {
      this.entries.set(key,{slot,loaded:Infinity,used:performance.now(),fine,id});
      const cell=fine?CELL:572;
      if(image&&(image.width!==cell*2||image.height!==cell))throw Error('Invalid terrain tile');
-     for(let half=0;half<2;half++){
+     if(pixels&&this.uploadMode==='tile'){
+      // Paired cells always share an atlas row (both layouts have even columns).
+      // Upload the worker's existing packed buffer once, without interleaving
+      // twenty writes with draws that sample the same texture.
+      await this.work.upload(scenePriority.tile,signal,()=>{this.bind();textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,slot%this.columns*CELL,Math.floor(slot/this.columns)*CELL,cell*2,cell,this.gl.RGBA,this.gl.UNSIGNED_BYTE,pixels!);});
+     }else for(let half=0;half<2;half++){
       if(pixels){for(let y=0;y<cell;y+=64){const rows=Math.min(64,cell-y),strip=new Uint8Array(cell*rows*4);for(let row=0;row<rows;row++)strip.set(pixels.subarray(((y+row)*cell*2+half*cell)*4,((y+row)*cell*2+half*cell+cell)*4),row*cell*4);
        await this.work.upload(scenePriority.tile,signal,()=>{this.bind();const s=slot+half;textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,s%this.columns*CELL,Math.floor(s/this.columns)*CELL+y,cell,rows,this.gl.RGBA,this.gl.UNSIGNED_BYTE,strip);});}}
-      else if(image){const part=await createImageBitmap(image,half*cell,0,cell,cell,{colorSpaceConversion:'none',premultiplyAlpha:'none'});try{await this.work.upload(scenePriority.tile,signal,()=>{this.bind();const s=slot+half;textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,s%this.columns*CELL,Math.floor(s/this.columns)*CELL,this.gl.RGBA,this.gl.UNSIGNED_BYTE,part);});}finally{part.close();}}
+      else if(image){const part=await cropTextureBitmap(image,half*cell,0,cell,cell);try{await this.work.upload(scenePriority.tile,signal,()=>{this.bind();const s=slot+half;textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,s%this.columns*CELL,Math.floor(s/this.columns)*CELL,this.gl.RGBA,this.gl.UNSIGNED_BYTE,part);});}finally{part.close();}}
      }
      this.entries.set(key,{slot,loaded:performance.now(),used:performance.now(),fine,id});this.notify();
     }finally{image?.close();}
    })().catch(()=>{if(this.entries.get(key)?.loaded===Infinity)this.entries.delete(key);if(!this.disposed&&(!signal.aborted||timedOut)){this.failed.set(key,performance.now()+60000);this.failures++;}}).finally(()=>{clearTimeout(timeout);this.pending.delete(key);this.pump();});
   }
  }
- stats(){return {resident:this.entries.size,fineResident:[...this.entries.values()].filter(e=>e.fine&&Number.isFinite(e.loaded)).length,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,failures:this.failures,gpuBytes:this.allocated?this.edge*this.edge*4:4};}
- dispose(){this.disposed=true;this.abort.abort();clearTimeout(this.timer);for(const c of this.pending.values())c.abort();for(const p of this.parents.values())p.controller.abort();for(const cancel of this.workers)cancel();this.pending.clear();this.entries.clear();this.parentCache.clear();if(!this.gl.isContextLost())this.gl.deleteTexture(this.texture);this.texture=null;}
+ stats(){return {resident:this.entries.size,fineResident:[...this.entries.values()].filter(e=>e.fine&&Number.isFinite(e.loaded)).length,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,failures:this.failures,uploadMode:this.uploadMode,cacheMode:this.cacheMode,decoderMode:this.decoderMode,sourceMode:this.sourceMode,workersCreated:this.decoder.created+this.packedDecoder.created,workersLive:this.decoder.live+this.packedDecoder.live,decodeMs:this.decoder.milliseconds+this.packedDecoder.milliseconds,packedDecodes:this.packedDecodes,packedFallbacks:this.packedFallbacks,decodes:this.decodes,decodedParents:this.parentCache.size,decodedBytes:[...this.parentCache.values()].reduce((n,patches)=>n+patches.reduce((s,p)=>s+p.byteLength,0),0),gpuBytes:this.allocated?this.edge*this.edge*4:4};}
+ dispose(){this.disposed=true;this.abort.abort();clearTimeout(this.timer);for(const c of this.pending.values())c.abort();for(const p of this.parents.values())p.controller.abort();this.decoder.dispose();this.packedDecoder.dispose();this.pending.clear();this.entries.clear();this.parentCache.clear();if(!this.gl.isContextLost())this.gl.deleteTexture(this.texture);this.texture=null;}
 }

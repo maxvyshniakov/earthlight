@@ -1,0 +1,1391 @@
+diff --git a/package.json b/package.json
+index 09b62cd..8d1ae9b 100644
+--- a/package.json
++++ b/package.json
+@@ -11,13 +11,14 @@
+     "build": "bun --bun astro build",
+     "preview": "bun scripts/preview.mjs",
+     "check": "bun --bun astro check",
+-    "verify": "bun test scripts/deliver-personal-site.test.mjs scripts/extraction-tools.test.mjs scripts/worker-compat.test.mjs scripts/iss-orbit.test.mjs scripts/celestial-sky.test.mjs scripts/night-tiles.test.mjs scripts/earth-terrain.test.mjs scripts/terrain-detail.test.mjs scripts/scene-runtime.test.mjs scripts/scene-quality.test.mjs scripts/cloud-buffer.test.mjs scripts/cloud-lighting.test.mjs scripts/webgl-context.test.mjs scripts/shader-programs.test.mjs scripts/texture-profile.test.mjs scripts/browser-module.test.mjs scripts/scene-assets-startup.test.mjs && bun run check && bun run build",
++    "verify": "bun test scripts/terrain-decoder.test.mjs scripts/deliver-personal-site.test.mjs scripts/extraction-tools.test.mjs scripts/worker-compat.test.mjs scripts/iss-orbit.test.mjs scripts/celestial-sky.test.mjs scripts/night-tiles.test.mjs scripts/earth-terrain.test.mjs scripts/terrain-detail.test.mjs scripts/scene-runtime.test.mjs scripts/scene-quality.test.mjs scripts/cloud-buffer.test.mjs scripts/cloud-lighting.test.mjs scripts/webgl-context.test.mjs scripts/shader-programs.test.mjs scripts/texture-profile.test.mjs scripts/browser-module.test.mjs scripts/scene-assets-startup.test.mjs && bun run check && bun run build",
+     "verify:scene": "bun scripts/verify-scene-browser.mjs",
+     "benchmark:scene": "bun scripts/benchmark-scene-profiles.mjs",
+     "verify:profiles": "bun scripts/verify-scene-profiles.mjs",
+     "benchmark:pairs": "bun scripts/benchmark-candidate-pairs.mjs",
+     "verify:motion": "bun scripts/verify-candidate-motion.mjs",
+     "assets": "bun scripts/fetch-assets.mjs",
++    "terrain:prepare": "bun scripts/prepare-terrain-packed.mjs",
+     "assets:prepare": "bun scripts/prepare-assets.mjs",
+     "assets:publish": "bun scripts/publish-assets.mjs",
+     "package": "bun run assets:prepare && bun pm pack --destination .packages",
+diff --git a/scripts/cloud-lighting.test.mjs b/scripts/cloud-lighting.test.mjs
+index 36add08..28ab3a6 100644
+--- a/scripts/cloud-lighting.test.mjs
++++ b/scripts/cloud-lighting.test.mjs
+@@ -1,6 +1,6 @@
+ import {test} from 'bun:test';
+ import assert from 'node:assert/strict';
+-import {CloudLightingSchedule,CloudLightingAtlas} from '../src/scripts/cloud-lighting.ts';
++import {CloudLightingSchedule,CloudLightingAtlas,CloudBakeBudget} from '../src/scripts/cloud-lighting.ts';
+ 
+ const camera=(longitude=0,latitude=0,altitude=150)=>{
+   const lon=longitude*Math.PI/180,lat=latitude*Math.PI/180,r=1+altitude/6371;
+@@ -111,3 +111,26 @@ test('disposing a complete atlas releases both textures and its framebuffer',()=
+   assert.deepEqual(fake.state(),before);
+   atlas.dispose();assert.equal(fake.textures.size,0);assert.equal(fake.targets.size,0);
+ });
++
++
++test('smaller bake stripes visit the same atlas rows and publish only a complete replacement',()=>{
++ const schedule=new CloudLightingSchedule();schedule.update(camera(),sun,0,'a',true,0);schedule.update(camera(),sun,0,'a',true,701);
++ const visits=new Uint8Array(8*512);let steps=0;
++ while(schedule.pending){
++  const chunk=schedule.pending.chunk,tile=Math.floor(chunk/8),row=(chunk%8)*64;
++  const rows=Math.min([16,64,32][steps++%3],512-row);
++  for(let i=0;i<rows;i++)visits[tile*512+row+i]++;
++  const done=schedule.advance(rows);if(!done)assert.equal(schedule.current,null);
++ }
++ assert.ok(steps>64);assert.equal(schedule.generation,1);assert.ok(visits.every(n=>n===1));
++});
++
++test('cloud bake budget backs off under slow cadence and recovers without lowering resolution',()=>{
++ const budget=new CloudBakeBudget();let now=10000;
++ assert.equal(budget.rows(now),32);
++ for(let i=0;i<8;i++)assert.ok([16,32,64].includes(budget.rows(now+=100)));
++ assert.equal(budget.rows(now+=100),16);
++ for(let i=0;i<10;i++)budget.rows(now+=42);
++ assert.equal(budget.rows(now+=42),64);
++ assert.equal(budget.rows(now+=3000),32,'idle time must not be interpreted as GPU work');
++});
+diff --git a/scripts/compare-ray-work.mjs b/scripts/compare-ray-work.mjs
+index de1632e..766c72d 100644
+--- a/scripts/compare-ray-work.mjs
++++ b/scripts/compare-ray-work.mjs
+@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
+ import sharp from 'sharp';
+ import {ORBIT_SECONDS} from '../src/scripts/iss-orbit.ts';
+ const exec=promisify(execFile);
+-const options={bounded:{terrainWork:'bounded'},pixel:{terrainWork:'bounded',terrainRefinement:'pixel'},clouds:{cloudSteps:'balanced'},coarse:{terrainDetail:'coarse'},combined:{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}};
++const options={bake:{cloudBake:'budget'},pool:{terrainDecoder:'pool'},packed:{terrainSource:'packed'},streaming:{cloudBake:'budget',terrainDecoder:'pool',terrainSource:'packed'},cache:{terrainCache:'working'},uploads:{terrainUpload:'tile'},bounded:{terrainWork:'bounded'},pixel:{terrainWork:'bounded',terrainRefinement:'pixel'},clouds:{cloudSteps:'balanced'},coarse:{terrainDetail:'coarse'},combined:{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}};
+ const [base='http://127.0.0.1:4347',out='/tmp/orbit-pairs',selected='bounded,pixel',views='clouds,day,night',baseline='compact']=process.argv.slice(2);
+ let sequence=0,session,opened=false;
+ const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:80e6,timeout:90000})).stdout;
+@@ -23,13 +23,16 @@ const evaluateTask=async code=>{
+  throw Error('Paired GPU sampling timed out');
+ };
+ const settled=`[...document.querySelectorAll('orbital-sky')].every(s=>s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&(s.dataset.cloudLighting!=='texture'||s.dataset.cloudLightingReady==='1')&&Number(s.dataset.cloudLightingProgress??0)===0&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0))`;
+-const wait=async()=>{try{await run('wait','--fn',settled);}catch(e){if(!String(e.stderr).includes('Wait timed out'))throw e;await run('wait','--fn',settled);}};
++const needsFine=selected.split(',').some(name=>['cache','uploads','pool','packed','streaming'].includes(name));
++const ready=settled+(needsFine?`&&[...document.querySelectorAll('orbital-sky')].every(s=>Number(JSON.parse(s.dataset.terrainTiles??'{}').fineResident)>0)`: '');
++const wait=async()=>{try{await run('wait','--fn',ready);}catch(e){if(!String(e.stderr).includes('Wait timed out'))throw e;await run('wait','--fn',ready);}};
+ await mkdir(out,{recursive:true});const results=[];
+ try{
+  for(const scene of [{name:'day',t:3235.65,pitch:0},{name:'night',t:610.87,pitch:0},{name:'clouds',t:3235.65,pitch:-25}].filter(s=>views.split(',').includes(s.name)))for(const candidate of selected.split(',')){
+   session=`orbit-pairs-${process.pid}-${sequence++}`;opened=true;
+   assert.ok(options[candidate],`Unknown candidate: ${candidate}`);
+-  await run('open',`${base}/?api=webgl&render=${encodeURIComponent(baseline)}&motion=0&quality=fixed&terrainWork=legacy&terrainRefinement=full&cloudSteps=full&t=${scene.t}&pitch=${scene.pitch}&epoch=2026-10-06T01:32:27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0`);
++  const referenceWork=['uploads','cache','bake','pool','packed','streaming'].includes(candidate)?{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}:{terrainWork:'legacy',terrainRefinement:'full',cloudSteps:'full'};
++  await run('open',`${base}/?api=webgl&render=${encodeURIComponent(baseline)}&motion=0&quality=fixed&${new URLSearchParams(referenceWork)}&terrainUpload=strips&terrainCache=${['uploads','cache'].includes(candidate)?'small':'working'}&terrainDecoder=single&terrainSource=tiff&cloudBake=fixed&t=${scene.t}&pitch=${scene.pitch}&epoch=2026-10-06T01:32:27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0`);
+   await run('set','viewport','1248','615');await wait();
+   await evaluate(`(()=>{
+    const original=document.querySelector('orbital-sky'),copy=original.cloneNode(true);
+@@ -43,7 +46,7 @@ try{
+   await evaluate(`(()=>{for(const s of document.querySelectorAll('orbital-sky'))s.querySelector('.sky-track input').dispatchEvent(new Event('input'));return true;})()`);await wait();
+   const result=await evaluateTask(`(async()=>{
+    const skies=[...document.querySelectorAll('orbital-sky')],pairs=[];
+-   const states=skies.map(s=>({terrainWork:s.dataset.terrainWork,terrainRefinement:s.dataset.terrainRefinement,cloudSteps:s.dataset.cloudSteps,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,width:s.querySelector('canvas').width,height:s.querySelector('canvas').height,failures:s.dataset.assetFailures}));
++   const states=skies.map(s=>({terrainWork:s.dataset.terrainWork,terrainRefinement:s.dataset.terrainRefinement,cloudSteps:s.dataset.cloudSteps,terrain:s.dataset.terrainTiles,cloudBake:s.dataset.cloudLightingBake,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,width:s.querySelector('canvas').width,height:s.querySelector('canvas').height,failures:s.dataset.assetFailures}));
+    const monitors=skies.map(s=>{
+     const gl=s.querySelector('canvas').getContext('webgl'),bind=gl.bindFramebuffer,draw=gl.drawArrays;
+     let target=gl.getParameter(gl.FRAMEBUFFER_BINDING),frames=0;
+@@ -77,9 +80,21 @@ try{
+   })()`);
+   assert.ok(result.renderer&&!/swiftshader|llvmpipe|softpipe/i.test(result.renderer),result.renderer);
+   assert.deepEqual(result.states.map(s=>s.profile),[baseline,baseline]);
+-  assert.equal(result.states[1].terrainWork,['clouds','coarse'].includes(candidate)?'legacy':'bounded');
+-  assert.equal(result.states[1].cloudSteps,['clouds','combined'].includes(candidate)?'balanced':'full');
+-  assert.equal(result.states[1].terrainRefinement,['pixel','combined'].includes(candidate)?'pixel':'full');
++  for(const [index,expected] of [referenceWork,{...referenceWork,...options[candidate]}].entries())
++   for(const key of ['terrainWork','terrainRefinement','cloudSteps'])assert.equal(result.states[index][key],expected[key]);
++  if(candidate==='cache')for(const [i,mode] of ['small','working'].entries()){
++   const terrain=JSON.parse(result.states[i].terrain);assert.equal(terrain.cacheMode,mode);assert.ok(terrain.fineResident>0,JSON.stringify(terrain));
++  }
++  if(candidate==='uploads')for(const [i,mode] of ['strips','tile'].entries()){
++   const terrain=JSON.parse(result.states[i].terrain);assert.equal(terrain.uploadMode,mode);assert.ok(terrain.fineResident>0,JSON.stringify(terrain));
++  }
++  if(['bake','pool','packed','streaming'].includes(candidate))for(const [i,state] of result.states.entries()){
++   const t=JSON.parse(state.terrain);assert.equal(t.cacheMode,'working');
++   assert.equal(t.decoderMode,i&&['pool','streaming'].includes(candidate)?'pool':'single');
++   assert.equal(t.sourceMode,i&&['packed','streaming'].includes(candidate)?'packed':'tiff');
++   assert.equal(state.cloudBake,i&&['bake','streaming'].includes(candidate)?'budget':'fixed');
++   if(i&&['packed','streaming'].includes(candidate)){assert.ok(t.packedDecodes>0);assert.equal(t.packedFallbacks,0);}
++  }
+   if(candidate==='clouds-half')assert.equal(result.states[1].cloudPass,'half','Do not benchmark a silent compact fallback as half-resolution clouds');
+   assert.deepEqual(result.frameCounts,[40,40],'Only the requested frames may run during paired sampling');
+   for(const k of ['position','basis','width','height'])assert.equal(result.states[0][k],result.states[1][k]);
+diff --git a/scripts/night-tiles.test.mjs b/scripts/night-tiles.test.mjs
+index f631aae..024b193 100644
+--- a/scripts/night-tiles.test.mjs
++++ b/scripts/night-tiles.test.mjs
+@@ -62,10 +62,11 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
+   let now=1000;spyOn(performance,'now').mockImplementation(()=>now);
+   const cell=(layer==='cloud'||layer==='galaxy')?544:572,columns=layer==='terrain'?40:(layer==='cloud'||layer==='galaxy')?32:160,rows=layer==='terrain'?20:(layer==='cloud'||layer==='galaxy')?16:80;
+   const ids=Array.from({length:columns*rows},(_,i)=>i);
+-  const originals={fetch:globalThis.fetch,createImageBitmap:globalThis.createImageBitmap,window:globalThis.window,document:globalThis.document};
++  const originals={fetch:globalThis.fetch,createImageBitmap:globalThis.createImageBitmap,window:globalThis.window,document:globalThis.document,OffscreenCanvas:globalThis.OffscreenCanvas};
+   const requests=[];let closes=0,deletes=0;const uploads=[];
+   globalThis.window=globalThis;
+   globalThis.document={hidden:false};
++  globalThis.OffscreenCanvas=class{constructor(width,height){this.width=width;this.height=height;}getContext(){return {drawImage(){}};}transferToImageBitmap(){return {width:this.width,height:this.height,close(){closes++;}};}};
+   globalThis.createImageBitmap=async(...args)=>{const options=args.at(-1);return {width:args.length>2?args[3]:options.resizeWidth||cell*(layer==='terrain'?2:1),height:args.length>2?args[4]:options.resizeHeight||cell,close(){closes++;}};};
+   globalThis.fetch=async(url,options)=>{
+     if(url.endsWith('manifest.json'))return {ok:true,json:async()=>({version:1,interior:cell-32,gutter:16,columns,rows,tiles:ids})};
+diff --git a/scripts/preview.mjs b/scripts/preview.mjs
+index 482d899..7719ba3 100644
+--- a/scripts/preview.mjs
++++ b/scripts/preview.mjs
+@@ -1,8 +1,17 @@
+ import {preview} from 'astro';
+ import {parseArgs} from 'node:util';
+ import {terrainMiddleware} from '../server/terrain-middleware.mjs';
++import {readFile} from 'node:fs/promises';
++import {join} from 'node:path';
+ 
+-const {values}=parseArgs({options:{host:{type:'string',default:'127.0.0.1'},port:{type:'string',default:'4321'}}});
++const {values}=parseArgs({options:{host:{type:'string',default:'127.0.0.1'},port:{type:'string',default:'4321'},'terrain-cache':{type:'string'}}});
++// Optional local benchmark fixture: serve TIFF and prepared bytes over the
++// same connection, instead of comparing S3 latency with local static files.
++const terrainFetch=values['terrain-cache']?async(url,options)=>{
++  const match=/Copernicus_DSM_COG_30_([NS]\d{2})_00_([EW]\d{3})_00_DEM\.tif$/.exec(url);
++  if(match){try{const bytes=await readFile(join(values['terrain-cache'],match[1]+match[2]+'.tif'));return new Response(bytes,{headers:{'Content-Length':String(bytes.length)}});}catch(error){if(error.code!=='ENOENT')throw error;}}
++  return fetch(url,options);
++}:fetch;
+ const app=await preview({server:{host:values.host,port:Number(values.port)}});
+ // Astro's static preview intentionally omits user Vite plugins. Attach the
+ // same narrow DEM route used in dev; all other requests stay with Astro.
+@@ -10,5 +19,5 @@ const handlers=app.server.listeners('request');
+ app.server.removeAllListeners('request');
+ app.server.on('request',(req,res)=>void terrainMiddleware(req,res,()=>{
+   for(const handler of handlers)handler.call(app.server,req,res);
+-}));
++},terrainFetch));
+ for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>void app.stop());
+diff --git a/scripts/terrain-detail.test.mjs b/scripts/terrain-detail.test.mjs
+index b3bf67b..4e894b4 100644
+--- a/scripts/terrain-detail.test.mjs
++++ b/scripts/terrain-detail.test.mjs
+@@ -39,7 +39,7 @@ test('DEM proxy accepts only the fixed public dataset and handles upstream failu
+ });
+ test('shared terrain atlas bounds uploads, retries failures slowly and releases offscreen memory',async()=>{
+  let now=1000;spyOn(performance,'now').mockImplementation(()=>now);
+- const originals={fetch:globalThis.fetch,window:globalThis.window,document:globalThis.document,createImageBitmap:globalThis.createImageBitmap};
++ const originals={fetch:globalThis.fetch,window:globalThis.window,document:globalThis.document,createImageBitmap:globalThis.createImageBitmap,OffscreenCanvas:globalThis.OffscreenCanvas};
+  const uploads=[];let tileRequests=0,deleted=0;
+  globalThis.window=globalThis;globalThis.document={hidden:false};
+  globalThis.fetch=async url=>{
+@@ -47,6 +47,7 @@ test('shared terrain atlas bounds uploads, retries failures slowly and releases
+   if(url.endsWith('manifest.json'))return {ok:true,json:async()=>({tiles:Array.from({length:800},(_,i)=>i)})};
+   tileRequests++;return tileRequests===1?{ok:false}:{ok:true,blob:async()=>new Blob(['tile'])};
+  };
++ globalThis.OffscreenCanvas=class{constructor(width,height){this.width=width;this.height=height;}getContext(){return {drawImage(){}};}transferToImageBitmap(){return {width:this.width,height:this.height,close(){}};}};
+  globalThis.createImageBitmap=async(...args)=>({width:args.length>2?572:1144,height:572,close(){}});
+  const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},texSubImage2D(...a){uploads.push(a);},getUniformLocation:()=>({}),uniform1i(){},uniform2f(){},isContextLost:()=>false,deleteTexture(){deleted++;}};
+  const work={network:{run:(_,signal,f)=>signal.aborted?Promise.reject(signal.reason):f()},decode:{run:(_,signal,f)=>signal.aborted?Promise.reject(signal.reason):f()},upload:async(_,signal,f)=>{if(signal.aborted)throw signal.reason;f();}};
+@@ -77,16 +78,88 @@ test('fine DEM deduplicates parent downloads, caps decoded cache and cancels wor
+  const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},isContextLost:()=>false,deleteTexture(){}};
+  let atlas;
+  try{
+-  atlas=new TerrainStream(gl,true,()=>{});
++  atlas=new TerrainStream(gl,true,()=>{},undefined,undefined,undefined,'strips','small');
+   const id=96*720+132;
+   const [a,b]=await Promise.all([atlas.fineData(id),atlas.fineData(id+1)]);
+   assert.equal(a,b);assert.equal(requests,1);assert.equal(terminated,1);
+   await atlas.fineData(id+2);await atlas.fineData(id+4);
+   assert.equal(atlas.parentCache.size,2);assert.equal(requests,3);
+   hold=true;const pending=atlas.fineData(id+6);await new Promise(r=>setImmediate(r));
+-  atlas.dispose();await assert.rejects(pending,/cancelled/);assert.equal(atlas.workers.size,0);assert.equal(atlas.parentCache.size,0);
++  atlas.dispose();await assert.rejects(pending,/cancelled/);assert.equal(atlas.decoder.live,0);assert.equal(atlas.parentCache.size,0);
+   atlas=null;
+  }finally{atlas?.dispose();Object.assign(globalThis,originals);}
+ });
+ 
++test('whole DEM upload preserves every atlas byte and publishes only after completion',async()=>{
++ const original={window:globalThis.window,document:globalThis.document,fetch:globalThis.fetch};
++ globalThis.window=globalThis;globalThis.document={hidden:false};
++ globalThis.fetch=async()=>({ok:true,json:async()=>[]});
++ const pixels=Uint8Array.from({length:DEM_CELL*DEM_CELL*2*4},(_,i)=>(i*31+Math.floor(i/127))%256);
++ const render=async(mode,mobile)=>{
++  const columns=mobile?4:6,edge=columns*DEM_CELL,bytes=new Uint8Array(edge*edge*4),calls=[];
++  const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},isContextLost:()=>false,deleteTexture(){},
++   texSubImage2D(_target,_level,x,y,w,h,_format,_type,data){
++    assert.ok(x+w<=edge&&y+h<=edge);calls.push({x,y,w,h});
++    for(let row=0;row<h;row++)bytes.set(data.subarray(row*w*4,(row+1)*w*4),((y+row)*edge+x)*4);
++   }};
++  const jobs=[];
++  const work={network:{run:async(_,signal,f)=>f()},upload:(_,signal,f)=>new Promise((resolve,reject)=>jobs.push(()=>{if(signal.aborted){reject(signal.reason);return;}f();resolve();}))};
++  const atlas=new TerrainStream(gl,mobile,()=>{},work,undefined,undefined,mode);
++  atlas.fineData=async()=>[pixels,pixels,pixels,pixels];
++  // Last paired cells exercise the atlas edge, beyond the indirection row.
++  for(let slot=columns;slot<columns*columns-2;slot+=2)atlas.entries.set('c'+slot,{slot,loaded:0,used:0,id:slot,fine:false});
++  atlas.wanted=['f0'];atlas.pump();
++  try{
++   while(atlas.pending.size){
++    await new Promise(r=>setImmediate(r));
++    if(jobs.length){assert.equal(atlas.entries.get('f0').loaded,Infinity);jobs.shift()();}
++   }
++   assert.equal(atlas.stats().fineResident,1);assert.equal(atlas.stats().failures,0);
++   assert.equal(calls.length,mode==='tile'?1:20);
++   const slot=atlas.entries.get('f0').slot;assert.equal(slot,columns*columns-2);
++   // Heights AND packed mipmaps match the decoder buffer, not just each other.
++   for(let row=0;row<DEM_CELL;row++)assert.deepEqual(bytes.subarray(((Math.floor(slot/columns)*DEM_CELL+row)*edge+slot%columns*DEM_CELL)*4,((Math.floor(slot/columns)*DEM_CELL+row)*edge+slot%columns*DEM_CELL+2*DEM_CELL)*4),pixels.subarray(row*2*DEM_CELL*4,(row+1)*2*DEM_CELL*4));
++   return bytes;
++  }finally{atlas.dispose();}
++ };
++ try{for(const mobile of [true,false])assert.deepEqual(await render('tile',mobile),await render('strips',mobile));}
++ finally{Object.assign(globalThis,original);}
++});
++
++test('working DEM cache keeps visible parents and stays within its memory budget',async()=>{
++ const original={window:globalThis.window,fetch:globalThis.fetch,Worker:globalThis.Worker};
++ globalThis.window=globalThis;
++ let requests=0;
++ globalThis.fetch=async url=>url.endsWith('.json')?{ok:true,json:async()=>url.endsWith('copernicus.json')?[]:{tiles:[]}}:{ok:true,arrayBuffer:async()=>{requests++;return new ArrayBuffer(4);}};
++ globalThis.Worker=class{postMessage(){queueMicrotask(()=>this.onmessage({data:{patches:Array.from({length:4},()=>new Uint8Array(8))}}));}terminate(){}};
++ const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},isContextLost:()=>false,deleteTexture(){}};
++ try{for(const mobile of [true,false]){
++  const atlas=new TerrainStream(gl,mobile,()=>{});
++  try{
++   assert.equal(atlas.stats().cacheMode,'working');assert.equal(atlas.stats().uploadMode,'strips');
++   atlas.wanted=['f0'];const expected=await atlas.fineData(0);
++   for(let id=2;id<20;id+=2)await atlas.fineData(id);
++   assert.equal(atlas.parentCache.size,mobile?4:6);
++   const before=requests;assert.equal(await atlas.fineData(0),expected);assert.equal(requests,before,'visible parent must not be downloaded or decoded twice');
++   assert.equal(atlas.stats().decodedBytes,(mobile?4:6)*32);
++  }finally{atlas.dispose();assert.equal(atlas.stats().decodedBytes,0);}
++ }}finally{Object.assign(globalThis,original);}
++});
++
+ afterEach(()=>{mock.restore();});
++
++
++test('missing or corrupt prepared terrain falls back to TIFF and avoids repeated failed packed requests',async()=>{
++ const original={window:globalThis.window,Worker:globalThis.Worker,fetch:globalThis.fetch};globalThis.window=globalThis;
++ const requests=[];
++ globalThis.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>url.includes('terrain-packed')?{version:1,files:[{id:0}]}:url.endsWith('copernicus.json')?[]:{tiles:[]},arrayBuffer:async()=>new ArrayBuffer(4)};};
++ globalThis.Worker=class{constructor(url){this.packed=String(url).includes('packed');}postMessage(){queueMicrotask(()=>this.onmessage({data:this.packed?{error:'corrupt'}:{patches:Array.from({length:4},()=>new Uint8Array(4))}}));}terminate(){}};
++ const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},isContextLost:()=>false,deleteTexture(){}};
++ const atlas=new TerrainStream(gl,false,()=>{},undefined,undefined,undefined,'strips','working','pool','packed');
++ try{
++  await atlas.fineData(0);assert.equal(atlas.stats().packedFallbacks,1);assert.equal(atlas.stats().failures,0);
++  atlas.parentCache.clear();await atlas.fineData(0);
++  assert.equal(requests.filter(url=>url.endsWith('.dem')).length,1);assert.equal(requests.filter(url=>url.endsWith('.tif')).length,2);
++  await atlas.fineData(2);assert.equal(requests.filter(url=>url.endsWith('.dem')).length,1,'unprepared regions go directly to TIFF');
++ }finally{atlas.dispose();assert.equal(atlas.stats().workersLive,0);Object.assign(globalThis,original);}
++});
+diff --git a/scripts/verify-scene-browser.mjs b/scripts/verify-scene-browser.mjs
+index c74e29b..2754fe1 100644
+--- a/scripts/verify-scene-browser.mjs
++++ b/scripts/verify-scene-browser.mjs
+@@ -1,3 +1,5 @@
++import {verifyCanvasResize} from './canvas-resize-browser-fixture.mjs';
++import {verifyTextureBitmap} from './texture-bitmap-browser-fixture.mjs';
+ import { galacticLightShader } from '../src/scripts/galactic-light.ts';
+ import { surfaceMapShader } from '../src/scripts/surface-map.ts';
+ import { airglowLightShader } from '../src/scripts/airglow-light.ts';
+@@ -30,7 +32,7 @@ const session=`scene-proof-${process.pid}`;
+ const run=async(...args)=>{
+  // Visual regression scenes use a fixed calendar; production defaults to now.
+  if(args[0]==='open'&&args[1]?.startsWith(base)){
+-  const url=new URL(args[1]);if(!url.searchParams.has('epoch'))url.searchParams.set('epoch',START_DATE.toISOString());if(process.env.SCENE_PROFILE)url.searchParams.set('render',process.env.SCENE_PROFILE);args[1]=url.href;
++  const url=new URL(args[1]);if(!url.searchParams.has('epoch'))url.searchParams.set('epoch',START_DATE.toISOString());if(process.env.SCENE_PROFILE)url.searchParams.set('render',process.env.SCENE_PROFILE);if(process.env.SCENE_TERRAIN_UPLOAD)url.searchParams.set('terrainUpload',process.env.SCENE_TERRAIN_UPLOAD);if(process.env.SCENE_TERRAIN_CACHE)url.searchParams.set('terrainCache',process.env.SCENE_TERRAIN_CACHE);for(const [key,name] of [['terrainDecoder','SCENE_TERRAIN_DECODER'],['terrainSource','SCENE_TERRAIN_SOURCE'],['cloudBake','SCENE_CLOUD_BAKE']])if(process.env[name])url.searchParams.set(key,process.env[name]);args[1]=url.href;
+  }
+  return (await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
+ };
+@@ -254,9 +256,16 @@ try{
+   const state=await evaluate(`(()=>{const e=document.querySelector('orbital-sky'),i=e.querySelector('[data-look=grain]');i.value='0';i.dispatchEvent(new Event('input'));const c=e.querySelector('canvas'),gl=c.getContext('webgl');return {time:${time},ready:e.hasAttribute('data-ready'),error:gl.getError(),data:{...e.dataset},canvas:[c.width,c.height]};})()`);
+   assert.equal(state.ready,true);assert.equal(state.error,0);assert.equal(state.data.assetFailures,'0');
+   assert.deepEqual([state.data.terrainWork,state.data.terrainRefinement,state.data.cloudSteps],['bounded','pixel','balanced']);
++  if(state.data.terrainTiles){const terrain=JSON.parse(state.data.terrainTiles);for(const [field,name] of [['cacheMode','SCENE_TERRAIN_CACHE'],['decoderMode','SCENE_TERRAIN_DECODER'],['sourceMode','SCENE_TERRAIN_SOURCE']])if(process.env[name])assert.equal(terrain[field],process.env[name]);if(process.env.SCENE_TERRAIN_SOURCE==='packed')assert.equal(terrain.packedFallbacks,0);}
+   await run('screenshot',`${out}/frame-${time}.png`);results.push(state);console.log(`frame ${time}: clean`);
+  }
+  // The historical renderer remains available for matched comparisons.
++ if(process.env.SCENE_TERRAIN_SOURCE==='packed'){
++  await run('open',`${base}/?t=3235.65&pitch=-25&motion=0&quality=fixed`);await wait(settled);
++  const terrain=await evaluate(`JSON.parse(document.querySelector('orbital-sky').dataset.terrainTiles)`);
++  assert.equal(terrain.sourceMode,'packed');assert.ok(terrain.packedDecodes>0);assert.equal(terrain.packedFallbacks,0);assert.ok(terrain.fineResident>0);
++  console.log('prepared terrain: actual packed residents, no TIFF error fallback');
++ }
+  await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&terrainWork=legacy&terrainRefinement=full&cloudSteps=full`);await wait(settled);
+  const legacyWork=await evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {work:[e.dataset.terrainWork,e.dataset.terrainRefinement,e.dataset.cloudSteps],failures:e.dataset.assetFailures,error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
+  assert.deepEqual(legacyWork.work,['legacy','full','full']);assert.equal(legacyWork.failures,'0');assert.equal(legacyWork.error,0);
+@@ -416,6 +425,8 @@ try{
+  await evaluate("document.querySelector('#sky-settings').showPopover();document.querySelector('[data-view=yaw]').focus();true");
+  await run('press','Space');assert.equal((await viewState()).motion,'Play');
+  results.push({spacePlayback:true});console.log('space: toggles playback, ignores repeats and focused sliders');
++ const canvasResize=await verifyCanvasResize({run,evaluate,wait,base});results.push({canvasResize});console.log('canvas resize: repaints before presentation',canvasResize);
++ const textureBitmap=await verifyTextureBitmap(evaluate);results.push({textureBitmap});console.log('texture crops: exact numeric bytes at atlas edges',textureBitmap);
+  const flight=await verifyFlight({run,evaluate,wait,base});results.push({flight});console.log('flight: routes, bounds, pause, URL restoration and input ownership',flight);
+  const touch=await verifyTouch({run,evaluate,wait,base});results.push({touch});console.log('touch: look, pan, pinch and native controls',touch);
+  const calendar=await verifyCalendar({run,evaluate,wait,base});results.push({calendar});console.log('calendar: lighting, camera independence, URL restoration and reset',calendar);
+diff --git a/server/terrain-middleware.mjs b/server/terrain-middleware.mjs
+index 1b082bd..7865d85 100644
+--- a/server/terrain-middleware.mjs
++++ b/server/terrain-middleware.mjs
+@@ -1,10 +1,10 @@
+ import {Readable} from 'node:stream';
+ import {terrainResponse} from './terrain-source.mjs';
+ 
+-export async function terrainMiddleware(req,res,next){
++export async function terrainMiddleware(req,res,next,fetcher=fetch){
+   if(!req.url?.startsWith('/media/orbit/dem90/'))return next();
+   const controller=new AbortController();res.on('close',()=>controller.abort());
+-  const result=await terrainResponse(new Request(new URL(req.url,'http://localhost'),{method:req.method,signal:controller.signal}));
++  const result=await terrainResponse(new Request(new URL(req.url,'http://localhost'),{method:req.method,signal:controller.signal}),fetcher);
+   if(res.destroyed){await result.body?.cancel();return;}
+   res.writeHead(result.status,Object.fromEntries(result.headers));
+   if(result.body)Readable.fromWeb(result.body).on('error',()=>res.destroy()).pipe(res);else res.end();
+diff --git a/src/scripts/cloud-lighting.ts b/src/scripts/cloud-lighting.ts
+index bd6d326..51751ed 100644
+--- a/src/scripts/cloud-lighting.ts
++++ b/src/scripts/cloud-lighting.ts
+@@ -6,6 +6,20 @@ import {fragmentSource,vertexSource} from './orbital-shader';
+ // Two 2048 x 1024 textures cost 16 MiB, including the unfinished replacement.
+ const TILE=512,WIDTH=2048,HEIGHT=1024,STRIPE=64,CHUNKS=64;
+ const SPAN=Math.PI/6;
++/** Use recent submission cadence to bound optional bake work. No nested GPU
++ * queries or completion waits: the scene quality timer owns GPU queries. */
++export class CloudBakeBudget {
++ private last=0;
++ private samples:number[]=[];
++ rows(now:number){
++  const delta=now-this.last;this.last=now;
++  if(delta>2000)this.samples=[];
++  else if(delta>0){this.samples.push(delta);if(this.samples.length>8)this.samples.shift();}
++  if(this.samples.length<3)return 32;
++  const sorted=[...this.samples].sort((a,b)=>a-b),cost=sorted[Math.floor(sorted.length*.7)];
++  return cost>75?16:cost>50?32:64;
++ }
++}
+ const helper=`
+ uniform sampler2D cloudLightingAtlas;
+ uniform float cloudLightingReady;
+@@ -97,9 +111,10 @@ export class CloudLightingSchedule {
+     }
+     return {ready,work:!!this.pending||refresh};
+   }
+-  advance(){
++  advance(rows=STRIPE){
+     if(!this.pending)return false;
+-    if(++this.pending.chunk<CHUNKS)return false;
++    this.pending.chunk+=rows/STRIPE;
++    if(this.pending.chunk<CHUNKS)return false;
+     this.current=this.pending;this.pending=null;this.generation++;return true;
+   }
+ }
+@@ -115,9 +130,11 @@ export class CloudLightingAtlas {
+   private bakeResolution=[1,1];
+   private ready=false;
+   private wake:ReturnType<typeof setTimeout>|undefined;
++  private budget=new CloudBakeBudget();
++  private bakeDraws=0;
+   static supported(gl:WebGLRenderingContext){return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&gl.getParameter(gl.MAX_TEXTURE_SIZE)>=2048;}
+   static prepare(batch:ShaderProgramBatch,header:string){return batch.add('Cloud lighting bake',vertexSource,header+bakeSource);}
+-  constructor(private gl:WebGLRenderingContext,private program:WebGLProgram,private notify:()=>void){
++  constructor(private gl:WebGLRenderingContext,private program:WebGLProgram,private notify:()=>void,private mode:'fixed'|'budget'='fixed'){
+     this.position=gl.getAttribLocation(program,'position');
+     const unit=gl.getParameter(gl.ACTIVE_TEXTURE);gl.activeTexture(gl.TEXTURE15);
+     const binding=gl.getParameter(gl.TEXTURE_BINDING_2D),target=gl.getParameter(gl.FRAMEBUFFER_BINDING);
+@@ -141,7 +158,8 @@ export class CloudLightingAtlas {
+   }
+   update(camera:number[],sun:number[],time:number,width:number,height:number,mapWidth:number,layout:Float32Array|number[]|undefined,stamp:string,settled:boolean,state:Record<string,string>){
+     clearTimeout(this.wake);this.wake=undefined;
+-    const gl=this.gl,status=this.schedule.update(camera,sun,time,stamp,settled,performance.now());
++    const now=performance.now(),rows=this.mode==='budget'?this.budget.rows(now):STRIPE;
++    const gl=this.gl,status=this.schedule.update(camera,sun,time,stamp,settled,now);
+     this.ready=status.ready;
+     const bake=this.schedule.pending;
+     if(bake){
+@@ -154,13 +172,15 @@ export class CloudLightingAtlas {
+       gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer);
+       gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.textures[1-this.active],0);
+       gl.viewport(0,0,WIDTH,HEIGHT);
+-      // One 512 x 64 stripe (four heights) per frame. Never expose partial data.
+-      const tile=Math.floor(bake.chunk/8),row=bake.chunk%8;
+-      gl.enable(gl.SCISSOR_TEST);gl.scissor((tile%4)*TILE,Math.floor(tile/4)*TILE+row*STRIPE,TILE,STRIPE);
++      // Same atlas pixels and shader. Stop at a tile boundary when the budget
++      // grows partway through a tile; never expose an unfinished replacement.
++      const tile=Math.floor(bake.chunk/8),row=(bake.chunk%8)*STRIPE,count=Math.min(rows,TILE-row);
++      gl.enable(gl.SCISSOR_TEST);gl.scissor((tile%4)*TILE,Math.floor(tile/4)*TILE+row,TILE,count);
+       gl.enableVertexAttribArray(this.position);gl.vertexAttribPointer(this.position,2,gl.FLOAT,false,0,0);
+       const dither=gl.isEnabled(gl.DITHER);gl.disable(gl.DITHER);
+       try{gl.drawArrays(gl.TRIANGLES,0,3);}finally{gl.disable(gl.SCISSOR_TEST);if(dither)gl.enable(gl.DITHER);}
+-      if(this.schedule.advance()){this.active=1-this.active;this.ready=true;}
++      this.bakeDraws++;
++      if(this.schedule.advance(count)){this.active=1-this.active;this.ready=true;}
+     }
+     // A paused explorer still completes its bake. The renderer's notify path
+     // coalesces this with normal playback; disposal/context loss cancels it.
+@@ -170,6 +190,7 @@ export class CloudLightingAtlas {
+     state.cloudLightingProgress=String(this.schedule.pending?.chunk??0);
+     state.cloudLightingBytes=String(WIDTH*HEIGHT*4*2);
+     state.cloudLightingPatch=JSON.stringify(this.schedule.current?.patch??[]);
++    state.cloudLightingBake=this.mode;state.cloudLightingRows=String(rows);state.cloudLightingDraws=String(this.bakeDraws);
+   }
+   bind(program:WebGLProgram){
+     const gl=this.gl;
+diff --git a/src/scripts/night-tiles.ts b/src/scripts/night-tiles.ts
+index 179e86e..ee324f5 100644
+--- a/src/scripts/night-tiles.ts
++++ b/src/scripts/night-tiles.ts
+@@ -1,3 +1,4 @@
++import {cropTextureBitmap} from './texture-bitmap.ts';
+ import {textureImage2D,textureSubImage2D} from './webgl-context.ts';
+ import { SceneWork, scenePriority } from './scene-work.ts';
+ // Bounded virtual textures: night lights in unit 7, daytime in 6, clouds in 9,
+@@ -296,7 +297,7 @@ export class SurfaceTiles {
+           if(this.layer==='terrain'){
+             // Lossless prepacked numeric mipmaps: never resize packed heights.
+             for(let half=0;half<2;half++){
+-              const square=await createImageBitmap(image,half*cell,0,cell,cell,{colorSpaceConversion:'none',premultiplyAlpha:'none'});
++              const square=await cropTextureBitmap(image,half*cell,0,cell,cell);
+               try{await this.work.upload(scenePriority.tile,controller.signal,()=>{
+                 this.bind();const target=slot+half;
+                 textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,(target%this.columns)*cell,Math.floor(target/this.columns)*cell,this.format,this.gl.UNSIGNED_BYTE,square);
+diff --git a/src/scripts/orbit-renderer.ts b/src/scripts/orbit-renderer.ts
+index 3d7e027..2a98aec 100644
+--- a/src/scripts/orbit-renderer.ts
++++ b/src/scripts/orbit-renderer.ts
+@@ -1,3 +1,4 @@
++import {cropTextureBitmap} from './texture-bitmap.ts';
+ import {assetURL,type SceneSources} from './asset-location';
+ import {shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './webgl-context.ts';
+ import {ShaderProgramBatch} from './shader-programs';
+@@ -234,7 +235,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
+               });
+               for(let y=0;y<image.height;y+=256){
+                 if(disposed||lost||current!==generation)return;
+-                const strip=await createImageBitmap(image,0,y,image.width,Math.min(256,image.height-y));
++                const strip=await cropTextureBitmap(image,0,y,image.width,Math.min(256,image.height-y));
+                 try{
+                   if(disposed||lost||current!==generation)return;
+                   await submit(()=>{
+@@ -429,7 +430,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
+         state.cloudLighting='raymarch';
+         if(lightingPlan){
+           const bakeProgram=batch.take(lightingPlan);
+-          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify);state.cloudLighting='texture';}
++          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify,params.get('cloudBake')==='budget'?'budget':'fixed');state.cloudLighting='texture';}
+           catch(error){gl.deleteProgram(bakeProgram);console.warn('Cloud lighting atlas unavailable; retaining traced lighting.',error);}
+         }
+         if(modisStudy){
+@@ -465,7 +466,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
+           catch(error){console.warn('Detailed day map unavailable; retaining the global map.',error);}
+         }
+         if(supportsCloudTiles&&params.get('cloudDetail')!=='0')cloudTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'cloud',work,base);
+-        if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL);}
++        if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL,params.get('terrainUpload')==='tile'?'tile':'strips',params.get('terrainCache')==='small'?'small':'working',params.get('terrainDecoder')==='pool'?'pool':'single',params.get('terrainSource')==='packed'?'packed':'tiff');}
+         if(supportsGalaxyTiles)galaxyTiles=new SurfaceTiles(gl,canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches,notify,'galaxy',work,base);
+         if(starData)catalog.upload(starData);
+         initialized=true;state.shaderStartup='ready';
+diff --git a/src/scripts/orbital-sky.ts b/src/scripts/orbital-sky.ts
+index 93c30e4..6846fd6 100644
+--- a/src/scripts/orbital-sky.ts
++++ b/src/scripts/orbital-sky.ts
+@@ -326,8 +326,9 @@ export class OrbitalSky extends HTMLElement {
+       if(canvas.height!==size.height)canvas.height=size.height;
+       if(!changed)return;
+       gl.viewport(0, 0, canvas.width, canvas.height);
+-      // Playback will draw the new size on its next 24 FPS tick.
+-      if(paused||!this.hasAttribute('data-ready'))draw();
++      // Resizing clears an opaque drawing buffer. Repaint before yielding
++      // to the compositor, including between normal playback ticks.
++      if(!document.hidden)renderFrame();
+     };
+     const tick = (now: number) => {
+       frame = 0;
+diff --git a/src/scripts/terrain-stream.ts b/src/scripts/terrain-stream.ts
+index c90ad2d..9aa2fa4 100644
+--- a/src/scripts/terrain-stream.ts
++++ b/src/scripts/terrain-stream.ts
+@@ -1,3 +1,5 @@
++import {TerrainDecoder} from './terrain-decoder.ts';
++import {cropTextureBitmap} from './texture-bitmap.ts';
+ import {textureImage2D,textureSubImage2D} from './webgl-context.ts';
+ import {SceneWork,scenePriority} from './scene-work.ts';
+ import {visibleSurfaceTiles} from './night-tiles.ts';
+@@ -19,7 +21,12 @@ export class TerrainStream {
+  private failed=new Map<string,number>();
+  private parents=new Map<number,{controller:AbortController;promise:Promise<Uint8Array[]>}>();
+  private parentCache=new Map<number,Uint8Array[]>();
+- private workers=new Set<()=>void>();
++ private decoder:TerrainDecoder;
++ private packedDecoder:TerrainDecoder;
++ private packed=new Set<number>();
++ private packedDisabled=new Set<number>();
++ private packedManifest:Promise<void>=Promise.resolve();
++ private packedFallbacks=0;packedDecodes=0;
+  private abort=new AbortController();
+  private disposed=false;
+  private allocated=false;
+@@ -29,10 +36,17 @@ export class TerrainStream {
+  private pages=new Uint8Array(800*360*4);
+  private pageKeys=new Set<number>();
+  private locations=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
+- requests=0;bytes=0;failures=0;
++ requests=0;bytes=0;failures=0;decodes=0;
+  private gl:WebGLRenderingContext;private mobile:boolean;private notify:()=>void;private work:SceneWork;
+- constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/'){
++ constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/',private uploadMode:'strips'|'tile'='strips',private cacheMode:'small'|'working'='working',private decoderMode:'single'|'pool'='single',private sourceMode:'tiff'|'packed'='tiff'){
+   this.gl=gl;this.mobile=mobile;this.notify=notify;this.work=work;
++  this.decoder=new TerrainDecoder(decoderMode);this.packedDecoder=new TerrainDecoder(decoderMode,'packed');
++  if(sourceMode==='packed')this.packedManifest=work.network.run(scenePriority.tile,this.abort.signal,async()=>{
++   const r=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/terrain-packed/v1/manifest.json',{signal:AbortSignal.any([this.abort.signal,AbortSignal.timeout(8000)])});
++   if(!r.ok)throw Error('Packed terrain manifest unavailable');const manifest=await r.json();
++   if(manifest.version!==1||!Array.isArray(manifest.files)||!manifest.files.every((f:{id:number})=>Number.isInteger(f.id)&&f.id>=0&&f.id<64800))throw Error('Invalid packed terrain manifest');
++   if(!this.disposed)for(const f of manifest.files)this.packed.add(f.id);
++  }).catch(()=>{});
+   this.columns=mobile?4:6;this.edge=CELL*this.columns;this.capacity=(this.columns*this.columns-this.columns)/2;
+   this.texture=gl.createTexture();if(!this.texture)throw Error('Cannot allocate terrain atlas');
+   this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+@@ -84,24 +98,35 @@ export class TerrainStream {
+   for(const p of changes)textureSubImage2D(gl,gl.TEXTURE_2D,0,(p/4)%800,Math.floor(p/4/800),1,1,gl.RGBA,gl.UNSIGNED_BYTE,this.pages.subarray(p,p+4));
+   if(fading&&!this.timer)this.timer=window.setTimeout(()=>{this.timer=0;this.notify();},50);
+  }
+- private decode(buffer:ArrayBuffer,signal:AbortSignal){return new Promise<Uint8Array[]>((resolve,reject)=>{
+-  const worker=new Worker(new URL('./terrain-detail.worker.ts',import.meta.url),{type:'module'});
+-  const done=()=>{worker.terminate();signal.removeEventListener('abort',cancel);this.workers.delete(cancel);};
+-  const cancel=()=>{done();reject(Error('Terrain decode cancelled'));};
+-  if(signal.aborted){cancel();return;}this.workers.add(cancel);signal.addEventListener('abort',cancel,{once:true});
+-  worker.onmessage=event=>{done();if(event.data.error)reject(Error(event.data.error));else resolve(event.data.patches);};
+-  worker.onerror=event=>{done();reject(Error(event.message));};worker.postMessage({buffer},[buffer]);
+- });}
++ private decode(buffer:ArrayBuffer,parent:number,signal:AbortSignal,packed=false){
++  this.decodes++;if(packed)this.packedDecodes++;
++  return (packed?this.packedDecoder:this.decoder).run(buffer,parent,signal);
++ }
++ private async loadParent(parent:number,signal:AbortSignal){
++  await this.packedManifest;if(signal.aborted)throw Error('Terrain decode cancelled');
++  const packed=this.packed.has(parent)&&!this.packedDisabled.has(parent);
++  const fetchDecode=async(usePacked:boolean)=>{
++   const url=usePacked?this.assetBaseURL.replace(/\/+$/, '')+'/terrain-packed/v1/'+terrainSourceName(parent)+'.dem':this.terrainBaseURL.replace(/\/+$/, '')+'/'+terrainSourceName(parent)+'.tif';
++   const buffer=await this.work.network.run(scenePriority.tile,signal,async()=>{
++    const r=await fetch(url,{signal,priority:'low'});if(!r.ok)throw Error('DEM unavailable');const b=await r.arrayBuffer();this.bytes+=b.byteLength;return b;
++   });
++   return this.work.decode.run(scenePriority.tile,signal,()=>this.decode(buffer,parent,signal,usePacked));
++  };
++  if(packed){try{return await fetchDecode(true);}catch(error){if(signal.aborted||this.disposed)throw error;this.packedDisabled.add(parent);this.packedFallbacks++;}}
++  return fetchDecode(false);
++ }
+  private fineData(id:number){
+   const parent=parentTerrainTile(id),cached=this.parentCache.get(parent);
+   if(cached){this.parentCache.delete(parent);this.parentCache.set(parent,cached);return Promise.resolve(cached);}
+   const pending=this.parents.get(parent);if(pending&&!pending.controller.signal.aborted)return pending.promise;
+   const controller=new AbortController(),signal=controller.signal;
+   this.requests++;
+-  const promise=this.work.network.run(scenePriority.tile,signal,async()=>{
+-   const r=await fetch(this.terrainBaseURL.replace(/\/+$/, '')+'/'+terrainSourceName(parent)+'.tif',{signal,priority:'low'});if(!r.ok)throw Error('DEM unavailable');const b=await r.arrayBuffer();this.bytes+=b.byteLength;return b;
+-  }).then(buffer=>this.work.decode.run(scenePriority.tile,signal,()=>this.decode(buffer,signal))).then(patches=>{
+-   if(!this.disposed&&!signal.aborted){this.parentCache.set(parent,patches);while(this.parentCache.size>2)this.parentCache.delete(this.parentCache.keys().next().value!);}return patches;
++  const promise=this.loadParent(parent,signal).then(patches=>{
++   if(!this.disposed&&!signal.aborted){this.parentCache.set(parent,patches);while(this.parentCache.size>(this.cacheMode==='working'?(this.mobile?4:6):2)){
++     const wanted=new Set(this.wanted.filter(k=>k[0]==='f').map(k=>parentTerrainTile(Number(k.slice(1)))));
++     const stale=(this.cacheMode==='working'?[...this.parentCache.keys()].find(id=>!wanted.has(id)):undefined)??this.parentCache.keys().next().value!;
++     this.parentCache.delete(stale);
++    }}return patches;
+   }).finally(()=>{if(this.parents.get(parent)?.controller===controller)this.parents.delete(parent);});
+   this.parents.set(parent,{controller,promise});return promise;
+  }
+@@ -124,16 +149,21 @@ export class TerrainStream {
+      this.entries.set(key,{slot,loaded:Infinity,used:performance.now(),fine,id});
+      const cell=fine?CELL:572;
+      if(image&&(image.width!==cell*2||image.height!==cell))throw Error('Invalid terrain tile');
+-     for(let half=0;half<2;half++){
++     if(pixels&&this.uploadMode==='tile'){
++      // Paired cells always share an atlas row (both layouts have even columns).
++      // Upload the worker's existing packed buffer once, without interleaving
++      // twenty writes with draws that sample the same texture.
++      await this.work.upload(scenePriority.tile,signal,()=>{this.bind();textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,slot%this.columns*CELL,Math.floor(slot/this.columns)*CELL,cell*2,cell,this.gl.RGBA,this.gl.UNSIGNED_BYTE,pixels!);});
++     }else for(let half=0;half<2;half++){
+       if(pixels){for(let y=0;y<cell;y+=64){const rows=Math.min(64,cell-y),strip=new Uint8Array(cell*rows*4);for(let row=0;row<rows;row++)strip.set(pixels.subarray(((y+row)*cell*2+half*cell)*4,((y+row)*cell*2+half*cell+cell)*4),row*cell*4);
+        await this.work.upload(scenePriority.tile,signal,()=>{this.bind();const s=slot+half;textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,s%this.columns*CELL,Math.floor(s/this.columns)*CELL+y,cell,rows,this.gl.RGBA,this.gl.UNSIGNED_BYTE,strip);});}}
+-      else if(image){const part=await createImageBitmap(image,half*cell,0,cell,cell,{colorSpaceConversion:'none',premultiplyAlpha:'none'});try{await this.work.upload(scenePriority.tile,signal,()=>{this.bind();const s=slot+half;textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,s%this.columns*CELL,Math.floor(s/this.columns)*CELL,this.gl.RGBA,this.gl.UNSIGNED_BYTE,part);});}finally{part.close();}}
++      else if(image){const part=await cropTextureBitmap(image,half*cell,0,cell,cell);try{await this.work.upload(scenePriority.tile,signal,()=>{this.bind();const s=slot+half;textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,s%this.columns*CELL,Math.floor(s/this.columns)*CELL,this.gl.RGBA,this.gl.UNSIGNED_BYTE,part);});}finally{part.close();}}
+      }
+      this.entries.set(key,{slot,loaded:performance.now(),used:performance.now(),fine,id});this.notify();
+     }finally{image?.close();}
+    })().catch(()=>{if(this.entries.get(key)?.loaded===Infinity)this.entries.delete(key);if(!this.disposed&&(!signal.aborted||timedOut)){this.failed.set(key,performance.now()+60000);this.failures++;}}).finally(()=>{clearTimeout(timeout);this.pending.delete(key);this.pump();});
+   }
+  }
+- stats(){return {resident:this.entries.size,fineResident:[...this.entries.values()].filter(e=>e.fine&&Number.isFinite(e.loaded)).length,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,failures:this.failures,gpuBytes:this.allocated?this.edge*this.edge*4:4};}
+- dispose(){this.disposed=true;this.abort.abort();clearTimeout(this.timer);for(const c of this.pending.values())c.abort();for(const p of this.parents.values())p.controller.abort();for(const cancel of this.workers)cancel();this.pending.clear();this.entries.clear();this.parentCache.clear();if(!this.gl.isContextLost())this.gl.deleteTexture(this.texture);this.texture=null;}
++ stats(){return {resident:this.entries.size,fineResident:[...this.entries.values()].filter(e=>e.fine&&Number.isFinite(e.loaded)).length,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,failures:this.failures,uploadMode:this.uploadMode,cacheMode:this.cacheMode,decoderMode:this.decoderMode,sourceMode:this.sourceMode,workersCreated:this.decoder.created+this.packedDecoder.created,workersLive:this.decoder.live+this.packedDecoder.live,decodeMs:this.decoder.milliseconds+this.packedDecoder.milliseconds,packedDecodes:this.packedDecodes,packedFallbacks:this.packedFallbacks,decodes:this.decodes,decodedParents:this.parentCache.size,decodedBytes:[...this.parentCache.values()].reduce((n,patches)=>n+patches.reduce((s,p)=>s+p.byteLength,0),0),gpuBytes:this.allocated?this.edge*this.edge*4:4};}
++ dispose(){this.disposed=true;this.abort.abort();clearTimeout(this.timer);for(const c of this.pending.values())c.abort();for(const p of this.parents.values())p.controller.abort();this.decoder.dispose();this.packedDecoder.dispose();this.pending.clear();this.entries.clear();this.parentCache.clear();if(!this.gl.isContextLost())this.gl.deleteTexture(this.texture);this.texture=null;}
+ }
+diff --git a/src/scripts/terrain-decoder.ts b/src/scripts/terrain-decoder.ts
+new file mode 100644
+index 0000000..2670470
+--- /dev/null
++++ b/src/scripts/terrain-decoder.ts
+@@ -0,0 +1,55 @@
++type Job={buffer:ArrayBuffer;parent:number;signal:AbortSignal;resolve:(patches:Uint8Array[])=>void;reject:(error:Error)=>void;cancel:()=>void};
++type Slot={worker:Worker;job:Job|null};
++/** A cancelled decode loses its worker; late results can never reach a new job.
++ * Idle workers retain their module, with at most two live workers per input format. */
++export class TerrainDecoder {
++ private slots:Slot[]=[];
++ private queue:Job[]=[];
++ private disposed=false;
++ created=0;completed=0;milliseconds=0;
++ constructor(private mode:'single'|'pool'='single',private format:'tiff'|'packed'='tiff'){}
++ run(buffer:ArrayBuffer,parent:number,signal:AbortSignal){
++  return new Promise<Uint8Array[]>((resolve,reject)=>{
++   if(this.disposed||signal.aborted){reject(Error('Terrain decode cancelled'));return;}
++   const job:Job={buffer,parent,signal,resolve,reject,cancel:()=>{
++    this.queue=this.queue.filter(value=>value!==job);
++    const slot=this.slots.find(value=>value.job===job);
++    if(slot)this.remove(slot);
++    signal.removeEventListener('abort',job.cancel);reject(Error('Terrain decode cancelled'));this.pump();
++   }};
++   signal.addEventListener('abort',job.cancel,{once:true});this.queue.push(job);this.pump();
++  });
++ }
++ private remove(slot:Slot){slot.job=null;slot.worker.terminate();slot.worker.onmessage=null;slot.worker.onerror=null;this.slots=this.slots.filter(value=>value!==slot);}
++ private pump(){
++  while(!this.disposed&&this.queue.length){
++   let slot=this.slots.find(value=>!value.job);
++   if(!slot){
++    if(this.slots.length>=2)return;
++    try{
++     const worker=this.format==='packed'?new Worker(new URL('./terrain-packed.worker.ts',import.meta.url),{type:'module'}):new Worker(new URL('./terrain-detail.worker.ts',import.meta.url),{type:'module'});
++     slot={worker,job:null};this.slots.push(slot);this.created++;
++    }catch(error){const job=this.queue.shift()!;job.signal.removeEventListener('abort',job.cancel);job.reject(error instanceof Error?error:Error(String(error)));continue;}
++   }
++   const active=slot,job=this.queue.shift()!,start=performance.now();active.job=job;
++   const finish=(error?:Error,patches?:Uint8Array[])=>{
++    if(active.job!==job||this.disposed)return;
++    job.signal.removeEventListener('abort',job.cancel);active.job=null;
++    this.milliseconds+=performance.now()-start;
++    if(error||this.mode==='single')this.remove(active);
++    else{active.worker.onmessage=null;active.worker.onerror=null;}
++    if(error)job.reject(error);else{this.completed++;job.resolve(patches!);}
++    this.pump();
++   };
++   active.worker.onmessage=event=>finish(event.data.error?Error(event.data.error):undefined,event.data.patches);
++   active.worker.onerror=event=>finish(Error(event.message));
++   try{active.worker.postMessage({buffer:job.buffer,parent:job.parent},[job.buffer]);}catch(error){finish(error instanceof Error?error:Error(String(error)));}
++  }
++ }
++ get live(){return this.slots.length;}
++ dispose(){
++  this.disposed=true;
++  for(const job of [...this.queue,...this.slots.flatMap(slot=>slot.job?[slot.job]:[])]){job.signal.removeEventListener('abort',job.cancel);job.reject(Error('Terrain decode cancelled'));}
++  this.queue=[];for(const slot of [...this.slots])this.remove(slot);
++ }
++}
+diff --git a/src/scripts/terrain-packed.ts b/src/scripts/terrain-packed.ts
+new file mode 100644
+index 0000000..2783375
+--- /dev/null
++++ b/src/scripts/terrain-packed.ts
+@@ -0,0 +1,27 @@
++import {DEM_CELL} from './terrain-detail';
++export const DEM_PACKED_VERSION=1;
++const MAGIC=new TextEncoder().encode('ELDEM001'),HEADER=16;
++export const DEM_PATCH_BYTES=DEM_CELL*DEM_CELL*2*4;
++export const DEM_PACKED_BYTES=HEADER+4*DEM_PATCH_BYTES;
++/** Versioned, lossless wrapper around the existing four RGBA atlas patches. */
++export function packTerrainParent(parent:number,patches:Uint8Array[]){
++ if(!Number.isInteger(parent)||parent<0||parent>=64800||patches.length!==4||patches.some(p=>p.length!==DEM_PATCH_BYTES))throw Error('Invalid packed terrain input');
++ const bytes=new Uint8Array(DEM_PACKED_BYTES),view=new DataView(bytes.buffer);
++ bytes.set(MAGIC);view.setUint32(8,parent,true);view.setUint32(12,DEM_PATCH_BYTES,true);
++ patches.forEach((patch,i)=>bytes.set(patch,HEADER+i*DEM_PATCH_BYTES));return bytes;
++}
++export function unpackTerrainParent(bytes:Uint8Array,parent:number){
++ if(bytes.length!==DEM_PACKED_BYTES||MAGIC.some((v,i)=>bytes[i]!==v))throw Error('Invalid packed terrain format');
++ const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
++ if(view.getUint32(8,true)!==parent||view.getUint32(12,true)!==DEM_PATCH_BYTES)throw Error('Invalid packed terrain identity');
++ // Independent transferable buffers keep parent ownership identical to TIFF.
++ return Array.from({length:4},(_,i)=>bytes.slice(HEADER+i*DEM_PATCH_BYTES,HEADER+(i+1)*DEM_PATCH_BYTES));
++}
++export async function decompressTerrainParent(buffer:ArrayBuffer,parent:number){
++ const reader=new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip')).getReader();
++ const bytes=new Uint8Array(DEM_PACKED_BYTES);let offset=0;
++ try{for(;;){const {value,done}=await reader.read();if(done)break;if(offset+value.length>bytes.length)throw Error('Packed terrain too large');bytes.set(value,offset);offset+=value.length;}}
++ finally{await reader.cancel();reader.releaseLock();}
++ if(offset!==bytes.length)throw Error('Packed terrain truncated');
++ return unpackTerrainParent(bytes,parent);
++}
+diff --git a/src/scripts/terrain-packed.worker.ts b/src/scripts/terrain-packed.worker.ts
+new file mode 100644
+index 0000000..dbc3822
+--- /dev/null
++++ b/src/scripts/terrain-packed.worker.ts
+@@ -0,0 +1,5 @@
++import {decompressTerrainParent} from './terrain-packed';
++self.onmessage=async(event:MessageEvent<{buffer:ArrayBuffer;parent:number}>)=>{
++ try{const patches=await decompressTerrainParent(event.data.buffer,event.data.parent);self.postMessage({patches},{transfer:patches.map(p=>p.buffer)});}
++ catch(error){self.postMessage({error:String(error)});}
++};
+diff --git a/src/scripts/texture-bitmap.ts b/src/scripts/texture-bitmap.ts
+new file mode 100644
+index 0000000..13327d4
+--- /dev/null
++++ b/src/scripts/texture-bitmap.ts
+@@ -0,0 +1,16 @@
++/** Give WebGL a bitmap whose backing surface has the crop's actual dimensions.
++ * Firefox can validate a cropped ImageBitmap against its larger source surface,
++ * rejecting otherwise valid writes near an atlas edge. Copy at 1:1: packed
++ * numeric terrain heights must never be resized or interpolated. */
++export async function cropTextureBitmap(source:ImageBitmap,x:number,y:number,width:number,height:number):Promise<ImageBitmap>{
++ const canvas=typeof OffscreenCanvas==='function'?new OffscreenCanvas(width,height):document.createElement('canvas');
++ if(canvas.width!==width)canvas.width=width;
++ if(canvas.height!==height)canvas.height=height;
++ const context=canvas.getContext('2d') as OffscreenCanvasRenderingContext2D|CanvasRenderingContext2D|null;
++ if(!context)throw Error('Cannot allocate texture crop');
++ context.imageSmoothingEnabled=false;
++ context.drawImage(source,x,y,width,height,0,0,width,height);
++ try{
++  return 'transferToImageBitmap' in canvas?canvas.transferToImageBitmap():await createImageBitmap(canvas,{colorSpaceConversion:'none',premultiplyAlpha:'none'});
++ }finally{canvas.width=canvas.height=1;}
++}
+diff --git a/scripts/prepare-dem-benchmark.mjs b/scripts/prepare-dem-benchmark.mjs
+new file mode 100644
+index 0000000..4e58b39
+--- /dev/null
++++ b/scripts/prepare-dem-benchmark.mjs
+@@ -0,0 +1,13 @@
++import {readFile,readdir,writeFile} from 'node:fs/promises';
++// Local-only fixture, deliberately in ignored dist, never part of publication.
++const manifest=JSON.parse(await readFile('dist/media/orbit/terrain-packed/v1/manifest.json','utf8'));
++const scripts=await readdir('dist/_astro'),worker=prefix=>{
++ const found=scripts.filter(name=>name.startsWith(prefix)&&name.endsWith('.js'));
++ if(found.length!==1)throw Error('Build first; ambiguous/missing worker '+prefix);
++ return '/_astro/'+found[0];
++};
++const files=manifest.files.filter((_,i)=>i%8===0).slice(0,6);
++await writeFile('dist/media/orbit/terrain-packed/v1/benchmark.json',JSON.stringify({files,workers:{tiff:worker('terrain-detail.worker-'),packed:worker('terrain-packed.worker-')}},null,2)+'\n');
++console.log('Prepared',files.length,'matched inputs');
++
++await writeFile('dist/media/orbit/terrain-packed/v1/benchmark.html','<!doctype html><meta charset="utf-8"><title>DEM decoder benchmark</title>');
+diff --git a/scripts/prepare-terrain-packed.mjs b/scripts/prepare-terrain-packed.mjs
+new file mode 100644
+index 0000000..df26b9a
+--- /dev/null
++++ b/scripts/prepare-terrain-packed.mjs
+@@ -0,0 +1,39 @@
++// Generate only an explicitly selected region. Never download the world implicitly.
++import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
++import {resolve,join} from 'node:path';
++import {parseArgs} from 'node:util';
++import {createHash} from 'node:crypto';
++import {gzipSync,gunzipSync} from 'node:zlib';
++import {fromArrayBuffer} from 'geotiff';
++import {packTerrainPatch,terrainSourceName} from '../src/scripts/terrain-detail.ts';
++import {packTerrainParent,DEM_PACKED_VERSION} from '../src/scripts/terrain-packed.ts';
++import {terrainSource} from '../server/terrain-source.mjs';
++const {values}=parseArgs({options:{'ids-file':{type:'string'},output:{type:'string',default:'public/media/orbit/terrain-packed/v1'},cache:{type:'string',default:'.media/dem90'}}});
++if(!values['ids-file'])throw Error('Pass --ids-file with an explicit JSON array of Copernicus parent IDs (0..64799)');
++const ids=JSON.parse(await readFile(values['ids-file'],'utf8'));
++if(!Array.isArray(ids)||!ids.length||ids.some(id=>!Number.isInteger(id)||id<0||id>=64800))throw Error('Invalid parent IDs');
++const output=resolve(values.output),cache=resolve(values.cache),hash=bytes=>createHash('sha256').update(bytes).digest('hex');
++await mkdir(output,{recursive:true});await mkdir(cache,{recursive:true});
++let previous;try{previous=JSON.parse(await readFile(join(output,'manifest.json'),'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
++if(previous&&previous.version!==DEM_PACKED_VERSION)throw Error('Incompatible packed terrain manifest');
++const entries=new Map((previous?.files??[]).map(file=>[file.id,file]));
++const atomic=async(path,bytes)=>{const temp=path+'.'+process.pid+'.tmp';await writeFile(temp,bytes);await rename(temp,path);};
++for(const id of [...new Set(ids)].sort((a,b)=>a-b)){
++ const name=terrainSourceName(id),source=terrainSource('/media/orbit/dem90/'+name+'.tif'),cached=join(cache,name+'.tif');
++ let bytes;try{bytes=await readFile(cached);}catch(error){
++  if(error.code!=='ENOENT')throw error;
++  const response=await fetch(source,{signal:AbortSignal.timeout(60000)});if(!response.ok)throw Error(`DEM ${name}: HTTP ${response.status}`);
++  bytes=Buffer.from(await response.arrayBuffer());if(!bytes.length||bytes.length>16*1024*1024)throw Error('Invalid TIFF size');await atomic(cached,bytes);
++ }
++ const started=performance.now(),image=await(await fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength))).getImage();
++ const width=image.getWidth(),height=image.getHeight();if(width<2||width>1200||height!==1200||image.getSamplesPerPixel()!==1)throw Error('Invalid GLO-90 dimensions');
++ const raster=await image.readRasters({interleave:true}),patches=[];
++ for(let y=0;y<2;y++)for(let x=0;x<2;x++)patches.push(packTerrainPatch(raster,width,height,x,y));
++ const packed=packTerrainParent(id,patches),compressed=gzipSync(packed,{level:9});
++ if(!Buffer.from(packed).equals(gunzipSync(compressed)))throw Error('Lossless verification failed');
++ await atomic(join(output,name+'.dem'),compressed);
++ entries.set(id,{id,name,source,sourceBytes:bytes.length,sourceSha256:hash(bytes),bytes:compressed.length,sha256:hash(compressed),decodedSha256:hash(packed)});
++ console.log(`${name}: ${bytes.length} → ${compressed.length} bytes, ${Math.round(performance.now()-started)} ms; exact round trip`);
++ const files=[...entries.values()].sort((a,b)=>a.id-b.id);
++ await atomic(join(output,'manifest.json'),JSON.stringify({version:DEM_PACKED_VERSION,format:'gzip of ELDEM001 header and four unchanged RGBA atlas patches',provenance:'Copernicus DEM GLO-90 / WorldDEM-90; see ../../README.md and the repository asset provenance',files},null,2)+'\n');
++}
+diff --git a/scripts/profile-dem-decoders.py b/scripts/profile-dem-decoders.py
+new file mode 100644
+index 0000000..d01f192
+--- /dev/null
++++ b/scripts/profile-dem-decoders.py
+@@ -0,0 +1,80 @@
++"""Visible-browser DEM microbenchmark. Inputs are fetched before timing.
++
++Run via browser-lab/run.py; build the benchmark.json fixture with
++scripts/prepare-dem-benchmark.mjs after the production build.
++"""
++import json
++import os
++import sys
++from pathlib import Path
++
++from selenium import webdriver
++from selenium.webdriver.firefox.service import Service
++
++os.environ.update(XDG_RUNTIME_DIR="/run/browser-lab", WAYLAND_DISPLAY="wayland-0", MOZ_ENABLE_WAYLAND="1")
++browser, base, destination = sys.argv[1:4]
++output = Path(destination)
++output.mkdir(parents=True, exist_ok=True)
++if browser == "chrome":
++    options = webdriver.ChromeOptions()
++    options.add_argument("--ozone-platform=wayland")
++    options.add_argument("--window-size=1280,800")
++    options.add_argument("--disable-dev-shm-usage")
++    options.add_argument("--remote-debugging-pipe")
++    driver = webdriver.Chrome(options=options)
++else:
++    options = webdriver.FirefoxOptions()
++    driver = webdriver.Firefox(options=options, service=Service(service_args=["--allow-system-access"], log_output=str(output / "geckodriver.log")))
++driver.set_script_timeout(300)
++try:
++    driver.get(base + "/media/orbit/terrain-packed/v1/benchmark.html")
++    # Run the byte loop in the page realm; Firefox WebDriver wrappers make
++    # indexed reads of worker-owned arrays prohibitively slow across realms.
++    source = """
++const done=result=>window.dispatchEvent(new CustomEvent('dem-benchmark-result',{detail:result}));
++(async()=>{
++ const fixture=await(await fetch('/media/orbit/terrain-packed/v1/benchmark.json')).json(),inputs=[];
++ for(const f of fixture.files){
++  const get=async url=>{const r=await fetch(url);if(!r.ok)throw Error('Input unavailable '+url);return r.arrayBuffer();};
++  inputs.push({...f,tiff:await get('/media/orbit/dem90/'+f.name+'.tif'),packed:await get('/media/orbit/terrain-packed/v1/'+f.name+'.dem')});
++ }
++ const references=new Map(),rows=[],workers=new Map();
++ const one=async(mode,input)=>{
++  const format=mode.startsWith('packed')?'packed':'tiff',buffer=input[format].slice(0),started=performance.now();
++  let worker=workers.get(mode);if(!worker){worker=new Worker(fixture.workers[format],{type:'module'});if(!mode.endsWith('single'))workers.set(mode,worker);}
++  try{
++   const patches=await new Promise((resolve,reject)=>{worker.onmessage=e=>e.data.error?reject(Error(e.data.error)):resolve(e.data.patches);worker.onerror=e=>reject(Error(e.message));worker.postMessage({buffer,parent:input.id},[buffer]);});
++   const ms=performance.now()-started;
++   const previous=references.get(input.id);let mismatches=0;
++   if(previous){for(let p=0;p<4;p++){if(patches[p].length!==previous[p].length)throw Error('Wrong patch size');for(let i=0;i<patches[p].length;i++)if(patches[p][i]!==previous[p][i])mismatches++;}}
++   else references.set(input.id,patches);
++   if(mismatches)throw Error('Numeric byte mismatch '+input.name+': '+mismatches);
++   return {mode,id:input.id,name:input.name,ms,bytes:input[format].byteLength,mismatches};
++  }finally{worker.onmessage=null;worker.onerror=null;if(mode.endsWith('single'))worker.terminate();}
++ };
++ try{
++  // Warm every module/format; reference bytes are established by actual TIFF decode.
++  for(const mode of ['single','pool','packed-single','packed'])await one(mode,inputs[0]);
++  for(let round=0;round<3;round++)for(const input of inputs){
++   const modes=round%2?['packed','packed-single','pool','single']:['single','pool','packed-single','packed'];
++   // Establish TIFF reference before reverse-order timing for a new input.
++   if(!references.has(input.id))await one('single',input);
++   for(const mode of modes)rows.push({round,...await one(mode,input)});
++  }
++ }finally{for(const worker of workers.values())worker.terminate();}
++ return {rows,fixture,method:'Inputs prefetched; sequential AB/BA-style mode ordering; three rounds, warmup excluded; wall time includes Worker creation for single mode; every output byte compared to TIFF.'};
++})().then(done,e=>done({error:String(e.stack??e)}));
++"""
++    result = driver.execute_async_script("""
++const done=arguments[arguments.length-1],script=document.createElement('script');
++window.addEventListener('dem-benchmark-result',event=>done(event.detail),{once:true});
++script.textContent=arguments[0];document.body.append(script);
++""", source)
++    (output / "results.json").write_text(json.dumps(result, indent=2))
++    if "error" in result:
++        raise RuntimeError(result["error"])
++    for mode in ["single", "pool", "packed-single", "packed"]:
++        costs = sorted(r["ms"] for r in result["rows"] if r["mode"] == mode)
++        print(mode, "median ms", costs[len(costs) // 2], "samples", len(costs), flush=True)
++finally:
++    driver.quit()
+diff --git a/scripts/profile-dem-replay.py b/scripts/profile-dem-replay.py
+new file mode 100644
+index 0000000..f2ae4c2
+--- /dev/null
++++ b/scripts/profile-dem-replay.py
+@@ -0,0 +1,155 @@
++"""Run inside browser-lab as its browser user. Stock, visible Wayland browsers.
++
++Usage: python profile-dem-replay.py chrome http://HOST:4351 OUTPUT
++Repeat identical DEM bytes on a paused scene to isolate upload cost.
++The initial framebuffer readback is excluded from measured samples.
++"""
++import json
++import os
++import sys
++import time
++from pathlib import Path
++from urllib.parse import urlencode
++
++import psutil
++from selenium import webdriver
++from selenium.webdriver.firefox.service import Service as FirefoxService
++
++os.environ.update(XDG_RUNTIME_DIR="/run/browser-lab", WAYLAND_DISPLAY="wayland-0",
++                  MOZ_ENABLE_WAYLAND="1")
++browser, base, destination = sys.argv[1:4]
++selected = sys.argv[4].split(",") if len(sys.argv) > 4 else ["day", "clouds", "night"]
++api = os.environ.get("EARTHLIGHT_API", "webgl")
++output = Path(destination)
++output.mkdir(parents=True, exist_ok=True)
++driver = None
++
++
++def restart_browser():
++    global driver
++    if driver:
++        driver.quit()
++    if browser == "chrome":
++        options = webdriver.ChromeOptions()
++        options.add_argument("--ozone-platform=wayland")
++        options.add_argument("--window-size=1280,800")
++        options.add_argument("--disable-dev-shm-usage")
++        options.add_argument("--remote-debugging-pipe")
++        driver = webdriver.Chrome(options=options)
++    else:
++        options = webdriver.FirefoxOptions()
++        driver = webdriver.Firefox(options=options, service=FirefoxService(
++            service_args=["--allow-system-access"], log_output=str(output / "geckodriver.log")))
++    driver.set_window_size(1280, 800)
++    driver.set_page_load_timeout(180)
++    driver.set_script_timeout(180)
++
++STATE = """
++const s=document.querySelector('orbital-sky'),c=s?.querySelector('canvas');
++const g=c?.getContext('webgl')||c?.getContext('webgl2'),e=g?.getExtension('WEBGL_debug_renderer_info');
++return {state:{...s?.dataset},width:c?.width,height:c?.height,
++  viewport:[innerWidth,innerHeight,devicePixelRatio],visibility:document.visibilityState,
++  renderer:e&&g.getParameter(e.UNMASKED_RENDERER_WEBGL),extensions:g?.getSupportedExtensions()};
++"""
++SETTLED = """
++const s=document.querySelector('orbital-sky');return s&&s.dataset.focus==='sharp'&&
++s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&
++Number(JSON.parse(s.dataset.terrainTiles||'{}').fineResident)>0&&
++(!s.dataset.cloudLighting||s.dataset.cloudLighting!=='texture'||
++ (s.dataset.cloudLightingReady==='1'&&s.dataset.cloudLightingProgress==='0'))&&
++['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>
++ !s.dataset[k]||JSON.parse(s.dataset[k]).pending===0);
++"""
++def memory():
++    processes = []
++    for process in psutil.process_iter(["name", "memory_info"]):
++        if process.info["name"] and any(n in process.info["name"] for n in ["chrome", "firefox", "Web Content", "RDD", "Utility"]):
++            processes.append({"name": process.info["name"], "rss": process.info["memory_info"].rss})
++    return processes
++
++
++def navigate(params):
++    restart_browser()
++    started = time.monotonic()
++    driver.get(base + "/?" + urlencode(params))
++    peak = 0
++    while time.monotonic() - started < 180:
++        peak = max(peak, sum(p["rss"] for p in memory()))
++        if driver.execute_script(SETTLED):
++            state = driver.execute_script(STATE)
++            if state["state"].get("assetFailures") != "0":
++                raise RuntimeError("Asset failures: " + json.dumps(state))
++            if not state.get("renderer") or any(x in state["renderer"].lower() for x in ["llvmpipe", "swiftshader", "softpipe"]):
++                raise RuntimeError("Software or unknown renderer: " + json.dumps(state))
++            return {"settledSeconds": time.monotonic() - started, "peakSampledRss": peak, **state}
++        time.sleep(1)
++    raise RuntimeError("Settlement timeout: " + json.dumps(driver.execute_script(STATE)))
++
++
++REPLAY = """
++const mode=arguments[0],done=arguments[arguments.length-1];
++(async()=>{
++ const s=document.querySelector('orbital-sky'),g=s.querySelector('canvas').getContext('webgl');
++ // Texture unit 15 is reused by cloud lighting AFTER the terrain draw.
++ // Capture its terrain binding at the owning draw, not after the frame.
++ let texture,layout;const native=g.drawArrays;
++ await new Promise((resolve,reject)=>{
++  const timeout=setTimeout(()=>{g.drawArrays=native;reject(Error('Terrain draw not found'));},10000);
++  g.drawArrays=function(...args){
++   const p=g.getParameter(g.CURRENT_PROGRAM),loc=g.getUniformLocation(p,'terrainTileLayout');
++   if(loc){layout=g.getUniform(p,loc);if(layout[0]>0){
++    const unit=g.getParameter(g.ACTIVE_TEXTURE);g.activeTexture(g.TEXTURE15);texture=g.getParameter(g.TEXTURE_BINDING_2D);g.activeTexture(unit);
++    g.drawArrays=native;clearTimeout(timeout);resolve();
++   }}
++   return native.apply(this,args);
++  };
++  s.querySelector('.sky-track input').dispatchEvent(new Event('input'));
++ });
++ const previousUnit=g.getParameter(g.ACTIVE_TEXTURE),previousTarget=g.getParameter(g.FRAMEBUFFER_BINDING);
++ g.activeTexture(g.TEXTURE15);const fb=g.createFramebuffer();
++ g.bindFramebuffer(g.FRAMEBUFFER,fb);g.framebufferTexture2D(g.FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,texture,0);
++ if(g.checkFramebufferStatus(g.FRAMEBUFFER)!==g.FRAMEBUFFER_COMPLETE)throw Error('Atlas readback unavailable');
++ const page=new Uint8Array(800*360*4);g.readPixels(0,0,800,360,g.RGBA,g.UNSIGNED_BYTE,page);
++ let slot=0;for(let y=0;y<360&&!slot;y++)for(let x=0;x<720;x++){const p=(y*800+x)*4;if(page[p]>0&&page[p+1]===255){slot=page[p];break;}}
++ if(!slot)throw Error('No fully loaded fine terrain tile');
++ const columns=layout[1],cell=632,x=slot%columns*cell,y=Math.floor(slot/columns)*cell,packed=new Uint8Array(cell*cell*2*4);
++ g.readPixels(x,y,cell*2,cell,g.RGBA,g.UNSIGNED_BYTE,packed);
++ g.bindFramebuffer(g.FRAMEBUFFER,previousTarget);g.deleteFramebuffer(fb);g.activeTexture(previousUnit);
++ if(g.getError())throw Error('Atlas readback failed');
++ const strips=[];for(let half=0;half<2;half++)for(let row=0;row<cell;row+=64){const height=Math.min(64,cell-row),data=new Uint8Array(cell*height*4);for(let i=0;i<height;i++)data.set(packed.subarray(((row+i)*cell*2+half*cell)*4,((row+i)*cell*2+half*cell+cell)*4),i*cell*4);strips.push({x:x+half*cell,y:y+row,width:cell,height,data});}
++ const originalDraw=g.drawArrays,originalBind=g.bindFramebuffer,frames=[],draws=[],uploads=[];let target=previousTarget;
++ const start=performance.now();
++ g.bindFramebuffer=function(k,v){target=v;return originalBind.call(this,k,v);};
++ g.drawArrays=function(...a){const t=performance.now();originalDraw.apply(this,a);draws.push({at:t-start,ms:performance.now()-t});if(target===null)frames.push(performance.now()-start);};
++ const input=s.querySelector('.sky-track input'),drawTimer=setInterval(()=>input.dispatchEvent(new Event('input')),1000/24);
++ const delay=ms=>new Promise(r=>setTimeout(r,ms));
++ const upload=(x,y,width,height,data)=>{g.activeTexture(g.TEXTURE15);g.bindTexture(g.TEXTURE_2D,texture);const t=performance.now();g.texSubImage2D(g.TEXTURE_2D,0,x,y,width,height,g.RGBA,g.UNSIGNED_BYTE,data);uploads.push({at:t-start,ms:performance.now()-t,width,height});};
++ try{
++  for(let i=0;i<20;i++){
++   await delay(Math.max(0,start+(i+1)*1000-performance.now()));
++   if(mode==='tile')upload(x,y,cell*2,cell,packed);
++   if(mode==='strips')for(const strip of strips){await delay(0);upload(strip.x,strip.y,strip.width,strip.height,strip.data);}
++  }
++ }finally{clearInterval(drawTimer);g.drawArrays=originalDraw;g.bindFramebuffer=originalBind;}
++ return {mode,slot,x,y,terrain:s.dataset.terrainTiles,elapsedMs:performance.now()-start,frames,draws,uploads,state:{...s.dataset},error:g.getError()};
++})().then(done,e=>done({error:String(e.stack??e)}));
++"""
++results={"browser":browser,"runs":[],"method":"Same paused view; replay identical bytes into a loaded DEM slot once per second for 20 s while invalidating at 24 Hz. Initial atlas readback is outside measurement. No geometry changes."}
++try:
++    for mode in os.environ.get("EARTHLIGHT_VARIANTS","none,strips,tile,none").split(","):
++        state=navigate({"api":"webgl","render":"compact","quality":"fixed","motion":"0","t":"3235.65","pitch":"-25","epoch":"2026-10-06T01:32:27Z","look-grain":"0","exposure-mode":"manual","exposure-fixed":"0","terrainUpload":"tile"})
++        driver.execute_script("document.querySelector('.sky-track input').dispatchEvent(new Event('input'))")
++        started=time.monotonic()
++        while not driver.execute_script(SETTLED):
++            if time.monotonic()-started>180: raise RuntimeError('Replay priming timeout')
++            time.sleep(1)
++        time.sleep(2)
++        trace=driver.execute_async_script(REPLAY,mode)
++        results["runs"].append({"mode":mode,**state,"trace":trace})
++        (output / "results.json").write_text(json.dumps(results,indent=2))
++        if trace["error"]: raise RuntimeError(trace["error"])
++        gaps=sorted(b-a for a,b in zip(trace["frames"],trace["frames"][1:]))
++        print(mode,"fps",round(len(trace["frames"])*1000/trace["elapsedMs"],2),"p95",round(gaps[int(len(gaps)*.95)],1),"max gap",round(max(gaps),1),"upload ms",round(sum(u["ms"] for u in trace["uploads"]),1),"draw ms",round(sum(d["ms"] for d in trace["draws"]),1),flush=True)
++finally:
++    (output / "results.json").write_text(json.dumps(results,indent=2))
++    if driver: driver.quit()
+diff --git a/scripts/profile-dem-stream.py b/scripts/profile-dem-stream.py
+new file mode 100644
+index 0000000..93784b7
+--- /dev/null
++++ b/scripts/profile-dem-stream.py
+@@ -0,0 +1,173 @@
++"""Run inside browser-lab as its browser user. Stock, visible Wayland browsers.
++
++Usage: python profile-dem-stream.py chrome http://HOST:4351 OUTPUT [adaptive,fixed]
++DEM90 streaming A/B/A/B comparison. No GPU queries or finish calls during motion.
++"""
++import json
++import os
++import sys
++import time
++from pathlib import Path
++from urllib.parse import urlencode
++
++import psutil
++from selenium import webdriver
++from selenium.webdriver.firefox.service import Service as FirefoxService
++
++os.environ.update(XDG_RUNTIME_DIR="/run/browser-lab", WAYLAND_DISPLAY="wayland-0",
++                  MOZ_ENABLE_WAYLAND="1")
++browser, base, destination = sys.argv[1:4]
++selected = sys.argv[4].split(",") if len(sys.argv) > 4 else ["adaptive"]
++if any(q not in ["adaptive", "fixed"] for q in selected):
++    raise ValueError("Pass adaptive or fixed via the lab wrapper --scenes option")
++api = os.environ.get("EARTHLIGHT_API", "webgl")
++output = Path(destination)
++output.mkdir(parents=True, exist_ok=True)
++driver = None
++
++
++def restart_browser():
++    global driver
++    if driver:
++        driver.quit()
++    if browser == "chrome":
++        options = webdriver.ChromeOptions()
++        options.add_argument("--ozone-platform=wayland")
++        options.add_argument("--window-size=1280,800")
++        options.add_argument("--disable-dev-shm-usage")
++        options.add_argument("--remote-debugging-pipe")
++        driver = webdriver.Chrome(options=options)
++    else:
++        options = webdriver.FirefoxOptions()
++        driver = webdriver.Firefox(options=options, service=FirefoxService(
++            service_args=["--allow-system-access"], log_output=str(output / "geckodriver.log")))
++    driver.set_window_size(1280, 800)
++    driver.set_page_load_timeout(180)
++    driver.set_script_timeout(180)
++
++STATE = """
++const s=document.querySelector('orbital-sky'),c=s?.querySelector('canvas');
++const g=c?.getContext('webgl')||c?.getContext('webgl2'),e=g?.getExtension('WEBGL_debug_renderer_info');
++return {state:{...s?.dataset},width:c?.width,height:c?.height,
++  viewport:[innerWidth,innerHeight,devicePixelRatio],visibility:document.visibilityState,
++  renderer:e&&g.getParameter(e.UNMASKED_RENDERER_WEBGL),extensions:g?.getSupportedExtensions()};
++"""
++SETTLED = """
++const s=document.querySelector('orbital-sky');return s&&s.dataset.focus==='sharp'&&
++s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&
++Number(JSON.parse(s.dataset.terrainTiles||'{}').fineResident)>0&&
++(!s.dataset.cloudLighting||s.dataset.cloudLighting!=='texture'||
++ (s.dataset.cloudLightingReady==='1'&&s.dataset.cloudLightingProgress==='0'))&&
++['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>
++ !s.dataset[k]||JSON.parse(s.dataset[k]).pending===0);
++"""
++def memory():
++    processes = []
++    for process in psutil.process_iter(["name", "memory_info"]):
++        if process.info["name"] and any(n in process.info["name"] for n in ["chrome", "firefox", "Web Content", "RDD", "Utility"]):
++            processes.append({"name": process.info["name"], "rss": process.info["memory_info"].rss})
++    return processes
++
++
++def navigate(params):
++    restart_browser()
++    started = time.monotonic()
++    driver.get(base + "/?" + urlencode(params))
++    peak = 0
++    loading = []
++    while time.monotonic() - started < 180:
++        peak = max(peak, sum(p["rss"] for p in memory()))
++        loading.append({"seconds":time.monotonic()-started,**driver.execute_script(STATE)})
++        if driver.execute_script(SETTLED):
++            state = driver.execute_script(STATE)
++            if state["state"].get("assetFailures") != "0":
++                raise RuntimeError("Asset failures: " + json.dumps(state))
++            if not state.get("renderer") or any(x in state["renderer"].lower() for x in ["llvmpipe", "swiftshader", "softpipe"]):
++                raise RuntimeError("Software or unknown renderer: " + json.dumps(state))
++            return {"settledSeconds": time.monotonic() - started, "peakSampledRss": peak, "loading": loading, **state}
++        time.sleep(1)
++    raise RuntimeError("Settlement timeout: " + json.dumps(driver.execute_script(STATE)))
++
++
++TRACE = """
++const seconds=arguments[0],done=arguments[arguments.length-1];
++const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
++const priorErrors=[];for(let i=0;i<16;i++){const e=g.getError();if(!e)break;priorErrors.push(e);}
++const draw=g.drawArrays,bind=g.bindFramebuffer,upload=g.texSubImage2D,activeTexture=g.activeTexture,useProgram=g.useProgram;
++const frames=[],rafs=[],longTasks=[],uploads=[],states=[],draws=[],programs=new Map();
++let program=g.getParameter(g.CURRENT_PROGRAM);
++let target=g.getParameter(g.FRAMEBUFFER_BINDING),unit=g.getParameter(g.ACTIVE_TEXTURE),active=true;
++const start=performance.now(),before={...s.dataset},canvasBefore=[c.width,c.height];
++g.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};
++g.activeTexture=function(v){unit=v;return activeTexture.call(this,v);};
++g.useProgram=function(p){program=p;return useProgram.call(this,p);};
++g.drawArrays=function(...a){if(!programs.has(program))programs.set(program,programs.size);const t=performance.now();draw.apply(this,a);draws.push({at:t-start,ms:performance.now()-t,program:programs.get(program),final:target===null});if(target===null)frames.push(performance.now()-start);};
++g.texSubImage2D=function(...a){const t=performance.now();upload.apply(this,a);uploads.push({at:t-start,ms:performance.now()-t,unit:unit-g.TEXTURE0,x:a[2],y:a[3],width:a.length===9?a[4]:a[6].width,height:a.length===9?a[5]:a[6].height});};
++const tick=t=>{if(active){rafs.push(t-start);requestAnimationFrame(tick);}};requestAnimationFrame(tick);
++let observer;try{observer=new PerformanceObserver(l=>longTasks.push(...l.getEntries().map(e=>({at:e.startTime-start,ms:e.duration}))));observer.observe({entryTypes:['longtask']});}catch{}
++const timer=setInterval(()=>states.push({at:performance.now()-start,terrain:s.dataset.terrainTiles,scale:s.dataset.renderScale,camera:s.dataset.cameraPosition,lighting:{ready:s.dataset.cloudLightingReady,progress:s.dataset.cloudLightingProgress,generation:s.dataset.cloudLightingGeneration,rows:s.dataset.cloudLightingRows,draws:s.dataset.cloudLightingDraws},canvas:[c.width,c.height]}),1000);
++s.querySelector('.sky-motion').click();
++setTimeout(()=>{
++ s.querySelector('.sky-motion').click();active=false;clearInterval(timer);
++ g.drawArrays=draw;g.bindFramebuffer=bind;g.texSubImage2D=upload;g.activeTexture=activeTexture;g.useProgram=useProgram;observer?.disconnect();
++ window.demTracePrograms=[...programs.keys()];
++ done({elapsedMs:performance.now()-start,frames,rafs,longTasks,uploads,states,draws,canvasBefore,canvasAfter:[c.width,c.height],before,after:{...s.dataset},error:g.getError(),priorErrors});
++},seconds*1000);
++"""
++results={"browser":browser,"api":api,"runs":[],"method":"Fresh GUI browser per case; settled paused start, 24 seconds of motion at 10x; no GPU synchronization calls in trace"}
++try:
++    for quality in selected:
++        for variant in os.environ.get("EARTHLIGHT_VARIANTS", "base,pool,packed,bake,all,base").split(","):
++            mode='tile' if variant in ['tile','combined'] else 'strips'
++            if variant not in ['strips','tile','cache','combined','base','pool','packed','bake','dem','all']: raise ValueError('Unknown variant: '+variant)
++            cache='small' if variant in ['strips','tile'] else 'working'
++            decoder='pool' if variant in ['pool','dem','all'] else 'single'
++            source='packed' if variant in ['packed','dem','all'] else 'tiff'
++            bake='budget' if variant in ['bake','all'] else 'fixed'
++            params={"api":api,"render":"compact","motion":"0","quality":quality,
++                    "t":"3235.65","pitch":"-25","epoch":"2026-10-06T01:32:27Z",
++                    "look-grain":"0","exposure-mode":"manual","exposure-fixed":"0","terrainUpload":mode,"terrainCache":cache,"terrainDecoder":decoder,"terrainSource":source,"cloudBake":bake}
++            state=navigate(params)
++            print(quality,variant,"settled",round(state["settledSeconds"],2),"s",flush=True)
++            terrain=json.loads(state["state"]["terrainTiles"])
++            assert terrain["uploadMode"]==mode, terrain
++            assert terrain["cacheMode"]==cache, terrain
++            assert terrain["fineResident"]>0, terrain
++            assert terrain["decoderMode"]==decoder and terrain["sourceMode"]==source, terrain
++            assert state["state"]["cloudLightingBake"]==bake, state
++            if source=="packed": assert terrain["packedDecodes"]>0 and terrain["packedFallbacks"]==0, terrain
++            trace=driver.execute_async_script(TRACE,24)
++            shader_probe = None
++            if browser == "firefox":
++                shader_probe = driver.execute_script("""
++const g=document.querySelector('canvas').getContext('webgl'),errors=[],invalid=[];
++for(const [i,p] of (window.demTracePrograms||[]).entries()){
++ if(!g.isProgram(p))invalid.push(i);
++ const shaders=g.getAttachedShaders(p);if(shaders)for(const shader of shaders)g.getShaderSource(shader);
++ const error=g.getError();if(error)errors.push({program:i,error});
++}
++return {errors,invalid};
++""")
++                print("post-trace shader probe", shader_probe, flush=True)
++            driver.save_screenshot(str(output / f"{len(results['runs'])}-{quality}-{variant}.png"))
++            row={"quality":quality,"mode":mode,"variant":variant,"params":params,**state,"trace":trace,"shaderProbe":shader_probe,"memory":memory(),"demRequests":driver.execute_script("return performance.getEntriesByType('resource').filter(r=>(r.name.includes('/dem90/')||r.name.includes('/terrain-packed/'))).map(r=>({url:r.name,start:r.startTime,duration:r.duration,bytes:r.encodedBodySize,transfer:r.transferSize}));")}
++            results["runs"].append(row)
++            (output / "results.json").write_text(json.dumps(results,indent=2))
++            assert not trace["priorErrors"] and trace["error"]==0, trace["error"]
++            assert trace["after"]["assetFailures"]=="0"
++            dem=[u for u in trace["uploads"] if u["unit"]==15 and u["width"]>1]
++            gaps=sorted(b-a for a,b in zip(trace["frames"],trace["frames"][1:]))
++            print(quality,variant,"fps",round(len(trace["frames"])*1000/trace["elapsedMs"],2),
++                  "gap p95",round(gaps[int(len(gaps)*.95)],2),"max",round(max(gaps),2),
++                  "DEM uploads",len(dem),"call ms",round(sum(u["ms"] for u in dem),2),
++                  "max call",round(max((u["ms"] for u in dem),default=0),2),
++                  "draw ms",round(sum(d["ms"] for d in trace["draws"]),2),
++                  "fine end",json.loads(trace["after"]["terrainTiles"])["fineResident"],flush=True)
++    results["capabilities"]=driver.capabilities
++    if browser=="firefox":
++        driver.get("about:support")
++        time.sleep(2)
++        (output / "firefox-support.txt").write_text(driver.find_element("tag name","body").text)
++finally:
++    (output / "results.json").write_text(json.dumps(results,indent=2))
++    if driver: driver.quit()
+diff --git a/scripts/terrain-decoder.test.mjs b/scripts/terrain-decoder.test.mjs
+new file mode 100644
+index 0000000..15ee655
+--- /dev/null
++++ b/scripts/terrain-decoder.test.mjs
+@@ -0,0 +1,46 @@
++import {test} from 'bun:test';
++import assert from 'node:assert/strict';
++import {gzipSync} from 'node:zlib';
++import {TerrainDecoder} from '../src/scripts/terrain-decoder.ts';
++import {DEM_PATCH_BYTES,packTerrainParent,decompressTerrainParent} from '../src/scripts/terrain-packed.ts';
++
++test('decoder pool reuses two workers, cancels active and queued jobs, and rejects late results',async()=>{
++ const original=globalThis.Worker,workers=[];
++ globalThis.Worker=class{constructor(){workers.push(this);}postMessage(value){this.input=value;}terminate(){this.terminated=true;}};
++ const pool=new TerrainDecoder('pool'),controllers=Array.from({length:4},()=>new AbortController());
++ try{
++  const a=pool.run(new ArrayBuffer(4),0,controllers[0].signal),b=pool.run(new ArrayBuffer(4),1,controllers[1].signal),c=pool.run(new ArrayBuffer(4),2,controllers[2].signal);
++  assert.equal(workers.length,2);assert.equal(pool.live,2);
++  const late=workers[0].onmessage;controllers[0].abort();await assert.rejects(a,/cancelled/);
++  assert.equal(workers.length,3);assert.equal(workers[0].terminated,true);late({data:{patches:['stale']}});assert.equal(pool.completed,0);
++  workers[1].onmessage({data:{patches:['b']}});workers[2].onmessage({data:{patches:['c']}});
++  assert.deepEqual(await b,['b']);assert.deepEqual(await c,['c']);
++  const d=pool.run(new ArrayBuffer(4),3,controllers[3].signal);assert.equal(workers.length,3);
++  const e=pool.run(new ArrayBuffer(4),4,new AbortController().signal);
++  const cancelled=new AbortController(),f=pool.run(new ArrayBuffer(4),5,cancelled.signal);cancelled.abort();await assert.rejects(f,/cancelled/);
++  pool.dispose();await assert.rejects(d,/cancelled/);await assert.rejects(e,/cancelled/);assert.equal(pool.live,0);assert.ok(workers.every(w=>w.terminated));
++ }finally{pool.dispose();globalThis.Worker=original;}
++});
++
++test('failed decoder is replaced while single-use mode always terminates completed workers',async()=>{
++ const original=globalThis.Worker,workers=[];
++ globalThis.Worker=class{constructor(){workers.push(this);}postMessage(){}terminate(){this.terminated=true;}};
++ const pool=new TerrainDecoder('pool'),single=new TerrainDecoder('single');
++ try{
++  const a=pool.run(new ArrayBuffer(1),0,new AbortController().signal);workers[0].onerror({message:'decode failed'});await assert.rejects(a,/decode failed/);assert.equal(pool.live,0);
++  const b=pool.run(new ArrayBuffer(1),0,new AbortController().signal);workers[1].onmessage({data:{patches:[]}});await b;assert.equal(pool.live,1);
++  const c=single.run(new ArrayBuffer(1),0,new AbortController().signal);workers[2].onmessage({data:{patches:[]}});await c;assert.equal(single.live,0);
++ }finally{pool.dispose();single.dispose();globalThis.Worker=original;}
++});
++
++test('prepacked DEM preserves every height and mip byte; identity, corruption and bounds are checked',async()=>{
++ const patches=Array.from({length:4},(_,p)=>Uint8Array.from({length:DEM_PATCH_BYTES},(_,i)=>(i*31+p*53)%256));
++ const packed=packTerrainParent(1234,patches),compress=bytes=>new Uint8Array(gzipSync(bytes)).buffer;
++ const restored=await decompressTerrainParent(compress(packed),1234);
++ assert.deepEqual(restored,patches);assert.equal(new Set(restored.map(p=>p.buffer)).size,4);
++ await assert.rejects(decompressTerrainParent(compress(packed),1235),/identity/);
++ const corrupt=packed.slice();corrupt[0]=0;await assert.rejects(decompressTerrainParent(compress(corrupt),1234),/format/);
++ await assert.rejects(decompressTerrainParent(compress(packed.subarray(0,100)),1234),/truncated/);
++ await assert.rejects(decompressTerrainParent(compress(new Uint8Array(packed.length+1)),1234),/too large/);
++ await assert.rejects(decompressTerrainParent(new ArrayBuffer(10),1234));
++});
+diff --git a/scripts/texture-bitmap-browser-fixture.mjs b/scripts/texture-bitmap-browser-fixture.mjs
+new file mode 100644
+index 0000000..b6c7399
+--- /dev/null
++++ b/scripts/texture-bitmap-browser-fixture.mjs
+@@ -0,0 +1,29 @@
++import assert from 'node:assert/strict';
++import {cropTextureBitmap} from '../src/scripts/texture-bitmap.ts';
++
++export const textureBitmapFixture=`(async()=>{
++ const crop=${cropTextureBitmap.toString()};
++ const bytes=Uint8ClampedArray.from({length:8*4*4},(_,i)=>i%4===3?255:(i*37+Math.floor(i/4)*11)%256);
++ const source=await createImageBitmap(new ImageData(bytes,8,4),{colorSpaceConversion:'none',premultiplyAlpha:'none'});
++ const canvas=document.createElement('canvas'),gl=canvas.getContext('webgl');
++ const texture=gl.createTexture(),fb=gl.createFramebuffer();gl.bindTexture(gl.TEXTURE_2D,texture);
++ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,8,8,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
++ gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
++ const results=[];
++ try{for(const [x,y,w,h,dx,dy] of [[0,0,4,4,4,4],[4,0,4,4,4,4],[0,2,8,2,0,6]]){
++  const bitmap=await crop(source,x,y,w,h);
++  try{
++   gl.texSubImage2D(gl.TEXTURE_2D,0,dx,dy,gl.RGBA,gl.UNSIGNED_BYTE,bitmap);
++   const actual=new Uint8Array(w*h*4);gl.readPixels(dx,dy,w,h,gl.RGBA,gl.UNSIGNED_BYTE,actual);
++   let mismatches=0;for(let row=0;row<h;row++)for(let col=0;col<w*4;col++)if(actual[row*w*4+col]!==bytes[((row+y)*8+x)*4+col])mismatches++;
++   results.push({x,y,w,h,mismatches,error:gl.getError()});
++  }finally{bitmap.close();}
++ }}finally{source.close();gl.deleteFramebuffer(fb);gl.deleteTexture(texture);gl.getExtension('WEBGL_lose_context').loseContext();}
++ return results;
++})()`;
++
++export async function verifyTextureBitmap(evaluate){
++ const results=await evaluate(textureBitmapFixture);
++ for(const result of results){assert.equal(result.error,0);assert.equal(result.mismatches,0);}
++ return results;
++}
+diff --git a/scripts/canvas-resize-browser-fixture.mjs b/scripts/canvas-resize-browser-fixture.mjs
+new file mode 100644
+index 0000000..f941147
+--- /dev/null
++++ b/scripts/canvas-resize-browser-fixture.mjs
+@@ -0,0 +1,31 @@
++import assert from 'node:assert/strict';
++
++/** Resizing an opaque WebGL canvas clears it. A playing scene must repaint
++ * before returning to the compositor, even between its normal 24 FPS ticks. */
++export async function verifyCanvasResize({run,evaluate,wait,base}){
++ await run('open',`${base}/?api=webgl&motion=1&quality=fixed&t=3235.65`);
++ await wait("document.querySelector('orbital-sky').dataset.focus==='sharp'");
++ await evaluate(`(()=>{
++  const root=document.querySelector('orbital-sky'),canvas=root.querySelector('canvas');
++  let version=0,painted=0;const result={resizes:0,unpainted:[]};window.__resizeProof=result;
++  for(const name of ['width','height']){
++   const property=Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,name);
++   Object.defineProperty(canvas,name,{configurable:true,get(){return property.get.call(this)},set(value){
++    property.set.call(this,value);version++;result.resizes++;
++    queueMicrotask(()=>{if(root.hasAttribute('data-ready')&&painted<version)result.unpainted.push({width:canvas.width,height:canvas.height});});
++   }});
++  }
++  const gl=canvas.getContext('webgl'),draw=gl.drawArrays;
++  gl.drawArrays=function(...args){const result=draw.apply(this,args);if(!this.getParameter(this.FRAMEBUFFER_BINDING))painted=version;return result;};
++  return true;
++ })()`);
++ await run('set','viewport','1130','730');
++ await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');
++ await evaluate("document.querySelector('.sky-motion').click();true");
++ await run('set','viewport','1120','720');
++ await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');
++ const result=await evaluate('window.__resizeProof');
++ assert.ok(result.resizes>0,'the fixture must resize the drawing buffer');
++ assert.deepEqual(result.unpainted,[],'a visible resized canvas must be painted in the same task');
++ return result;
++}
+diff --git a/public/media/orbit/terrain-packed/v1/README.md b/public/media/orbit/terrain-packed/v1/README.md
+new file mode 100644
+index 0000000..33707b1
+--- /dev/null
++++ b/public/media/orbit/terrain-packed/v1/README.md
+@@ -0,0 +1,21 @@
++# Prepared Copernicus terrain, format 1
++
++These optional `.dem` files contain gzip-compressed ELDEM001 containers of
++four packed RGBA terrain patches. They use the same height quantization,
++regridding, gutters and numeric mip levels as the live TIFF decoder. The
++compression and container introduce no further approximation.
++
++The extension is deliberately `.dem`: serving `.gz` can add Content-Encoding
++and cause a browser to decompress the payload before the worker sees it.
++
++`manifest.json` records the covered parent IDs, fixed public source URLs,
++source checksums, compressed checksums and decoded checksums. Coverage can be
++partial; areas without prepared data continue to use the GLO-90 TIFF source.
++Generate an explicit selection with `bun run terrain:prepare --ids-file ids.json`.
++Generated binary data and manifests are not committed to source control.
++
++Produced using Copernicus WorldDEM-90 © DLR e.V. 2010-2014 and
++© Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by
++the European Union and ESA; all rights reserved.
++
++See [the asset provenance](../../README.md) for the source dataset and credits.

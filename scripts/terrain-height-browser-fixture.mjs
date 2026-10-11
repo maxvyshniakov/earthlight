@@ -51,7 +51,9 @@ void main(){
  texture(0,1716);const image=await createImageBitmap(await (await fetch('/media/orbit/terrain-tiles/${id}.png')).blob(),{colorSpaceConversion:'none',premultiplyAlpha:'none'});
  gl.texSubImage2D(gl.TEXTURE_2D,0,572,0,gl.RGBA,gl.UNSIGNED_BYTE,image);image.close();
  gl.texSubImage2D(gl.TEXTURE_2D,0,${tx},${ty},1,1,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([1,0,0,255]));
- gl.texSubImage2D(gl.TEXTURE_2D,0,${tx},${ty+20},1,1,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,0,0,255]));
+ // This summit fixture samples fully resident terrain, including at tile edges.
+ // Fades are now stored separately per tile rather than packing neighbour readiness.
+ for(let y=${ty-1};y<=${ty+1};y++)for(let x=${tx-1};x<=${tx+1};x++)gl.texSubImage2D(gl.TEXTURE_2D,0,(x+40)%40,Math.max(0,Math.min(19,y))+20,1,1,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,0,0,255]));
  gl.uniform2f(gl.getUniformLocation(p,'terrainTileLayout'),1716,3);gl.uniform1f(gl.getUniformLocation(p,'terrainReady'),1);gl.uniform1f(gl.getUniformLocation(p,'terrainWidth'),8192);
  gl.uniform2f(gl.getUniformLocation(p,'coordinate'),${summit.lon},${summit.lat});
  const r=Math.PI/180,lon=${summit.lon}*r,lat=${summit.lat}*r,d=1+150/6371;

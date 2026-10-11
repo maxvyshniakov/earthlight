@@ -326,8 +326,9 @@ export class OrbitalSky extends HTMLElement {
       if(canvas.height!==size.height)canvas.height=size.height;
       if(!changed)return;
       gl.viewport(0, 0, canvas.width, canvas.height);
-      // Playback will draw the new size on its next 24 FPS tick.
-      if(paused||!this.hasAttribute('data-ready'))draw();
+      // Resizing clears an opaque drawing buffer. Repaint before yielding
+      // to the compositor, including between normal playback ticks.
+      if(!document.hidden)renderFrame();
     };
     const tick = (now: number) => {
       frame = 0;

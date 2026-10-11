@@ -1,3 +1,4 @@
+import {cropTextureBitmap} from './texture-bitmap.ts';
 import {assetURL,type SceneSources} from './asset-location';
 import {shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {ShaderProgramBatch} from './shader-programs';
@@ -234,7 +235,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
               });
               for(let y=0;y<image.height;y+=256){
                 if(disposed||lost||current!==generation)return;
-                const strip=await createImageBitmap(image,0,y,image.width,Math.min(256,image.height-y));
+                const strip=await cropTextureBitmap(image,0,y,image.width,Math.min(256,image.height-y));
                 try{
                   if(disposed||lost||current!==generation)return;
                   await submit(()=>{
@@ -429,7 +430,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         state.cloudLighting='raymarch';
         if(lightingPlan){
           const bakeProgram=batch.take(lightingPlan);
-          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify);state.cloudLighting='texture';}
+          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify,params.get('cloudBake')==='budget'?'budget':'fixed');state.cloudLighting='texture';}
           catch(error){gl.deleteProgram(bakeProgram);console.warn('Cloud lighting atlas unavailable; retaining traced lighting.',error);}
         }
         if(modisStudy){
@@ -465,7 +466,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           catch(error){console.warn('Detailed day map unavailable; retaining the global map.',error);}
         }
         if(supportsCloudTiles&&params.get('cloudDetail')!=='0')cloudTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'cloud',work,base);
-        if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL);}
+        if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL,params.get('terrainUpload')==='tile'?'tile':'strips',params.get('terrainCache')==='small'?'small':'working',params.get('terrainDecoder')==='pool'?'pool':'single',params.get('terrainSource')==='packed'?'packed':'tiff');}
         if(supportsGalaxyTiles)galaxyTiles=new SurfaceTiles(gl,canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches,notify,'galaxy',work,base);
         if(starData)catalog.upload(starData);
         initialized=true;state.shaderStartup='ready';
@@ -558,7 +559,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(cloudLighting){
         const stats=cloudTiles?.stats();
         cloudLighting.update(orbit.camera,orbit.sun,sceneTime,width,height,imageWidths.clouds??1,cloudTiles?.layout(),
-          JSON.stringify([imageWidths.clouds,stats?.requests,stats?.resident]),assets.settled&&(!stats||stats.pending===0),state);
+          JSON.stringify([imageWidths.clouds,stats?.revision]),assets.settled&&(!stats||(stats.pending===0&&stats.fading===0)),state);
         finish.resume();gl.useProgram(program);
         gl.enableVertexAttribArray(scenePosition);gl.vertexAttribPointer(scenePosition,2,gl.FLOAT,false,0,0);
       }

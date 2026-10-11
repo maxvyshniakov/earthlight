@@ -1,6 +1,6 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {CloudLightingSchedule,CloudLightingAtlas} from '../src/scripts/cloud-lighting.ts';
+import {CloudLightingSchedule,CloudLightingAtlas,CloudBakeBudget} from '../src/scripts/cloud-lighting.ts';
 
 const camera=(longitude=0,latitude=0,altitude=150)=>{
   const lon=longitude*Math.PI/180,lat=latitude*Math.PI/180,r=1+altitude/6371;
@@ -110,4 +110,27 @@ test('disposing a complete atlas releases both textures and its framebuffer',()=
   assert.equal(fake.textures.size,2);assert.equal(fake.targets.size,1);
   assert.deepEqual(fake.state(),before);
   atlas.dispose();assert.equal(fake.textures.size,0);assert.equal(fake.targets.size,0);
+});
+
+
+test('smaller bake stripes visit the same atlas rows and publish only a complete replacement',()=>{
+ const schedule=new CloudLightingSchedule();schedule.update(camera(),sun,0,'a',true,0);schedule.update(camera(),sun,0,'a',true,701);
+ const visits=new Uint8Array(8*512);let steps=0;
+ while(schedule.pending){
+  const chunk=schedule.pending.chunk,tile=Math.floor(chunk/8),row=(chunk%8)*64;
+  const rows=Math.min([16,64,32][steps++%3],512-row);
+  for(let i=0;i<rows;i++)visits[tile*512+row+i]++;
+  const done=schedule.advance(rows);if(!done)assert.equal(schedule.current,null);
+ }
+ assert.ok(steps>64);assert.equal(schedule.generation,1);assert.ok(visits.every(n=>n===1));
+});
+
+test('cloud bake budget backs off under slow cadence and recovers without lowering resolution',()=>{
+ const budget=new CloudBakeBudget();let now=10000;
+ assert.equal(budget.rows(now),32);
+ for(let i=0;i<8;i++)assert.ok([16,32,64].includes(budget.rows(now+=100)));
+ assert.equal(budget.rows(now+=100),16);
+ for(let i=0;i<10;i++)budget.rows(now+=42);
+ assert.equal(budget.rows(now+=42),64);
+ assert.equal(budget.rows(now+=3000),32,'idle time must not be interpreted as GPU work');
 });

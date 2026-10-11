@@ -1,3 +1,6 @@
+import {verifyTileSeams} from './tile-seam-browser-fixture.mjs';
+import {verifyCanvasResize} from './canvas-resize-browser-fixture.mjs';
+import {verifyTextureBitmap} from './texture-bitmap-browser-fixture.mjs';
 import { galacticLightShader } from '../src/scripts/galactic-light.ts';
 import { surfaceMapShader } from '../src/scripts/surface-map.ts';
 import { airglowLightShader } from '../src/scripts/airglow-light.ts';
@@ -30,7 +33,7 @@ const session=`scene-proof-${process.pid}`;
 const run=async(...args)=>{
  // Visual regression scenes use a fixed calendar; production defaults to now.
  if(args[0]==='open'&&args[1]?.startsWith(base)){
-  const url=new URL(args[1]);if(!url.searchParams.has('epoch'))url.searchParams.set('epoch',START_DATE.toISOString());if(process.env.SCENE_PROFILE)url.searchParams.set('render',process.env.SCENE_PROFILE);args[1]=url.href;
+  const url=new URL(args[1]);if(!url.searchParams.has('epoch'))url.searchParams.set('epoch',START_DATE.toISOString());if(process.env.SCENE_PROFILE)url.searchParams.set('render',process.env.SCENE_PROFILE);if(process.env.SCENE_TERRAIN_UPLOAD)url.searchParams.set('terrainUpload',process.env.SCENE_TERRAIN_UPLOAD);if(process.env.SCENE_TERRAIN_CACHE)url.searchParams.set('terrainCache',process.env.SCENE_TERRAIN_CACHE);for(const [key,name] of [['terrainDecoder','SCENE_TERRAIN_DECODER'],['terrainSource','SCENE_TERRAIN_SOURCE'],['cloudBake','SCENE_CLOUD_BAKE']])if(process.env[name])url.searchParams.set(key,process.env[name]);args[1]=url.href;
  }
  return (await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
 };
@@ -124,6 +127,7 @@ void main(){
 try{
  await run('set','viewport','1440','966');
  await run('open',`${base}/?t=1645.72&motion=0`);await wait(settled);
+ const tileSeams=await verifyTileSeams(evaluate);results.push({tileSeams});console.log('tile seams: partial residency, fade, corners and dateline',tileSeams);
  const lighting=await verifyLighting(evaluate);results.push({lighting});console.log('lighting: eclipses and source-dependent moonlight',lighting);
  const weather=await verifyWeather(evaluate);results.push({weather});console.log('cloud shadows: comparison with 512-sample integral',weather);
  const nightLight=await verifyNightLight(evaluate);results.push({nightLight});console.log('night light: linear radiance and local city scattering',nightLight);
@@ -254,9 +258,16 @@ try{
   const state=await evaluate(`(()=>{const e=document.querySelector('orbital-sky'),i=e.querySelector('[data-look=grain]');i.value='0';i.dispatchEvent(new Event('input'));const c=e.querySelector('canvas'),gl=c.getContext('webgl');return {time:${time},ready:e.hasAttribute('data-ready'),error:gl.getError(),data:{...e.dataset},canvas:[c.width,c.height]};})()`);
   assert.equal(state.ready,true);assert.equal(state.error,0);assert.equal(state.data.assetFailures,'0');
   assert.deepEqual([state.data.terrainWork,state.data.terrainRefinement,state.data.cloudSteps],['bounded','pixel','balanced']);
+  if(state.data.terrainTiles){const terrain=JSON.parse(state.data.terrainTiles);for(const [field,name] of [['cacheMode','SCENE_TERRAIN_CACHE'],['decoderMode','SCENE_TERRAIN_DECODER'],['sourceMode','SCENE_TERRAIN_SOURCE']])if(process.env[name])assert.equal(terrain[field],process.env[name]);if(process.env.SCENE_TERRAIN_SOURCE==='packed')assert.equal(terrain.packedFallbacks,0);}
   await run('screenshot',`${out}/frame-${time}.png`);results.push(state);console.log(`frame ${time}: clean`);
  }
  // The historical renderer remains available for matched comparisons.
+ if(process.env.SCENE_TERRAIN_SOURCE==='packed'){
+  await run('open',`${base}/?t=3235.65&pitch=-25&motion=0&quality=fixed`);await wait(settled);
+  const terrain=await evaluate(`JSON.parse(document.querySelector('orbital-sky').dataset.terrainTiles)`);
+  assert.equal(terrain.sourceMode,'packed');assert.ok(terrain.packedDecodes>0);assert.equal(terrain.packedFallbacks,0);assert.ok(terrain.fineResident>0);
+  console.log('prepared terrain: actual packed residents, no TIFF error fallback');
+ }
  await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&terrainWork=legacy&terrainRefinement=full&cloudSteps=full`);await wait(settled);
  const legacyWork=await evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {work:[e.dataset.terrainWork,e.dataset.terrainRefinement,e.dataset.cloudSteps],failures:e.dataset.assetFailures,error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
  assert.deepEqual(legacyWork.work,['legacy','full','full']);assert.equal(legacyWork.failures,'0');assert.equal(legacyWork.error,0);
@@ -416,6 +427,8 @@ try{
  await evaluate("document.querySelector('#sky-settings').showPopover();document.querySelector('[data-view=yaw]').focus();true");
  await run('press','Space');assert.equal((await viewState()).motion,'Play');
  results.push({spacePlayback:true});console.log('space: toggles playback, ignores repeats and focused sliders');
+ const canvasResize=await verifyCanvasResize({run,evaluate,wait,base});results.push({canvasResize});console.log('canvas resize: repaints before presentation',canvasResize);
+ const textureBitmap=await verifyTextureBitmap(evaluate);results.push({textureBitmap});console.log('texture crops: exact numeric bytes at atlas edges',textureBitmap);
  const flight=await verifyFlight({run,evaluate,wait,base});results.push({flight});console.log('flight: routes, bounds, pause, URL restoration and input ownership',flight);
  const touch=await verifyTouch({run,evaluate,wait,base});results.push({touch});console.log('touch: look, pan, pinch and native controls',touch);
  const calendar=await verifyCalendar({run,evaluate,wait,base});results.push({calendar});console.log('calendar: lighting, camera independence, URL restoration and reset',calendar);

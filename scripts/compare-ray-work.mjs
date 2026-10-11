@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import {ORBIT_SECONDS} from '../src/scripts/iss-orbit.ts';
 const exec=promisify(execFile);
-const options={bounded:{terrainWork:'bounded'},pixel:{terrainWork:'bounded',terrainRefinement:'pixel'},clouds:{cloudSteps:'balanced'},coarse:{terrainDetail:'coarse'},combined:{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}};
+const options={bake:{cloudBake:'budget'},pool:{terrainDecoder:'pool'},packed:{terrainSource:'packed'},streaming:{cloudBake:'budget',terrainDecoder:'pool',terrainSource:'packed'},cache:{terrainCache:'working'},uploads:{terrainUpload:'tile'},bounded:{terrainWork:'bounded'},pixel:{terrainWork:'bounded',terrainRefinement:'pixel'},clouds:{cloudSteps:'balanced'},coarse:{terrainDetail:'coarse'},combined:{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}};
 const [base='http://127.0.0.1:4347',out='/tmp/orbit-pairs',selected='bounded,pixel',views='clouds,day,night',baseline='compact']=process.argv.slice(2);
 let sequence=0,session,opened=false;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:80e6,timeout:90000})).stdout;
@@ -23,13 +23,16 @@ const evaluateTask=async code=>{
  throw Error('Paired GPU sampling timed out');
 };
 const settled=`[...document.querySelectorAll('orbital-sky')].every(s=>s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&(s.dataset.cloudLighting!=='texture'||s.dataset.cloudLightingReady==='1')&&Number(s.dataset.cloudLightingProgress??0)===0&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0))`;
-const wait=async()=>{try{await run('wait','--fn',settled);}catch(e){if(!String(e.stderr).includes('Wait timed out'))throw e;await run('wait','--fn',settled);}};
+const needsFine=selected.split(',').some(name=>['cache','uploads','pool','packed','streaming'].includes(name));
+const ready=settled+(needsFine?`&&[...document.querySelectorAll('orbital-sky')].every(s=>Number(JSON.parse(s.dataset.terrainTiles??'{}').fineResident)>0)`: '');
+const wait=async()=>{try{await run('wait','--fn',ready);}catch(e){if(!String(e.stderr).includes('Wait timed out'))throw e;await run('wait','--fn',ready);}};
 await mkdir(out,{recursive:true});const results=[];
 try{
  for(const scene of [{name:'day',t:3235.65,pitch:0},{name:'night',t:610.87,pitch:0},{name:'clouds',t:3235.65,pitch:-25}].filter(s=>views.split(',').includes(s.name)))for(const candidate of selected.split(',')){
   session=`orbit-pairs-${process.pid}-${sequence++}`;opened=true;
   assert.ok(options[candidate],`Unknown candidate: ${candidate}`);
-  await run('open',`${base}/?api=webgl&render=${encodeURIComponent(baseline)}&motion=0&quality=fixed&terrainWork=legacy&terrainRefinement=full&cloudSteps=full&t=${scene.t}&pitch=${scene.pitch}&epoch=2026-10-06T01:32:27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0`);
+  const referenceWork=['uploads','cache','bake','pool','packed','streaming'].includes(candidate)?{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}:{terrainWork:'legacy',terrainRefinement:'full',cloudSteps:'full'};
+  await run('open',`${base}/?api=webgl&render=${encodeURIComponent(baseline)}&motion=0&quality=fixed&${new URLSearchParams(referenceWork)}&terrainUpload=strips&terrainCache=${['uploads','cache'].includes(candidate)?'small':'working'}&terrainDecoder=single&terrainSource=tiff&cloudBake=fixed&t=${scene.t}&pitch=${scene.pitch}&epoch=2026-10-06T01:32:27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0`);
   await run('set','viewport','1248','615');await wait();
   await evaluate(`(()=>{
    const original=document.querySelector('orbital-sky'),copy=original.cloneNode(true);
@@ -43,7 +46,7 @@ try{
   await evaluate(`(()=>{for(const s of document.querySelectorAll('orbital-sky'))s.querySelector('.sky-track input').dispatchEvent(new Event('input'));return true;})()`);await wait();
   const result=await evaluateTask(`(async()=>{
    const skies=[...document.querySelectorAll('orbital-sky')],pairs=[];
-   const states=skies.map(s=>({terrainWork:s.dataset.terrainWork,terrainRefinement:s.dataset.terrainRefinement,cloudSteps:s.dataset.cloudSteps,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,width:s.querySelector('canvas').width,height:s.querySelector('canvas').height,failures:s.dataset.assetFailures}));
+   const states=skies.map(s=>({terrainWork:s.dataset.terrainWork,terrainRefinement:s.dataset.terrainRefinement,cloudSteps:s.dataset.cloudSteps,terrain:s.dataset.terrainTiles,cloudBake:s.dataset.cloudLightingBake,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,width:s.querySelector('canvas').width,height:s.querySelector('canvas').height,failures:s.dataset.assetFailures}));
    const monitors=skies.map(s=>{
     const gl=s.querySelector('canvas').getContext('webgl'),bind=gl.bindFramebuffer,draw=gl.drawArrays;
     let target=gl.getParameter(gl.FRAMEBUFFER_BINDING),frames=0;
@@ -77,9 +80,21 @@ try{
   })()`);
   assert.ok(result.renderer&&!/swiftshader|llvmpipe|softpipe/i.test(result.renderer),result.renderer);
   assert.deepEqual(result.states.map(s=>s.profile),[baseline,baseline]);
-  assert.equal(result.states[1].terrainWork,['clouds','coarse'].includes(candidate)?'legacy':'bounded');
-  assert.equal(result.states[1].cloudSteps,['clouds','combined'].includes(candidate)?'balanced':'full');
-  assert.equal(result.states[1].terrainRefinement,['pixel','combined'].includes(candidate)?'pixel':'full');
+  for(const [index,expected] of [referenceWork,{...referenceWork,...options[candidate]}].entries())
+   for(const key of ['terrainWork','terrainRefinement','cloudSteps'])assert.equal(result.states[index][key],expected[key]);
+  if(candidate==='cache')for(const [i,mode] of ['small','working'].entries()){
+   const terrain=JSON.parse(result.states[i].terrain);assert.equal(terrain.cacheMode,mode);assert.ok(terrain.fineResident>0,JSON.stringify(terrain));
+  }
+  if(candidate==='uploads')for(const [i,mode] of ['strips','tile'].entries()){
+   const terrain=JSON.parse(result.states[i].terrain);assert.equal(terrain.uploadMode,mode);assert.ok(terrain.fineResident>0,JSON.stringify(terrain));
+  }
+  if(['bake','pool','packed','streaming'].includes(candidate))for(const [i,state] of result.states.entries()){
+   const t=JSON.parse(state.terrain);assert.equal(t.cacheMode,'working');
+   assert.equal(t.decoderMode,i&&['pool','streaming'].includes(candidate)?'pool':'single');
+   assert.equal(t.sourceMode,i&&['packed','streaming'].includes(candidate)?'packed':'tiff');
+   assert.equal(state.cloudBake,i&&['bake','streaming'].includes(candidate)?'budget':'fixed');
+   if(i&&['packed','streaming'].includes(candidate)){assert.ok(t.packedDecodes>0);assert.equal(t.packedFallbacks,0);}
+  }
   if(candidate==='clouds-half')assert.equal(result.states[1].cloudPass,'half','Do not benchmark a silent compact fallback as half-resolution clouds');
   assert.deepEqual(result.frameCounts,[40,40],'Only the requested frames may run during paired sampling');
   for(const k of ['position','basis','width','height'])assert.equal(result.states[0][k],result.states[1][k]);

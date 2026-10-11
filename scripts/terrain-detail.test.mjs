@@ -39,7 +39,7 @@ test('DEM proxy accepts only the fixed public dataset and handles upstream failu
 });
 test('shared terrain atlas bounds uploads, retries failures slowly and releases offscreen memory',async()=>{
  let now=1000;spyOn(performance,'now').mockImplementation(()=>now);
- const originals={fetch:globalThis.fetch,window:globalThis.window,document:globalThis.document,createImageBitmap:globalThis.createImageBitmap};
+ const originals={fetch:globalThis.fetch,window:globalThis.window,document:globalThis.document,createImageBitmap:globalThis.createImageBitmap,OffscreenCanvas:globalThis.OffscreenCanvas};
  const uploads=[];let tileRequests=0,deleted=0;
  globalThis.window=globalThis;globalThis.document={hidden:false};
  globalThis.fetch=async url=>{
@@ -47,6 +47,7 @@ test('shared terrain atlas bounds uploads, retries failures slowly and releases 
   if(url.endsWith('manifest.json'))return {ok:true,json:async()=>({tiles:Array.from({length:800},(_,i)=>i)})};
   tileRequests++;return tileRequests===1?{ok:false}:{ok:true,blob:async()=>new Blob(['tile'])};
  };
+ globalThis.OffscreenCanvas=class{constructor(width,height){this.width=width;this.height=height;}getContext(){return {drawImage(){}};}transferToImageBitmap(){return {width:this.width,height:this.height,close(){}};}};
  globalThis.createImageBitmap=async(...args)=>({width:args.length>2?572:1144,height:572,close(){}});
  const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},texSubImage2D(...a){uploads.push(a);},getUniformLocation:()=>({}),uniform1i(){},uniform2f(){},isContextLost:()=>false,deleteTexture(){deleted++;}};
  const work={network:{run:(_,signal,f)=>signal.aborted?Promise.reject(signal.reason):f()},decode:{run:(_,signal,f)=>signal.aborted?Promise.reject(signal.reason):f()},upload:async(_,signal,f)=>{if(signal.aborted)throw signal.reason;f();}};
@@ -77,16 +78,88 @@ test('fine DEM deduplicates parent downloads, caps decoded cache and cancels wor
  const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},isContextLost:()=>false,deleteTexture(){}};
  let atlas;
  try{
-  atlas=new TerrainStream(gl,true,()=>{});
+  atlas=new TerrainStream(gl,true,()=>{},undefined,undefined,undefined,'strips','small');
   const id=96*720+132;
   const [a,b]=await Promise.all([atlas.fineData(id),atlas.fineData(id+1)]);
   assert.equal(a,b);assert.equal(requests,1);assert.equal(terminated,1);
   await atlas.fineData(id+2);await atlas.fineData(id+4);
   assert.equal(atlas.parentCache.size,2);assert.equal(requests,3);
   hold=true;const pending=atlas.fineData(id+6);await new Promise(r=>setImmediate(r));
-  atlas.dispose();await assert.rejects(pending,/cancelled/);assert.equal(atlas.workers.size,0);assert.equal(atlas.parentCache.size,0);
+  atlas.dispose();await assert.rejects(pending,/cancelled/);assert.equal(atlas.decoder.live,0);assert.equal(atlas.parentCache.size,0);
   atlas=null;
  }finally{atlas?.dispose();Object.assign(globalThis,originals);}
 });
 
+test('whole DEM upload preserves every atlas byte and publishes only after completion',async()=>{
+ const original={window:globalThis.window,document:globalThis.document,fetch:globalThis.fetch};
+ globalThis.window=globalThis;globalThis.document={hidden:false};
+ globalThis.fetch=async()=>({ok:true,json:async()=>[]});
+ const pixels=Uint8Array.from({length:DEM_CELL*DEM_CELL*2*4},(_,i)=>(i*31+Math.floor(i/127))%256);
+ const render=async(mode,mobile)=>{
+  const columns=mobile?4:6,edge=columns*DEM_CELL,bytes=new Uint8Array(edge*edge*4),calls=[];
+  const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},isContextLost:()=>false,deleteTexture(){},
+   texSubImage2D(_target,_level,x,y,w,h,_format,_type,data){
+    assert.ok(x+w<=edge&&y+h<=edge);calls.push({x,y,w,h});
+    for(let row=0;row<h;row++)bytes.set(data.subarray(row*w*4,(row+1)*w*4),((y+row)*edge+x)*4);
+   }};
+  const jobs=[];
+  const work={network:{run:async(_,signal,f)=>f()},upload:(_,signal,f)=>new Promise((resolve,reject)=>jobs.push(()=>{if(signal.aborted){reject(signal.reason);return;}f();resolve();}))};
+  const atlas=new TerrainStream(gl,mobile,()=>{},work,undefined,undefined,mode);
+  atlas.fineData=async()=>[pixels,pixels,pixels,pixels];
+  // Last paired cells exercise the atlas edge, beyond the indirection row.
+  for(let slot=columns;slot<columns*columns-2;slot+=2)atlas.entries.set('c'+slot,{slot,loaded:0,used:0,id:slot,fine:false});
+  atlas.wanted=['f0'];atlas.pump();
+  try{
+   while(atlas.pending.size){
+    await new Promise(r=>setImmediate(r));
+    if(jobs.length){assert.equal(atlas.entries.get('f0').loaded,Infinity);jobs.shift()();}
+   }
+   assert.equal(atlas.stats().fineResident,1);assert.equal(atlas.stats().failures,0);
+   assert.equal(calls.length,mode==='tile'?1:20);
+   const slot=atlas.entries.get('f0').slot;assert.equal(slot,columns*columns-2);
+   // Heights AND packed mipmaps match the decoder buffer, not just each other.
+   for(let row=0;row<DEM_CELL;row++)assert.deepEqual(bytes.subarray(((Math.floor(slot/columns)*DEM_CELL+row)*edge+slot%columns*DEM_CELL)*4,((Math.floor(slot/columns)*DEM_CELL+row)*edge+slot%columns*DEM_CELL+2*DEM_CELL)*4),pixels.subarray(row*2*DEM_CELL*4,(row+1)*2*DEM_CELL*4));
+   return bytes;
+  }finally{atlas.dispose();}
+ };
+ try{for(const mobile of [true,false])assert.deepEqual(await render('tile',mobile),await render('strips',mobile));}
+ finally{Object.assign(globalThis,original);}
+});
+
+test('working DEM cache keeps visible parents and stays within its memory budget',async()=>{
+ const original={window:globalThis.window,fetch:globalThis.fetch,Worker:globalThis.Worker};
+ globalThis.window=globalThis;
+ let requests=0;
+ globalThis.fetch=async url=>url.endsWith('.json')?{ok:true,json:async()=>url.endsWith('copernicus.json')?[]:{tiles:[]}}:{ok:true,arrayBuffer:async()=>{requests++;return new ArrayBuffer(4);}};
+ globalThis.Worker=class{postMessage(){queueMicrotask(()=>this.onmessage({data:{patches:Array.from({length:4},()=>new Uint8Array(8))}}));}terminate(){}};
+ const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},isContextLost:()=>false,deleteTexture(){}};
+ try{for(const mobile of [true,false]){
+  const atlas=new TerrainStream(gl,mobile,()=>{});
+  try{
+   assert.equal(atlas.stats().cacheMode,'working');assert.equal(atlas.stats().uploadMode,'strips');
+   atlas.wanted=['f0'];const expected=await atlas.fineData(0);
+   for(let id=2;id<20;id+=2)await atlas.fineData(id);
+   assert.equal(atlas.parentCache.size,mobile?4:6);
+   const before=requests;assert.equal(await atlas.fineData(0),expected);assert.equal(requests,before,'visible parent must not be downloaded or decoded twice');
+   assert.equal(atlas.stats().decodedBytes,(mobile?4:6)*32);
+  }finally{atlas.dispose();assert.equal(atlas.stats().decodedBytes,0);}
+ }}finally{Object.assign(globalThis,original);}
+});
+
 afterEach(()=>{mock.restore();});
+
+
+test('missing or corrupt prepared terrain falls back to TIFF and avoids repeated failed packed requests',async()=>{
+ const original={window:globalThis.window,Worker:globalThis.Worker,fetch:globalThis.fetch};globalThis.window=globalThis;
+ const requests=[];
+ globalThis.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>url.includes('terrain-packed')?{version:1,files:[{id:0}]}:url.endsWith('copernicus.json')?[]:{tiles:[]},arrayBuffer:async()=>new ArrayBuffer(4)};};
+ globalThis.Worker=class{constructor(url){this.packed=String(url).includes('packed');}postMessage(){queueMicrotask(()=>this.onmessage({data:this.packed?{error:'corrupt'}:{patches:Array.from({length:4},()=>new Uint8Array(4))}}));}terminate(){}};
+ const gl={createTexture:()=>({}),activeTexture(){},bindTexture(){},texImage2D(){},texParameteri(){},isContextLost:()=>false,deleteTexture(){}};
+ const atlas=new TerrainStream(gl,false,()=>{},undefined,undefined,undefined,'strips','working','pool','packed');
+ try{
+  await atlas.fineData(0);assert.equal(atlas.stats().packedFallbacks,1);assert.equal(atlas.stats().failures,0);
+  atlas.parentCache.clear();await atlas.fineData(0);
+  assert.equal(requests.filter(url=>url.endsWith('.dem')).length,1);assert.equal(requests.filter(url=>url.endsWith('.tif')).length,2);
+  await atlas.fineData(2);assert.equal(requests.filter(url=>url.endsWith('.dem')).length,1,'unprepared regions go directly to TIFF');
+ }finally{atlas.dispose();assert.equal(atlas.stats().workersLive,0);Object.assign(globalThis,original);}
+});
