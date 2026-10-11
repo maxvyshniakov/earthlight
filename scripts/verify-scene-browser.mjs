@@ -138,6 +138,7 @@ try{
  const tileSeams=await verifyTileSeams(evaluate);results.push({tileSeams});console.log('tile seams: partial residency, fade, corners and dateline',tileSeams);
  const lighting=await verifyLighting(evaluate);results.push({lighting});console.log('lighting: eclipses and source-dependent moonlight',lighting);
  const weather=await verifyWeather(evaluate);results.push({weather});console.log('cloud shadows: comparison with 512-sample integral',weather);
+ const textureWeather=await verifyWeather(evaluate,'texture');results.push({textureWeather});console.log('texture-shaped clouds: shadow integral and coverage continuity',textureWeather);
  const nightLight=await verifyNightLight(evaluate);results.push({nightLight});console.log('night light: linear radiance and local city scattering',nightLight);
  const aurora=await verifyAurora(evaluate);results.push({aurora});console.log('aurora',aurora);
  const summitHeights=await verifyTerrainHeights(evaluate);results.push({summitHeights});console.log('summit heights: packed atlas and actual ray intersections',summitHeights);
@@ -198,22 +199,31 @@ try{
   const p=gl.createProgram();gl.attachShader(p,compile(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));gl.attachShader(p,compile(gl.FRAGMENT_SHADER,${JSON.stringify(cloudFixture)}));gl.linkProgram(p);gl.useProgram(p);
   const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);const a=gl.getAttribLocation(p,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
   const sample=regional=>{gl.uniform1f(gl.getUniformLocation(p,'regional'),regional);gl.drawArrays(gl.TRIANGLES,0,3);const bytes=new Uint8Array(512*3*4);gl.readPixels(0,0,512,3,gl.RGBA,gl.UNSIGNED_BYTE,bytes);return Array.from({length:3},(_,row)=>{const profile=Array.from({length:512},(_,x)=>bytes[(row*512+x)*4]);const lower=profile.findIndex(v=>v>1)*12/512,upper=profile.findLastIndex(v=>v>1)*12/512;return {lower,upper,tau:profile.reduce((sum,v)=>sum+v/255*12/512,0),thickness:upper-lower,maxStep:Math.max(...profile.slice(1).map((v,i)=>Math.abs(v-profile[i])))};});};
-  const low=sample(.25),high=sample(.75),error=gl.getError();gl.getExtension('WEBGL_lose_context')?.loseContext();return {low,high,error};
+  const low=sample(.25),high=sample(.75);
+  // Sweep the former regional mask independently of the photographic map.
+  // It must no longer create deep islands or change column optical thickness.
+  const transition=Array.from({length:22},(_,i)=>sample(.56+i*.01)[2].upper);
+  const error=gl.getError();gl.getExtension('WEBGL_lose_context')?.loseContext();return {low,high,transition,error};
  })()`);
  assert.equal(cloudProfiles.error,0);
  for(const group of [cloudProfiles.low,cloudProfiles.high]){
   for(const profile of group){assert.ok(profile.thickness>.4);assert.ok(profile.maxStep<12,'no abrupt density shelf');}
  }
  console.log('cloud density profiles',cloudProfiles);
- assert.ok(cloudProfiles.low[2].upper<4,'low decks stay below the middle cloud layer');
- assert.ok(cloudProfiles.high[2].upper>9,'selected convection reaches the upper cloud layer');
- assert.ok(cloudProfiles.high[2].tau>cloudProfiles.low[2].tau,'active regions retain greater optical depth');
+ for(let i=0;i<3;i++){
+  assert.ok(Math.abs(cloudProfiles.low[i].tau-cloudProfiles.high[i].tau)<.03,'procedural relief must not change observed column opacity');
+  assert.ok(Math.abs(cloudProfiles.low[i].upper-cloudProfiles.high[i].upper)<.5,'noise cannot create a detached high cloud family');
+ }
  for(const group of [cloudProfiles.low,cloudProfiles.high]){
   assert.ok(group[2].tau>.15&&group[2].tau<8.,'bounded cloud optical depth');
   assert.ok(1-Math.exp(-group[2].tau*12)>.9,'long grazing paths accumulate opacity');
   assert.ok(group[0].tau<group[2].tau*.25,'thin edges remain translucent');
  }
- assert.ok(cloudProfiles.high[2].lower>cloudProfiles.low[2].lower+.15,'regional cloud bases must not share one sphere');
+ for(const group of [cloudProfiles.low,cloudProfiles.high]){
+  assert.ok(group[0].upper<4&&group[2].upper>8&&group[2].upper<10,'observed structure retains vertical relief within the cloud shell');
+  assert.ok(group[2].lower>group[0].lower+.15,'observed structure varies the cloud base');
+ }
+ assert.ok(Math.max(...cloudProfiles.transition)-Math.min(...cloudProfiles.transition)<.15,'dense tops cannot trace the former regional mask');
  results.push({cloudProfiles});
  const sensor=await evaluate(`(()=>{
   const c=document.createElement('canvas');c.width=c.height=256;const gl=c.getContext('webgl');gl.disable(gl.DITHER);

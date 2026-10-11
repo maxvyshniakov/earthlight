@@ -6,14 +6,14 @@ import {cloudShader} from '../src/scripts/earth-clouds.ts';
 export async function verifyWeather(evaluate,variant='current'){
  const source=`${variant==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':''}precision highp float;
 #define FOCAL 1.25
-uniform float regional,coverage,sampleNoise,continuity;
+uniform float regional,coverage,sampleNoise,continuity,overview;
 const vec3 cameraPosition=vec3(0.,0.,1.06),sunDirection=vec3(0.,0.,1.);
 const vec2 resolution=vec2(1200.,800.);
 // Vary only the broad regime. Fine noise is its mean in both integrators;
 // otherwise footprint filtering changes the field being used as the oracle.
 float noise(vec3 p){return length(p)<100.?regional:sampleNoise;}
 vec3 cloudCoordinates(vec3 p){return p;}
-float cloudCoverage(vec3 p,float footprint,bool detailed){return coverage;}
+float cloudCoverage(vec3 p,float footprint,bool detailed){return overview>=0.&&footprint>=.0025?overview:coverage;}
 ${cloudShader.slice(cloudShader.indexOf('float filteredCloudNoise('),cloudShader.indexOf('// Five source rays'))}
 void main(){
  if(continuity>.5){
@@ -39,13 +39,14 @@ void main(){
  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);const a=gl.getAttribLocation(p,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
  const cases=[];
  gl.uniform1f(gl.getUniformLocation(p,'sampleNoise'),.5);
+ gl.uniform1f(gl.getUniformLocation(p,'overview'),-1);
  for(const regional of [.25,.5,.75])for(const coverage of [0,.35,1]){
   gl.uniform1f(gl.getUniformLocation(p,'regional'),regional);gl.uniform1f(gl.getUniformLocation(p,'coverage'),coverage);gl.drawArrays(gl.TRIANGLES,0,3);
   const data=new Uint8Array(128*2*4);gl.readPixels(0,0,128,2,gl.RGBA,gl.UNSIGNED_BYTE,data);
   const rows=[0,1].map(row=>{const errors=Array.from({length:128},(_,x)=>Math.abs(data[(row*128+x)*4]-data[(row*128+x)*4+1])/255);return {mean:errors.reduce((a,b)=>a+b,0)/128,max:Math.max(...errors),zenith:data[row*128*4]/255};});cases.push({regional,coverage,rows});
  }
- // Sweep unresolved geography independently of fine erosion. A dense observed
- // column must keep its body even at noise minima; broken cover may separate.
+ // Sweep relief independently of coverage. Noise must not punch clear columns
+ // into the observed body, even where the photograph is partially transparent.
  const columns=[];gl.uniform1f(gl.getUniformLocation(p,'continuity'),1);
  for(const regional of [.25,.5,.75])for(const coverage of [0,.25,1]){
   const opacity=[];
@@ -56,7 +57,20 @@ void main(){
   }
   columns.push({regional,coverage,opacity});
  }
- const error=gl.getError();gl.getExtension('WEBGL_lose_context').loseContext();return {cases,columns,error};
+ // At identical local coverage, a different broad envelope may change height,
+ // but it must preserve opacity. Integrate rather than inspecting coefficients.
+ const envelopes=[];
+ for(const coverage of [.1,.25,.6,1]){
+  gl.uniform1f(gl.getUniformLocation(p,'coverage'),coverage);
+  const opacity=[];
+  for(const overview of [0,.4,.7,1])for(const sampleNoise of [.05,.5,.95]){
+   gl.uniform1f(gl.getUniformLocation(p,'overview'),overview);
+   gl.uniform1f(gl.getUniformLocation(p,'sampleNoise'),sampleNoise);gl.drawArrays(gl.TRIANGLES,0,3);
+   const data=new Uint8Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,data);opacity.push(data[0]/255);
+  }
+  envelopes.push({coverage,opacity});
+ }
+ const error=gl.getError();gl.getExtension('WEBGL_lose_context').loseContext();return {cases,columns,envelopes,error};
  })()`);
  assert.equal(result.error,0);
  for(const c of result.cases)for(const row of c.rows){
@@ -70,7 +84,13 @@ void main(){
    assert.ok(Math.min(...c.opacity)>.35,`overcast body survives noise minima: ${JSON.stringify(c)}`);
    assert.ok(Math.max(...c.opacity)-Math.min(...c.opacity)<.3,`overcast does not alternate clear/opaque: ${JSON.stringify(c)}`);
   }
-  if(variant==='current'&&c.coverage===.25&&c.regional===.5)assert.ok(c.opacity.at(-1)-c.opacity[0]>.1,'broken cumulus retains separate bodies');
+  if(c.coverage===.25){
+   assert.ok(Math.min(...c.opacity)>.025,'partial coverage survives noise minima');
+   assert.ok(Math.max(...c.opacity)-Math.min(...c.opacity)<.1,'relief cannot carve a clear/opaque camouflage pattern');
+  }
+ }
+ for(const envelope of result.envelopes){
+  assert.ok(Math.max(...envelope.opacity)-Math.min(...envelope.opacity)<.015,`height cannot repaint observed opacity: ${JSON.stringify(envelope)}`);
  }
  return result;
 }

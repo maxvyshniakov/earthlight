@@ -1,6 +1,6 @@
 // An illustrative cloud volume driven by NASA's optical cloud composite.
 // The photograph provides coverage, not measured height/density: the vertical
-// profile and small-scale erosion below are a bounded reconstruction.
+// profile and small-scale relief below are a bounded reconstruction.
 import {stormLightShader} from './storm-light.ts';
 import {modisOrbitShader} from './modis-orbit.ts';
 export const cloudShader=`
@@ -62,67 +62,36 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   if(height<.6 || height>12.)return 0.;
   float coverage=cloudCoverage(point,footprint,detailed);
   if(coverage<.001)return 0.;
-  // Coverage is observed; cloud families and heights are illustrative. Blend
-  // regional regimes rather than stamping the same vertical bell everywhere.
+  // The optical map is the only evidence for horizontal cloud structure.
+  // An unrelated regional noise mask used to label broad patches as deep
+  // convection, changing their height, whiteness and texture all at once.
+  float neighborhood=cloudCoverage(point,max(footprint,.0025),false);
+  float connected=smoothstep(.32,.78,min(coverage,neighborhood));
+  float relief=0.;
+#ifndef TEXTURE_SHAPED_CLOUDS
   vec3 material=cloudCoordinates(point),horizontal=normalize(material);
-  float regional=filteredCloudNoise(horizontal+vec3(17.,31.,9.)/38.,38.,footprint);
-  float neighborhood=regional>.46?cloudCoverage(point,max(footprint,.0025),false):coverage;
-  float convection=smoothstep(.57,.78,regional)*smoothstep(.64,.90,neighborhood);
-  float sheet=1.-smoothstep(.34,.60,regional);
-  float ice=smoothstep(.46,.70,regional)*(1.-smoothstep(.45,.82,neighborhood));
-  if(height>6.5 && convection+ice<.001)return 0.;
-#ifdef TEXTURE_SHAPED_CLOUDS
-  // Keep observed fine structure. Only the broad regime is illustrative;
-  // brightness is not a measured cloud genus or a retrieved cloud height.
-  // No extra texture, no fine 3D noise and no holes carved into dense decks.
-  float lowBase=.7+.45*regional,lowTop=1.9+.8*coverage;
-  float deck=smoothstep(lowBase,lowBase+.45,height)
-    *(1.-smoothstep(lowTop-.35,lowTop+.35,height));
-  float base=1.15+.35*regional,top=2.3+2.9*smoothstep(.12,.90,coverage);
-  float cumulus=smoothstep(base,base+.5,height)
-    *(1.-smoothstep(top-.65,top+.25,height));
-  float towerTop=8.3+2.5*coverage;
-  float tower=smoothstep(1.1,1.7,height)*(1.-smoothstep(towerTop-.8,towerTop+.2,height));
-  float anvil=exp(-.5*pow((height-9.3)/.8,2.));
-  float cirrus=exp(-.5*pow((height-9.5)/.65,2.));
-  float density=(1.-convection)*(sheet*deck*.65+(1.-sheet)*cumulus*.55)
-    +convection*(tower*.65+anvil*.16)+ice*cirrus*.09;
-  return pow(coverage,1.35)*density*.925*(1.-smoothstep(11.5,12.,height));
-#else
-  // Rotate the cellular domain and mix scales so value-noise grid axes do not
-  // become rows of identical puffs when viewed straight down.
   vec3 cellPoint=vec3(dot(horizontal,vec3(.36,.48,-.8)),
     dot(horizontal,vec3(-.8,.6,0.)),dot(horizontal,vec3(.48,.64,.6)));
   float coarse=filteredCloudNoise(cellPoint,1200.,footprint);
   float fine=filteredCloudNoise(material*vec3(.45,1.,.8),3600.,footprint);
-  float cells=.75*coarse+.25*fine;
-  float resolved=1.-smoothstep(.3,1.,footprint*1200.);
-  // Dense observed decks retain a connected body. Small-scale noise shapes
-  // their tops, but must not punch clear columns through an overcast field.
-  // Broken coverage can still erode into separate cumulus and wispy edges.
-  float connected=smoothstep(.32,.78,min(coverage,neighborhood));
-  float topCells=mix(cells,.5+(cells-.5)*.45,connected*(1.-convection));
-
-  // Low decks have shallow, cellular tops. Broken cumulus has a common base
-  // and separate rounded tops; coverage still prevents invented cloud at sea.
-  float lowBase=.7+.45*regional,lowTop=1.8+.9*topCells;
-  float deck=smoothstep(lowBase,lowBase+.45,height)
-    *(1.-smoothstep(lowTop-.35,lowTop+.35,height));
-  float cellular=mix(1.,smoothstep(.20,.58,cells),resolved*(1.-coverage*.65)*(1.-connected*.8));
-  float base=1.15+.35*regional,top=2.6+3.1*topCells*smoothstep(.12,.80,coverage);
-  float cumulus=smoothstep(base,base+.5,height)*(1.-smoothstep(top-.65,top+.25,height));
-  float pockets=mix(1.,smoothstep(.24,.64,cells+.15*(fine-.5)),resolved*(1.-connected*.9));
-
-  // Only selected broad, optically thick systems grow deep towers and anvils.
-  // The high, translucent component can coexist with a low layer.
-  float towerTop=8.5+2.5*cells;
-  float tower=smoothstep(1.1,1.7,height)*(1.-smoothstep(towerTop-.8,towerTop+.2,height));
-  float anvil=exp(-.5*pow((height-9.3)/.8,2.));
-  float cirrus=exp(-.5*pow((height-9.5)/.65,2.))*(.45+.55*fine);
-  float density=(1.-convection)*(sheet*deck*cellular*.65+(1.-sheet)*cumulus*pockets*.55)
-    +convection*(tower*pockets*.65+anvil*.16)+ice*cirrus*.12;
-  return pow(coverage,1.35)*density*(.85+.15*fine)*(1.-smoothstep(11.5,12.,height));
+  relief=(.75*coarse+.25*fine-.5)*mix(.65,.12,connected);
 #endif
+  // A continuous illustrative envelope, not a cloud-height retrieval. Broad
+  // photographic structure controls its rise; local coverage retains edges.
+  float base=.8+.3*neighborhood;
+  float top=2.+5.5*smoothstep(.15,.95,neighborhood)
+    +smoothstep(.10,1.,coverage)+relief;
+  // Keep the ramps disjoint even at thin edges so the column integral below
+  // remains valid at every coverage and noise value.
+  float thickness=top-base;
+  float baseFeather=min(.7,thickness*.35),topFeather=min(.9,thickness*.45);
+  float profile=smoothstep(base,base+baseFeather,height)
+    *(1.-smoothstep(top-topFeather,top+topFeather*.5,height));
+  // Preserve the column optical thickness while changing its height. This
+  // prevents an illustrative crown from becoming a separate opaque white lid.
+  float column=top-base-.5*baseFeather-.25*topFeather;
+  float density=profile*1.4/max(.5,column);
+  return pow(coverage,1.35)*density*(1.-smoothstep(11.5,12.,height));
 }
 float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
 #ifdef MODIS_GUIDANCE
