@@ -299,7 +299,7 @@ export class OrbitalSky extends HTMLElement {
       // Loading detail refreshes exposure, but must not shrink an already
       // inspected image. Otherwise a weak GPU oscillates between two sizes,
       // repeatedly loading and discarding tiles visible only at the larger one.
-      const inspect=standalone&&paused&&(inspection||now>=exposureUntil)&&!frameClock.interacting(now)&&focusRadius===0&&!matchMedia('(pointer: coarse)').matches;
+      const inspect=standalone&&paused&&(inspection||now>=exposureUntil)&&!frameClock.interacting(now)&&focusRadius===0;
       if(inspect!==inspection){inspection=inspect;this.dataset.inspection=String(inspect);cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
       Object.assign(this.dataset,result.state);
       this.dataset.renderScale=(result.scale*focusRenderScale(focusRadius)).toFixed(2);
@@ -323,7 +323,11 @@ export class OrbitalSky extends HTMLElement {
       const { width, height } = canvas.getBoundingClientRect();
       const nextSmall=viewport.clientHeight;
       panelController.position();
-      const size=sceneBufferSize(width,height,devicePixelRatio,(inspection?1:qualityScale)*focusRenderScale(focusRadius),inspection);
+      // Restore cloud detail after a touch gesture too. A still phone frame
+      // keeps the normal mobile pixel budget; only desktop inspection gets
+      // the larger Retina target. Motion resumes at the adaptive scale.
+      const desktopInspection=inspection&&!matchMedia('(pointer: coarse)').matches;
+      const size=sceneBufferSize(width,height,devicePixelRatio,(inspection?1:qualityScale)*focusRenderScale(focusRadius),desktopInspection);
       const changed=canvas.width!==size.width||canvas.height!==size.height||cssHeight!==height||smallHeight!==nextSmall;
       cssHeight=height;smallHeight=nextSmall;
       // Assigning even an unchanged dimension clears the drawing buffer.

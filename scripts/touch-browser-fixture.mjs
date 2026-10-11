@@ -71,12 +71,20 @@ export async function verifyTouch({run,evaluate,wait,base}){
   // A double-tap flies toward the tapped point: climb away, then tap Earth's centre.
   await evaluate("(()=>{const e=document.querySelector('#sky-altitude');e.dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true,cancelable:true}));return true;})()");
   await wait("Number(document.querySelector('orbital-sky').dataset.cameraAltitude)>49999");
+  // A distant still globe must recover its cloud detail after touch navigation.
+  // Phones retain the normal pixel budget rather than desktop's Retina target.
+  await wait("document.querySelector('orbital-sky').dataset.inspection==='true'");
+  const detail=await evaluate(`(()=>{const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),r=c.getBoundingClientRect();return {coarse:matchMedia('(pointer: coarse)').matches,width:c.width,height:c.height,cssWidth:r.width,cssHeight:r.height};})()`);
+  assert.equal(detail.coarse,true);
+  const detailScale=Math.min(1.5,Math.sqrt(1800000/(detail.cssWidth*detail.cssHeight)));
+  assert.equal(detail.width,Math.round(detail.cssWidth*detailScale));
+  assert.equal(detail.height,Math.round(detail.cssHeight*detailScale));
   const higher=(await read()).alt;
   const [x,y]=await evaluate(`(()=>{const e=document.querySelector('orbital-sky'),p=e.dataset.cameraPosition.split(',').map(Number),b=JSON.parse(e.dataset.cameraBasis),d=p.map(v=>-v),dot=(a,i)=>a[0]*b[i]+a[1]*b[i+1]+a[2]*b[i+2],z=dot(d,6),h=innerHeight;return [innerWidth/2+1.25*dot(d,0)/z*h,h/2-1.25*dot(d,3)/z*h];})()`);
   for(let i=0;i<2;i++){await touch('touchStart',[[1,x,y]]);await run('wait','40');await touch('touchEnd',[]);await run('wait','90');}
   await run('wait','1400');assert.ok((await read()).alt<higher,'double-tap descends toward the ground');
   assert.equal(await evaluate('visualViewport.scale'),scale);
-  return {look:true,twoFingerLook:true,pinch:true,rebase:true,cancel:true,roll:true,fly:true,doubleTap:true,panelScroll:true,urlRestored:true};
+  return {look:true,twoFingerLook:true,pinch:true,rebase:true,cancel:true,roll:true,fly:true,doubleTap:true,panelScroll:true,urlRestored:true,stillDetail:detail};
  }finally{
   await touch('touchCancel',[]).catch(()=>{});
   await cdp('Emulation.clearDeviceMetricsOverride',{});
