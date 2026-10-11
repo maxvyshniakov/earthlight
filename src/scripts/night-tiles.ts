@@ -38,6 +38,18 @@ ${valueType} ${layer}Level(vec2 local,float slot,float level){
   vec2 p=origin+(vec2(16.)+local*${interior}.)/${cell}.*size;
   return texture2D(${layer}TileAtlas,p/${layer}TileLayout.x).${channel};
 }
+${layer==='day'||layer==='cloud'?`
+${valueType} ${layer}Photo(vec2 local,float slot,float lod){
+ return mix(${layer}Level(local,slot,floor(lod)),${layer}Level(local,slot,min(4.,floor(lod)+1.)),fract(lod));
+}
+${valueType} ${layer}Neighbor(vec2 key,vec2 local,float lod,${valueType} fallback){
+ if(key.y<0.||key.y>=${rows}.)return fallback;
+ key=vec2(mod(key.x+${columns}.,${columns}.),clamp(key.y,0.,${rows-1}.));
+ float slot=floor(texture2D(${layer}TileAtlas,(key+.5)/${layer}TileLayout.x).r*255.+.5);
+ if(slot<.5||${layer}Fade(key)<=0.)return fallback;
+ return ${layer}Photo(local,slot,lod);
+}
+`:''}
 ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='galaxy'?'Galaxy':layer==='terrain'?'Terrain':'Cloud'}(vec2 uv,float footprint,${valueType} fallback) {
   if(${layer}TileLayout.x<1. || footprint>=${layer==='cloud'||layer==='galaxy'?'4.':'32.'})return fallback;
   vec2 grid=vec2(fract(uv.x),clamp(1.-uv.y,0.,.999999))*vec2(${columns}.,${rows}.);
@@ -59,6 +71,20 @@ ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='gala
   // Explicit trilinear filtering of isolated mip levels. Their gutters contain
   // actual neighboring geography, including across the NASA source plates.
   ${valueType} light=mix(${layer}Level(fract(grid),slot,floor(lod)),${layer}Level(fract(grid),slot,min(4.,floor(lod)+1.)),fract(lod));
+  ${layer==='day'||layer==='cloud'?`
+  // Independently compressed photos disagree even when both tiles are loaded.
+  // Average the SAME geography from their existing overlap, symmetrically at
+  // edges/corners. Keep the filter inside the coarsest sampled mip's gutter.
+  float band=(16.-.5*exp2(ceil(lod)))/${interior}.;
+  vec2 blend=.5*(1.-smoothstep(vec2(0.),vec2(band),min(local,1.-local)));
+  if(blend.x>0.||blend.y>0.){
+    ${valueType} horizontal=light,vertical=light,diagonal=light;
+    if(blend.x>0.)horizontal=${layer}Neighbor(key+vec2(stepTo.x,0.),local-vec2(stepTo.x,0.),lod,light);
+    if(blend.y>0.)vertical=${layer}Neighbor(key+vec2(0.,stepTo.y),local-vec2(0.,stepTo.y),lod,light);
+    if(blend.x>0.&&blend.y>0.)diagonal=${layer}Neighbor(key+stepTo,local-stepTo,lod,light);
+    light=mix(mix(light,horizontal,blend.x),mix(vertical,diagonal,blend.x),blend.y);
+  }
+  `:''}
   return mix(fallback,light,fade*(1.-smoothstep(${layer==='cloud'||layer==='galaxy'?'2.5,4.':'20.,32.'},footprint)));
 }
 `;
