@@ -23,7 +23,8 @@
     "assets:publish": "bun scripts/publish-assets.mjs",
     "package": "bun run assets:prepare && bun pm pack --destination .packages",
     "media:prepare": "bun scripts/prepare-media.mjs",
-    "build:deploy": "bun scripts/build-app.mjs"
+    "build:deploy": "bun scripts/build-app.mjs",
+    "deploy": "bun scripts/deploy-app.mjs"
   },
   "dependencies": {
     "astro": "7.3.5",
@@ -34,7 +35,8 @@
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "sharp": "0.35.5",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "wrangler": "4.147.0"
   },
   "description": "Earth from low orbit, rendered in real time with raw WebGL",
   "homepage": "https://earthlight.maxvyshniakov.com",

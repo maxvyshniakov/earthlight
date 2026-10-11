@@ -91,10 +91,15 @@ cache headers, and absence of public R2 access before deploying consumers.
 
 ## Deploy the explorer
 
-`bun run build:deploy` builds with the pinned public asset root and removes
-the local data copy from `dist`. From the site checkout, deploy with
-`bun run cf deploy --config ../earthlight/wrangler.jsonc`. The terrain proxy
-stays with Earthlight; the personal site no longer has a terrain handler.
+Explorer deployment is configured separately from the personal-site delivery
+workflow above. Its Cloudflare Workers Builds trigger must target
+`maxvyshniakov/earthlight`, branch `main`. See [deployment.md](deployment.md) for
+the required settings, verification and recovery procedure.
+
+`bun run build:deploy` builds with the pinned public asset root, records the
+source revision in `/earthlight-version.json`, and removes the local data copy
+from `dist`. `bun run deploy` publishes that build using Wrangler. The terrain
+proxy stays with Earthlight; the personal site no longer has a terrain handler.
 
 The normal `bun run build` retains local data for the full rendering fixtures.
 Run `bun run verify` and `bun run verify:scene <url> <output-directory>` against
