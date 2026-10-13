@@ -1,6 +1,7 @@
+import {continuousLongitudeShader} from './surface-map.ts';
 // The source atlas is scalar. Lamp colors below are an illustrative regional
 // mixture, not measured spectra or invented lights in unlit geography.
-export const cityLightShader=`
+export const cityLightShader=continuousLongitudeShader+`
 float cityLightEnergy(float encoded) {
   // Black Marble is a display-graded scalar image, not linear lamp power.
   // A gentle contrast curve retains connecting roads and dim settlements.
@@ -33,7 +34,7 @@ float blurredCitySample(vec2 uv,float lod) {
   // Keep the screen footprint on devices without explicit LOD. The spatial
   // kernel below supplies altitude spread; a fixed +2 bias blurred low haze
   // as broadly as high cloud illumination.
-  return texture2D(nightMap,uv).r;
+  return texture2D(nightMap,continuousLongitude(uv)).r;
 #endif
 }
 float cityUplightEnergy(vec3 point) {

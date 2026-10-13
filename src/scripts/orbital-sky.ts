@@ -1,5 +1,7 @@
 import {sceneLook} from './scene-defaults';
 import {SceneFrameClock} from './scene-frame-clock';
+import {rememberedScale,rememberScale} from './scene-scale-memory';
+import {ViewScale,shellCoverage,viewScaleFor} from './scene-view-scale';
 import { createCameraDrag, draggedCamera } from './orbit-camera-drag';
 import { createTouchCamera } from './orbit-touch';
 import { createFlightControls, type FlightCommand } from './flight-controls';
@@ -85,6 +87,21 @@ export class OrbitalSky extends HTMLElement {
     const calendar=new SceneCalendar(params,initialSeconds);
     const calendarInputs=[...this.querySelectorAll<HTMLInputElement>('[data-calendar]')];
     const navigation=new OrbitNavigation();
+    // Release trackpad scroll over this many milliseconds (`inputSmoothing=0`
+    // applies it at once). Touch and mouse drags already arrive once per
+    // frame; smoothing them only weakens short flicks, so they keep their own,
+    // normally zero, constant.
+    const number=(key:string,fallback:number)=>params.has(key)&&Number.isFinite(Number(params.get(key)))?Number(params.get(key)):fallback;
+    const inputSmoothing=Math.max(0,Math.min(200,number('inputSmoothing',90)));
+    navigation.inputSmoothing=Math.max(0,Math.min(200,Number(params.get('dragSmoothing'))||0))/1000;
+    // One finger turns the globe like a trackpad scroll, so a drag never runs
+    // out of travel at the limb; `touchMode=grab` holds the touched point
+    // instead. Earth turns `touchGain` times faster than the finger; a fling
+    // may reach `flingLimit` rad/s and coasts `flingCoast` s.
+    const touchSpin=params.get('touchMode')!=='grab';
+    const touchGain=Math.max(1,Math.min(4,number('touchGain',2.5)));
+    navigation.flingLimit=Math.max(.5,Math.min(10,number('flingLimit',8)));
+    navigation.flingCoast=Math.max(.1,Math.min(2,number('flingCoast',1.1)));
     if(standalone)navigation.restore(params);
     // The lens, standalone only: 1× is the PROJECTION pinhole (about 30 mm).
     const LENS_MAX=20;
@@ -103,7 +120,27 @@ export class OrbitalSky extends HTMLElement {
       input.value=String(cameraView[key]);
     }
     let frame = 0,drawRequest=0,urlUpdateFrame=0;
-    const frameClock=new SceneFrameClock(profile.fps);
+    // The explorer renders on whole display refreshes (`cadence=timer` keeps
+    // the old 24 FPS timer); the background keeps its passive budget.
+    const steadyCadence=standalone&&params.get('cadence')!=='timer';
+    const frameClock=new SceneFrameClock(profile.fps,steadyCadence);
+    // Late frames lower the explorer's scale before motion stutters.
+    const headroom=standalone&&params.get('headroom')!=='0';
+    // Opt-in readout for on-device A/B checks: submitted scene frames, not
+    // display refreshes, plus the adaptive scale and work switches.
+    const perf=params.get('perf')==='1'?document.createElement('div'):null;
+    const perfFrames:number[]=[];let perfShown=0;
+    // Animation frames that arrive a refresh or more late: the compositor
+    // skipped a frame, usually because the GPU had not finished the last one.
+    const perfTicks:{at:number;late:boolean;gap:number}[]=[];let perfTick=0,longFrames:{at:number;ms:number}[]=[];
+    const perfObserve=(now:number)=>{
+      if(!perf)return;
+      const gap=perfTick?now-perfTick:0,period=frameClock.refreshPeriod;perfTick=now;
+      if(gap>0&&gap<250)perfTicks.push({at:now,late:period>0&&gap>period*1.5,gap});
+      while(perfTicks.length&&perfTicks[0].at<now-3000)perfTicks.shift();
+    };
+    if(perf)try{new PerformanceObserver(list=>{for(const entry of list.getEntries())longFrames.push({at:entry.startTime+entry.duration,ms:entry.duration});}).observe({type:'long-animation-frame',buffered:false});}catch{/* unsupported */}
+    if(perf){perf.style.cssText='position:fixed;left:8px;bottom:104px;z-index:30;padding:4px 6px;font:11px/1.35 ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;pointer-events:none;white-space:pre';this.append(perf);}
     let scrollTimer=0;
     let pendingURL:URL|null=null;
     const updateURL=(url:URL)=>{
@@ -168,8 +205,16 @@ export class OrbitalSky extends HTMLElement {
     let exposureSceneTime:number|null=null;
     let focusRadius=6;
     let qualityScale:number=profile.scale;
+    let qualitySince=0,qualitySaved=0;
     let inspection=false;
     let qualityFrame=0;
+    // The explorer enlarges its buffer when Earth fills less of the frame; the
+    // adaptive scale then holds for a covered view. `viewScale` is the cost of
+    // a sky pixel relative to a planet pixel; `viewScale=0` turns it off.
+    const viewSkyParam=number('viewScale',.1);
+    const viewSky=standalone&&viewSkyParam>=.05&&viewSkyParam<=.6?viewSkyParam:null;
+    const viewScale=new ViewScale();
+    const bufferScale=()=>Math.min(1,qualityScale*viewScale.factor);
     let cssHeight=1,smallHeight=1;
     const updateFocus=()=>{
       if(disposed||lost||document.hidden)return;
@@ -263,7 +308,7 @@ export class OrbitalSky extends HTMLElement {
       statusTimer=window.setTimeout(statusTick,Math.max(8,(1000-remainder)/speed));
     };
     const flushDraw=(now:number)=>{
-      drawRequest=0;
+      drawRequest=0;frameClock.observe(now);perfObserve(now);
       if(disposed||lost||document.hidden||(!paused&&this.hasAttribute('data-ready')))return;
       if(!frameDue(now)){drawRequest=requestAnimationFrame(flushDraw);return;}
       renderFrame();
@@ -302,8 +347,30 @@ export class OrbitalSky extends HTMLElement {
       const inspect=standalone&&paused&&(inspection||now>=exposureUntil)&&!frameClock.interacting(now)&&focusRadius===0;
       if(inspect!==inspection){inspection=inspect;this.dataset.inspection=String(inspect);cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
       Object.assign(this.dataset,result.state);
-      this.dataset.renderScale=(result.scale*focusRenderScale(focusRadius)).toFixed(2);
-      if(Math.abs(result.scale-qualityScale)>.001){qualityScale=result.scale;cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
+      if(viewSky!==null&&!inspection){
+        const coverage=shellCoverage(orbit.camera,orbit.cameraBasis,orbit.focal??PROJECTION,canvas.width/Math.max(1,canvas.height));
+        this.dataset.viewCoverage=coverage.toFixed(2);
+        const target=Math.min(viewScaleFor(coverage,viewSky),Math.max(1,1/qualityScale));
+        if(viewScale.update(target,now,frameClock.interacting(now))){cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
+      }
+      this.dataset.renderScale=(Math.min(1,result.scale*viewScale.factor)*focusRenderScale(focusRadius)).toFixed(2);
+      if(perf){
+        perfFrames.push(now);while(perfFrames.length>1&&perfFrames[0]<now-2000)perfFrames.shift();
+        if(now-perfShown>500){
+          perfShown=now;
+          const fps=perfFrames.length>1?(perfFrames.length-1)*1000/(now-perfFrames[0]):0;
+          longFrames=longFrames.filter(entry=>entry.at>now-3000);
+          const late=perfTicks.filter(tick=>tick.late).length,worst=Math.max(0,...perfTicks.map(tick=>tick.gap));
+          const jank=`late refreshes ${late}/${perfTicks.length} · max gap ${worst.toFixed(0)} ms · long tasks ${longFrames.length}${longFrames.length?` (max ${Math.max(...longFrames.map(entry=>entry.ms)).toFixed(0)} ms)`:''}`;
+          perf.textContent=`${fps.toFixed(1)} fps · scale ${this.dataset.renderScale}${viewSky!==null?` (×${viewScale.factor.toFixed(2)} view ${this.dataset.viewCoverage??'-'})`:''} · ${canvas.width}×${canvas.height}\n${this.dataset.renderApi??''} · clouds ${result.state.cloudReuse==='temporal'?'temporal':'full'} · terrain ${result.state.terrainBound==='regional'?'bound':'9 km'} · noise ${result.state.noise}\nstart ${this.dataset.startScale??'1.00'} · target ${frameClock.fps.toFixed(1)} fps${steadyCadence?' steady':''}\n${jank}`;
+        }
+      }
+      if(Math.abs(result.scale-qualityScale)>.001){qualityScale=result.scale;qualitySince=now;cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
+      // Remember a size that held for ten seconds of sharp, animated frames.
+      if(renderer.adaptive&&!paused&&!inspection&&focusRadius===0&&now-qualitySince>10000&&now-qualitySaved>10000){
+        qualitySaved=now;const bounds=canvas.getBoundingClientRect();
+        rememberScale(qualityScale/profile.scale,bounds.width,bounds.height,devicePixelRatio,profile.name);
+      }
       if(result.terrain)this.dataset.terrainTiles=JSON.stringify(result.terrain);
       if(result.galaxy)this.dataset.galaxyTiles=JSON.stringify(result.galaxy);
       if(result.cloud)this.dataset.cloudTiles=JSON.stringify(result.cloud);
@@ -327,7 +394,7 @@ export class OrbitalSky extends HTMLElement {
       // keeps the normal mobile pixel budget; only desktop inspection gets
       // the larger Retina target. Motion resumes at the adaptive scale.
       const desktopInspection=inspection&&!matchMedia('(pointer: coarse)').matches;
-      const size=sceneBufferSize(width,height,devicePixelRatio,(inspection?1:qualityScale)*focusRenderScale(focusRadius),desktopInspection);
+      const size=sceneBufferSize(width,height,devicePixelRatio,(inspection?1:bufferScale())*focusRenderScale(focusRadius),desktopInspection);
       const changed=canvas.width!==size.width||canvas.height!==size.height||cssHeight!==height||smallHeight!==nextSmall;
       cssHeight=height;smallHeight=nextSmall;
       // Assigning even an unchanged dimension clears the drawing buffer.
@@ -342,8 +409,10 @@ export class OrbitalSky extends HTMLElement {
     const tick = (now: number) => {
       frame = 0;
       if (paused || document.hidden || lost || !this.hasAttribute('data-ready')) return;
+      frameClock.observe(now);perfObserve(now);
       renderer.observeAnimationFrame(now,profile.fps/24);
       if (frameDue(now)) {
+        if(headroom)renderer.setCadence(1000/frameClock.fps*profile.fps/24,frameClock.refreshPeriod*profile.fps/24,true);
         if(lastAnimationDraw&&focusRadius===0)renderer.observeCadence((now-lastAnimationDraw)*profile.fps/24,now,!frameClock.interacting(now));
         lastAnimationDraw=focusRadius===0?now:0;
         grainIndex=(grainIndex+1)%65536;
@@ -602,7 +671,9 @@ export class OrbitalSky extends HTMLElement {
     applyLook();
     const dragSurface=this.dataset.composition==='orbit'?this.closest<HTMLElement>('.orbit-view'):null;
     // Throttled rather than debounced, so a long glide keeps its link current.
-    const cameraChanged=()=>{const now=performance.now();frameClock.interact(now,qualityScale<.9?30:60);lastStatus=-1;exposureUntil=now+EXPOSURE_SETTLE_MS;draw();if(!navigationURLTimer)navigationURLTimer=window.setTimeout(()=>{navigationURLTimer=0;saveNavigation();},180);};
+    // swipeFps=24 keeps a downscaled device on its sustainable passive cadence.
+    const interactionFPS=()=>qualityScale>=.9?60:params.get('swipeFps')==='24'?profile.fps:30;
+    const cameraChanged=()=>{const now=performance.now();frameClock.interact(now,interactionFPS());lastStatus=-1;exposureUntil=now+EXPOSURE_SETTLE_MS;draw();if(!navigationURLTimer)navigationURLTimer=window.setTimeout(()=>{navigationURLTimer=0;saveNavigation();},180);};
     const lookCamera=(view:typeof cameraView)=>{
       for(const input of viewInputs)input.value=String(view[input.dataset.view as keyof typeof view]);
       Object.assign(cameraView,view);updateViewLabels();updateOrbitLink();cameraChanged();saveNavigation();
@@ -664,7 +735,7 @@ export class OrbitalSky extends HTMLElement {
       else followRoute(name.slice(6) as Route);
     };
     if(dragSurface)flightControls=createFlightControls(dragSurface,{
-      enabled:ready,
+      enabled:ready,inputSmoothing,
       step:(dt,input)=>{
         if(!ready())return false;
         stepLens(dt,input);
@@ -692,7 +763,7 @@ export class OrbitalSky extends HTMLElement {
       dragSurface.dataset.cursor=kind;hud?.hover(x,y,kind);
     }):()=>{};
     const touchSurface=dragSurface?.querySelector<HTMLElement>('.orbit-gestures');
-    const touch=touchSurface?createTouchCamera(touchSurface,camera,()=>hud?.setModality('touch')):null;
+    const touch=touchSurface?createTouchCamera(touchSurface,camera,()=>hud?.setModality('touch'),touchGain,touchSpin):null;
     hud=standalone?createOrbitHud(this,{
       route:route=>{if(ready())followRoute(route);},
       free:()=>{if(ready()){enterFree();draw();}},
@@ -826,6 +897,10 @@ export class OrbitalSky extends HTMLElement {
     if(scrollComposition)window.addEventListener('scroll',scroll,{passive:true});
     canvas.addEventListener('webglcontextlost', contextLost);
     canvas.addEventListener('webglcontextrestored', contextRestored);
+    if(standalone&&params.get('startScale')!=='fresh'&&params.get('quality')!=='fixed'){
+      const bounds=canvas.getBoundingClientRect(),remembered=rememberedScale(bounds.width,bounds.height,devicePixelRatio,profile.name);
+      if(remembered!==null){qualityScale=profile.scale*remembered;renderer.seedScale(remembered);this.dataset.startScale=remembered.toFixed(2);}
+    }
     resize();
     controls.hidden = true;
     sync();

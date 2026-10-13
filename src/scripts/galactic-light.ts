@@ -1,7 +1,8 @@
+import {continuousLongitudeShader} from './surface-map.ts';
 import {galaxyOverviewShader} from './texture-profile.ts';
 import {galaxyTileShader} from './night-tiles.ts';
 // Shared diffuse sky radiance for the camera and reflected night illumination.
-export const galacticLightShader=`
+export const galacticLightShader=continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
@@ -26,7 +27,7 @@ vec3 milkyWay(vec3 direction) {
   #else
   // Without explicit gradients use the base level, avoiding a false coarse
   // mip stripe at the seam. This diffuse plate has no resolved point stars.
-  vec3 sampleColor=texture2D(milkyWayMap,uv,-16.).rgb;
+  vec3 sampleColor=texture2D(milkyWayMap,continuousLongitude(uv),-16.).rgb;
   #endif
   #ifdef GALAXY_TILES
     #ifdef SKY_EXPLICIT_GRAD

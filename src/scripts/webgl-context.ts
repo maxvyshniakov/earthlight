@@ -3,8 +3,29 @@ import {auroraMode} from './scene-effects.ts';
 /** Requested effects can prefer core MRT/LOD. Explicit API links stay reproducible. */
 export function sceneContext(canvas:HTMLCanvasElement,params:URLSearchParams,attributes:WebGLContextAttributes){
   const api=params.get('api');
-  const preferWebGL2=api==='webgl2'||(api!=='webgl'&&(params.get('render')==='clouds-half'||auroraMode(params)==='on'));
-  return (preferWebGL2?canvas.getContext('webgl2',attributes):null)??canvas.getContext('webgl',attributes);
+  let preferWebGL2=api==='webgl2'||(api!=='webgl'&&api!=='webgl-nolod'&&(params.get('render')==='clouds-half'||auroraMode(params)==='on'));
+  // WebGL1 without explicit LOD (the measured Pixel) samples clouds and terrain
+  // from derivative-selected mips, which divergent raymarch loops make
+  // unreliable at the date line. WebGL2 has explicit LOD in core.
+  if(!preferWebGL2&&!api&&!webgl1ExplicitLod())preferWebGL2=true;
+  const gl=(preferWebGL2?canvas.getContext('webgl2',attributes):null)??canvas.getContext('webgl',attributes);
+  // Lab reproduction of WebGL1 devices without explicit LOD, such as the
+  // measured Pixel: hide the extension so the fallback shaders compile here.
+  if(gl&&api==='webgl-nolod'){
+    const getExtension=gl.getExtension.bind(gl);
+    gl.getExtension=((name:string)=>name==='EXT_shader_texture_lod'?null:getExtension(name)) as typeof gl.getExtension;
+  }
+  return gl;
+}
+
+function webgl1ExplicitLod(){
+  try{
+    const probe=document.createElement('canvas').getContext('webgl');
+    if(!probe)return true;
+    const supported=!!probe.getExtension('EXT_shader_texture_lod');
+    probe.getExtension('WEBGL_lose_context')?.loseContext();
+    return supported;
+  }catch{return true;}
 }
 
 /** Keep the WebGL1 path explicit while testing the same scene on WebGL2. */

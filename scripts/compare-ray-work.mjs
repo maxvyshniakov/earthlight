@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import {ORBIT_SECONDS} from '../src/scripts/iss-orbit.ts';
 const exec=promisify(execFile);
-const options={bake:{cloudBake:'budget'},pool:{terrainDecoder:'pool'},packed:{terrainSource:'packed'},streaming:{cloudBake:'budget',terrainDecoder:'pool',terrainSource:'packed'},cache:{terrainCache:'working'},uploads:{terrainUpload:'tile'},bounded:{terrainWork:'bounded'},pixel:{terrainWork:'bounded',terrainRefinement:'pixel'},clouds:{cloudSteps:'balanced'},coarse:{terrainDetail:'coarse'},combined:{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}};
+const options={bake:{cloudBake:'budget'},pool:{terrainDecoder:'pool'},packed:{terrainSource:'packed'},streaming:{cloudBake:'budget',terrainDecoder:'pool',terrainSource:'packed'},cache:{terrainCache:'working'},uploads:{terrainUpload:'tile'},bounded:{terrainWork:'bounded'},pixel:{terrainWork:'bounded',terrainRefinement:'pixel'},clouds:{cloudSteps:'balanced'},coarse:{terrainDetail:'coarse'},combined:{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'},lean:{shaderWork:'lean'},bound:{terrainBound:'regional'},leanBound:{shaderWork:'lean',terrainBound:'regional'},noise:{noise:'table'},all:{terrainBound:'regional',shaderWork:'lean',noise:'table',terrainFetch:'shared'},terrainFetch:{terrainFetch:'shared'},temporal:{cloudReuse:'temporal'},allTemporal:{terrainBound:'regional',shaderWork:'lean',noise:'table',terrainFetch:'shared',cloudReuse:'temporal'}};
+// Candidates measured against the current default work settings.
+const currentWork=['uploads','cache','bake','pool','packed','streaming','lean','bound','leanBound','noise','all','terrainFetch','temporal','allTemporal'];
 const [base='http://127.0.0.1:4347',out='/tmp/orbit-pairs',selected='bounded,pixel',views='clouds,day,night',baseline='compact']=process.argv.slice(2);
 let sequence=0,session,opened=false;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:80e6,timeout:90000})).stdout;
@@ -23,15 +25,23 @@ const evaluateTask=async code=>{
  throw Error('Paired GPU sampling timed out');
 };
 const settled=`[...document.querySelectorAll('orbital-sky')].every(s=>s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&(s.dataset.cloudLighting!=='texture'||s.dataset.cloudLightingReady==='1')&&Number(s.dataset.cloudLightingProgress??0)===0&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0))`;
-const needsFine=selected.split(',').some(name=>['cache','uploads','pool','packed','streaming'].includes(name));
-const ready=settled+(needsFine?`&&[...document.querySelectorAll('orbital-sky')].every(s=>Number(JSON.parse(s.dataset.terrainTiles??'{}').fineResident)>0)`: '');
-const wait=async()=>{try{await run('wait','--fn',ready);}catch(e){if(!String(e.stderr).includes('Wait timed out'))throw e;await run('wait','--fn',ready);}};
+const needsFine=selected.split(',').some(name=>['cache','uploads','pool','packed','streaming','bound','leanBound','all','allTemporal'].includes(name));
+// Horizon and ocean views may want no DEM90 tiles; require them only where selected.
+const ready=settled+(needsFine?`&&[...document.querySelectorAll('orbital-sky')].every(s=>{const t=JSON.parse(s.dataset.terrainTiles??'{}');return t.fineWanted===0||Number(t.fineResident)>0;})`: '');
+// Tile streaming can need more than one browser wait window on a cold cache.
+const wait=async()=>{for(let attempt=1;;attempt++){try{return await run('wait','--fn',ready);}catch(e){
+ if(!String(e.stderr).includes('Wait timed out'))throw e;
+ console.error('Still settling:',await run('eval',`JSON.stringify([...document.querySelectorAll('orbital-sky')].map(s=>({focus:s.dataset.focus,phase:s.dataset.assetPhase,exposure:s.dataset.exposure,lighting:s.dataset.cloudLightingReady,progress:s.dataset.cloudLightingProgress,tiles:['dayTiles','nightTiles','cloudTiles','galaxyTiles'].map(k=>s.dataset[k]&&JSON.parse(s.dataset[k]).pending),terrain:s.dataset.terrainTiles})))`).catch(error=>String(error)));
+ if(attempt>=6)throw e;
+}}};
 await mkdir(out,{recursive:true});const results=[];
 try{
- for(const scene of [{name:'day',t:3235.65,pitch:0},{name:'night',t:610.87,pitch:0},{name:'clouds',t:3235.65,pitch:-25}].filter(s=>views.split(',').includes(s.name)))for(const candidate of selected.split(',')){
+ for(const scene of [{name:'day',t:3235.65,pitch:0},{name:'night',t:610.87,pitch:0},{name:'clouds',t:3235.65,pitch:-25},{name:'ocean',t:3900,pitch:-25},{name:'lowland',t:2650,pitch:-40},{name:'himalaya',t:2780,pitch:-40}].filter(s=>views.split(',').includes(s.name)))for(const candidate of selected.split(',')){
   session=`orbit-pairs-${process.pid}-${sequence++}`;opened=true;
   assert.ok(options[candidate],`Unknown candidate: ${candidate}`);
-  const referenceWork=['uploads','cache','bake','pool','packed','streaming'].includes(candidate)?{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}:{terrainWork:'legacy',terrainRefinement:'full',cloudSteps:'full'};
+  // Candidates are measured against the work before the 2026-10-13 defaults.
+  const before={shaderWork:'legacy',terrainBound:'off',noise:'hash',terrainFetch:'separate',cloudReuse:'off'};
+  const referenceWork=currentWork.includes(candidate)?{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced',...before}:{terrainWork:'legacy',terrainRefinement:'full',cloudSteps:'full',...before};
   await run('open',`${base}/?api=webgl&render=${encodeURIComponent(baseline)}&motion=0&quality=fixed&${new URLSearchParams(referenceWork)}&terrainUpload=strips&terrainCache=${['uploads','cache'].includes(candidate)?'small':'working'}&terrainDecoder=single&terrainSource=tiff&cloudBake=fixed&t=${scene.t}&pitch=${scene.pitch}&epoch=2026-10-06T01:32:27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0`);
   await run('set','viewport','1248','615');await wait();
   await evaluate(`(()=>{
@@ -46,7 +56,7 @@ try{
   await evaluate(`(()=>{for(const s of document.querySelectorAll('orbital-sky'))s.querySelector('.sky-track input').dispatchEvent(new Event('input'));return true;})()`);await wait();
   const result=await evaluateTask(`(async()=>{
    const skies=[...document.querySelectorAll('orbital-sky')],pairs=[];
-   const states=skies.map(s=>({terrainWork:s.dataset.terrainWork,terrainRefinement:s.dataset.terrainRefinement,cloudSteps:s.dataset.cloudSteps,terrain:s.dataset.terrainTiles,cloudBake:s.dataset.cloudLightingBake,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,width:s.querySelector('canvas').width,height:s.querySelector('canvas').height,failures:s.dataset.assetFailures}));
+   const states=skies.map(s=>({shaderWork:s.dataset.shaderWork,terrainBound:s.dataset.terrainBound,terrainWork:s.dataset.terrainWork,terrainRefinement:s.dataset.terrainRefinement,cloudSteps:s.dataset.cloudSteps,terrain:s.dataset.terrainTiles,cloudBake:s.dataset.cloudLightingBake,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,width:s.querySelector('canvas').width,height:s.querySelector('canvas').height,failures:s.dataset.assetFailures}));
    const monitors=skies.map(s=>{
     const gl=s.querySelector('canvas').getContext('webgl'),bind=gl.bindFramebuffer,draw=gl.drawArrays;
     let target=gl.getParameter(gl.FRAMEBUFFER_BINDING),frames=0;
@@ -82,6 +92,11 @@ try{
   assert.deepEqual(result.states.map(s=>s.profile),[baseline,baseline]);
   for(const [index,expected] of [referenceWork,{...referenceWork,...options[candidate]}].entries())
    for(const key of ['terrainWork','terrainRefinement','cloudSteps'])assert.equal(result.states[index][key],expected[key]);
+  for(const [i,state] of result.states.entries()){
+   const expected={shaderWork:'legacy',terrainBound:'off',...(i?options[candidate]:{})};
+   assert.equal(state.shaderWork,expected.shaderWork);assert.equal(state.terrainBound,expected.terrainBound);
+   if(expected.terrainBound==='regional'){const t=JSON.parse(state.terrain);assert.ok(t.boundReady&&t.boundCells>0,JSON.stringify(t));}
+  }
   if(candidate==='cache')for(const [i,mode] of ['small','working'].entries()){
    const terrain=JSON.parse(result.states[i].terrain);assert.equal(terrain.cacheMode,mode);assert.ok(terrain.fineResident>0,JSON.stringify(terrain));
   }

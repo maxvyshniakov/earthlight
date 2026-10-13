@@ -4,12 +4,13 @@ type Point={x:number;y:number};
 const TAP_MS=260,DOUBLE_MS=320,SLOP=10;
 
 /** The scene owns touch gestures; controls outside this element keep native
- * touch behaviour. One finger grabs what it touches. Two fingers move together
+ * touch behaviour. One finger grabs what it touches, or with `spin` turns the
+ * globe like a trackpad scroll, which never runs out at the limb. Two fingers move together
  * to look, pinch to approach and twist to roll; each starts past a small
  * threshold so a pinch does not also roll. Double-tap flies in,
  * double-tap-and-drag approaches with one thumb, and a two-finger tap flies
  * out. Touch has no Shift, so the HUD's lens buttons zoom the lens. */
-export function createTouchCamera(surface:HTMLElement,camera:CameraController,touched:()=>void){
+export function createTouchCamera(surface:HTMLElement,camera:CameraController,touched:()=>void,gain=1,spin=false){
   const pointers=new Map<number,Point>();
   let previous:Point[]=[],frame=0;
   let single:{session:CameraSession|null;start:Point;time:number;moved:boolean;quick:boolean}|null=null;
@@ -47,7 +48,7 @@ export function createTouchCamera(surface:HTMLElement,camera:CameraController,to
     previous=current;
   };
   const beginSingle=(p:Point,now:number,quick:boolean)=>{
-    single={session:quick?null:camera.press(p.x,p.y,'auto'),start:p,time:now,moved:false,quick};
+    single={session:quick?null:camera.press(p.x,p.y,'auto',gain,spin),start:p,time:now,moved:false,quick};
   };
   const endSingle=(fling:boolean)=>{single?.session?.end(fling);single=null;};
   const start=(event:PointerEvent)=>{

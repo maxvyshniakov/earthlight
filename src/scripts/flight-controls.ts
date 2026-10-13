@@ -28,9 +28,17 @@ export function createFlightControls(surface:HTMLElement,options:{
   device:(device:WheelDevice)=>void;
   touching:()=>boolean;
   stop:()=>void;
+  /** Time constant (ms) for releasing trackpad scroll to the camera; 0 applies each event. */
+  inputSmoothing?:number;
 }){
   const keys=new Set<string>();let frame=0,last=0;
-  let scroll:{session:ScrollSession|null;timer:number}|null=null;
+  let scroll:{session:ScrollSession|null;timer:number;time:number;look:boolean}|null=null;
+  // Chromium delivers wheel events in bursts while the main thread submits a
+  // frame, and macOS momentum ends in small irregular deltas. Applied as they
+  // arrive, a frame can get no motion and the next a double step. Optionally
+  // release them over a short time constant on every display refresh instead.
+  const smoothing=Math.max(0,options.inputSmoothing??0)/1000;
+  const pending={x:0,y:0};
   let wheel:{kind:'zoom'|'scroll';time:number}|null=null;
   let gesture:{scale:number;rotation:number;rolling:boolean}|null=null;
   const typing=(target:EventTarget|null)=>target instanceof Element&&!!target.closest('input,select,textarea,[contenteditable]:not([contenteditable="false"]),[role="slider"]');
@@ -42,6 +50,11 @@ export function createFlightControls(surface:HTMLElement,options:{
   const loop=(now:number)=>{
     frame=0;if(document.hidden){cancel();return;}
     const dt=last?Math.min(.05,(now-last)/1000):1/60;last=now;
+    if(scroll&&(pending.x||pending.y)){
+      const part=Math.hypot(pending.x,pending.y)<.05?1:1-Math.exp(-dt/smoothing);
+      const x=pending.x*part,y=pending.y*part;pending.x-=x;pending.y-=y;
+      scroll.session?.by(x,y);
+    }
     const active=options.step(dt,input());
     if(active||keys.size||scroll)frame=requestAnimationFrame(loop);else last=0;
   };
@@ -63,7 +76,9 @@ export function createFlightControls(surface:HTMLElement,options:{
     // macOS sends no keyup for keys held while Command goes down.
     if(event.key==='Meta')[...keys].forEach(release);
   };
-  const endScroll=()=>{if(scroll){clearTimeout(scroll.timer);scroll=null;}};
+  const endScroll=()=>{if(scroll){clearTimeout(scroll.timer);scroll=null;}pending.x=pending.y=0;};
+  // The session outlives its last event until the released motion has landed.
+  const settleScroll=()=>{if(scroll&&Math.hypot(pending.x,pending.y)>=.05)scroll.timer=window.setTimeout(settleScroll,50);else endScroll();};
   // Chromium on macOS reports clicky wheels in multiples of 4.000244140625;
   // WebKit and Windows report 120-unit legacy deltas that trackpads never match.
   // macOS turns Shift-wheel into a horizontal scroll, so with Shift the same
@@ -106,9 +121,15 @@ export function createFlightControls(surface:HTMLElement,options:{
     }
     options.device('trackpad');
     // macOS keeps sending momentum after the fingers lift, so a flick coasts.
-    if(!scroll)scroll={session:options.scroll(event.clientX,event.clientY,event.shiftKey),timer:0};
-    clearTimeout(scroll.timer);scroll.timer=window.setTimeout(endScroll,160);
-    scroll.session?.by(-event.deltaX*unit,-event.deltaY*unit);request();
+    // A pause or a changed Shift starts a new gesture; the previous one may
+    // still be landing its smoothed motion, so finish that at once.
+    if(scroll&&(now-scroll.time>160||scroll.look!==event.shiftKey)){scroll.session?.by(pending.x,pending.y);endScroll();}
+    if(!scroll)scroll={session:options.scroll(event.clientX,event.clientY,event.shiftKey),timer:0,time:now,look:event.shiftKey};
+    scroll.time=now;
+    clearTimeout(scroll.timer);scroll.timer=window.setTimeout(settleScroll,160);
+    if(smoothing>0){pending.x-=event.deltaX*unit;pending.y-=event.deltaY*unit;}
+    else scroll.session?.by(-event.deltaX*unit,-event.deltaY*unit);
+    request();
   };
   // Safari reports trackpad pinch and rotation as its own gesture events.
   const gestureStart=(event:Event)=>{

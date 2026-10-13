@@ -24,6 +24,13 @@ export function auroraInView(camera:number[],basis:number[],aspect:number,focal=
  return false;
 }
 export const AURORA_RADIANCE_RANGE=1;
+/** Solar azimuth in the shader's magnetic east/north frame. */
+export function auroraSolarAzimuth(sun:ArrayLike<number>){
+ const a=magneticNorth,length=Math.hypot(a[1],a[0]),east=[-a[1]/length,a[0]/length,0];
+ const north=[a[1]*east[2]-a[2]*east[1],a[2]*east[0]-a[0]*east[2],a[0]*east[1]-a[1]*east[0]];
+ const dot=(v:number[])=>sun[0]*v[0]+sun[1]*v[1]+sun[2]*v[2];
+ return Math.atan2(dot(north),dot(east));
+}
 const footprintShader=`precision highp float;
 precision highp sampler2D;
 float auroraNoise(vec2 p){
@@ -105,6 +112,9 @@ void main(){
 
 export const auroraShader=`
 uniform sampler2D auroraFootprint;
+#ifdef AURORA_SOLAR_UNIFORM
+uniform float auroraSolarAzimuth;
+#endif
 vec3 auroraDensity(vec3 point,float footprint,vec3 rayStep,out vec3 diffuse){
  diffuse=vec3(0.);
  float radius=length(point),height=(radius-1.)*6371.;
@@ -128,7 +138,12 @@ vec3 auroraDensity(vec3 point,float footprint,vec3 rayStep,out vec3 diffuse){
  float waveA=azimuth*9.-time*.045,waveB=azimuth*17.+time*.028;
  // Magnetic oval expands on the night side. Its displacement follows the
  // Sun, while the two hemispheres retain different precipitation patterns.
+ #ifdef AURORA_SOLAR_UNIFORM
+ // Depends only on the Sun and the fixed dipole; evaluated once per frame.
+ float solarAzimuth=auroraSolarAzimuth;
+#else
  float solarAzimuth=atan(dot(sunDirection,north),dot(sunDirection,east));
+#endif
  float localTimeAngle=azimuth-solarAzimuth;
  float nightward=.035*cos(localTimeAngle);
  float bend=nightward+.002*sin(waveA)+activity*.004*sin(waveB);
@@ -296,13 +311,13 @@ export class Aurora {
  static targetType(gl:WebGLRenderingContext){
   return halfFloatTarget(gl,true)??gl.UNSIGNED_BYTE;
  }
- static sources(gl:WebGLRenderingContext){
+ static sources(gl:WebGLRenderingContext,lean=false){
   const storageHeader=Aurora.targetType(gl)===gl.UNSIGNED_BYTE?'#define AURORA_BYTE_TARGET 1\n':'';
   const header=shaderLod(gl)?'#extension GL_EXT_shader_texture_lod : enable\n#define AURORA_LOD 1\n':'';
-  return {vertex:'attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',volume:header+storageHeader+fragment,field:storageHeader+footprintShader};
+  return {vertex:'attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',volume:header+storageHeader+(lean?'#define AURORA_SOLAR_UNIFORM 1\n':'')+fragment,field:storageHeader+footprintShader};
  }
- static prepare(gl:WebGLRenderingContext,batch:ShaderProgramBatch){
-  const source=Aurora.sources(gl);
+ static prepare(gl:WebGLRenderingContext,batch:ShaderProgramBatch,lean=false){
+  const source=Aurora.sources(gl,lean);
   return {batch,program:batch.add('Aurora volume',source.vertex,source.volume),fieldProgram:batch.add('Aurora footprint',source.vertex,source.field)};
  }
  private program:WebGLProgram|null=null;
@@ -339,7 +354,7 @@ export class Aurora {
    }
    gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
    this.position=gl.getAttribLocation(this.program,'position');
-   for(const name of ['resolution','cameraPosition','cameraBasis','sunDirection','time','zoomExcess'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+   for(const name of ['resolution','cameraPosition','cameraBasis','sunDirection','time','zoomExcess','auroraSolarAzimuth'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
    for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
    for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
@@ -391,7 +406,7 @@ export class Aurora {
   gl.viewport(0,0,w,h);gl.useProgram(this.program);
   gl.bindTexture(gl.TEXTURE_2D,this.fieldTexture);
   gl.uniform2f(this.uniforms.resolution,w,h);gl.uniform3fv(this.uniforms.cameraPosition,camera);
-  gl.uniformMatrix3fv(this.uniforms.cameraBasis,false,basis);gl.uniform3fv(this.uniforms.sunDirection,sun);gl.uniform1f(this.uniforms.time,time);gl.uniform1f(this.uniforms.zoomExcess,focal/1.25-1);
+  gl.uniformMatrix3fv(this.uniforms.cameraBasis,false,basis);gl.uniform3fv(this.uniforms.sunDirection,sun);gl.uniform1f(this.uniforms.auroraSolarAzimuth,auroraSolarAzimuth(sun));gl.uniform1f(this.uniforms.time,time);gl.uniform1f(this.uniforms.zoomExcess,focal/1.25-1);
   gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.enableVertexAttribArray(this.position);gl.vertexAttribPointer(this.position,2,gl.FLOAT,false,0,0);
   gl.drawArrays(gl.TRIANGLES,0,3);
  }

@@ -1,9 +1,10 @@
+import {continuousLongitudeShader} from './surface-map.ts';
 // An illustrative cloud volume driven by NASA's optical cloud composite.
 // The photograph provides coverage, not measured height/density: the vertical
 // profile and small-scale relief below are a bounded reconstruction.
 import {stormLightShader} from './storm-light.ts';
 import {modisOrbitShader} from './modis-orbit.ts';
-export const cloudShader=`
+export const cloudShader=continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
@@ -18,7 +19,7 @@ float cloudMapSample(vec2 uv,float lod,float texels,bool detailed){
   float mapped=texture2DLodEXT(cloudMap,uv,lod).r;
 #else
   // Conservative fallback for old WebGL 1 drivers without explicit LOD.
-  float mapped=texture2D(cloudMap,uv,max(0.,lod-1.)).r;
+  float mapped=texture2D(cloudMap,continuousLongitude(uv),max(0.,lod-1.)).r;
 #endif
   if(detailed)mapped=detailedCloud(uv,texels*16384./max(1.,cloudMapWidth),mapped);
   return mapped;
@@ -62,12 +63,22 @@ float filteredCloudNoise(vec3 point,float frequency,float footprint){
 float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   float height=(length(point)-1.)*6371.;
   if(height<.6 || height>12.)return 0.;
+#if defined(LEAN_SHADER_WORK) && !defined(MODIS_PATCH)
+  // One projection serves both the detailed and neighbourhood samples.
+  vec3 cloudNormal=normalize(cloudCoordinates(point));
+  vec2 cloudUV=earthUV(cloudNormal);
+  float latitudeScale=max(.15,length(cloudNormal.xy));
+  float coverage=cloudCoverageAt(cloudUV,latitudeScale,footprint,detailed);
+  if(coverage<.001)return 0.;
+  float neighborhood=cloudCoverageAt(cloudUV,latitudeScale,max(footprint,.0025),false);
+#else
   float coverage=cloudCoverage(point,footprint,detailed);
   if(coverage<.001)return 0.;
   // The optical map is the only evidence for horizontal cloud structure.
   // An unrelated regional noise mask used to label broad patches as deep
   // convection, changing their height, whiteness and texture all at once.
   float neighborhood=cloudCoverage(point,max(footprint,.0025),false);
+#endif
   float connected=smoothstep(.32,.78,min(coverage,neighborhood));
   float relief=0.;
 #ifndef TEXTURE_SHAPED_CLOUDS

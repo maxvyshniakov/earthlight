@@ -115,6 +115,21 @@ void main(){
  vec3 n=vec3(cos(longitude)*.5,sin(longitude)*.5,-.866025404);
  gl_FragColor=vec4(vec3(cloudCoverage(n,.00001,true)),1.);
 }`;
+// The production cloud sampler at the date line, with mipmaps. Without
+// explicit LOD the hardware level follows derivatives across atan's cut.
+const cloudLodSeamFixture=`precision highp float;
+// MIPMAPPED_SEAM
+uniform float ev;
+uniform sampler2D cloudMap;
+const float time=0.;
+mat2 rotate(float a){return mat2(1.);}
+vec2 earthUV(vec3 n){return vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592654+.5);}
+float detailedCloud(vec2 uv,float footprint,float fallback){return fallback;}
+${cloudShader.slice(0,cloudShader.indexOf('float cloudCoverageAt('))}
+void main(){
+ vec3 n=normalize(vec3(-.3,(gl_FragCoord.x-31.+gl_FragCoord.y*.3)*.0001,-.95));
+ gl_FragColor=vec4(vec3(cloudMapSample(earthUV(n),0.,1.,false)),1.);
+}`;
 const airglowFixture=`precision highp float;
 const float time=0.;
 uniform float daylight;
@@ -154,7 +169,7 @@ try{
    const compile=(type,code)=>{const s=gl.createShader(type);gl.shaderSource(s,code);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
    const p=gl.createProgram();gl.attachShader(p,compile(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));gl.attachShader(p,compile(gl.FRAGMENT_SHADER,source));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));gl.useProgram(p);gl.uniform1f(gl.getUniformLocation(p,'ev'),ev);
    const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
-   const cloudSeam=source.includes('cloudMapSample');gl.uniform1f(gl.getUniformLocation(p,'cloudMapWidth'),128);
+   const cloudSeam=source.includes('cloudMapSample')&&!source.includes('MIPMAPPED_SEAM');gl.uniform1f(gl.getUniformLocation(p,'cloudMapWidth'),128);
    const plate=new Uint8Array(128*64*4);for(let y=0;y<64;y++)for(let x=0;x<128;x++){const i=(y*128+x)*4;plate[i]=plate[i+1]=plate[i+2]=(cloudSeam?x<64:(x<16||x>=112))?255:0;plate[i+3]=255;}
    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,128,64,0,gl.RGBA,gl.UNSIGNED_BYTE,plate);gl.generateMipmap(gl.TEXTURE_2D);
    if(cloudSeam){gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);}
@@ -170,11 +185,16 @@ try{
   const seam=[false,true].map(explicit=>{const header=explicit?'#extension GL_EXT_shader_texture_lod : enable\\n#extension GL_OES_standard_derivatives : enable\\n#define SKY_EXPLICIT_GRAD 1\\n':'';return Math.min(...render(header+${JSON.stringify(skySeamFixture)},64,4,0));});
   const surfaceSeam=[false,true].map(explicit=>{const header=explicit?'#extension GL_EXT_shader_texture_lod : enable\\n#extension GL_OES_standard_derivatives : enable\\n#define SKY_EXPLICIT_GRAD 1\\n':'';return Math.min(...render(header+${JSON.stringify(surfaceSeamFixture)},64,4,0));});
   const nightSeam=[false,true].map(explicit=>{const header=explicit?'#extension GL_EXT_shader_texture_lod : enable\\n#extension GL_OES_standard_derivatives : enable\\n#define SKY_EXPLICIT_GRAD 1\\n':'';return Math.min(...render(header+${JSON.stringify(nightSeamFixture)},64,4,0));});
-  return {sunlight,highlights,seam,surfaceSeam,nightSeam};
+  // The last header is a control without derivatives: it must show the seam.
+  const cloudLodSeam=['#extension GL_OES_standard_derivatives : enable\\n#define SKY_DERIVATIVES 1\\n','#extension GL_EXT_shader_texture_lod : enable\\n#define CLOUD_EXPLICIT_LOD 1\\n',''].map(header=>Math.min(...render(header+${JSON.stringify(cloudLodSeamFixture)},64,4,0).filter((_,i)=>i%4===0)));
+  return {sunlight,highlights,seam,surfaceSeam,nightSeam,cloudLodSeam};
  })()`);
  for(const minimum of optical.nightSeam)assert.equal(minimum,255,'Night longitude seam must preserve the local source without a coarse mip');
  for(const minimum of optical.surfaceSeam)assert.equal(minimum,255,'Earth longitude seam must not select a dark coarse mip');
  for(const minimum of optical.seam)assert.equal(minimum,255,'panorama seam must not select a dark coarse mip');
+ const [derivativeSeam,explicitSeam,controlSeam]=optical.cloudLodSeam;
+ for(const minimum of [derivativeSeam,explicitSeam])assert.equal(minimum,255,'cloud date line must not select a dark coarse mip, with or without explicit LOD');
+ assert.ok(controlSeam<255,'the cloud date-line fixture must detect a coarse mip without derivatives');
  for(let i=0;i<256;i++){
   const warm=optical.highlights.slice(i*4,i*4+3),neutral=optical.highlights.slice((256+i)*4,(256+i)*4+3);
   assert.equal(neutral[0],neutral[1]);assert.equal(neutral[1],neutral[2]);
@@ -182,7 +202,7 @@ try{
   if(i>=170)assert.deepEqual(warm,[255,255,255],'overexposed cores approach white');
   if(i>0)for(let c=0;c<3;c++)assert.ok(warm[c]>=optical.highlights[(i-1)*4+c],'highlight channels remain monotonic');
  }
- results.push({highlights:{warmMid:optical.highlights.slice(40*4,40*4+3),whiteCore:optical.highlights.slice(180*4,180*4+3)},skySeam:optical.seam,surfaceSeam:optical.surfaceSeam,nightSeam:optical.nightSeam});
+ results.push({highlights:{warmMid:optical.highlights.slice(40*4,40*4+3),whiteCore:optical.highlights.slice(180*4,180*4+3)},skySeam:optical.seam,surfaceSeam:optical.surfaceSeam,nightSeam:optical.nightSeam,cloudLodSeam:optical.cloudLodSeam});
  // Compare GPU extinction against a high-resolution independent midpoint integral.
  for(let i=0;i<=180;i++){
   const angle=i*.5*Math.PI/180,b=Math.sin(angle),distance=-b+Math.sqrt(b*b+1.018835**2-1);
@@ -357,7 +377,8 @@ try{
  const motion=await evaluate(`(()=>{const e=document.querySelector('orbital-sky'),gl=e.querySelector('canvas').getContext('webgl'),native=gl.drawArrays.bind(gl);let frames=0;gl.drawArrays=(...a)=>{if(a[0]===gl.POINTS)frames++;return native(...a);};const button=e.querySelector('.sky-motion'),seek=e.querySelector('.sky-track input');seek.value='45';seek.dispatchEvent(new Event('input'));if(button.getAttribute('aria-label')==='Play')button.click();const start=performance.now();return new Promise(resolve=>setTimeout(()=>{button.click();gl.drawArrays=native;resolve({fps:frames*1000/(performance.now()-start),error:gl.getError(),scale:e.dataset.renderScale});},6000));})()`);
  assert.equal(motion.error,0);assert.ok(motion.fps>10);results.push(motion);console.log('motion',motion);
  // Exercise the guaranteed WebGL-1 sampler budget, without optional cloud LOD.
- await run('open',`${base}/?t=2488.10&motion=0&quality=fixed`);await wait(settled);
+ // Without the pin, a missing LOD extension would select WebGL 2 instead.
+ await run('open',`${base}/?t=2488.10&motion=0&quality=fixed&api=webgl`);await wait(settled);
  await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,get=p.getParameter,extension=p.getExtension;p.getParameter=function(key){return key===this.MAX_TEXTURE_IMAGE_UNITS?8:key===this.MAX_TEXTURE_SIZE?4096:get.call(this,key);};p.getExtension=function(name){return name==='EXT_shader_texture_lod'?null:extension.call(this,name);};const e=document.querySelector('orbital-sky'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
  await wait(settled);
  const basic=await evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {ready:e.hasAttribute('data-ready'),terrain:e.hasAttribute('data-terrain-ready'),error:e.querySelector('canvas').getContext('webgl').getError()};})()`);

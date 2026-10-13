@@ -445,6 +445,14 @@ capture belongs to a separate full-scene layer with `touch-action: none`; settin
 and links sit above it and retain native scrolling and taps. Adding or lifting a
 finger rebases the gesture without jumping, and cancellation discards pending input.
 
+Since 2026-10-13 one finger on Earth turns the globe about its centre like a
+trackpad scroll, 2.5 times faster than the finger and without running out at
+the limb. A flick coasts for about a second, at most 8 rad/s; Android sends no
+momentum of its own. `touchMode=grab` holds the touched point instead, and
+`touchGain`, `flingLimit` and `flingCoast` tune the feel. Trackpad deltas are
+released over 90 ms on each display refresh (`inputSmoothing`, 0 to apply
+them at once), which removes uneven steps at the end of a momentum swipe.
+
 W/S move along the view, A/D strafe, Q/E move along the camera’s own up axis,
 and Shift multiplies speed by four. Speed grows with altitude. The altitude
 slider spans 150–50,000 km logarithmically. Gesture movement clips its entire
@@ -690,6 +698,21 @@ Sustained mean delivery above 46 ms lowers buffer dimensions toward a 45% floor;
 startup and severe overload use shorter windows. Stable delivery allows small
 upward probes, with rollback and retry backoff when the larger size is too slow.
 Pauses and background time are excluded.
+
+Since 2026-10-13 the explorer renders on whole display refreshes, every k-th
+refresh nearest to 24 FPS (30 FPS at 60 Hz, 24 at 120 Hz), so frames are evenly
+spaced; `cadence=timer` restores the old timer. Three late frames in 24 lower
+the scale once the view is quiet (`headroom=0` disables), and the last
+sustained scale is remembered per screen (`startScale=fresh` ignores it). The
+buffer grows when Earth and its atmosphere cover less of the frame, assuming a
+sky pixel costs a tenth of a planet pixel (`viewScale`, 0 to disable), so a
+distant planet is sharper at the same cost. A 0.75 shutter blurs Earth, not the
+sky, during camera motion (`motionBlur=0`). The background keeps its passive
+cadence and gets none of these. Both share the accepted work reductions:
+regional terrain bounds, lean shading, the noise lattice table, shared terrain
+page entries and temporal cloud reuse (`terrainBound=off`, `shaderWork=legacy`,
+`noise=hash`, `terrainFetch=separate`, `cloudReuse=off`). See
+[the lab notes](lab/scene-work-2026-10-13.md).
 
 Paused interactive draws retain asynchronous GPU timing where supported: six
 samples for the first decision, then twelve, with at most two pending queries.

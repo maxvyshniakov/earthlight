@@ -399,6 +399,20 @@ test('flight frames follow 60 Hz input and return to passive cadence',()=>{
   assert.equal(frames,120,'passive 24 FPS keeps fractional deadlines');
  }
 });
+test('steady cadence lands on whole refreshes, at least 24 FPS, unchanged by gestures',()=>{
+ for(const [hz,expected,refreshes] of [[60,30,2],[90,30,3],[120,24,5],[144,24,6]]){
+  const clock=new SceneFrameClock(24,true),period=1000/hz,gaps=[];let previous=null;
+  for(let i=1;i<=hz*4;i++){
+   // Sub-millisecond timestamp jitter must not move a frame to another refresh.
+   const now=i*period+(i%3-1)*.4;clock.observe(now);
+   if(i%7===0)clock.interact(now);
+   if(clock.due(now)){if(previous!==null)gaps.push(i-previous);previous=i;}
+  }
+  const settled=gaps.slice(10);
+  assert.ok(settled.every(gap=>gap===refreshes),`${hz} Hz: ${[...new Set(settled)]}`);
+  assert.ok(Math.abs(clock.fps-expected)<.3,`${hz} Hz runs at ${clock.fps}`);
+ }
+});
 test('delayed input coalesces without catch-up draws or post-render drift',()=>{
  const clock=new SceneFrameClock();clock.interact(0);
  assert.equal(clock.due(0),true);assert.equal(clock.due(0),false);
@@ -444,4 +458,17 @@ test('fast changing views cannot trigger upscale probes but retain overload reco
  assert.equal(quality.scale,.65,'extra gesture frames do not imply spare GPU capacity');
  for(let i=0;i<90;i++){now+=100;quality.observeCadence(100,now,false);}
  assert.ok(quality.scale<.65,'overload still reduces the target during interaction');
+});
+test('steady cadence keeps the display period through GPU backpressure, not a real rate change',()=>{
+ const clock=new SceneFrameClock(24,true);let now=0;
+ for(let i=0;i<240;i++){now+=1000/120;clock.observe(now);clock.due(now);}
+ assert.ok(Math.abs(clock.refreshPeriod-1000/120)<.1);
+ // Two seconds where every render refresh arrives a refresh late.
+ for(let i=0;i<240;i++){now+=i%5===0?1000/60:1000/120;clock.observe(now);clock.due(now);}
+ assert.ok(Math.abs(clock.refreshPeriod-1000/120)<.1,'backpressure does not slow the estimate');
+ assert.ok(Math.abs(clock.fps-24)<.1);
+ // The display itself drops to 60 Hz, as adaptive phone panels do when idle.
+ for(let i=0;i<40;i++){now+=1000/60;clock.observe(now);clock.due(now);}
+ assert.ok(Math.abs(clock.refreshPeriod-1000/60)<.2,`now ${clock.refreshPeriod}`);
+ assert.ok(Math.abs(clock.fps-30)<.2);
 });

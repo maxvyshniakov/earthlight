@@ -4,8 +4,19 @@ import {textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {SceneWork,scenePriority} from './scene-work.ts';
 import {visibleSurfaceTiles} from './night-tiles.ts';
 import {DEM_CELL as CELL,parentTerrainTile,terrainSourceName} from './terrain-detail.ts';
+import {TerrainBound,boundCode,patchMaximum,tileCellMaxima} from './terrain-bound.ts';
 type View=Parameters<typeof visibleSurfaceTiles>[0];
 type Entry={slot:number;loaded:number;used:number;id:number;fine:boolean};
+/** Raw RGBA of an untagged numeric tile. Returns null where 2D readback is unavailable. */
+function bitmapPixels(image:ImageBitmap,width:number,height:number){
+ try{
+  const canvas=typeof OffscreenCanvas==='function'?new OffscreenCanvas(width,height):Object.assign(document.createElement('canvas'),{width,height});
+  const context=canvas.getContext('2d',{willReadFrequently:true}) as OffscreenCanvasRenderingContext2D|CanvasRenderingContext2D|null;
+  if(!context)return null;
+  context.drawImage(image,0,0,width,height,0,0,width,height);
+  return context.getImageData(0,0,width,height).data;
+ }catch{return null;}
+}
 /** Both resolutions share unit 15 and a bounded atlas. The first row stores
  * indirection tables; other cells store paired height/mip squares. */
 export class TerrainStream {
@@ -35,12 +46,14 @@ export class TerrainStream {
  private needed=0;
  private timer=0;
  private pages=new Uint8Array(800*360*4);
+ private bound:TerrainBound|null;
+ private boundTexels=0;
  private pageKeys=new Set<number>();
  private locations=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
  requests=0;bytes=0;failures=0;decodes=0;
  private gl:WebGLRenderingContext;private mobile:boolean;private notify:()=>void;private work:SceneWork;
- constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/',private uploadMode:'strips'|'tile'='strips',private cacheMode:'small'|'working'='working',private decoderMode:'single'|'pool'='single',private sourceMode:'tiff'|'packed'='tiff'){
-  this.gl=gl;this.mobile=mobile;this.notify=notify;this.work=work;
+ constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/',private uploadMode:'strips'|'tile'='strips',private cacheMode:'small'|'working'='working',private decoderMode:'single'|'pool'='single',private sourceMode:'tiff'|'packed'='tiff',private boundMode:'off'|'regional'='off'){
+  this.gl=gl;this.bound=boundMode==='regional'?new TerrainBound():null;this.mobile=mobile;this.notify=notify;this.work=work;
   this.decoder=new TerrainDecoder(decoderMode);this.packedDecoder=new TerrainDecoder(decoderMode,'packed');
   if(sourceMode==='packed')this.packedManifest=work.network.run(scenePriority.tile,this.abort.signal,async()=>{
    const r=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/terrain-packed/v1/manifest.json',{signal:AbortSignal.any([this.abort.signal,AbortSignal.timeout(8000)])});
@@ -63,6 +76,8 @@ export class TerrainStream {
    this.selected=-Infinity;this.notify();
   }).catch(()=>{});
  }
+ /** Global maxima must arrive before any bound is published. */
+ setGlobalBound(grid:Uint8Array){if(this.bound&&!this.disposed){this.bound.raiseGrid(grid);this.notify();}}
  private bind(){this.gl.activeTexture(this.gl.TEXTURE15);this.gl.bindTexture(this.gl.TEXTURE_2D,this.texture);}
  update(view:View,width:number,height:number,program:WebGLProgram){
   if(this.disposed)return;const now=performance.now(),gl=this.gl;
@@ -77,13 +92,15 @@ export class TerrainStream {
    for(const [id,p] of this.parents)if(!parents.has(id))p.controller.abort();
    for(const [key,c] of this.pending)if(!this.wanted.includes(key))c.abort();
    for(const key of this.wanted){const e=this.entries.get(key);if(e)e.used=now;}
-   if(this.wanted.length){this.needed=now;if(!this.allocated&&!this.work.moving){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,this.edge,this.edge,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=true;this.pages.fill(0);this.pageKeys.clear();}}
+   if(this.wanted.length){this.needed=now;if(!this.allocated&&!this.work.moving){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,this.edge,this.edge,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=true;this.pages.fill(0);this.pageKeys.clear();this.bound?.invalidate();}}
    else if(this.allocated&&!this.work.moving&&now-this.needed>2000&&!this.pending.size){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=false;this.entries.clear();this.parentCache.clear();}
    this.pump();
   }
   this.bind();if(!this.locations.has(program))this.locations.set(program,{atlas:gl.getUniformLocation(program,'terrainTileAtlas'),layout:gl.getUniformLocation(program,'terrainTileLayout')});
   const u=this.locations.get(program)!;gl.uniform1i(u.atlas,15);gl.uniform2f(u.layout,this.allocated?this.edge:0,this.columns);
   if(!this.allocated)return;
+  // Raise bounds before any page entry can expose the tiles that raised them.
+  if(this.bound)this.boundTexels+=this.bound.flush((x,y,w,h,data)=>textureSubImage2D(gl,gl.TEXTURE_2D,0,x,y,w,h,gl.RGBA,gl.UNSIGNED_BYTE,data));
   const active=new Set<number>(),changes:number[]=[];let fading=false;
   const fade=(e?:Entry)=>e?Math.max(0,Math.min(1,(now-e.loaded)/800)):0;
   for(const e of this.entries.values()){
@@ -146,6 +163,14 @@ export class TerrainStream {
      if(fine){const patches=await this.fineData(id);pixels=patches[(Math.floor(id/720)%2)*2+id%2];}
      else{this.requests++;const blob=await this.work.network.run(scenePriority.tile,signal,async()=>{const r=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/terrain-tiles/'+id+'.png',{signal});if(!r.ok)throw Error('Terrain unavailable');return r.blob();});this.bytes+=blob.size;image=await this.work.decode.run(scenePriority.tile,signal,()=>createImageBitmap(blob,{colorSpaceConversion:'none',premultiplyAlpha:'none'}));}
      if(this.disposed||signal.aborted||!this.wanted.includes(key))return;
+     if(this.bound){
+      if(pixels)this.bound.raise(id%720,Math.floor(id/720),boundCode(patchMaximum(pixels,CELL)));
+      else if(image){
+       // Unreadable pixels publish "no bound" (255) for the whole tile.
+       const data=bitmapPixels(image,572,572),maxima=data?tileCellMaxima(data):null;
+       for(let i=0;i<18*18;i++)this.bound.raise((id%40)*18+i%18,Math.floor(id/40)*18+Math.floor(i/18),maxima?boundCode(maxima[i]):255);
+      }
+     }
      let slot=0;const used=new Set([...this.entries.values()].map(e=>e.slot));
      for(let i=this.columns;i<this.columns*this.columns-1;i+=2)if(!used.has(i)){slot=i;break;}
      if(!slot){const stale=[...this.entries].filter(([k])=>!this.wanted.includes(k)).sort((a,b)=>a[1].used-b[1].used)[0];if(!stale)return;slot=stale[1].slot;this.entries.delete(stale[0]);}
@@ -167,6 +192,6 @@ export class TerrainStream {
    })().catch(()=>{if(this.entries.get(key)?.loaded===Infinity)this.entries.delete(key);if(!this.disposed&&(!signal.aborted||timedOut)){this.failed.set(key,performance.now()+60000);this.failures++;}}).finally(()=>{clearTimeout(timeout);this.pending.delete(key);this.pump();});
   }
  }
- stats(){return {resident:this.entries.size,fineResident:[...this.entries.values()].filter(e=>e.fine&&Number.isFinite(e.loaded)).length,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,failures:this.failures,uploadMode:this.uploadMode,cacheMode:this.cacheMode,decoderMode:this.decoderMode,sourceMode:this.sourceMode,workersCreated:this.decoder.created+this.packedDecoder.created,workersLive:this.decoder.live+this.packedDecoder.live,decodeMs:this.decoder.milliseconds+this.packedDecoder.milliseconds,packedDecodes:this.packedDecodes,packedFallbacks:this.packedFallbacks,decodes:this.decodes,decodedParents:this.parentCache.size,decodedBytes:[...this.parentCache.values()].reduce((n,patches)=>n+patches.reduce((s,p)=>s+p.byteLength,0),0),gpuBytes:this.allocated?this.edge*this.edge*4:4};}
+ stats(){return {resident:this.entries.size,fineResident:[...this.entries.values()].filter(e=>e.fine&&Number.isFinite(e.loaded)).length,fineWanted:this.wanted.filter(key=>key[0]==='f').length,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,failures:this.failures,uploadMode:this.uploadMode,cacheMode:this.cacheMode,decoderMode:this.decoderMode,sourceMode:this.sourceMode,workersCreated:this.decoder.created+this.packedDecoder.created,workersLive:this.decoder.live+this.packedDecoder.live,decodeMs:this.decoder.milliseconds+this.packedDecoder.milliseconds,packedDecodes:this.packedDecodes,packedFallbacks:this.packedFallbacks,decodes:this.decodes,decodedParents:this.parentCache.size,decodedBytes:[...this.parentCache.values()].reduce((n,patches)=>n+patches.reduce((s,p)=>s+p.byteLength,0),0),boundMode:this.boundMode,boundReady:!!this.bound?.ready,boundCells:this.bound?.cells??0,boundTexels:this.boundTexels,gpuBytes:this.allocated?this.edge*this.edge*4:4};}
  dispose(){this.disposed=true;this.abort.abort();clearTimeout(this.timer);for(const c of this.pending.values())c.abort();for(const p of this.parents.values())p.controller.abort();this.decoder.dispose();this.packedDecoder.dispose();this.pending.clear();this.entries.clear();this.parentCache.clear();if(!this.gl.isContextLost())this.gl.deleteTexture(this.texture);this.texture=null;}
 }

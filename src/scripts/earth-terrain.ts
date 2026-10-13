@@ -1,5 +1,7 @@
+import {continuousLongitudeShader} from './surface-map.ts';
 import {terrainTileShader} from './night-tiles.ts';
 import {terrainDetailShader} from './terrain-detail.ts';
+import {terrainBoundShader} from './terrain-bound.ts';
 // ETOPO heights and an independent Natural Earth ocean mask. One optional
 // sampler (unit 8); devices limited to eight samplers retain the sphere.
 export function decodeTerrain(buffer:ArrayBuffer){
@@ -29,7 +31,7 @@ export function decodeTerrain(buffer:ArrayBuffer){
   return {width,height,levels};
 }
 
-export const terrainShader=`
+export const terrainShader=continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
@@ -37,6 +39,9 @@ uniform float terrainReady;
 uniform float terrainWidth;
 #ifdef TERRAIN_STREAM
 ${terrainDetailShader}
+#ifdef TERRAIN_BOUND
+${terrainBoundShader}
+#endif
 #elif defined(TERRAIN_TILES)
 ${terrainTileShader}
 #endif
@@ -55,11 +60,24 @@ float terrainSamplingWidthAt(vec2 uv){return terrainSamplingWidth();}
 #ifdef TERRAIN_MAP
 uniform sampler2D terrainMap;
 vec3 terrainData(vec2 uv,float lod){
+#if defined(SHARED_TERRAIN_ENTRY) && defined(TERRAIN_STREAM)
+ if(terrainTileLayout.x>=1.){
+  vec4 fineEntry=terrainEntry(uv,true),coarseEntry=terrainEntry(uv,false);
+  float width=terrainWidthFrom(fineEntry,coarseEntry);
+#ifdef CLOUD_EXPLICIT_LOD
+  vec3 sampled=texture2DLodEXT(terrainMap,uv,max(0.,lod-log2(width/terrainWidth))).rgb;
+#else
+  vec3 sampled=texture2D(terrainMap,continuousLongitude(uv),max(0.,lod-log2(width/terrainWidth))).rgb;
+#endif
+  sampled.rg=streamedTerrainEntries(uv,exp2(lod),sampled,fineEntry,coarseEntry,width).rg;
+  return sampled;
+ }
+#endif
  float baseLod=max(0.,lod-log2(terrainSamplingWidthAt(uv)/terrainWidth));
 #ifdef CLOUD_EXPLICIT_LOD
  vec3 base=texture2DLodEXT(terrainMap,uv,baseLod).rgb;
 #else
- vec3 base=texture2D(terrainMap,uv,baseLod).rgb;
+ vec3 base=texture2D(terrainMap,continuousLongitude(uv),baseLod).rgb;
 #endif
 #ifdef TERRAIN_STREAM
  base.rg=streamedTerrain(uv,exp2(lod),base).rg;
@@ -84,6 +102,17 @@ float terrainIntersection(vec3 ray,float seaDistance){
  float disc=b*b-c+outer*outer;
  if(b>=0.||disc<=0.)return seaDistance;
  float start=-b-sqrt(disc),end=seaDistance>0.?seaDistance:-b;
+#if defined(TERRAIN_BOUND) && defined(TERRAIN_STREAM)
+ // No sample near this ground track exceeds the regional maximum. Start at
+ // that shell; a ray that never descends to it cannot meet the terrain.
+ // The margin covers two texels of bilinear reach in the 4K global map.
+ float ceiling=terrainTrackBound(normalize(cameraPosition+ray*start),normalize(cameraPosition+ray*end),.0031);
+ if(ceiling>=0.&&ceiling<outer-1.){
+   float top=1.+ceiling,boundDisc=b*b-c+top*top;
+   if(boundDisc<=0.)return seaDistance;
+   start=max(start,-b-sqrt(boundDisc));
+ }
+#endif
  // Half a DEM texel along the horizontal ray is enough to locate a crossing;
  // the binary refinement below still resolves its height. Short downward
  // views must not pay for the 96 steps allowed for horizon rays.
@@ -145,6 +174,13 @@ float terrainLightVisibility(vec3 point,vec3 lightDirection){
  vec3 origin=radial*(1.+terrainHeight(point,0.)+bias);
  float visibility=1.;
  float first=max(90./6371000.,min(500./6371000.,texel*.5));
+#if defined(TERRAIN_BOUND) && defined(TERRAIN_STREAM)
+ // Once the rising ray clears every sample the regional bound allows, all
+ // remaining clearances are positive and cannot lower the visibility.
+ const float reach=40000./6371000.;
+ float ceiling=terrainTrackBound(radial,normalize(origin+lightDirection*reach),.0031+2.*max(footprint*.5,reach*.00465));
+ float clearRadius=ceiling>=0.?1.+ceiling:2.;
+#endif
  for(int i=0;i<24;i++){
    float distance=first*pow(1.35,float(i));
    if(distance>40000./6371000.)break;
@@ -153,6 +189,9 @@ float terrainLightVisibility(vec3 point,vec3 lightDirection){
    // Heights use the same 9 km bound as terrainIntersection. Once an
    // outward ray clears it, every remaining sample is also above terrain.
    if(dot(p,lightDirection)>=0. && dot(p,p)>1.001413*1.001413)break;
+#endif
+#if defined(TERRAIN_BOUND) && defined(TERRAIN_STREAM)
+   if(dot(p,lightDirection)>=0. && dot(p,p)>clearRadius*clearRadius)break;
 #endif
    float support=max(footprint*.5,distance*.00465);
    float sampleTexel=6.2831853/terrainSamplingWidthAt(earthUV(normalize(p)));
@@ -178,9 +217,8 @@ float waterMasking(float cosine,float alpha){
  if(a>=1.6)return 1.;
  return (3.535*a+2.181*a*a)/(1.+2.276*a+2.577*a*a);
 }
-float oceanReflection(vec3 n,vec3 v,vec3 l,float footprint){
- float nv=dot(n,v),nl=dot(n,l);
- if(nv<=0.||nl<=0.)return 0.;
+// Sea statistics depend on the surface point only; every light source shares them.
+void oceanSurface(vec3 n,float footprint,out vec3 along,out vec3 across,out vec2 variance){
  float weather=waterField(n,17.,footprint);
  // Most unresolved waves belong in the slope distribution. Strong kilometre
  // scale changes in its variance made the glint resemble mottled varnish.
@@ -190,8 +228,12 @@ float oceanReflection(vec3 n,vec3 v,vec3 l,float footprint){
  vec3 east=normalize(cross(abs(n.z)<.98?vec3(0.,0.,1.):vec3(0.,1.,0.),n));
  vec3 north=cross(n,east);
  float heading=6.2831853*waterField(n+vec3(3.,7.,11.),8.,footprint);
- vec3 along=east*cos(heading)+north*sin(heading),across=cross(n,along);
- vec2 variance=vec2(.00316*wind,.003+.00192*wind);
+ along=east*cos(heading)+north*sin(heading);across=cross(n,along);
+ variance=vec2(.00316*wind,.003+.00192*wind);
+}
+float oceanGlint(vec3 n,vec3 v,vec3 l,vec3 along,vec3 across,vec2 variance){
+ float nv=dot(n,v),nl=dot(n,l);
+ if(nv<=0.||nl<=0.)return 0.;
  vec3 h=normalize(v+l);
  float nh=max(.0001,dot(n,h)),vh=max(0.,dot(v,h));
  vec2 slopes=vec2(dot(h,along),dot(h,across))/nh;
@@ -201,6 +243,12 @@ float oceanReflection(vec3 n,vec3 v,vec3 l,float footprint){
  float masking=waterMasking(nv,alpha)*waterMasking(nl,alpha);
  float fresnel=.02037+.97963*pow(1.-vh,5.);
  return d*masking*fresnel/(4.*max(.0001,nv));
+}
+float oceanReflection(vec3 n,vec3 v,vec3 l,float footprint){
+ if(dot(n,v)<=0.||dot(n,l)<=0.)return 0.;
+ vec3 along,across;vec2 variance;
+ oceanSurface(n,footprint,along,across,variance);
+ return oceanGlint(n,v,l,along,across,variance);
 }
 
 `;

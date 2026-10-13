@@ -14,6 +14,7 @@ import { cloudShader } from './earth-clouds';
 import { terrainShader } from './earth-terrain';
 import { sceneColorShader } from './scene-color';
 import { atmosphericLightShader } from './atmospheric-light';
+import { noiseTableShader } from './noise-table';
 
 // ISS trajectory and sunlight, graded like a photograph taken from orbit.
 // All distant lights share a camera rotation. Earth's limb stays stationary;
@@ -78,6 +79,9 @@ float latticeHash(vec2 p) {
   vec2 q=mod(p,289.);
   return latticePermute(latticePermute(q.x)+q.y)/289.;
 }
+#ifdef NOISE_TABLE
+${noiseTableShader}
+#else
 float noise(vec3 p) {
   vec3 i = floor(p), f = fract(p);
   f = f * f * (3.0 - 2.0 * f);
@@ -89,6 +93,7 @@ float noise(vec3 p) {
                 mix(latticeHash(q + vec2(0,1)), latticeHash(q + vec2(1,1)), f.x), f.y);
   return mix(a,b,f.z);
 }
+#endif
 mat2 rotate(float a) { float c = cos(a), s = sin(a); return mat2(c,-s,s,c); }
 
 vec2 earthUV(vec3 n) {
@@ -359,6 +364,25 @@ void main() {
       *max(0.,dot(normal,geo))*(1.-water);
     vec3 reflected=vec3(0.);
     if(water>.001){
+#ifdef LEAN_SHADER_WORK
+      // Same glints; skip sources that add exactly zero (no Moon in daylight)
+      // and evaluate the three sea-state noise fields once for both lights.
+      float glintFootprint=distance/(resolution.y*FOCAL*max(.05,-dot(geo,earthRay)));
+      bool sunGlinting=dot(geo,sunDirection)>0.;
+      bool moonGlinting=max(incidentMoon.r,max(incidentMoon.g,incidentMoon.b))>0.&&dot(geo,moonDirection)>0.;
+      if(dot(geo,-earthRay)>0.&&(sunGlinting||moonGlinting)){
+        vec3 waveAlong,waveAcross;vec2 waveVariance;
+        oceanSurface(geo,glintFootprint,waveAlong,waveAcross,waveVariance);
+        if(sunGlinting){
+          float sunGlint=oceanGlint(geo,-earthRay,sunDirection,waveAlong,waveAcross,waveVariance)*groundShadow;
+          reflected+=incidentSun*sunGlint*solarIrradiance;
+        }
+        if(moonGlinting){
+          float moonGlint=oceanGlint(geo,-earthRay,moonDirection,waveAlong,waveAcross,waveVariance);
+          if(moonGlint>.0001)reflected+=incidentMoon*moonGlint*lunarShadow;
+        }
+      }
+#else
       float sunGlint=oceanReflection(geo,-earthRay,sunDirection,distance/(resolution.y*FOCAL*max(.05,-dot(geo,earthRay))))*groundShadow;
       // Incoming sunlight crosses the air before reflection. The existing
       // view integral applies the separate water-to-camera path exactly once.
@@ -366,13 +390,19 @@ void main() {
       // Parallax from the orbital camera to the reflecting water patch.
       float moonGlint=oceanReflection(geo,-earthRay,moonDirection,distance/(resolution.y*FOCAL*max(.05,-dot(geo,earthRay))));
       if(moonGlint>.0001)reflected+=incidentMoon*moonGlint*lunarShadow;
+#endif
     }
     surface=pow(pow(max(surface,vec3(0.)),vec3(2.2))+lunarDiffuse+skyDiffuse+reflected*water,vec3(1./2.2));
     // Emission preserves lamp color and contrast. The camera's highlight
     // shoulder, after cloud/air extinction, owns saturation toward white.
     vec3 cityRadiance=vec3(0.);
     float cityEnergy=cityLightEnergy(lamp);
+#ifdef LEAN_SHADER_WORK
+    // The lamp tint only matters where lights are both present and switched on.
+    vec3 cityColor=night*cityEnergy>0.?cityLampColor(geo):vec3(0.);
+#else
     vec3 cityColor=cityLampColor(geo);
+#endif
     cityRadiance=cityColor*cityEnergy;
     surface=pow(pow(max(surface,vec3(0.)),vec3(2.2))+cityRadiance*night,vec3(1./2.2));
     color+=ground*mix(original,surface,mapsReady*surfaceEnabled);

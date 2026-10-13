@@ -38,14 +38,18 @@ export function createCameraController(o:Options){
     else o.followLook(x1-x0,y1-y0);
     o.changed();
   };
-  const press=(clientX:number,clientY:number,intent:CameraIntent):CameraSession|null=>{
+  // gain > 1 turns Earth faster than the pointer moves (touch sensitivity).
+  // spin turns the globe like a trackpad scroll instead of holding a point,
+  // so a drag never runs out of travel at the limb; a flick keeps spinning.
+  const press=(clientX:number,clientY:number,intent:CameraIntent,gain=1,spin=false):CameraSession|null=>{
     if(!o.ready())return null;
     nav.stop();
     // Grabbing Earth while following an orbit starts free flight from that pose.
     const hit=intent==='auto'?pick(clientX,clientY):null;
     const kind=intent==='roll'?'roll':hit?.hit?'fly':'look';
     if(kind!=='look')free();
-    if(kind==='fly'){const p=screen(clientX,clientY);nav.grab(hit!.point,p.x,p.y);o.request();}
+    if(kind==='fly'&&!spin){const p=screen(clientX,clientY);nav.grab(hit!.point,p.x,p.y);o.request();}
+    const height=()=>Math.max(1,o.canvas.getBoundingClientRect().height);
     let last={x:clientX,y:clientY},travel=0,taught=false;
     const samples:{t:number;x:number;y:number}[]=[{t:performance.now(),x:clientX,y:clientY}];
     const r=o.canvas.getBoundingClientRect(),centre={x:r.left+r.width/2,y:r.top+r.height/2};
@@ -54,8 +58,9 @@ export function createCameraController(o:Options){
         if(x===last.x&&y===last.y)return;
         travel+=Math.hypot(x-last.x,y-last.y);
         const now=performance.now();samples.push({t:now,x,y});while(samples.length>2&&now-samples[0].t>100)samples.shift();
-        if(kind==='fly'){const p=screen(x,y);nav.drag(p.x,p.y);o.request();}
-        else if(kind==='look')look(last.x,last.y,x,y);
+        if(kind==='fly'&&spin){const p=screen(clientX,clientY),h=height();nav.spinGlobe((x-last.x)*gain/h,-(y-last.y)*gain/h,p.x,p.y);o.changed();o.request();}
+        else if(kind==='fly'){const p=screen(clientX+(x-clientX)*gain,clientY+(y-clientY)*gain);nav.drag(p.x,p.y);o.request();}
+        else if(kind==='look')look(clientX+(last.x-clientX)*gain,clientY+(last.y-clientY)*gain,clientX+(x-clientX)*gain,clientY+(y-clientY)*gain);
         else{
           // Twist about the image centre, like turning a dial.
           const a=Math.atan2(last.y-centre.y,last.x-centre.x),b=Math.atan2(y-centre.y,x-centre.x);
@@ -68,7 +73,8 @@ export function createCameraController(o:Options){
         const now=performance.now(),first=samples[0],latest=samples.at(-1)!,span=(latest.t-first.t)/1000;
         const vx=span>0?(latest.x-first.x)/span:0,vy=span>0?(latest.y-first.y)/span:0;
         const flung=fling&&!o.reducedMotion()&&now-latest.t<60&&Math.hypot(vx,vy)>240;
-        if(kind==='fly'){nav.release(flung);o.request();}
+        if(kind==='fly'&&spin){if(flung){const p=screen(clientX,clientY),h=height();nav.flingSpin(vx*gain/h,-vy*gain/h,p.x,p.y);}o.request();}
+        else if(kind==='fly'){nav.release(flung);o.request();}
         else if(kind==='look'&&flung&&nav.free){const k=degreesPerPixel();nav.spinLook(-vx*k,vy*k);o.request();}
       }};
   };

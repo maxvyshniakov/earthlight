@@ -57,8 +57,8 @@ vec3 terrainStreamLevel(vec2 local,float slot,float level,bool fine){
   if(level>3.5){origin.x+=ceil(cell*.125);size=ceil(cell*.0625);}}
  return texture2D(terrainTileAtlas,(origin+(16.+local*interior)/cell*size)/terrainTileLayout.x).rgb;
 }
-vec3 terrainStreamSample(vec2 uv,float footprint,vec3 fallback,bool fine){
- vec4 entry=terrainEntry(uv,fine);float slot=floor(entry.r*255.+.5);
+vec3 terrainStreamSampleAt(vec4 entry,vec2 uv,float footprint,vec3 fallback,bool fine){
+ float slot=floor(entry.r*255.+.5);
  if(slot<.5||footprint>=32.)return fallback;
  vec2 local=fract(vec2(fract(uv.x),clamp(1.-uv.y,0.,.999999))*(fine?vec2(720.,360.):vec2(40.,20.)));
  vec2 code=floor(entry.ba*255.+.5);
@@ -70,6 +70,20 @@ vec3 terrainStreamSample(vec2 uv,float footprint,vec3 fallback,bool fine){
  vec3 height=mix(terrainStreamLevel(local,slot,floor(lod),fine),terrainStreamLevel(local,slot,min(4.,floor(lod)+1.),fine),fract(lod));
  return mix(fallback,height,fade*(1.-smoothstep(20.,32.,footprint)));
 }
+vec3 terrainStreamSample(vec2 uv,float footprint,vec3 fallback,bool fine){
+ return terrainStreamSampleAt(terrainEntry(uv,fine),uv,footprint,fallback,fine);
+}
+#ifdef SHARED_TERRAIN_ENTRY
+// One read of each page table per height sample, shared by the sampling
+// width, the coarse tile and the fine tile.
+float terrainWidthFrom(vec4 fineEntry,vec4 coarseEntry){
+ return fineEntry.r>0.?432000.:coarseEntry.r>0.?21600.:terrainWidth;
+}
+vec3 streamedTerrainEntries(vec2 uv,float footprint,vec3 fallback,vec4 fineEntry,vec4 coarseEntry,float width){
+ vec3 coarse=terrainStreamSampleAt(coarseEntry,uv,footprint*21600./width,fallback,false);
+ return terrainStreamSampleAt(fineEntry,uv,footprint*432000./width,coarse,true);
+}
+#endif
 vec3 streamedTerrain(vec2 uv,float footprint,vec3 fallback){
  if(terrainTileLayout.x<1.)return fallback;
  float width=terrainSamplingWidthAt(uv);

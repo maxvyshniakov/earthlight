@@ -1,0 +1,200 @@
+--- a/src/scripts/earth-clouds.ts
++++ b/src/scripts/earth-clouds.ts
+@@ -55,6 +55,9 @@
+ // Once an octave is below the sampling footprint its contribution is exactly
+ // the mean. Avoid evaluating eight-corner noise that will be discarded.
+ float filteredCloudNoise(vec3 point,float frequency,float footprint){
++#ifdef ABLATE_CLOUD_NOISE
++  return .5;
++#endif
+   float fade=smoothstep(.3,1.,footprint*frequency);
+   if(fade>=1.)return .5;
+   return mix(noise(point*frequency),.5,fade);
+@@ -130,7 +133,14 @@
+ #endif
+   // Trace the whole cloud shell, including high clouds and oblique sunlight.
+   // A fixed 25 km ray silently missed both. Trim the empty space below base.
+-  const float outer=1.0018835,inner=1.00009418;
++  // Surface shadows (12 slices) keep full detail at every slice.
++  bool ground=samples>=10.;
++  float outer=1.0018835,inner=1.00009418;
++#if defined(TIGHT_GROUND_SHADOW) && !defined(MODIS_GUIDANCE) && !defined(MODIS_PATCH)
++  // Density is zero below 0.8 km and above 9.3 km. Trace only that layer at
++  // the same ~0.95 km slice spacing: nine slices instead of twelve.
++  if(ground){outer=1.+9.3/6371.;inner=1.+.8/6371.;samples=9.;}
++#endif
+   float b=dot(point,lightDirection),c=dot(point,point);
+   float disc=b*b-c+outer*outer;
+   if(disc<=0.)return 1.;
+@@ -149,7 +159,7 @@
+     if(float(j)>=samples || tau>8.)break;
+     float a=float(j)/samples,z=(float(j)+1.)/samples;
+     // Self-shadow changes fastest just above the current cloud sample.
+-    if(samples<10.){a*=a;z*=z;}
++    if(!ground){a*=a;z*=z;}
+     float width=(end-start)*(z-a),distance=start+(end-start)*(a+z)*.5;
+     // Filter lateral travel, not the vertical thickness of a shadow slice.
+     // The finite solar disc also softens distant cloud shadows naturally.
+@@ -157,11 +167,15 @@
+     // Surface shadows retain atlas detail; only the distant part of a cloud's
+     // self-shadow uses the overview, after its sharp local structure is traced.
+     vec3 samplePoint=point+lightDirection*distance;
+-    tau+=cloudIntegratedDensity(samplePoint,footprint,samples>=10.||j<3,width*3185.5*abs(dot(normalize(samplePoint),lightDirection)))*width*6371.;
++    tau+=cloudIntegratedDensity(samplePoint,footprint,ground||j<3,width*3185.5*abs(dot(normalize(samplePoint),lightDirection)))*width*6371.;
+   }
+   return exp(-tau);
+ }
++#ifdef ABLATE_GROUND_SHADOW
++float cloudShadowAlong(vec3 point,vec3 lightDirection){return 1.;}
++#else
+ float cloudShadowAlong(vec3 point,vec3 lightDirection){return cloudLightTransmission(point,lightDirection,12.);}
++#endif
+ float cloudShadow(vec3 point){return cloudLightTransmission(point,sunDirection,6.);}
+ // Five source rays are evaluated in a tiny prepass, never once per screen pixel.
+ // The same coverage, height profile and filtering drive visible clouds and the
+@@ -210,6 +224,20 @@
+   // Near-nadir views cross only a thin shell and do not need the 96 samples
+   // reserved for long horizon paths (each lit sample also traces a shadow).
+   float pathLength=max(0.,exitDistance-entry);
++  float marchEntry=entry;
++#if defined(CLOUD_SHELL_BOUND) && !defined(MODIS_GUIDANCE) && !defined(MODIS_PATCH)
++  // The density envelope is zero below 0.8 km (lowest base) and above 9.3 km
++  // (highest top plus half its feather). Integrate only that layer, at the
++  // same step length; lighting anchors below keep the full shell.
++  const float densityTop=1.+9.3/6371.,densityBase=1.+.8/6371.;
++  float topDisc=b*b-c+densityTop*densityTop;
++  if(topDisc<=0.)return vec3(0.);
++  float marchExit=min(exitDistance,-b+sqrt(topDisc));
++  float baseDisc=b*b-c+densityBase*densityBase;
++  if(baseDisc>0.)marchExit=min(marchExit,-b-sqrt(baseDisc));
++  marchEntry=max(entry,-b-sqrt(topDisc));
++  pathLength=max(0.,marchExit-marchEntry);
++#endif
+ #ifdef BOUNDED_RAY_WORK
+   if(pathLength<=0.)return vec3(0.);
+ #endif
+@@ -241,7 +269,7 @@
+   for(int i=0;i<96;i++){
+     if(float(i)>=viewSteps)break;
+     if(transmission<.015)break;
+-    vec3 point=cameraPosition+ray*(entry+(float(i)+.5)*stepLength);
++    vec3 point=cameraPosition+ray*(marchEntry+(float(i)+.5)*stepLength);
+     float pixelFootprint=length(point-cameraPosition)/(resolution.y*FOCAL);
+ #ifdef HALF_CLOUD_PASS
+     pixelFootprint*=2.;
+@@ -267,7 +295,7 @@
+       if(sunVisible>.5){
+         float block=floor(float(i)/4.);
+         if(block!=shadowBlock){
+-          float end=entry+(min(block*4.+4.,viewSteps-1.)+.5)*stepLength;
++          float end=marchEntry+(min(block*4.+4.,viewSteps-1.)+.5)*stepLength;
+           // One integration call site matters: duplicating this large helper
+           // inside the loop made the first cache experiment slower on Metal.
+           float nextShadow=cloudShadow(cameraPosition+ray*end);
+@@ -291,7 +319,7 @@
+       // Wispy foreground cloud must not become a second luminous storm sheet.
+       light+=(stormCloudLight(point,stormA)+stormCloudLight(point,stormB))*smoothstep(.025,.07,rho);
+       float opacity=1.-exp(-rho*stepLength*6371.);
+-      weightedDistance+=transmission*opacity*(entry+(float(i)+.5)*stepLength);
++      weightedDistance+=transmission*opacity*(marchEntry+(float(i)+.5)*stepLength);
+       scattered+=transmission*opacity*light;
+       transmission*=1.-opacity;
+     }
+--- a/src/scripts/orbit-renderer.ts
++++ b/src/scripts/orbit-renderer.ts
+@@ -312,7 +312,9 @@
+       state.terrainRefinement=params.get('terrainRefinement')==='full'?'full':'pixel';
+       state.cloudSteps=params.get('cloudSteps')==='full'?'full':'balanced';
+       state.shaderWork=params.get('shaderWork')==='lean'?'lean':'legacy';
++      state.cloudShell=params.get('cloudShell')==='tight'?'tight':'full';
+       state.noise=noiseTable?'table':'hash';
++      state.groundShadow=params.get('groundShadow')==='tight'?'tight':'full';
+       state.terrainFetch=params.get('terrainFetch')==='shared'?'shared':'separate';
+       state.terrainBound=supportsTerrainTiles&&params.get('terrainDetail')!=='coarse'?terrainBound:'off';
+       notify();
+@@ -334,7 +336,10 @@
+           +(state.terrainRefinement==='pixel'?'#define PIXEL_TERRAIN_REFINEMENT 1\n':'')
+           +(state.cloudSteps==='balanced'?'#define BALANCED_CLOUD_STEPS 1\n':'')
+           +(state.shaderWork==='lean'?'#define LEAN_SHADER_WORK 1\n':'')
++          +(state.cloudShell==='tight'?'#define CLOUD_SHELL_BOUND 1\n':'')
++          +(state.groundShadow==='tight'?'#define TIGHT_GROUND_SHADOW 1\n':'')
+           +(state.terrainFetch==='shared'?'#define SHARED_TERRAIN_ENTRY 1\n':'')
++          +(params.get('ablate')??'').split(',').filter(name=>/^[a-z]+$/i.test(name)).map(name=>`#define ABLATE_${name.replace(/[A-Z]/g,c=>'_'+c).toUpperCase()} 1\n`).join('')
+           +(clouds==='balanced'?'#define BALANCED_CLOUDS 1\n':clouds==='off'?'#define CLOUDS_DISABLED 1\n':'')
+           +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
+           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
+--- a/src/scripts/orbital-shader.ts
++++ b/src/scripts/orbital-shader.ts
+@@ -119,6 +119,9 @@
+ // view and sunlight optical depth; Earth blocks the sunlight on the night side.
+ vec3 atmosphere(vec3 ray,float groundDistance,vec3 background,out vec3 scatter) {
+   scatter=vec3(0.);
++#ifdef ABLATE_ATMOSPHERE
++  return background;
++#endif
+   const float outer=1.018835;
+   const vec3 beta=airExtinction;
+   float b=dot(cameraPosition,ray);
+@@ -140,10 +143,12 @@
+     if(sb>=0. || groundDisc<0.) {
+       float sunLength=-sb+sqrt(max(0.,sb*sb-dot(point,point)+outer*outer));
+       float sunDepth=0.;
++#ifndef ABLATE_ATMOSPHERE_SUN
+       for(int j=0;j<6;j++) {
+         vec3 sunPoint=point+sunDirection*sunLength*(float(j)+.5)/6.;
+         sunDepth+=exp(-max(0.,length(sunPoint)-1.)*6371./8.)*sunLength/6.;
+       }
++#endif
+       scatter+=exp(-beta*(opticalDepth+sunDepth))*beta*density*stepLength*phase*solarIrradiance;
+     }
+     opticalDepth+=density*stepLength*.5;
+@@ -164,6 +169,9 @@
+   return emission;
+ }
+ vec3 airglowEmission(vec3 ray,float groundDistance){
++#ifdef ABLATE_AIRGLOW
++  return vec3(0.);
++#endif
+   float b=dot(cameraPosition,ray),c=dot(cameraPosition,cameraPosition);
+   const float outer=1.+130./6371.,inner=1.+50./6371.;
+   float d=b*b-c+outer*outer;
+--- a/src/scripts/earth-terrain.ts
++++ b/src/scripts/earth-terrain.ts
+@@ -162,6 +162,9 @@
+ }
+ float terrainLightVisibility(vec3 point,vec3 lightDirection){
+  if(terrainReady<.5)return 1.;
++#ifdef ABLATE_TERRAIN_SHADOW
++ return 1.;
++#endif
+  // Anchor the shadow ray on the same height field instead of inheriting the
+  // residual error of the view-ray intersection. Filter sub-pixel occluders and
+  // include a pixel-sized penumbra; distant DEM samples must not create stipple.
+--- a/scripts/compare-ray-work.mjs
++++ b/scripts/compare-ray-work.mjs
+@@ -6,9 +6,9 @@
+ import sharp from 'sharp';
+ import {ORBIT_SECONDS} from '../src/scripts/iss-orbit.ts';
+ const exec=promisify(execFile);
+-const options={bake:{cloudBake:'budget'},pool:{terrainDecoder:'pool'},packed:{terrainSource:'packed'},streaming:{cloudBake:'budget',terrainDecoder:'pool',terrainSource:'packed'},cache:{terrainCache:'working'},uploads:{terrainUpload:'tile'},bounded:{terrainWork:'bounded'},pixel:{terrainWork:'bounded',terrainRefinement:'pixel'},clouds:{cloudSteps:'balanced'},coarse:{terrainDetail:'coarse'},combined:{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'},lean:{shaderWork:'lean'},bound:{terrainBound:'regional'},leanBound:{shaderWork:'lean',terrainBound:'regional'},noise:{noise:'table'},all:{terrainBound:'regional',shaderWork:'lean',noise:'table',terrainFetch:'shared'},terrainFetch:{terrainFetch:'shared'}};
++const options={bake:{cloudBake:'budget'},pool:{terrainDecoder:'pool'},packed:{terrainSource:'packed'},streaming:{cloudBake:'budget',terrainDecoder:'pool',terrainSource:'packed'},cache:{terrainCache:'working'},uploads:{terrainUpload:'tile'},bounded:{terrainWork:'bounded'},pixel:{terrainWork:'bounded',terrainRefinement:'pixel'},clouds:{cloudSteps:'balanced'},coarse:{terrainDetail:'coarse'},combined:{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'},lean:{shaderWork:'lean'},bound:{terrainBound:'regional'},leanBound:{shaderWork:'lean',terrainBound:'regional'},shell:{cloudShell:'tight'},noise:{noise:'table'},cloudWork:{cloudShell:'tight',noise:'table'},all:{terrainBound:'regional',shaderWork:'lean',noise:'table',terrainFetch:'shared'},groundShadow:{groundShadow:'tight'},terrainFetch:{terrainFetch:'shared'}};
+ // Candidates measured against the current default work settings.
+-const currentWork=['uploads','cache','bake','pool','packed','streaming','lean','bound','leanBound','noise','all','terrainFetch'];
++const currentWork=['uploads','cache','bake','pool','packed','streaming','lean','bound','leanBound','shell','noise','cloudWork','all','groundShadow','terrainFetch'];
+ const [base='http://127.0.0.1:4347',out='/tmp/orbit-pairs',selected='bounded,pixel',views='clouds,day,night',baseline='compact']=process.argv.slice(2);
+ let sequence=0,session,opened=false;
+ const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:80e6,timeout:90000})).stdout;
+@@ -38,8 +38,12 @@
+ try{
+  for(const scene of [{name:'day',t:3235.65,pitch:0},{name:'night',t:610.87,pitch:0},{name:'clouds',t:3235.65,pitch:-25},{name:'ocean',t:3900,pitch:-25},{name:'lowland',t:2650,pitch:-40},{name:'himalaya',t:2780,pitch:-40}].filter(s=>views.split(',').includes(s.name)))for(const candidate of selected.split(',')){
+   session=`orbit-pairs-${process.pid}-${sequence++}`;opened=true;
++  // Lab ablations: remove one feature to estimate its share of the frame.
++  if(candidate.startsWith('ablate-'))options[candidate]={ablate:candidate.slice(7)};
++  if(candidate==='noClouds')options[candidate]={clouds:'off'};
++  if(candidate==='noTerrain')options[candidate]={terrain:'0'};
+   assert.ok(options[candidate],`Unknown candidate: ${candidate}`);
+-  const referenceWork=currentWork.includes(candidate)?{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}:{terrainWork:'legacy',terrainRefinement:'full',cloudSteps:'full'};
++  const referenceWork=currentWork.includes(candidate)||candidate.startsWith('ablate-')||['noClouds','noTerrain'].includes(candidate)?{terrainWork:'bounded',terrainRefinement:'pixel',cloudSteps:'balanced'}:{terrainWork:'legacy',terrainRefinement:'full',cloudSteps:'full'};
+   await run('open',`${base}/?api=webgl&render=${encodeURIComponent(baseline)}&motion=0&quality=fixed&${new URLSearchParams(referenceWork)}&terrainUpload=strips&terrainCache=${['uploads','cache'].includes(candidate)?'small':'working'}&terrainDecoder=single&terrainSource=tiff&cloudBake=fixed&t=${scene.t}&pitch=${scene.pitch}&epoch=2026-10-06T01:32:27Z&look-grain=0&exposure-mode=manual&exposure-fixed=0`);
+   await run('set','viewport','1248','615');await wait();
+   await evaluate(`(()=>{

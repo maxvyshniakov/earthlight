@@ -74,6 +74,20 @@ test('a grabbed Earth point stays under the pointer without rolling the horizon'
  let frames=0;while(nav.moving&&frames<2000){nav.step(1/60);frames++;}assert.ok(frames>20&&frames<2000);
 });
 
+test('smoothed dragging spreads a pointer burst over refreshes and lands where released',()=>{
+ const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});nav.inputSmoothing=.06;
+ const hit=earthPoint(nav.free.position,cameraRay(nav.free.basis,0,0));assert.ok(hit.hit);
+ nav.grab(hit.point,0,0);
+ // Two events' worth of motion arrive at once; each refresh moves part of it.
+ nav.drag(.1,0);const steps=[];
+ for(let i=0;i<6;i++){nav.step(1/120);steps.push(project(nav,hit.point)[0]);}
+ assert.ok(steps[0]>0&&steps[0]<.02,`first refresh moves ${steps[0]}`);
+ for(let i=1;i<steps.length;i++)assert.ok(steps[i]>steps[i-1]&&steps[i]<.1);
+ nav.release(false);assert.equal(nav.moving,true,'still landing after release');
+ let frames=0;while(nav.moving&&frames<600){nav.step(1/120);frames++;}
+ const [px,py]=project(nav,hit.point);
+ assert.ok(Math.hypot(px-.1,py)<1e-4,`landed at ${px},${py}`);
+});
 test('looking around never tips a level horizon; a rolled camera looks about its own axes',()=>{
  const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});
  for(let k=0;k<20;k++)for(let i=0;i<64;i++){const a=i/32*Math.PI,b=(i+1)/32*Math.PI;nav.turnBetween(.3*Math.cos(a),.3*Math.sin(a),.3*Math.cos(b),.3*Math.sin(b));}
@@ -106,6 +120,16 @@ test('a scroll spins the globe about its centre in the swipe direction, without 
  const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});
  const ground=earthPoint(nav.free.position,cameraRay(nav.free.basis,0,-.42)).point;
  nav.spinGlobe(0,.02,0,-.42);assert.ok(project(nav,ground)[1]>-.42);
+});
+
+test('a flicked globe spin keeps turning the same way, capped, then coasts to rest',()=>{
+ const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+ const point=earthPoint(nav.free.position,cameraRay(nav.free.basis,.1,.05)).point;
+ nav.flingSpin(0,.5,.1,.05);assert.equal(nav.moving,true);
+ nav.step(1/60);assert.ok(project(nav,point)[1]>.05,'the coast continues the swipe');
+ nav.stop();nav.flingSpin(0,1e3,.1,.05);
+ assert.ok(Math.hypot(...nav.velocity)<=nav.flingLimit+1e-12,'a wild flick is capped');
+ for(let i=0;i<600&&nav.moving;i++)nav.step(1/60);assert.equal(nav.moving,false);
 });
 
 test('zoom keeps the Earth point under the pointer, clips before Earth and never tunnels',()=>{

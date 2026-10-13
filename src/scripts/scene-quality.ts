@@ -13,6 +13,20 @@ export class SceneQuality {
  private acquiringCadence=true;
  private materialPending=false;
  private severeStalls:number[]=[];
+ // Headroom: a scale that only just sustains the mean rate leaves no slack, so
+ // any heavier frame misses its display refresh and the motion stutters even
+ // though the average looks fine. Late frames therefore count as overload.
+ headroom=false;
+ private frameTarget=0;
+ private refreshPeriod=0;
+ private recent:number[]=[];
+ private headroomPending=false;
+ /** Current submission target and display refresh, in milliseconds. */
+ setCadence(target:number,refresh:number){this.frameTarget=target;this.refreshPeriod=refresh;}
+ private lateFrames(){
+  const limit=this.frameTarget+Math.max(4,this.refreshPeriod*.5);
+  return this.recent.filter(ms=>ms>limit).length;
+ }
  // RAF quantization informs the tail only. A slower RAF under GPU load must
  // never relax the mean delivery budget and disguise a real FPS deficit.
  observeAnimationFrame(now:number,cadenceFactor=1){
@@ -48,8 +62,25 @@ export class SceneQuality {
   if(!Number.isFinite(milliseconds)||milliseconds<=0||milliseconds>5000||!Number.isFinite(now)){
    this.samples=[];this.stableSince=null;this.overloadedWindows=0;this.materialPending=false;this.severeStalls=[];return false;
   }
-  if(this.lastCadence&&now-this.lastCadence>2000){this.samples=[];this.stableSince=null;this.overloadedWindows=0;this.materialPending=false;this.severeStalls=[];}
+  if(this.lastCadence&&now-this.lastCadence>2000){this.samples=[];this.stableSince=null;this.overloadedWindows=0;this.materialPending=false;this.severeStalls=[];this.recent=[];}
   this.lastCadence=now;
+  if(this.headroom&&this.frameTarget>0&&!this.acquiringCadence){
+   this.recent.push(milliseconds);if(this.recent.length>24)this.recent.shift();
+   const late=this.lateFrames();
+   // Never resize mid-gesture: a reallocation is itself a stall. Apply the
+   // reduction once the view is quiet again.
+   if(late>=3)this.headroomPending=true;
+   if(this.headroomPending&&allowUpscale&&now>=this.coolUntil){
+    const previous=this.scale;
+    this.scale=Math.max(.45,this.scale-.06);
+    this.headroomPending=false;this.recent=[];this.samples=[];this.stableSince=null;
+    if(this.probeFrom!==null){this.probeFrom=null;this.probeAfter=now+this.retryDelay;this.retryDelay=Math.min(60000,this.retryDelay*2);}
+    this.coolUntil=now+1500;
+    return Math.abs(previous-this.scale)>.001;
+   }
+   // Any late frame in the window is not evidence of spare capacity.
+   if(late>0)this.stableSince=null;
+  }
   if(!this.acquiringCadence){
    this.severeStalls=milliseconds>120?[...this.severeStalls,milliseconds].slice(-6):[];
   }
@@ -188,6 +219,7 @@ export class SceneTimer {
  observeAnimationFrame(now:number,cadenceFactor=1){this.useCadence();this.quality.observeAnimationFrame(now,cadenceFactor);}
  resetCadence(){this.usingCadence=false;this.quality.resetCadence();}
  observeCadence(milliseconds:number,now:number,allowUpscale=true){this.useCadence();this.quality.observeCadence(milliseconds,now,allowUpscale);}
+ setCadence(target:number,refresh:number,headroom:boolean){this.quality.headroom=headroom;this.quality.setCadence(target,refresh);}
  begin(){
   if(!this.ext||this.usingCadence)return;
   const ext=this.ext;

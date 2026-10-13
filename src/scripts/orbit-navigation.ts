@@ -185,7 +185,12 @@ export class OrbitNavigation {
  private targetAltitude:number|null=null;
  private zooming:{log:number;x:number;y:number}|null=null;
  private flight:{anchor:Vec3|null;ray:Vec3;from:[number,number];to:[number,number];log:number;done:number;time:number;duration:number}|null=null;
- private grip:{anchor:Vec3;x:number;y:number;rate:Vec3}|null=null;
+ private grip:{anchor:Vec3;x:number;y:number;sx:number;sy:number;rate:Vec3;releasing?:boolean}|null=null;
+ /** Seconds over which a dragged point catches up with the pointer; 0 follows each event. */
+ inputSmoothing=0;
+ /** Fastest fling, radians per second, and its coasting time constant in seconds. */
+ flingLimit=2;
+ flingCoast=.45;
  private leveling=false;
  /** Camera velocity over the last step, Earth radii per second. */
  motion:Vec3=[0,0,0];
@@ -288,11 +293,13 @@ export class OrbitNavigation {
   if(now){const pose=this.free;pose.basis=orthonormal(rollBasis(pose.basis,-levelRoll(pose.basis,normalize(pose.position))));this.leveling=false;}
  }
  /** Hold an Earth-fixed point under the pointer; the rig follows each frame. */
- grab(anchor:Vec3,x:number,y:number){if(this.free){this.stop();this.grip={anchor,x,y,rate:[0,0,0]};}}
+ grab(anchor:Vec3,x:number,y:number){if(this.free){this.stop();this.grip={anchor,x,y,sx:x,sy:y,rate:[0,0,0]};}}
  drag(x:number,y:number){if(this.grip){this.grip.x=x;this.grip.y=y;}}
  release(fling:boolean){
   const rate=this.grip?.rate,speed=rate?Math.hypot(...rate):0;
-  if(fling&&rate&&speed>1e-3){this.velocity=scale(rate,Math.min(1,2/speed));this.coast=.45;}
+  if(fling&&rate&&speed>1e-3){this.velocity=scale(rate,Math.min(1,this.flingLimit/speed));this.coast=this.flingCoast;}
+  // A smoothed grab still lands where the pointer was lifted, without a jump.
+  else if(this.grip&&this.inputSmoothing>0){this.grip.releasing=true;return;}
   this.grip=null;
  }
  /** Spin the planet like a desk globe, about its centre: the surface under
@@ -302,13 +309,22 @@ export class OrbitNavigation {
   * globe up, and over a horizon it slides the ground toward the horizon. */
  spinGlobe(dx:number,dy:number,x:number,y:number){
   if(!this.free)return;
-  const pose=this.free,centre=normalize(scale(pose.position,-1)),forward=axis(pose.basis,6),facing=dot(forward,centre);
+  const turn=this.spinTurn(dx,dy,x,y);if(turn)this.turnRig(turn.axis,turn.angle);
+ }
+ /** Keep spinning at (vx,vy) screen units per second after a flick, then coast. */
+ flingSpin(vx:number,vy:number,x:number,y:number){
+  if(!this.free)return;
+  const turn=this.spinTurn(vx,vy,x,y);if(!turn)return;
+  this.velocity=scale(turn.axis,Math.min(turn.angle,this.flingLimit));this.coast=this.flingCoast;
+ }
+ private spinTurn(dx:number,dy:number,x:number,y:number):{axis:Vec3;angle:number}|null{
+  const pose=this.free!,centre=normalize(scale(pose.position,-1)),forward=axis(pose.basis,6),facing=dot(forward,centre);
   const swipe=add(scale(axis(pose.basis,0),dx),scale(axis(pose.basis,3),dy));
   const motion=Math.abs(facing)>.05?add(swipe,scale(forward,-dot(swipe,centre)/facing)):add(swipe,scale(centre,-dot(swipe,centre)));
   const length=Math.hypot(...motion),travel=Math.hypot(dx,dy);
-  if(length<1e-12||travel<1e-12)return;
+  if(length<1e-12||travel<1e-12)return null;
   const reach=Math.hypot(...add(this.anchorAt(x,y).point,scale(pose.position,-1)));
-  this.turnRig(normalize(cross(centre,motion)),travel*reach/this.focal);
+  return {axis:normalize(cross(centre,motion)),angle:travel*reach/this.focal};
  }
  /** Scale the distance to the Earth point under (x,y) by e^log; off Earth, the nearest horizon point. */
  zoom(log:number,x=0,y=0){if(this.free){this.flight=null;this.targetAltitude=null;this.zoomAt(log,x,y);}}
@@ -368,7 +384,13 @@ export class OrbitNavigation {
    f.done=e;if(t===1)this.flight=null;
   }
   if(this.grip){
-   const grip=this.grip,turn=this.pull(grip.anchor,grip.x,grip.y);
+   const grip=this.grip;
+   // Pointer events can arrive in bursts while a frame is submitted; follow
+   // them continuously so each display refresh moves by a similar amount.
+   const follow=this.inputSmoothing>0?1-Math.exp(-dt/this.inputSmoothing):1;
+   grip.sx+=(grip.x-grip.sx)*follow;grip.sy+=(grip.y-grip.sy)*follow;
+   const turn=this.pull(grip.anchor,grip.sx,grip.sy);
+   if(grip.releasing&&Math.hypot(grip.x-grip.sx,grip.y-grip.sy)<1e-5)this.grip=null;
    grip.rate=add(grip.rate,scale(add(scale(turn,1/Math.max(dt,1/240)),scale(grip.rate,-1)),settle(.05)));
   }
   if(this.leveling){

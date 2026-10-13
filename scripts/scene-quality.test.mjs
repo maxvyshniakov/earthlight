@@ -392,3 +392,31 @@ test('emergency evidence outranks material overload after mixed healthy history'
  for(let i=0;i<6;i++){now+=400;q.observeCadence(400,now);}
  assert.equal(q.scale,.45,'Six sustained 400 ms stalls must not take only the first small step');
 });
+
+// A 120 Hz display at 24 FPS: on time is 41.67 ms; one refresh late is 50 ms.
+function jittered(q,seconds,start,{lateEvery=4,interacting=false}={}){
+ let now=start,i=0;const changes=[];
+ while(now<start+seconds*1000){const interval=++i%lateEvery===0?50:1000/24;now+=interval;if(q.observeCadence(interval,now,!interacting))changes.push({now,scale:q.scale});}
+ return {now,changes};
+}
+test('headroom lowers scale when frames miss refreshes although the mean holds',()=>{
+ const plain=new SceneQuality(),headroom=new SceneQuality();
+ for(const q of [plain,headroom]){q.scale=.8;q.setCadence(1000/24,1000/120);}
+ headroom.headroom=true;
+ for(const q of [plain,headroom]){const settled=stream(q,4,1000/24);jittered(q,6,settled.now);}
+ // The mean-only controller even probes upward while a quarter of frames are late.
+ assert.ok(plain.scale>=.8,'mean-only adaptation keeps or enlarges a saturated size');
+ assert.ok(headroom.scale<.8,`headroom ${headroom.scale}`);
+ assert.ok(Math.abs((.8-headroom.scale)/.06-Math.round((.8-headroom.scale)/.06))<1e-6,'reductions are single steps');
+});
+test('headroom defers its resize until a gesture ends and blocks upward probes',()=>{
+ const q=new SceneQuality();q.scale=.8;q.headroom=true;q.setCadence(1000/24,1000/120);
+ let {now}=stream(q,4,1000/24);
+ ({now}=jittered(q,6,now,{interacting:true}));
+ assert.equal(q.scale,.8,'no reallocation mid-gesture');
+ ({now}=stream(q,.2,1000/24,now));
+ assert.ok(q.scale<.8,'applied once the view is quiet');
+ const reduced=q.scale;
+ jittered(q,20,now,{lateEvery:6});
+ assert.ok(q.scale<=reduced,'late frames never justify a larger buffer');
+});

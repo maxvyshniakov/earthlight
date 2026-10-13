@@ -92,9 +92,9 @@ vec4 transportedState(vec2 uv){
 
 /** Replace only sea statistics. Keep Cox-Munk, Fresnel, masking and illumination. */
 export function oceanPrototypeSource(source:string){
- source=source.replace('float oceanReflection(', 'uniform sampler2D oceanField;\nuniform float oceanFieldWidth;\nuniform float oceanFieldRepeats;\nfloat oceanReflection(');
+ source=source.replace('void oceanSurface(', 'uniform sampler2D oceanField;\nuniform float oceanFieldWidth;\nuniform float oceanFieldRepeats;\nvoid oceanSurface(');
  const start=source.indexOf(' float weather=waterField(');
- const end=source.indexOf(' vec3 along=',start);
+ const end=source.indexOf(' along=east*cos(',start);
  if(start<0||end<0)throw Error('Ocean reflection signature changed');
  return source.slice(0,start)+`
  vec2 uv=earthUV(n)*oceanFieldRepeats;

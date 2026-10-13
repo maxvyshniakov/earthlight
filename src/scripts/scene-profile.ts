@@ -16,7 +16,9 @@ export function sceneProfile(params: URLSearchParams) {
   const requested = params.get('render');
   const name: SceneProfileName = requested && Object.hasOwn(sceneProfiles, requested)
     ? requested as SceneProfileName : 'compact';
-  return { name, ...sceneProfiles[name] };
+  // Lab override for device diagnosis: a fixed fraction of the base buffer.
+  const scale=Number(params.get('scale'));
+  return { name, ...sceneProfiles[name], ...(scale>=.2&&scale<=1?{scale}:{}) };
 }
 
 /** Removed experiments are reproducible at the orbit-experiments-2026-10-10 tag. */
