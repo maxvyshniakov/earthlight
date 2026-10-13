@@ -32,15 +32,17 @@ landed: fetch, inspect it and rebase onto it.
 
 ## Follow the explorer
 
-Cloudflare posts `Workers Builds: earthlight` on the pushed commit when the
-build ends, usually within five minutes; it stops builds at 20.
+Cloudflare adds `Workers Builds: earthlight` to the pushed commit as
+`in_progress` when the build starts and completes it when the build ends, about
+five minutes later; it stops builds at 20. The account runs one build at a
+time, so the personal-site dev build waits for this one.
 
 ```sh
 gh api repos/maxvyshniakov/earthlight/commits/<sha>/check-runs \
-  --jq '.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages") | [.name, .conclusion, .details_url, .output.summary] | @tsv'
+  --jq '.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages") | [.name, .status, .conclusion, .details_url, .output.summary] | @tsv'
 ```
 
-Poll about every 30 seconds until it appears. On failure, open `details_url`
+Poll about every 30 seconds until its status is `completed`. On failure, open `details_url`
 for the build log; the previous deployment stays live. On success, its summary
 names the Version ID. From a personal-site checkout, whose `bun run cf`
 supplies the local Cloudflare credential, confirm it is active, read-only:
