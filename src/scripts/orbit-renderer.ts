@@ -121,8 +121,10 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     let generation=0;
     let timer:SceneTimer|null=null;
     // Shutter fraction for camera motion blur in the explorer; `motionBlur=0`
-    // turns it off. The background camera only follows the orbit.
+    // turns it off and `skyBlur=0` keeps the sky sharp while Earth streaks.
+    // The background camera only follows the orbit.
     const motionShutter=background?0:params.has('motionBlur')?Math.max(0,Math.min(1,Number(params.get('motionBlur'))||0)):.75;
+    const skyShutter=params.get('skyBlur')!=='0';
     let previousPose:{camera:number[];basis:number[];focal:number;at:number}|null=null;
     let seededScale=1;
     const imageWidths:Record<string,number>={};
@@ -757,7 +759,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const now=performance.now(),pose={camera:Array.from(orbit.camera),basis:Array.from(orbit.cameraBasis),focal,at:now};
       // Blur only between consecutive animated frames; a stale pose would smear a jump.
       const motion=motionShutter>0&&previousPose&&!inspection&&focusRadius===0&&now-previousPose.at<200
-        ?{shutter:motionShutter,camera:pose.camera,basis:pose.basis,previousCamera:previousPose.camera,previousBasis:previousPose.basis,previousFocal:previousPose.focal}:null;
+        ?{shutter:motionShutter,sky:skyShutter,camera:pose.camera,basis:pose.basis,previousCamera:previousPose.camera,previousBasis:previousPose.basis,previousFocal:previousPose.focal}:null;
       previousPose=pose;
       if(!terrainView)finish.render(height/Math.max(1,cssHeight),grainIndex,look.grain*1.3,look.chromatic*.8,focusRadius,{
         motion,

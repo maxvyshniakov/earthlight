@@ -10,7 +10,7 @@ import { CameraExposure } from './camera-exposure';
 import { cameraModelShader } from './camera-model';
 export const CAMERA_EXPOSURE_EV=0;
 /** Camera poses of this and the previous submitted frame, for shutter blur. */
-export type ShutterMotion={shutter:number;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
+export type ShutterMotion={shutter:number;sky:boolean;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
 export type LensFrame={moon:[number,number,number];sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
 const fragmentSource = `
 precision highp float;
@@ -35,6 +35,7 @@ uniform sampler2D sourceAttenuation;
 uniform float hasAttenuation;
 uniform float zoomExcess;
 uniform float motionShutter;
+uniform float motionSky;
 uniform mat3 motionBasis,motionPreviousBasis;
 uniform vec3 motionCamera,motionPreviousCamera;
 uniform float motionPreviousFocal;
@@ -94,36 +95,42 @@ vec2 previousOf(vec3 d){
   vec3 v=vec3(dot(d,motionPreviousBasis[0]),dot(d,motionPreviousBasis[1]),dot(d,motionPreviousBasis[2]));
   return motionPreviousFocal*v.xy/max(.001,v.z);
 }
-// Earth and what travels with it: the solid sphere plus the air, airglow and
-// aurora up to 600 km. Stars and the Milky Way lie beyond.
-const float motionShell=1.+600./6371.;
+// Earth and what travels with it: the solid sphere and the 12 km cloud layer
+// that shapes its limb. Every ray passing higher sees the sky at infinity.
+// A shell above the orbital camera would contain it and give every star below
+// its horizontal, about 20 degrees above the limb from the ISS, Earth's motion.
+const float motionShell=1.0018835;
 bool movesWithEarth(vec2 p){
   vec3 ray=normalize(motionBasis*normalize(vec3(p,FOCAL)));
   float b=dot(motionCamera,ray);
   return b<0.&&dot(motionCamera,motionCamera)-b*b<motionShell*motionShell;
 }
 // Where this pixel's scene point projected in the previous frame. Earth's
-// sphere supplies parallax while flying. Air, airglow and aurora above the
-// limb use their point of closest approach, continuous with the ground at
-// the limb's tangent point.
+// sphere supplies parallax while flying. Clouds and air above the solid limb
+// use their point of closest approach, continuous with the ground at the
+// limb's tangent point.
 vec2 previousProjection(vec2 p){
   vec3 ray=normalize(motionBasis*normalize(vec3(p,FOCAL)));
   float b=dot(motionCamera,ray),c=dot(motionCamera,motionCamera),disc=b*b-c+1.;
   if(disc>0.)return previousOf(motionCamera+ray*(-b-sqrt(disc))-motionPreviousCamera);
   return previousOf(motionCamera-ray*b-motionPreviousCamera);
 }
-// An open shutter integrates Earth along each pixel's motion between frames,
-// centred on this frame. Turning the globe should not streak the stars, so
-// the sky stays sharp, and samples never cross from Earth into space. Lens
-// ghosts and sensor noise stay per-frame.
+// An open shutter integrates the scene along each pixel's motion between
+// frames, centred on this frame. Earth moves with its parallax; the sky at
+// infinity streaks only with the camera's turn, or stays sharp without
+// motionSky. Samples never cross between Earth and sky, so the limb stays a
+// clean edge. Lens ghosts and sensor noise stay per-frame.
 vec3 shutterImage(vec2 uv,vec2 shift,vec2 p,float aspect){
   vec3 sharp=vec3(imageAt(uv-shift).r,imageAt(uv).g,imageAt(uv+shift).b);
-  if(motionShutter<=0.||!movesWithEarth(p))return sharp;
-  vec2 delta=(p-previousProjection(p))*motionShutter/vec2(aspect,1.);
+  if(motionShutter<=0.)return sharp;
+  bool earth=movesWithEarth(p);
+  if(!earth&&motionSky<.5)return sharp;
+  vec2 previous=earth?previousProjection(p):previousOf(motionBasis*normalize(vec3(p,FOCAL)));
+  vec2 delta=(p-previous)*motionShutter/vec2(aspect,1.);
   float pixels=length(delta*resolution);
   if(pixels<.75)return sharp;
   // Short streaks keep their length; long sweeps (far views, fast spins)
-  // approach about 24 CSS pixels instead of smearing across the globe.
+  // approach about 24 CSS pixels instead of smearing across the frame.
   float limit=24.*pixelRatio,streak=pixels/(1.+pixels/limit);
   delta*=streak/pixels;
   float taps=min(16.,ceil(streak/1.5));
@@ -134,7 +141,7 @@ vec3 shutterImage(vec2 uv,vec2 shift,vec2 p,float aspect){
   for(int i=0;i<16;i++){
     if(float(i)>=taps)break;
     vec2 at=uv+delta*((float(i)+.5+jitter)/taps-.5);
-    if(!movesWithEarth((at-.5)*vec2(aspect,1.)))continue;
+    if(movesWithEarth((at-.5)*vec2(aspect,1.))!=earth)continue;
     sum+=vec3(imageAt(at-shift).r,imageAt(at).g,imageAt(at+shift).b);weight+=1.;
   }
   return sum/weight;
@@ -261,7 +268,7 @@ export class CameraFinish {
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
       this.position=gl.getAttribLocation(this.program,'position');
-      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
       this.exposure=new CameraExposure(gl,prepared?.exposure);
       this.defocus=new CameraDefocus(gl,this.pixelType,prepared?.defocus);
     } catch(error){this.dispose();throw error;}
@@ -319,6 +326,7 @@ export class CameraFinish {
       gl.uniformMatrix3fv(this.uniforms.motionBasis,false,Array.from(motion.basis));gl.uniformMatrix3fv(this.uniforms.motionPreviousBasis,false,Array.from(motion.previousBasis));
       gl.uniform3fv(this.uniforms.motionCamera,Array.from(motion.camera));gl.uniform3fv(this.uniforms.motionPreviousCamera,Array.from(motion.previousCamera));
       gl.uniform1f(this.uniforms.motionPreviousFocal,motion.previousFocal);
+      gl.uniform1f(this.uniforms.motionSky,motion.sky?1:0);
     }
     gl.drawArrays(gl.TRIANGLES,0,3);
   }

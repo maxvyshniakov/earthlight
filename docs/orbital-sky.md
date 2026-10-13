@@ -706,8 +706,10 @@ the scale once the view is quiet (`headroom=0` disables), and the last
 sustained scale is remembered per screen (`startScale=fresh` ignores it). The
 buffer grows when Earth and its atmosphere cover less of the frame, assuming a
 sky pixel costs a tenth of a planet pixel (`viewScale`, 0 to disable), so a
-distant planet is sharper at the same cost. A 0.75 shutter blurs Earth, not the
-sky, during camera motion (`motionBlur=0`). The background keeps its passive
+distant planet is sharper at the same cost. A 0.75 shutter blurs camera
+motion (`motionBlur=0`): Earth and its 12 km cloud layer with their parallax,
+the sky above the limb with the camera's turn alone (`skyBlur=0` keeps it
+sharp). The background keeps its passive
 cadence and gets none of these. Both share the accepted work reductions:
 regional terrain bounds, lean shading, the noise lattice table, shared terrain
 page entries and temporal cloud reuse (`terrainBound=off`, `shaderWork=legacy`,
