@@ -16,5 +16,9 @@ source datasets or credentials. Keep provenance and attribution with assets.
 Publishing assets is separate from deploying the applications. Never enable
 metered subscriptions or change billing without explicit owner authorization.
 
+Push with `.agents/skills/push/SKILL.md`: a push to `main` deploys the explorer
+and updates personal-site `dev`, and is finished when both deliveries have a
+final result.
+
 Documentation is maintained here. Dated experiments live under `docs/lab`.
 Keep the README public-facing and free of machine paths or private content.
