@@ -2,10 +2,12 @@ import type { FlightInput } from './orbit-navigation.ts';
 import type { ScrollSession } from './orbit-camera.ts';
 import { SCENE_CONTROLS } from './orbit-camera-drag.ts';
 
-export type FlightCommand='level'|'help'|'info'|'free'|'route-iss'|'route-polar'|'route-high'|'zoom-in'|'zoom-out';
+export type FlightCommand='level'|'reset-camera'|'reset-lens'|'help'|'info'|'free'|'route-iss'|'route-polar'|'route-high';
 export type WheelDevice='mouse'|'trackpad';
-const HELD=['KeyW','KeyA','KeyS','KeyD','KeyR','KeyF','KeyQ','KeyE','KeyZ','KeyX','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
-const COMMANDS:Record<string,FlightCommand>={KeyH:'level',KeyI:'info',Digit0:'free',Digit1:'route-iss',Digit2:'route-polar',Digit3:'route-high',Equal:'zoom-in',NumpadAdd:'zoom-in',Minus:'zoom-out',NumpadSubtract:'zoom-out'};
+// + and − hold the lens; the keypad's work as the main keys.
+const ALIAS:Record<string,string>={NumpadAdd:'Equal',NumpadSubtract:'Minus'};
+const HELD=['KeyW','KeyA','KeyS','KeyD','KeyR','KeyF','KeyQ','KeyE','Equal','Minus','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
+const COMMANDS:Record<string,FlightCommand>={KeyH:'level',Backslash:'reset-camera',Backspace:'reset-lens',KeyI:'info',Digit0:'free',Digit1:'route-iss',Digit2:'route-polar',Digit3:'route-high'};
 type GestureEvent=UIEvent&{scale:number;rotation:number;clientX:number;clientY:number;shiftKey:boolean};
 // Shift-wheel steps the lens by a third of a doubling per notch.
 const LENS_NOTCH=Math.log(2)/3;
@@ -48,7 +50,7 @@ export function createFlightControls(surface:HTMLElement,options:{
   const inControls=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
   const held=(code:string)=>Number(keys.has(code));
   const input=():FlightInput=>({forward:held('KeyW')-held('KeyS'),right:held('KeyD')-held('KeyA'),climb:held('KeyR')-held('KeyF'),
-    roll:held('KeyQ')-held('KeyE'),yaw:held('ArrowRight')-held('ArrowLeft'),pitch:held('ArrowUp')-held('ArrowDown'),lens:held('KeyZ')-held('KeyX'),
+    roll:held('KeyQ')-held('KeyE'),yaw:held('ArrowRight')-held('ArrowLeft'),pitch:held('ArrowUp')-held('ArrowDown'),lens:held('Equal')-held('Minus'),
     fast:keys.has('ShiftLeft')||keys.has('ShiftRight')});
   const loop=(now:number)=>{
     frame=0;if(document.hidden){cancel();return;}
@@ -63,21 +65,28 @@ export function createFlightControls(surface:HTMLElement,options:{
   };
   const request=()=>{if(!frame&&!document.hidden)frame=requestAnimationFrame(loop);};
   const release=(code:string)=>{if(keys.delete(code))options.key(code,false);};
+  // Key caps on the screen hold the same keys as the keyboard.
+  const hold=(code:string,pressed:boolean)=>{
+    if(!pressed){release(code);return;}
+    if(!options.enabled()||!HELD.includes(code)||keys.has(code))return;
+    keys.add(code);options.key(code,true);request();
+  };
   const down=(event:KeyboardEvent)=>{
     control=event.ctrlKey;
     if(!options.enabled()||event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||typing(event.target))return;
     if(event.key==='?'){event.preventDefault();if(!event.repeat){options.key('Slash',true);options.command('help');}return;}
-    const command=COMMANDS[event.code];
-    if(command&&!event.shiftKey){event.preventDefault();if(!event.repeat){options.key(event.code,true);options.command(command);}return;}
-    if(!HELD.includes(event.code))return;
+    const code=ALIAS[event.code]??event.code,command=COMMANDS[code];
+    if(command&&!event.shiftKey){event.preventDefault();if(!event.repeat){options.key(code,true);options.command(command);}return;}
+    if(!HELD.includes(code))return;
     event.preventDefault();
-    if(!keys.has(event.code)){keys.add(event.code);options.key(event.code,true);}
+    if(!keys.has(code)){keys.add(code);options.key(code,true);}
     request();
   };
   const up=(event:KeyboardEvent)=>{
     control=event.ctrlKey;
-    if(COMMANDS[event.code]||event.code==='Slash')options.key(event.code,false);
-    release(event.code);
+    const code=ALIAS[event.code]??event.code;
+    if(COMMANDS[code]||code==='Slash')options.key(code,false);
+    release(code);
     // macOS sends no keyup for keys held while Command goes down.
     if(event.key==='Meta')[...keys].forEach(release);
   };
@@ -175,7 +184,7 @@ export function createFlightControls(surface:HTMLElement,options:{
   document.addEventListener('visibilitychange',visibility);document.addEventListener('focusin',focus);
   surface.addEventListener('wheel',onWheel,{passive:false});
   surface.addEventListener('gesturestart',gestureStart);surface.addEventListener('gesturechange',gestureChange);surface.addEventListener('gestureend',gestureEnd);
-  return {request,cancel,dispose:()=>{
+  return {request,cancel,hold,dispose:()=>{
     cancel();window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',cancel);
     document.removeEventListener('visibilitychange',visibility);document.removeEventListener('focusin',focus);
     surface.removeEventListener('wheel',onWheel);

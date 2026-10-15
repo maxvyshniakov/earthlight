@@ -166,15 +166,15 @@ try{
       await wait(10000);phase('turn-input','integrated camera movement');await hold('ArrowDown',900);
       phase('turn-settling','post-input settling');await wait(1000);
       phase('turned-view','settled input');await wait(13000);
-      phase('lens-in-input','integrated focal-length change');await hold('KeyZ',2000);
+      phase('lens-in-input','integrated focal-length change');await hold('Equal',2000);
       phase('lens-in-settling','post-input settling');await wait(1000);
       phase('long-lens-view','settled input');await wait(9000);
-      phase('lens-out-input','integrated focal-length change');await hold('KeyX',2000);
+      phase('lens-out-input','integrated focal-length change');await hold('Minus',2000);
       phase('lens-out-settling','post-input settling');await wait(1000);
       phase('wide-lens-view','settled input');await wait(10000);
      }
      log.stop();return JSON.parse(JSON.stringify(log));
-    }finally{log.stop();for(const code of ['ArrowDown','KeyZ','KeyX'])window.dispatchEvent(new KeyboardEvent('keyup',{code,bubbles:true}));if(button.getAttribute('aria-label')==='Pause')button.click();}
+    }finally{log.stop();for(const code of ['ArrowDown','Equal','Minus'])window.dispatchEvent(new KeyboardEvent('keyup',{code,bubbles:true}));if(button.getAttribute('aria-label')==='Pause')button.click();}
    })()`);
    const after=await inspect(),run={profile,kind,before,after,timeline};run.summary=summarize(run);results.runs.push(run);await save();
    assert.equal(after.error,0);assert.equal(after.data.assetFailures,'0');assert.ok(timeline.frames.length>100);assert.ok(timeline.frames.every(f=>f.visibility==='visible'&&f.documentFocused),'Hidden or unfocused submitted frame');assert.ok(timeline.visibility.filter(v=>v.time>=timeline.frames[0].time).every(v=>v.state==='visible'&&v.focused),'Hidden or unfocused event after first draw');

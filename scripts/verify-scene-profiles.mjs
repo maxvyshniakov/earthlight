@@ -19,12 +19,12 @@ try{
   assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#scene-profile optgroup[label="Controls"] option'),o=>o.value)`),['split','lighting']);
   assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#scene-profile option'),o=>o.value)`),['reference','compact','clouds-half','split','lighting']);
   const before=await state();assert.equal(before.profile,'compact');
-  await evaluate(`(()=>{const s=document.querySelector('orbital-sky');for(const [selector,value] of [['[data-look=grain]','.5'],['.sky-speed input','25']]){const i=s.querySelector(selector);i.value=value;i.dispatchEvent(new Event('input'));}return true;})()`);
+  await evaluate(`(()=>{const s=document.querySelector('orbital-sky');for(const [selector,value] of [['[data-look=grain]','.5'],['.sky-speed input','0']]){const i=s.querySelector(selector);i.value=value;i.dispatchEvent(new Event('input'));}return true;})()`);
   for(const profile of ['split','lighting','clouds-half','reference','compact']){
     await run('select','#scene-profile',profile);await wait();
     const after=await state();
     assert.equal(after.profile,profile);assert.equal(after.api,profile==='clouds-half'?'webgl2':'webgl');assert.equal(after.error,0);assert.equal(after.position,before.position);assert.equal(after.basis,before.basis);
-    assert.equal(after.grain,'0.5');assert.equal(after.rate,'25');assert.equal(after.motion,'Play');
+    assert.equal(after.grain,'0.5');assert.equal(after.rate,'0');assert.equal(after.motion,'Play');
     results[profile]=after;console.log(profile,{volume:after.volume,error:after.error});
     if(profile==='split'||profile==='compact')assert.equal(after.volume,'separate');
 

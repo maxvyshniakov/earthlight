@@ -580,7 +580,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       // Loading-only optical work must not lower the settled scene's quality.
       if(focusRadius===0&&!inspection)timer?.begin();
       const sky = celestialFrame(orbit.date,orbit.camera);
-      // The lens: focal length in viewport heights, 1.25 at the wide end.
+      // The lens: focal length in viewport heights, 1.25 at 1×; a wide angle goes below it.
       const focal=orbit.focal??1.25,zoomExcess=focal/1.25-1;
       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,psfTexture);
       catalog.render(width,height,height/Math.max(1,cssHeight),sky.starToFixed,orbit.cameraBasis,sky.yearsSinceJ2000,finish.exposureTexture,focal);

@@ -112,8 +112,8 @@ export async function verifyFlight({run,evaluate,wait,base}){
   let flown=flung;
   for(let i=0;i<40;i++){await run('wait','300');const next=await read();if(next.position===flown.position)break;flown=next;}
   await run('wait','300');assert.equal((await read()).position,flown.position);
-  // Sky at the left edge, above the horizon gauge that sits at its middle.
-  await input.drag([40,height/2-120],[90,height/2-180]);await run('wait','300');
+  // Sky near the top left, clear of the lens tape at the middle of that edge.
+  await input.drag([width*.25,90],[width*.25+50,40]);await run('wait','300');
   const turned=await read();assert.equal(turned.position,flown.position);assert.ok(!same(turned,flown));
   await input.drag([centre[0]+50,centre[1]],[centre[0]+60,centre[1]+50],'right');await run('wait','300');
   const rightLook=await read();assert.equal(rightLook.position,turned.position,'right-drag only looks, even over Earth');
@@ -147,8 +147,8 @@ export async function verifyFlight({run,evaluate,wait,base}){
   assert.equal(new URLSearchParams(state.url).has('position'),false);
  }
  // With Shift the camera stays put and the lens zooms about the pointer: a
- // pinch (Ctrl-wheel), or a clicky wheel that macOS turned sideways. Z and X
- // zoom about the centre, presets jump, and a followed orbit stays followed.
+ // pinch (Ctrl-wheel), or a clicky wheel that macOS turned sideways. + and −
+ // zoom about the centre, the lens tape jumps, and a followed orbit stays followed.
  const lens="Number(document.querySelector('orbital-sky').dataset.lens)";
  const following=await read();assert.equal(following.mode,'follow');assert.equal(following.lens,1);
  assert.equal(await gesture({deltaY:-60,ctrlKey:true,shiftKey:true}),true);await wait(`${lens}>1.5`);
@@ -156,10 +156,14 @@ export async function verifyFlight({run,evaluate,wait,base}){
  await run('wait','300');assert.ok(Math.abs(Number(new URLSearchParams((await read()).url).get('lens'))-pinched.lens)<.01,'the lens is in the link');
  assert.equal(await gesture({deltaX:-4.000244140625*3,deltaY:0,shiftKey:true}),true);await wait(`${lens}>${pinched.lens}*1.6`);
  const stepped=await read();assert.equal(stepped.position,following.position);
- await key('keydown','KeyX');await run('wait','600');await key('keyup','KeyX');await run('wait','100');
- const widened=await read();assert.ok(widened.lens<stepped.lens/1.3,`X widens: ${widened.lens}`);assert.equal(widened.mode,'follow');
- await evaluate("document.querySelector('[data-lens=\"10\"]').click();true");await wait(`Math.abs(${lens}-10)<.01`);
- assert.equal(await evaluate("document.querySelector('[data-lens=\"10\"]').getAttribute('aria-pressed')"),'true');
+ await key('keydown','Minus');await run('wait','600');await key('keyup','Minus');await run('wait','100');
+ const widened=await read();assert.ok(widened.lens<stepped.lens/1.3,`− widens: ${widened.lens}`);assert.equal(widened.mode,'follow');
+ // A press near a labelled mark on the lens tape takes that mark exactly.
+ {const at=await evaluate("(()=>{const r=document.querySelector('#sky-lens [data-mark=\"10\"]').getBoundingClientRect();return [r.left+r.width/2,r.top+2]})()");
+  const tap=await mouseInput(run);
+  try{await tap.mouse({type:'mouseMoved',x:at[0],y:at[1]});await tap.mouse({type:'mousePressed',x:at[0],y:at[1],button:'left',buttons:1,clickCount:1});await tap.mouse({type:'mouseReleased',x:at[0],y:at[1],button:'left',buttons:0,clickCount:1});}finally{tap.close();}}
+ await wait(`Math.abs(${lens}-10)<.01`);
+ assert.equal(await evaluate("document.querySelector('#sky-lens').getAttribute('aria-valuenow')"),'10');
  await run('wait','300');await run('reload');await wait("document.querySelector('orbital-sky').dataset.focus==='sharp'");
  const relens=await read();assert.ok(Math.abs(relens.lens-10)<.01,'the lens survives a reload');assert.equal(relens.mode,'follow');
  await evaluate("document.querySelector('[data-flight-mode=free]').click();true");await run('wait','200');

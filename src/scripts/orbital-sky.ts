@@ -6,7 +6,7 @@ import { createCameraDrag, draggedCamera } from './orbit-camera-drag';
 import { createTouchCamera } from './orbit-touch';
 import { createFlightControls, type FlightCommand } from './flight-controls';
 import { createCameraController } from './orbit-camera';
-import { createOrbitHud, type OrbitHud } from './orbit-hud';
+import { createOrbitHud, LENS_MIN, LENS_MAX, speedAt, speedFraction, type OrbitHud } from './orbit-hud';
 import { SceneCalendar, calendarFrame, dayOfYear, daysInYear, utcDay } from './scene-calendar';
 import { OrbitNavigation, followLens, routePeriod, PROJECTION, ROUTE_LABELS, type Route, type ObserverFrame, type FlightInput } from './orbit-navigation';
 import { createScenePanels } from './scene-panels';
@@ -104,11 +104,11 @@ export class OrbitalSky extends HTMLElement {
     navigation.flingLimit=Math.max(.5,Math.min(10,number('flingLimit',8)));
     navigation.flingCoast=Math.max(.1,Math.min(2,number('flingCoast',1.1)));
     if(standalone)navigation.restore(params);
-    // The lens, standalone only: 1× is the PROJECTION pinhole (about 30 mm).
-    const LENS_MAX=20;
+    // The lens, standalone only: 1× is the PROJECTION pinhole (about 30 mm), 0.5× a 15 mm wide angle.
     const restoredLens=Number(params.get('lens'));
-    if(standalone&&params.has('lens')&&Number.isFinite(restoredLens))navigation.focal=PROJECTION*Math.max(1,Math.min(LENS_MAX,restoredLens));
+    if(standalone&&params.has('lens')&&Number.isFinite(restoredLens))navigation.focal=PROJECTION*Math.max(LENS_MIN,Math.min(LENS_MAX,restoredLens));
     let flightControls:ReturnType<typeof createFlightControls>|undefined;
+    let keyFlightUntil=0;
     let hud:OrbitHud|null=null;
     let navigationURLTimer=0;
     const moonParam=params.get('moon');
@@ -154,13 +154,15 @@ export class OrbitalSky extends HTMLElement {
       });
     };
     const scrollComposition=this.dataset.composition==='page';
-    // The midpoint is 10x, retaining the existing 0.25x–120x range.
-    const timeScale=(position:number)=>Math.round((10+position*(position<0?.0975:1.1))*100)/100;
-    const playback=new OrbitPlayback(initialSeconds,timeScale(Number(speedInput.value)));
+    // Time scale: the slider's 0–1000 runs over the HUD tape's scale, 0× to
+    // 1000×. 0× is stopped time; a link that stops it starts paused at 10×.
+    const timeScale=(position:number)=>speedAt(position/1000);
+    const restoredSpeed=timeScale(Number(speedInput.value));
+    const playback=new OrbitPlayback(initialSeconds,restoredSpeed||timeScale(Number(speedInput.defaultValue)));
     let statusTimer=0;
     const replayDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
     let grainIndex = 0;
-    let speed = timeScale(Number(speedInput.value));
+    let speed = restoredSpeed||timeScale(Number(speedInput.defaultValue));
     const rangeInputs=[...this.querySelectorAll<HTMLInputElement>('input[type="range"]')];
     const paintRange=(input:HTMLInputElement)=>{
       if(input.dataset.fill==='none')return;
@@ -183,21 +185,23 @@ export class OrbitalSky extends HTMLElement {
     };
     updateMoonLabel();
     rangeInputs.forEach(paintRange);
+    // Stopped time reads 0×; the speed it had waits for Play.
     const updateSpeedLabel = () => {
-
-      speedOutput.value = `${speed}×`;
-      for(const output of timeScaleOutputs)output.textContent=`${speed}×`;
-      speedInput.setAttribute('aria-valuetext', `${speed} times orbital speed`);
+      const shown=paused?0:speed;
+      if(document.activeElement!==speedInput)speedInput.value=String(paused?0:Math.round(speedFraction(speed)*1000));
+      speedOutput.value = `${shown}×`;
+      for(const output of timeScaleOutputs)output.textContent=`${shown}×`;
+      speedInput.setAttribute('aria-valuetext', paused?'Time stands still':`${shown} times orbital speed`);
       paintRange(speedInput);
     };
-    updateSpeedLabel();
     let lastAnimationDraw = 0;
     let lost = false;
     let contextGeneration=0;
     let controlsInView = true;
     // Autoplay by default, including legacy links carrying `still`.
     // Explicit motion=0 remains available for repeatable screenshots.
-    let paused = params.get('motion')==='0';
+    let paused = params.get('motion')==='0'||!restoredSpeed;
+    updateSpeedLabel();
     let lastStatus = -1;
 
     let renderer:ReturnType<typeof createOrbitRenderer>;
@@ -332,7 +336,10 @@ export class OrbitalSky extends HTMLElement {
       if(!result)return;
       const now=performance.now();
       if(standalone){
-        hud?.frame(orbit,!!navigation.free,navigation.route,navigation.motion);
+        // The flight path marker shows where keyboard flight is heading. Dragging or
+        // flinging the globe also moves the camera, but there it only drew a stray
+        // marker high above Earth.
+        hud?.frame(orbit,!!navigation.free,navigation.route,now<keyFlightUntil?navigation.motion:[0,0,0]);
         this.dataset.cameraPosition=orbit.camera.map(v=>v.toFixed(8)).join(',');
         this.dataset.cameraAltitude=orbit.altitude.toFixed(3);
         this.dataset.cameraBasis=JSON.stringify(orbit.cameraBasis);
@@ -445,6 +452,7 @@ export class OrbitalSky extends HTMLElement {
       lastAnimationDraw=0;
       renderer?.resetCadence();
       this.toggleAttribute('data-paused',paused);
+      updateSpeedLabel();
       for(const button of motionButtons){
         button.querySelector('.motion-play')?.toggleAttribute('data-hidden',!paused);
         button.querySelector('.motion-pause')?.toggleAttribute('data-hidden',paused);
@@ -502,10 +510,11 @@ export class OrbitalSky extends HTMLElement {
       else url.searchParams.delete('motion');
       updateURL(url);
     };
+    // 0× stops time and keeps the speed for Play; any other speed starts it.
     const changeSpeed = () => {
-      speed = timeScale(Number(speedInput.value));
-      playback.setSpeed(speed,performance.now());
-      updateSpeedLabel();
+      const next=timeScale(Number(speedInput.value));
+      if(next>0){speed=next;playback.setSpeed(speed,performance.now());}
+      if((next===0)!==paused)toggle();else updateSpeedLabel();
       statusTick();
     };
     const updateViewLabels=()=>{
@@ -545,7 +554,7 @@ export class OrbitalSky extends HTMLElement {
       url.searchParams.set('t',(playback.read(performance.now())+composition().offset).toFixed(2));
       for(const key of ['yaw','pitch'] as const){if(!navigation.free&&cameraView[key])url.searchParams.set(key,String(cameraView[key]));else url.searchParams.delete(key);}
       const zoom=navigation.focal/PROJECTION;
-      if(zoom>1.0005)url.searchParams.set('lens',String(Math.round(zoom*1000)/1000));else url.searchParams.delete('lens');
+      if(Math.abs(zoom-1)>.0005)url.searchParams.set('lens',String(Math.round(zoom*1000)/1000));else url.searchParams.delete('lens');
       if(paused)url.searchParams.set('motion','0');else url.searchParams.delete('motion');
       updateURL(url);
     };
@@ -695,7 +704,7 @@ export class OrbitalSky extends HTMLElement {
     let lensGoal:{log:number;x:number;y:number}|null=null;
     const lensZoom=()=>navigation.focal/PROJECTION;
     const applyLens=(zoom:number,x=0,y=0)=>{
-      const from=navigation.focal,to=PROJECTION*Math.max(1,Math.min(LENS_MAX,zoom));
+      const from=navigation.focal,to=PROJECTION*Math.max(LENS_MIN,Math.min(LENS_MAX,zoom));
       if(Math.abs(to-from)<1e-9)return;
       const view=navigation.free||(!x&&!y)?null:followLens(currentObserver(),cameraView,x,y,from,to);
       navigation.setLens(to,x,y);
@@ -706,12 +715,12 @@ export class OrbitalSky extends HTMLElement {
       if(!smooth){lensGoal=null;applyLens(lensZoom()*Math.exp(log),x,y);return;}
       // Queue eased steps, clamped so a burst past either end leaves nothing pending.
       const current=Math.log(lensZoom()),queued=lensGoal?.log??0;
-      lensGoal={log:Math.max(0,Math.min(Math.log(LENS_MAX),current+queued+log))-current,x,y};
+      lensGoal={log:Math.max(Math.log(LENS_MIN),Math.min(Math.log(LENS_MAX),current+queued+log))-current,x,y};
       flightControls?.request();
     };
     const lensTo=(zoom:number,animate=true)=>{
       if(!ready())return;
-      if(animate&&!reducedMotion()){lensGoal={log:Math.log(Math.max(1,Math.min(LENS_MAX,zoom))/lensZoom()),x:0,y:0};flightControls?.request();}
+      if(animate&&!reducedMotion()){lensGoal={log:Math.log(Math.max(LENS_MIN,Math.min(LENS_MAX,zoom))/lensZoom()),x:0,y:0};flightControls?.request();}
       else{lensGoal=null;applyLens(zoom);}
     };
     // Z and X zoom about the centre, about ×2 per second; Shift is faster.
@@ -745,13 +754,23 @@ export class OrbitalSky extends HTMLElement {
         if(!navigation.free&&(cameraView.yaw||cameraView.pitch))lookCamera({yaw:0,pitch:0});
         else{enterFree();navigation.level(reducedMotion());cameraChanged();flightControls?.request();}
       }
-      else if(name==='zoom-in'||name==='zoom-out')camera.zoom((name==='zoom-in'?-1:1)*Math.log(1.6),undefined,undefined,true);
+      // \ resets the camera: a followed orbit drops its look-around, free flight turns to face Earth.
+      else if(name==='reset-camera'){
+        if(!navigation.free)lookCamera({yaw:0,pitch:0});
+        else{navigation.centre(reducedMotion());cameraChanged();flightControls?.request();}
+      }
+      // Backspace takes the lens back to 1×.
+      else if(name==='reset-lens')lensTo(1);
       else if(name==='free'){enterFree();draw();}
       else followRoute(name.slice(6) as Route);
     };
     if(dragSurface)flightControls=createFlightControls(dragSurface,{
       enabled:ready,inputSmoothing,
       step:(dt,input)=>{
+        // The marker shows where WASD flight heads. R and F only climb or
+        // descend, straight up or down, where it only marked the ground below.
+        if(input.forward||input.right)keyFlightUntil=performance.now()+1500;
+        else if(input.climb)keyFlightUntil=0;
         if(!ready())return false;
         stepLens(dt,input);
         if(!navigation.free)followKeys(dt,input);
@@ -775,6 +794,12 @@ export class OrbitalSky extends HTMLElement {
     }):()=>{};
     const touchSurface=dragSurface?.querySelector<HTMLElement>('.orbit-gestures');
     const touch=touchSurface?createTouchCamera(touchSurface,camera,()=>hud?.setModality('touch'),touchGain,touchSpin):null;
+    const compensation=lookInputs.find(input=>input.dataset.look==='exposure')!;
+    const calendarSet=(kind:'date'|'time',value:number)=>{
+      const input=calendarInputs.find(input=>input.dataset.calendar===kind)!;
+      input.value=String(value);input.dispatchEvent(new Event('input'));
+    };
+    const speedSet=(position:number)=>{speedInput.value=String(Math.max(0,Math.min(1000,position)));changeSpeed();};
     hud=standalone?createOrbitHud(this,{
       route:route=>{if(ready())followRoute(route);},
       free:()=>{if(ready()){enterFree();draw();}},
@@ -782,6 +807,15 @@ export class OrbitalSky extends HTMLElement {
       current:()=>currentObserver().altitude,
       lens:lensTo,
       lensZoom,
+      hold:(code,down)=>flightControls?.hold(code,down),
+      resetCamera:()=>command('reset-camera'),
+      exposure:()=>exposureMode.value==='manual'?null:Number(compensation.value),
+      setExposure:ev=>{compensation.value=String(ev);changeLook();},
+      // The top tapes drive the same inputs as Settings, so both stay in step.
+      setDay:day=>calendarSet('date',day),setMinute:minute=>calendarSet('time',minute),
+      speed:()=>paused?0:speed,
+      setSpeed:target=>speedSet(target>0?Math.max(1,Math.round(speedFraction(target)*1000)):0),
+      stepSpeed:notches=>speedSet((paused?0:Math.round(speedFraction(speed)*1000))+notches*10),
       level:()=>command('level'),
     }):null;
     const panelController=createScenePanels(this,controls,settingsToggle);

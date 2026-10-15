@@ -29,8 +29,8 @@ precision highp float;
 precision highp sampler2D;
 uniform vec2 resolution;
 uniform float time;
-// Lens focal length in viewport heights. The wide end is 1.25; an unset
-// uniform therefore renders the wide lens rather than nothing.
+// Lens focal length in viewport heights. 1× is 1.25, and a wide angle goes
+// below it; an unset uniform therefore renders 1× rather than nothing.
 uniform float zoomExcess;
 #define FOCAL (1.25*(1.+zoomExcess))
 uniform vec4 pointGhosts[3];

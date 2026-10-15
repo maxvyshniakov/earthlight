@@ -27,15 +27,16 @@ export async function verifyTouch({run,evaluate,wait,base}){
   await touch('touchStart',[[1,150,300]]);await glide([[1,150,300]],[[1,210,350]]);await touch('touchEnd',[]);await run('wait','300');
   const looked=await read();assert.notEqual(looked.basis,original.basis);assert.equal(looked.position,original.position);assert.equal(looked.mode,'follow');
   assert.equal(await evaluate("document.querySelector('.orbit-hud').dataset.modality"),'touch','the gesture hints switch to touch');
-  // Two fingers moving together also look; they never move the camera.
-  await touch('touchStart',[[1,110,300],[2,250,300]]);await glide([[1,110,300],[2,250,300]],[[1,145,340],[2,285,340]]);await run('wait','200');
+  // Two fingers moving together also look; they never move the camera. They
+  // start right of the exposure and lens tapes, which take a touch for themselves.
+  await touch('touchStart',[[1,140,300],[2,250,300]]);await glide([[1,140,300],[2,250,300]],[[1,175,340],[2,285,340]]);await run('wait','200');
   const turned=await read();assert.notEqual(turned.basis,looked.basis);assert.equal(turned.position,looked.position);assert.equal(turned.mode,'follow');
   // Spreading them zooms in toward their centre, which starts free flight.
-  await glide([[1,145,340],[2,285,340]],[[1,115,340],[2,315,340]]);await run('wait','300');
+  await glide([[1,175,340],[2,285,340]],[[1,145,340],[2,315,340]]);await run('wait','300');
   const pinched=await read();assert.notEqual(pinched.position,turned.position);assert.equal(pinched.mode,'free');
   // Lifting one finger rebases without a jump, and that finger carries on alone.
   await touch('touchEnd',[[2,315,340]]);await run('wait','150');assert.deepEqual(await read(),pinched);
-  await glide([[1,115,340]],[[1,155,380]]);await run('wait','200');
+  await glide([[1,145,340]],[[1,185,380]]);await run('wait','200');
   const single=await read();assert.notEqual(single.basis,pinched.basis);assert.equal(single.position,pinched.position);
   await touch('touchCancel',[]);await run('wait','150');assert.deepEqual(await read(),single);
   // Twisting two fingers rolls the horizon in place.
@@ -57,10 +58,12 @@ export async function verifyTouch({run,evaluate,wait,base}){
   assert.equal(await evaluate('visualViewport.scale'),scale,'pinch moves the scene, not the browser viewport');
   // Native controls remain above the gesture layer and settings can still scroll.
   await evaluate("document.querySelector('#sky-settings').showPopover();true");
-  const panel=await evaluate("(()=>{const e=document.querySelector('#sky-settings');e.style.maxHeight='300px';const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y};})()");
+  // The scroll starts on a setting's name, low in the panel: a touch that lands
+  // on a slider sets it, as on a phone, and Time scale or Date would move time.
+  const panel=await evaluate("(()=>{const e=document.querySelector('#sky-settings');e.style.maxHeight='300px';const r=e.getBoundingClientRect();const names=[...e.querySelectorAll('.setting-name')].map(n=>n.getBoundingClientRect()).filter(n=>n.height&&n.top>r.top+120&&n.bottom<r.bottom-8);const n=names.at(-1);return {x:n.x+Math.min(n.width/2,40),y:n.y+n.height/2};})()");
   const beforePanel=await read();
-  await touch('touchStart',[[1,panel.x,panel.y+265]]);
-  for(let i=1;i<=6;i++){await touch('touchMove',[[1,panel.x,panel.y+265-i*28]]);await run('wait','30');}
+  await touch('touchStart',[[1,panel.x,panel.y]]);
+  for(let i=1;i<=6;i++){await touch('touchMove',[[1,panel.x,panel.y-i*28]]);await run('wait','30');}
   await touch('touchEnd',[]);await run('wait','200');
   assert.deepEqual(await read(),beforePanel,'settings gestures cannot move the camera');
   assert.ok(await evaluate("document.querySelector('#sky-settings').scrollTop>0"),'settings retain native touch scrolling');

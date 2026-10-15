@@ -410,16 +410,37 @@ Credits and settings use native auto popovers with Escape, light dismiss and
 focus restoration. They are positioned beside the telemetry and constrained to
 the viewport. Home telemetry is part of the hero rather than a fixed overlay.
 
-Since 2026-10-15 the explorer (`/`) has no telemetry block. A replay clock sits
-top centre: date and UTC time, time scale, a Play/Pause button and its Space
-key. Camera presets (ISS, Polar, High, Free) stack top right above the altitude
+Since 2026-10-15 the explorer (`/`) has no telemetry block. Time sits top
+centre. On a HUD at least 900 px wide it is Space, named Time, then three tapes
+hung 6 px lower so their short ticks share an axis with that name
+along the top edge, plain like the side ones: the time scale, the date and the
+time of day in UTC; there is no play button, since stopped time is simply 0×.
+The time scale runs from 0× to 1000× in five equal stretches, 160 px in all:
+linear from 0 to 0.1×, then four logarithmic decades, each end labelled (0×,
+0.1×, 1×, 10×, 100×, 1000×) and a tick every sixth of a stretch, so labels and
+ticks fall evenly. Speeds keep two significant figures, so 1× is exact. Pausing is 0×: Space, the tape or Settings' Time scale at 0 stop time and
+keep the speed it had, which any non-zero setting or Space brings back. Settings'
+slider runs over the same scale (positions 0–1000, 10× by default); a link with
+`rate=0` starts stopped at 10×. The date runs over a common year, shorter than
+the others: month starts long, the 11th and 21st short, January to January,
+labelled every third month about evenly (Jan, Apr, Jul, Oct, Jan). The time
+of day has a tick every half hour, labelled every three hours. Ticks hang from
+the edge, labels sit under them and the reading (10×, 15 OCT 2026, 14:41:13
+UTC) under the labels, joined by a rule; 48 px between the tapes clears their
+end labels. Press or drag along a tape, scroll over it or use the arrow keys (a
+hundredth of the time scale, a day, five minutes); a press near a labelled mark
+takes the mark. The tapes drive Settings' Time scale, Date and Time, so both
+stay in step. Narrower, they would run into the camera presets, and the one-line
+clock stays, with its play button. Camera presets (ISS, Polar, High, Free) stack top right above the altitude
 tape without a plate, names left of their keys 1, 2, 3 and 0; the active one's key looks pressed, like a held
 key, rather than the button filling like a segmented control. The HUD stays visible; it no longer fades when idle. Every HUD element keeps
 12 px from the screen edges. Help, Info and Settings stack in the lower-right corner, set like the presets:
 Help and Info show their keys, ? and i, and Settings a gear. Help opens a
 controls panel docked along the bottom, like an editor's shortcut sheet, which
-stays open while you fly (× or Escape closes it). It shrinks the scene above it,
-canvas and HUD alike, as a phone's browser bars do, so the explorer itself
+stays open while you fly; a tab centred on its top edge, a chevron pointing
+down, closes it, as do ? and Escape. It slides up and back in 0.3 s and shrinks
+the scene above it as it goes, frame by frame to its moving edge, canvas and HUD
+alike, as a phone's browser bars do, so the explorer itself
 exercises the resize path the embedded scene meets on the personal site; the HUD
 is a size container, so its tape and short layout follow its own height. The
 panel has no tabs: a column per action (Fly, Look, Closer and farther, Lens,
@@ -443,33 +464,87 @@ spacing changes only at a long tick; a gap gets as many as its round steps (25 k
 from 200 to 300, 200 km from 1K to 2K), so each sits near a round value. Short
 screens show only the long ticks and drop the 200, 3K and 30K labels. The reading sits beyond the labels, plain text
 joined to the tape by a rule that passes under them; on hover or focus it turns
-black on opaque orange. The horizon gauge and its HDG/PIT/ROL readouts sit at
-the middle of the left edge and the lens presets at the bottom centre, both
-plain like the tape and presets: no card, grey names, the lit preset white. Cards have no borders and no backdrop blur,
+black on opaque orange. The lens tape mirrors it at the middle of the left edge:
+0.5× to 20×, a 15 mm wide angle to 600 mm, logarithmic, long ticks on the 1-2-5
+series (0.5×, 1×, 2×, 5×, 10×, 20×),
+nearly even on that scale and labelled at both ends, short ticks at one pitch
+along the whole tape (about a sixth of an octave). It is
+0.7 of the altitude tape's height, so its 32 tick gaps fall about as close as
+the altitude tape's 46; the two need not match in length, the reading (2.5×) beyond its labels. On
+both tapes the reading stands the same gap past the longest label, so it
+follows the label length (50K, 0.5×). A
+press eases to its point, a drag follows, and near a labelled mark either takes
+the mark exactly; it replaced the 1×/3×/10× presets. A press or drag on any
+tape, side or top, leaves focus on the scene, so the flight keys keep working;
+Tab still reaches the tapes. Over the lens tape, 44 px
+up, a short exposure compensation tape: −3 to +4 EV, linear, whole stops
+labelled and thirds between, 0.45 of the altitude tape so its ticks fall about
+as close. It drives Settings' Exposure compensation, to a tenth of a stop or a
+whole stop near its mark, and hides under manual exposure. Each tape's keys stand
+20 px off it and carry their names, set like the presets with the name on the
+inner side of the cap: Farther R above the altitude tape and Closer F below it;
+Zoom in + above the lens tape, Zoom out − below it and Reset zoom ⌫ (back to
+1×) under that. + and − replaced Z and X for the lens and no longer move the
+camera closer or farther; R, F and the wheel do. The horizon gauge sits at the
+bottom centre, plain like the tapes and presets, between Roll left Q and Roll
+right E, each key against the dial and a turning arrow outside (anticlockwise,
+clockwise), the gear's size, dim like the names they replace and white under
+the pointer or while held; a click on the dial
+levels or flips, as H does. WASD and the arrows stand along the bottom as
+crosses at a quarter and three quarters of the width, rows on the presets'
+24 px pitch: a globe icon in the middle of WASD, \\ (reset the camera) in the middle of the
+arrows'. \\ resets the camera: a followed orbit drops its look-around, free
+flight turns to face Earth's centre. Without a keyboard the crosses go and the
+roll buttons keep their icons. On a phone the gauge centres in the room the
+corner buttons leave. HDG/PIT/ROL and, below them after a gap, the camera's
+latitude and longitude sit in the lower-left corner; on a phone they stand above
+the gauge row. Only the round dial takes the pointer; the masked sky and ground,
+twice its size, used to catch it far outside. Cards have no borders and no backdrop blur,
 which cost frames over the live canvas and smeared at their edges; keyboard
 focus shows as a fill or glow, never an outline.
 
-The horizon gauge has a pitch ladder over the whole ±90° (a rung every 6°, long
-every 30°) and no ticks on its dial. Outside the dial, 3 px off it, a ring marks
-the Sun's direction across the image (faint when behind the camera; in frame it
-flies inside the dial, as far out as the pitch ladder would place it) and an arc
+The horizon gauge's dial has no outline: a pale grey sky and an orange ground,
+parted by 1 px of empty space at the horizon, with a pitch ladder over the whole
+±90° (a rung every 6°, long every 30°) cut out of them the same way. Sky and
+ground stay faint (45 %) until the pointer or focus is on the gauge. The wings,
+the Sun ring and the Earth arc are 1 px at any dial size; the wings are white,
+and the ring and arc match the tapes' ticks, half-white, turning white with the
+fill on hover. Outside the
+dial a ring marks the Sun's direction across the image (in frame it flies
+inside the dial, as far out as the pitch ladder would place it; it no longer
+dims behind the camera, which read as an unexplained grey) and an arc
 marks Earth's: centred on the ground side, reaching where the horizon line meets
-the dial, no wider than the share of the view Earth fills, and never under 8 px;
-it closes into a ring when the frame's centre is on Earth or its whole disk is in
-frame.
+the dial, so it closes once the dial is all ground, and never under 8 px; it
+closes too when Earth fills the frame, all four corners on it, or its whole disk
+is in frame, and shrinks only as Earth leaves the frame (below a tenth of it).
+Capping it by the share of the frame Earth fills opened it while flying away
+from a planet shrinking into view, then closed it again. A frame centre on Earth used to count too, which closed
+the ring with half the frame still sky. The arc eases to each new extent, about
+0.3 s, so it closes and opens visibly instead of snapping.
 H, or a click on the gauge, levels a tilted view; on a level one it turns the
 view upside down, and back. Long turns run clockwise. Following an orbit, H first clears the look-around
 and then flies free to turn over. The gauge and H measure roll against the local
 vertical right down to the nadir; north up stands in only for an exactly
 vertical view. It used to take over within about 6° of straight down, which
-flipped the gauge by the heading as the view passed that cone.
+flipped the gauge by the heading as the view passed that cone. The dial's roll
+runs on past ±180° instead of wrapping, so its short transition never spins it
+the long way round when the view turns over.
+
+The flight path marker shows only during WASD flight, and for 1.5 s after.
+Dragging or flinging the globe moves the camera too, but there it only drew a
+stray marker high above Earth; R and F, from the keyboard or their caps, climb
+or descend straight up or down, where it only marked the ground below.
 
 There is no tutorial and no hints on the instruments; every key and gesture is
 in the controls panel. Shift and Option show as their
 key-cap symbols (Alt off Apple keyboards). Key caps keep 3 px inner corners all
 round; the 2 px bottom edge gets a taller outer curve. Every single-glyph cap
-has one width, set by the widest (⇧, W) plus padding. Nothing animates on
-hover. Key caps appear only once a keyboard is likely (a fine pointer) or used;
+is square, 18 px either way (⌫, the widest, without padding). The caps on the
+main screen are buttons too: hold R, F, +, −, Q, E, WASD or the arrows as you
+would the key (Shift still speeds it up); Space pauses or plays, ⌫ takes the
+lens to 1× and \\ resets the camera. A cap that is a button takes a faint fill
+under the pointer and lights while held, and focus returns to the scene.
+Nothing else changes on hover. Key caps appear only once a keyboard is likely (a fine pointer) or used;
 the controls panel's lanes follow the same detection, and Safari alone is told
 that a trackpad rotation rolls.
 

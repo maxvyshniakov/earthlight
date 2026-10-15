@@ -182,7 +182,7 @@ export function followLens(frame:Pose,view:CameraView,x:number,y:number,from:num
 export class OrbitNavigation {
  route:Route='iss';
  free:FreePose|null=null;
- /** Lens focal length in viewport heights; PROJECTION is the wide end. */
+ /** Lens focal length in viewport heights; PROJECTION is 1×, and the lens runs from half that to twenty times it. */
  focal=PROJECTION;
  // Rig angular velocity about Earth's centre (rad/s) and its decay without input.
  private velocity:Vec3=[0,0,0];
@@ -200,6 +200,7 @@ export class OrbitNavigation {
  flingLimit=2;
  flingCoast=.45;
  private leveling=false;
+ private centering=false;
  private levelTarget=0;
  private levelLeft=0;
  /** Camera velocity over the last step, Earth radii per second. */
@@ -208,7 +209,7 @@ export class OrbitNavigation {
  get mode(){return this.free?'free':'follow';}
  get moving(){
   return Math.hypot(...this.velocity)>1e-6||this.climb!==0||this.rolling!==0||this.spin[0]!==0||this.spin[1]!==0||this.targetAltitude!==null
-   ||this.zooming!==null||this.flight!==null||this.grip!==null||this.leveling||this.transition!==null;
+   ||this.zooming!==null||this.flight!==null||this.grip!==null||this.leveling||this.centering||this.transition!==null;
  }
  read(seconds:number,view:CameraView,now:number):ObserverFrame{
   const target=this.free?observer(new Date(START_DATE.getTime()+seconds*1000),{camera:this.free.position,cameraBasis:this.free.basis}):routeFrame(this.route,seconds,view);
@@ -226,7 +227,7 @@ export class OrbitNavigation {
  }
  stop(){
   this.velocity=[0,0,0];this.motion=[0,0,0];this.coast=.12;this.climb=this.rolling=0;this.spin=[0,0];
-  this.targetAltitude=null;this.zooming=null;this.flight=null;this.leveling=false;
+  this.targetAltitude=null;this.zooming=null;this.flight=null;this.leveling=false;this.centering=false;
  }
  setAltitude(km:number){if(this.free){this.stop();this.targetAltitude=clamp(km,MIN_ALTITUDE,MAX_ALTITUDE);}}
  private turnRig(about:Vec3,angle:number){
@@ -308,6 +309,12 @@ export class OrbitNavigation {
   this.leveling=true;
   if(now){pose.basis=orthonormal(rollBasis(pose.basis,-left));this.leveling=false;}
  }
+ /** Turn to face Earth's centre, over a moment unless `now`. */
+ centre(now=false){
+  if(!this.free)return;
+  this.flight=null;this.spin=[0,0];this.centering=true;
+  if(now){this.aim(normalize(scale(this.free.position,-1)),0,0);this.centering=false;}
+ }
  /** Hold an Earth-fixed point under the pointer; the rig follows each frame. */
  grab(anchor:Vec3,x:number,y:number){if(this.free){this.stop();this.grip={anchor,x,y,sx:x,sy:y,rate:[0,0,0]};}}
  drag(x:number,y:number){if(this.grip){this.grip.x=x;this.grip.y=y;}}
@@ -387,6 +394,7 @@ export class OrbitNavigation {
   this.spin=this.spin.map(v=>Math.abs(v)<.05?0:v*(1-settle(.3))) as [number,number];
   // A longer lens turns slower, so the sky keeps its pace across the image.
   const look=60*(fast?2.5:1)*PROJECTION/this.focal,yaw=(input.yaw??0)*look+this.spin[0],pitch=(input.pitch??0)*look+this.spin[1];
+  if(input.yaw||input.pitch)this.centering=false;
   if(yaw||pitch)this.turn(yaw*dt,pitch*dt);
   if(this.zooming){
    const zoom=this.zooming,part=Math.abs(zoom.log)<1e-3?zoom.log:zoom.log*settle(.09);
@@ -414,6 +422,14 @@ export class OrbitNavigation {
    const roll=Math.abs(this.levelLeft)<Math.PI/2?wrapAngle(gaugeRoll(pose.basis,normalize(pose.position))-this.levelTarget):this.levelLeft;
    const part=Math.abs(roll)<1e-3?roll:roll*settle(.1);
    pose.basis=orthonormal(rollBasis(pose.basis,-part));this.levelLeft=roll-part;if(part===roll)this.leveling=false;
+  }
+  if(this.centering){
+   // Tilt toward Earth's centre about the axis square to the view and the
+   // nadir, easing in, and land on it exactly.
+   const forward=axis(pose.basis,6),nadir=normalize(scale(pose.position,-1)),about=cross(forward,nadir),across=Math.hypot(...about);
+   const angle=Math.atan2(across,dot(forward,nadir));
+   if(angle<1e-3){this.aim(nadir,0,0);this.centering=false;}
+   else this.orient(turnBasis(pose.basis,across>1e-9?scale(about,1/across):axis(pose.basis,0),angle*settle(.12)));
   }
   const after=[...pose.position,...pose.basis];
   this.motion=dt>0?[0,1,2].map(i=>(after[i]-before[i])/dt) as Vec3:[0,0,0];
