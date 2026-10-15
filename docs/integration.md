@@ -7,7 +7,8 @@ root. Laboratory pages live under `/lab/`. The site has no `/orbit/` route.
 
 The background has no controls or navigation listeners. It uses compact
 overviews, disables streamed surface/terrain detail and aurora, caps rendering
-resolution and pauses while hidden. Reduced motion uses the poster. Both modes
+resolution and pauses while hidden or while the first ancestor with a box is off
+screen. Put it inside the element that shows the scene, such as the hero section. Reduced motion uses the poster. Both modes
 use the same renderer and `scene-defaults.ts` grade.
 
 ## Develop and update the consumer

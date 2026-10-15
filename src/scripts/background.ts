@@ -6,6 +6,7 @@ import {issFrame,initialOrbitSeconds} from './iss-orbit';
 import {SceneFocus} from './scene-assets';
 import {sceneBufferSize,sceneComposition,focusRenderScale} from './scene-viewport';
 import {sceneContext,isWebGL2} from './webgl-context';
+import {SceneFrameClock} from './scene-frame-clock';
 
 /** Passive host for the same renderer. No navigation, panels or input handlers. */
 export class EarthlightBackground extends HTMLElement {
@@ -16,32 +17,45 @@ export class EarthlightBackground extends HTMLElement {
     const reduced=matchMedia('(prefers-reduced-motion: reduce)');
     let renderer:ReturnType<typeof createOrbitRenderer>|undefined;
     let gl:WebGLRenderingContext|null=null;
-    let disposed=false,visible=false,lost=false,frame=0,lastDraw=0,lastAnimationDraw=0,grain=0;
+    let disposed=false,visible=false,lost=false,frame=0,lastAnimationDraw=0,grain=0;
     let scale=.75,focusRadius=6,cssHeight=1;
     const params=new URLSearchParams({texture:'compact',aurora:'0'});
     const seconds=initialOrbitSeconds(new URLSearchParams());
     const calendar=new SceneCalendar(new URLSearchParams(),seconds);
     const playback=new OrbitPlayback(seconds,10);
     const focus=new SceneFocus();
+    // Whole display refreshes nearest to 24 FPS, like the explorer: 30 FPS at
+    // 60 Hz instead of alternating 33 and 50 ms frames, 24 FPS at 120 Hz.
+    const clock=new SceneFrameClock(24,true);
     const active=()=>!disposed&&visible&&!document.hidden&&!reduced.matches&&!lost;
     const resize=()=>{
       const bounds=canvas.getBoundingClientRect();
       cssHeight=Math.max(1,bounds.height);
       const size=sceneBufferSize(bounds.width,bounds.height,devicePixelRatio,Math.min(.75,scale)*focusRenderScale(focusRadius));
+      const changed=canvas.width!==size.width||canvas.height!==size.height;
       if(canvas.width!==size.width)canvas.width=size.width;
       if(canvas.height!==size.height)canvas.height=size.height;
       gl?.viewport(0,0,canvas.width,canvas.height);
+      return changed;
+    };
+    const paint=(now:number)=>{
+      const sceneTime=playback.read(now);
+      const composition=sceneComposition(scrollY,innerHeight,cssHeight,true);
+      const orbit=calendarFrame(issFrame(sceneTime+composition.offset,composition.limb,{yaw:0,pitch:0},composition.altitudeLift),calendar.date(sceneTime+composition.offset));
+      return renderer!.render(orbit,canvas.width,canvas.height,cssHeight,sceneTime,grain++,sceneLook,focusRadius,10);
+    };
+    // A new buffer size clears the opaque drawing buffer. Repaint before
+    // yielding to the compositor, or the cleared buffer shows as a black frame.
+    const refit=(now=performance.now())=>{
+      if(resize()&&renderer&&active()&&this.hasAttribute('data-ready'))paint(now);
     };
     const tick=(now:number)=>{
       frame=0;if(!active()||!renderer)return;
-      renderer.observeAnimationFrame(now);
-      if(now-lastDraw>=1000/24&&('surfaceReady' in renderer.state||'galaxyReady' in renderer.state)){
+      renderer.observeAnimationFrame(now);clock.observe(now);
+      if(clock.due(now)&&('surfaceReady' in renderer.state||'galaxyReady' in renderer.state)){
         if(lastAnimationDraw&&focusRadius===0)renderer.observeCadence(now-lastAnimationDraw,now);
         lastAnimationDraw=focusRadius===0?now:0;
-        const sceneTime=playback.read(now);
-        const composition=sceneComposition(scrollY,innerHeight,cssHeight,true);
-        const orbit=calendarFrame(issFrame(sceneTime+composition.offset,composition.limb,{yaw:0,pitch:0},composition.altitudeLift),calendar.date(sceneTime+composition.offset));
-        const result=renderer.render(orbit,canvas.width,canvas.height,cssHeight,sceneTime,grain++,sceneLook,focusRadius,10);
+        const result=paint(now);
         if(result){
           const wasReady=this.hasAttribute('data-ready');
           this.dataset.ready='';Object.assign(this.dataset,result.state);
@@ -53,9 +67,8 @@ export class EarthlightBackground extends HTMLElement {
           this.dataset.focus=focusRadius<.01?'sharp':'acquiring';
           this.dataset.renderScale=scale.toFixed(2);
           this.dataset.frames=String(grain);
-          if(needsResize)resize();
+          if(needsResize)refit(now);
         }
-        lastDraw=now-(now-lastDraw)%(1000/24);
       }
       frame=requestAnimationFrame(tick);
     };
@@ -73,7 +86,7 @@ export class EarthlightBackground extends HTMLElement {
         },{background:true,assetBaseURL:this.dataset.assetBase});
         resize();renderer.load();
       }
-      lastDraw=0;lastAnimationDraw=0;renderer.resetCadence();frame=requestAnimationFrame(tick);
+      clock.reset(performance.now());lastAnimationDraw=0;renderer.resetCadence();frame=requestAnimationFrame(tick);
     };
     const contextLost=(event:Event)=>{
       event.preventDefault();lost=true;renderer?.contextLost();delete this.dataset.ready;sync();
@@ -83,9 +96,14 @@ export class EarthlightBackground extends HTMLElement {
       if(disposed)return;
       lost=!restored;resize();sync();
     };
+    // The canvas is fixed to the viewport and always intersects it. The scene
+    // is on screen while the first ancestor that has a box is; past that, the
+    // page covers it and drawing would only cost GPU time.
+    let host=this.parentElement;
+    while(host&&getComputedStyle(host).display==='contents')host=host.parentElement;
     const intersection=new IntersectionObserver(entries=>{visible=entries.some(entry=>entry.isIntersecting);sync();});
-    intersection.observe(canvas);
-    const size=new ResizeObserver(resize);size.observe(canvas);
+    intersection.observe(host??canvas);
+    const size=new ResizeObserver(()=>refit());size.observe(canvas);
     document.addEventListener('visibilitychange',sync);
     reduced.addEventListener('change',sync);
     canvas.addEventListener('webglcontextlost',contextLost);

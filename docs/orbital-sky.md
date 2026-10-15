@@ -722,8 +722,12 @@ sky pixel costs a tenth of a planet pixel (`viewScale`, 0 to disable), so a
 distant planet is sharper at the same cost. A 0.75 shutter blurs camera
 motion (`motionBlur=0`): Earth and its air up to 120 km with their parallax,
 the sky above the limb with the camera's turn alone (`skyBlur=0` keeps it
-sharp). The background keeps its passive
-cadence and gets none of these. Both share the accepted work reductions:
+sharp). Since 2026-10-15 the background uses the
+same whole-refresh cadence, repaints in the same frame after a buffer resize
+(a resize clears the opaque buffer and showed as a black frame), and pauses
+while the first ancestor with a box is off screen, since its fixed canvas
+always intersects the viewport. It gets none of the other adaptations. Both
+share the accepted work reductions:
 regional terrain bounds, lean shading, the noise lattice table, shared terrain
 page entries and temporal cloud reuse (`terrainBound=off`, `shaderWork=legacy`,
 `noise=hash`, `terrainFetch=separate`, `cloudReuse=off`). See
