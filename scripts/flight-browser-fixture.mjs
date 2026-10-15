@@ -66,6 +66,24 @@ export async function verifyFlight({run,evaluate,wait,base}){
  assert.equal(shiftLooked.lens,1,'a Shift trackpad scroll never zooms the lens');
  for(let i=0;i<40;i++)await gesture({deltaX:0,deltaY:-12},'.orbit-view',w/2,ground);
  await run('wait','400');const spun=await read();assert.notEqual(spun.position,shiftLooked.position);
+ // A swipe keeps its modifiers while its events, momentum included, keep
+ // arriving: Shift or Control pressed as the globe coasts neither looks nor
+ // zooms. macOS delivers the vertical momentum sideways while Shift is held.
+ const coast=await evaluate(`(async()=>{
+  const e=document.querySelector('orbital-sky'),view=document.querySelector('.orbit-view'),angle=()=>{const p=e.dataset.cameraPosition.split(',').map(Number),n=Math.hypot(...p);return p.map(v=>v/n);};
+  const send=init=>view.dispatchEvent(new WheelEvent('wheel',{clientX:${w/2},clientY:${ground},bubbles:true,cancelable:true,...init}));
+  const phase=async(count,init)=>{const from=angle();for(let i=0;i<count;i++){send(init);await new Promise(r=>setTimeout(r,16));}return Math.acos(Math.min(1,from.reduce((s,v,i)=>s+v*angle()[i],0)));};
+  const start={alt:Number(e.dataset.cameraAltitude),lens:Number(e.dataset.lens)};
+  const plain=await phase(30,{deltaX:0,deltaY:-12});
+  const shifted=await phase(30,{deltaX:-12,deltaY:0,shiftKey:true});
+  window.dispatchEvent(new KeyboardEvent('keydown',{key:'Control',code:'ControlLeft',ctrlKey:true}));
+  const controlled=await phase(30,{deltaX:0,deltaY:-12,ctrlKey:true});
+  window.dispatchEvent(new KeyboardEvent('keyup',{key:'Control',code:'ControlLeft'}));
+  await new Promise(r=>setTimeout(r,400));
+  return {plain,shifted,controlled,alt:Number(e.dataset.cameraAltitude)/start.alt,lens:Number(e.dataset.lens)/start.lens};
+ })()`);
+ assert.ok(coast.shifted>coast.plain*.6&&coast.controlled>coast.plain*.6,`the globe keeps turning: ${JSON.stringify(coast)}`);
+ assert.ok(Math.abs(coast.alt-1)<.01&&coast.lens===1,`no zoom: ${JSON.stringify(coast)}`);
  // A clicky mouse wheel zooms toward the pointer; so does a trackpad pinch,
  // which Chromium reports as Ctrl-wheel. Neither zooms the browser.
  const viewport=await evaluate('visualViewport.scale'),pixelRatio=await evaluate('devicePixelRatio');

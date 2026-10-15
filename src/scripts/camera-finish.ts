@@ -95,15 +95,17 @@ vec2 previousOf(vec3 d){
   vec3 v=vec3(dot(d,motionPreviousBasis[0]),dot(d,motionPreviousBasis[1]),dot(d,motionPreviousBasis[2]));
   return motionPreviousFocal*v.xy/max(.001,v.z);
 }
-// Earth and what travels with it: the solid sphere and the 12 km cloud layer
-// that shapes its limb. Every ray passing higher sees the sky at infinity.
-// A shell above the orbital camera would contain it and give every star below
-// its horizontal, about 20 degrees above the limb from the ISS, Earth's motion.
-const float motionShell=1.0018835;
+// Earth and what travels with it: the solid sphere, its clouds and the glowing
+// air up to 120 km. Every ray passing higher sees the sky at infinity. Treating
+// the bright air as sky smeared it into space with the camera's turn, a noisy
+// halo along a spin. The shell stays well below the orbital camera: one that
+// contained it would give every star below its horizontal, about 20 degrees
+// above the limb from the ISS, Earth's motion.
 bool movesWithEarth(vec2 p){
   vec3 ray=normalize(motionBasis*normalize(vec3(p,FOCAL)));
-  float b=dot(motionCamera,ray);
-  return b<0.&&dot(motionCamera,motionCamera)-b*b<motionShell*motionShell;
+  float b=dot(motionCamera,ray),c=dot(motionCamera,motionCamera);
+  float shell=min(1.+120./6371.,mix(1.,sqrt(c),.5));
+  return b<0.&&c-b*b<shell*shell;
 }
 // Where this pixel's scene point projected in the previous frame. Earth's
 // sphere supplies parallax while flying. Clouds and air above the solid limb

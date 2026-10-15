@@ -450,8 +450,13 @@ trackpad scroll, 2.5 times faster than the finger and without running out at
 the limb. A flick coasts for about a second, at most 8 rad/s; Android sends no
 momentum of its own. `touchMode=grab` holds the touched point instead, and
 `touchGain`, `flingLimit` and `flingCoast` tune the feel. Trackpad deltas are
-released over 90 ms on each display refresh (`inputSmoothing`, 0 to apply
-them at once), which removes uneven steps at the end of a momentum swipe.
+released over about two frames on each display refresh, 90 ms at 24 FPS
+(`inputSmoothing=<ms>` fixes it, 0 applies them at once), which removes uneven
+steps at the end of a momentum swipe. A trackpad scroll keeps the modifiers it
+started with while its events, momentum included, keep arriving: Shift or
+Control pressed as the globe coasts neither looks nor zooms, and the sideways
+deltas macOS sends while Shift is held keep the swipe's axis. A pinch, which
+Chromium reports with Ctrl but without the key, still zooms.
 
 W/S move along the view, A/D strafe, Q/E move along the camera’s own up axis,
 and Shift multiplies speed by four. Speed grows with altitude. The altitude
@@ -701,13 +706,17 @@ Pauses and background time are excluded.
 
 Since 2026-10-13 the explorer renders on whole display refreshes, every k-th
 refresh nearest to 24 FPS (30 FPS at 60 Hz, 24 at 120 Hz), so frames are evenly
-spaced; `cadence=timer` restores the old timer. Three late frames in 24 lower
+spaced; `cadence=timer` restores the old timer. At full scale a gesture and
+its coast render at up to 60 FPS, also on whole refreshes; three late frames
+in 24 slow that by one refresh, and a long clean run tries faster again, each
+failed attempt waiting twice as long. A downscaled device keeps its passive
+cadence during gestures. Three late frames in 24 at that cadence lower
 the scale once the view is quiet (`headroom=0` disables), and the last
 sustained scale is remembered per screen (`startScale=fresh` ignores it). The
 buffer grows when Earth and its atmosphere cover less of the frame, assuming a
 sky pixel costs a tenth of a planet pixel (`viewScale`, 0 to disable), so a
 distant planet is sharper at the same cost. A 0.75 shutter blurs camera
-motion (`motionBlur=0`): Earth and its 12 km cloud layer with their parallax,
+motion (`motionBlur=0`): Earth and its air up to 120 km with their parallax,
 the sky above the limb with the camera's turn alone (`skyBlur=0` keeps it
 sharp). The background keeps its passive
 cadence and gets none of these. Both share the accepted work reductions:

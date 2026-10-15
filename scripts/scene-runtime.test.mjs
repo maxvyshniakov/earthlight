@@ -399,13 +399,14 @@ test('flight frames follow 60 Hz input and return to passive cadence',()=>{
   assert.equal(frames,120,'passive 24 FPS keeps fractional deadlines');
  }
 });
-test('steady cadence lands on whole refreshes, at least 24 FPS, unchanged by gestures',()=>{
+test('steady cadence lands on whole refreshes, at least 24 FPS, unchanged by passive gestures',()=>{
  for(const [hz,expected,refreshes] of [[60,30,2],[90,30,3],[120,24,5],[144,24,6]]){
   const clock=new SceneFrameClock(24,true),period=1000/hz,gaps=[];let previous=null;
   for(let i=1;i<=hz*4;i++){
    // Sub-millisecond timestamp jitter must not move a frame to another refresh.
    const now=i*period+(i%3-1)*.4;clock.observe(now);
-   if(i%7===0)clock.interact(now);
+   // A downscaled device asks for no more than its passive rate.
+   if(i%7===0)clock.interact(now,24);
    if(clock.due(now)){if(previous!==null)gaps.push(i-previous);previous=i;}
   }
   const settled=gaps.slice(10);
@@ -458,6 +459,32 @@ test('fast changing views cannot trigger upscale probes but retain overload reco
  assert.equal(quality.scale,.65,'extra gesture frames do not imply spare GPU capacity');
  for(let i=0;i<90;i++){now+=100;quality.observeCadence(100,now,false);}
  assert.ok(quality.scale<.65,'overload still reduces the target during interaction');
+});
+test('a gesture renders on whole refreshes up to 60 FPS, slowing a step at a time while frames are late',()=>{
+ for(const [hz,fast] of [[60,1],[120,2],[144,2]]){
+  const clock=new SceneFrameClock(24,true),period=1000/hz,gaps=[];let previous=null;
+  for(let i=1;i<=hz*3;i++){
+   const now=i*period;clock.observe(now);
+   if(i>hz)clock.interact(now,60);
+   if(clock.due(now)){if(i>hz*1.5&&previous!==null)gaps.push(i-previous);previous=i;}
+  }
+  assert.ok(gaps.every(gap=>gap===fast),`${hz} Hz: ${[...new Set(gaps)]}`);
+  assert.ok(Math.abs(clock.passiveRate-(hz===60?30:24))<.3,'the passive rate is still reported');
+ }
+ // At 120 Hz a frame takes 20 ms: the next callback comes on the first
+ // refresh after it, so 60 FPS (every second refresh) is never on time.
+ const clock=new SceneFrameClock(24,true),period=1000/120;let now=0;const gaps=[];let previous=0;
+ for(let i=0;i<240;i++){now+=period;clock.observe(now);clock.due(now);}
+ let busy=0;
+ for(let n=0;n<400;n++){
+  now+=busy?Math.ceil(busy/period)*period:period;busy=0;clock.observe(now);clock.interact(now,60);
+  if(clock.due(now)){busy=20;if(n>300)gaps.push(Math.round((now-previous)/period));previous=now;}
+ }
+ assert.ok(Math.abs(clock.fps-40)<.5,`settles at 40 FPS, every third refresh: ${clock.fps}`);
+ assert.ok(gaps.every(gap=>gap===3),`${[...new Set(gaps)]}`);
+ // Lifting the finger returns to the passive cadence.
+ for(let n=0;n<60;n++){now+=period;clock.observe(now);clock.due(now);}
+ assert.ok(Math.abs(clock.fps-24)<.1);
 });
 test('steady cadence keeps the display period through GPU backpressure, not a real rate change',()=>{
  const clock=new SceneFrameClock(24,true);let now=0;

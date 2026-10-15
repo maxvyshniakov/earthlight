@@ -17,12 +17,12 @@ export async function verifySwipeRecovery({run,evaluate,wait,base}){
   }}finally{g.texSubImage2D=upload;}
   return {deferred,target:s.dataset.targetFps,lateWrites:writes.filter(t=>t>250),motion:s.querySelector('.sky-motion').getAttribute('aria-label')};
  })()`);
- // The explorer renders on whole display refreshes and keeps that cadence
- // during gestures: about 30 FPS at 60 Hz, 24 at 120 Hz.
- assert.equal(motion.deferred,true);assert.ok(Number(motion.target)>=23.9&&Number(motion.target)<=30.1,motion.target);assert.equal(motion.motion,'Play');
+ // The explorer renders on whole display refreshes: about 30 FPS at 60 Hz
+ // and 24 at 120 Hz, and with headroom up to 60 during a gesture.
+ assert.equal(motion.deferred,true);assert.ok(Number(motion.target)>=23.9&&Number(motion.target)<=60.1,motion.target);assert.equal(motion.motion,'Play');
  assert.deepEqual(motion.lateWrites,[],'large optional uploads stay out of a sustained swipe');
  await wait("(()=>{const s=document.querySelector('orbital-sky');return s.dataset.streamingMotion==='ready'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0);})()");
  const after=await evaluate("(()=>{const s=document.querySelector('orbital-sky');return {motion:s.dataset.streamingMotion,fps:s.dataset.targetFps,failures:s.dataset.assetFailures,terrain:JSON.parse(s.dataset.terrainTiles),error:s.querySelector('canvas').getContext('webgl').getError()};})()");
- assert.ok(Math.abs(Number(after.fps)-Number(motion.target))<.5,'a swipe does not change the steady cadence');assert.equal(after.failures,'0');assert.equal(after.error,0);assert.ok(after.terrain.resident>0);
+ assert.ok(Number(after.fps)>=23.9&&Number(after.fps)<=30.1,`the passive cadence returns: ${after.fps}`);assert.equal(after.failures,'0');assert.equal(after.error,0);assert.ok(after.terrain.resident>0);
  return {during:motion,after};
 }

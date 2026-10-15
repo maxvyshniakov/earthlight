@@ -92,7 +92,9 @@ export class OrbitalSky extends HTMLElement {
     // frame; smoothing them only weakens short flicks, so they keep their own,
     // normally zero, constant.
     const number=(key:string,fallback:number)=>params.has(key)&&Number.isFinite(Number(params.get(key)))?Number(params.get(key)):fallback;
-    const inputSmoothing=Math.max(0,Math.min(200,number('inputSmoothing',90)));
+    // By default about two frames of the current cadence: 90 ms at 24 FPS,
+    // short enough at 60 FPS not to trail the fingers.
+    const inputSmoothing=params.has('inputSmoothing')?Math.max(0,Math.min(200,number('inputSmoothing',90))):()=>2.2*1000/frameClock.fps;
     navigation.inputSmoothing=Math.max(0,Math.min(200,Number(params.get('dragSmoothing'))||0))/1000;
     // One finger turns the globe like a trackpad scroll, so a drag never runs
     // out of travel at the limb; `touchMode=grab` holds the touched point
@@ -412,7 +414,7 @@ export class OrbitalSky extends HTMLElement {
       frameClock.observe(now);perfObserve(now);
       renderer.observeAnimationFrame(now,profile.fps/24);
       if (frameDue(now)) {
-        if(headroom)renderer.setCadence(1000/frameClock.fps*profile.fps/24,frameClock.refreshPeriod*profile.fps/24,true);
+        if(headroom)renderer.setCadence(1000/frameClock.passiveRate*profile.fps/24,frameClock.refreshPeriod*profile.fps/24,true);
         if(lastAnimationDraw&&focusRadius===0)renderer.observeCadence((now-lastAnimationDraw)*profile.fps/24,now,!frameClock.interacting(now));
         lastAnimationDraw=focusRadius===0?now:0;
         grainIndex=(grainIndex+1)%65536;
@@ -671,8 +673,10 @@ export class OrbitalSky extends HTMLElement {
     applyLook();
     const dragSurface=this.dataset.composition==='orbit'?this.closest<HTMLElement>('.orbit-view'):null;
     // Throttled rather than debounced, so a long glide keeps its link current.
-    // swipeFps=24 keeps a downscaled device on its sustainable passive cadence.
-    const interactionFPS=()=>qualityScale>=.9?60:params.get('swipeFps')==='24'?profile.fps:30;
+    // A device with headroom renders gestures and their coast at up to 60 FPS;
+    // the steady clock slows that while frames come late. A downscaled device
+    // keeps its passive cadence (swipeFps=24 does so on the old timer).
+    const interactionFPS=()=>qualityScale>=.9?60:steadyCadence||params.get('swipeFps')==='24'?profile.fps:30;
     const cameraChanged=()=>{const now=performance.now();frameClock.interact(now,interactionFPS());lastStatus=-1;exposureUntil=now+EXPOSURE_SETTLE_MS;draw();if(!navigationURLTimer)navigationURLTimer=window.setTimeout(()=>{navigationURLTimer=0;saveNavigation();},180);};
     const lookCamera=(view:typeof cameraView)=>{
       for(const input of viewInputs)input.value=String(view[input.dataset.view as keyof typeof view]);

@@ -29,20 +29,23 @@ export function createFlightControls(surface:HTMLElement,options:{
   touching:()=>boolean;
   stop:()=>void;
   /** Time constant (ms) for releasing trackpad scroll to the camera; 0 applies each event. */
-  inputSmoothing?:number;
+  inputSmoothing?:number|(()=>number);
 }){
   const keys=new Set<string>();let frame=0,last=0;
-  let scroll:{session:ScrollSession|null;timer:number;time:number;look:boolean}|null=null;
+  let scroll:{session:ScrollSession|null;timer:number;time:number;look:boolean;axis:'x'|'y'|null}|null=null;
+  // A physically held Control key, as opposed to the Ctrl flag Chromium sets
+  // on trackpad pinch events.
+  let control=false;
   // Chromium delivers wheel events in bursts while the main thread submits a
   // frame, and macOS momentum ends in small irregular deltas. Applied as they
   // arrive, a frame can get no motion and the next a double step. Optionally
   // release them over a short time constant on every display refresh instead.
-  const smoothing=Math.max(0,options.inputSmoothing??0)/1000;
+  const smoothing=()=>{const value=options.inputSmoothing;return Math.max(0,(typeof value==='function'?value():value)??0)/1000;};
   const pending={x:0,y:0};
   let wheel:{kind:'zoom'|'scroll';time:number}|null=null;
   let gesture:{scale:number;rotation:number;rolling:boolean}|null=null;
   const typing=(target:EventTarget|null)=>target instanceof Element&&!!target.closest('input,select,textarea,[contenteditable]:not([contenteditable="false"]),[role="slider"]');
-  const control=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
+  const inControls=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
   const held=(code:string)=>Number(keys.has(code));
   const input=():FlightInput=>({forward:held('KeyW')-held('KeyS'),right:held('KeyD')-held('KeyA'),climb:held('KeyR')-held('KeyF'),
     roll:held('KeyQ')-held('KeyE'),yaw:held('ArrowRight')-held('ArrowLeft'),pitch:held('ArrowUp')-held('ArrowDown'),lens:held('KeyZ')-held('KeyX'),
@@ -51,7 +54,7 @@ export function createFlightControls(surface:HTMLElement,options:{
     frame=0;if(document.hidden){cancel();return;}
     const dt=last?Math.min(.05,(now-last)/1000):1/60;last=now;
     if(scroll&&(pending.x||pending.y)){
-      const part=Math.hypot(pending.x,pending.y)<.05?1:1-Math.exp(-dt/smoothing);
+      const time=smoothing(),part=time<=0||Math.hypot(pending.x,pending.y)<.05?1:1-Math.exp(-dt/time);
       const x=pending.x*part,y=pending.y*part;pending.x-=x;pending.y-=y;
       scroll.session?.by(x,y);
     }
@@ -61,6 +64,7 @@ export function createFlightControls(surface:HTMLElement,options:{
   const request=()=>{if(!frame&&!document.hidden)frame=requestAnimationFrame(loop);};
   const release=(code:string)=>{if(keys.delete(code))options.key(code,false);};
   const down=(event:KeyboardEvent)=>{
+    control=event.ctrlKey;
     if(!options.enabled()||event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||typing(event.target))return;
     if(event.key==='?'){event.preventDefault();options.command('help');return;}
     const command=COMMANDS[event.code];
@@ -71,6 +75,7 @@ export function createFlightControls(surface:HTMLElement,options:{
     request();
   };
   const up=(event:KeyboardEvent)=>{
+    control=event.ctrlKey;
     if(COMMANDS[event.code])options.key(event.code,false);
     release(event.code);
     // macOS sends no keyup for keys held while Command goes down.
@@ -92,12 +97,17 @@ export function createFlightControls(surface:HTMLElement,options:{
     return Math.abs(delta)%4.000244140625===0||!!legacy&&legacy%120===0&&legacy!==-3*delta;
   };
   const onWheel=(event:WheelEvent)=>{
-    if(control(event.target)||event.defaultPrevented)return;
+    if(inControls(event.target)||event.defaultPrevented)return;
     event.preventDefault();
     if(!options.enabled())return;
     const unit=event.deltaMode===1?16:event.deltaMode===2?surface.clientHeight:1;
+    const now=performance.now();
+    // A scroll continues, momentum included, while its events keep arriving.
+    // Its modifiers are fixed at the start: pressing Shift or Control while
+    // the globe coasts must not turn the rest of the swipe into a look or zoom.
+    const continuing=!!scroll&&now-scroll.time<=160;
     // Trackpad pinch arrives as Ctrl-wheel in Chromium and Firefox; with Shift it zooms the lens.
-    if(event.ctrlKey){
+    if(event.ctrlKey&&!(continuing&&control)){
       if(!gesture){
         endScroll();
         if(event.shiftKey)options.lens(-event.deltaY*unit*.01,event.clientX,event.clientY,false);
@@ -106,7 +116,6 @@ export function createFlightControls(surface:HTMLElement,options:{
       }
       return;
     }
-    const now=performance.now();
     if(!wheel||now-wheel.time>220)wheel={kind:clicky(event)?'zoom':'scroll',time:now};
     wheel.time=now;
     if(wheel.kind==='zoom'){
@@ -121,19 +130,26 @@ export function createFlightControls(surface:HTMLElement,options:{
     }
     options.device('trackpad');
     // macOS keeps sending momentum after the fingers lift, so a flick coasts.
-    // A pause or a changed Shift starts a new gesture; the previous one may
-    // still be landing its smoothed motion, so finish that at once.
-    if(scroll&&(now-scroll.time>160||scroll.look!==event.shiftKey)){scroll.session?.by(pending.x,pending.y);endScroll();}
-    if(!scroll)scroll={session:options.scroll(event.clientX,event.clientY,event.shiftKey),timer:0,time:now,look:event.shiftKey};
+    // A pause starts a new gesture; the previous one may still be landing its
+    // smoothed motion, so finish that at once.
+    if(scroll&&!continuing){scroll.session?.by(pending.x,pending.y);endScroll();}
+    if(!scroll)scroll={session:options.scroll(event.clientX,event.clientY,event.shiftKey),timer:0,time:now,look:event.shiftKey,axis:null};
     scroll.time=now;
     clearTimeout(scroll.timer);scroll.timer=window.setTimeout(settleScroll,160);
-    if(smoothing>0){pending.x-=event.deltaX*unit;pending.y-=event.deltaY*unit;}
-    else scroll.session?.by(-event.deltaX*unit,-event.deltaY*unit);
+    let dx=event.deltaX*unit,dy=event.deltaY*unit;
+    // macOS turns a vertical scroll horizontal while Shift is held. Pressed or
+    // released mid-swipe, it must not swing the coasting globe sideways.
+    if(event.shiftKey!==scroll.look){
+      if(dy===0&&dx!==0&&scroll.axis==='y'){dy=dx;dx=0;}
+      else if(dx===0&&dy!==0&&scroll.axis==='x'){dx=dy;dy=0;}
+    }else if(Math.abs(dx)!==Math.abs(dy))scroll.axis=Math.abs(dx)>Math.abs(dy)?'x':'y';
+    if(smoothing()>0){pending.x-=dx;pending.y-=dy;}
+    else scroll.session?.by(-dx,-dy);
     request();
   };
   // Safari reports trackpad pinch and rotation as its own gesture events.
   const gestureStart=(event:Event)=>{
-    if(control(event.target)||options.touching())return;
+    if(inControls(event.target)||options.touching())return;
     event.preventDefault();endScroll();gesture={scale:1,rotation:0,rolling:false};
   };
   const gestureChange=(event:Event)=>{
@@ -151,7 +167,7 @@ export function createFlightControls(surface:HTMLElement,options:{
   };
   const gestureEnd=()=>{gesture=null;};
   const cancel=()=>{
-    endScroll();gesture=null;[...keys].forEach(release);cancelAnimationFrame(frame);frame=0;last=0;options.stop();
+    endScroll();gesture=null;control=false;[...keys].forEach(release);cancelAnimationFrame(frame);frame=0;last=0;options.stop();
   };
   const visibility=()=>{if(document.hidden)cancel();};
   const focus=(event:FocusEvent)=>{if(typing(event.target))cancel();};
