@@ -16,7 +16,6 @@ type Options={
   lens:(log:number,x:number,y:number,smooth:boolean)=>void;
   changed:()=>void;
   request:()=>void;
-  used:(action:CameraAction)=>void;
   marked:(clientX:number,clientY:number)=>void;
   reducedMotion:()=>boolean;
 };
@@ -50,13 +49,12 @@ export function createCameraController(o:Options){
     if(kind!=='look')free();
     if(kind==='fly'&&!spin){const p=screen(clientX,clientY);nav.grab(hit!.point,p.x,p.y);o.request();}
     const height=()=>Math.max(1,o.canvas.getBoundingClientRect().height);
-    let last={x:clientX,y:clientY},travel=0,taught=false;
+    let last={x:clientX,y:clientY};
     const samples:{t:number;x:number;y:number}[]=[{t:performance.now(),x:clientX,y:clientY}];
     const r=o.canvas.getBoundingClientRect(),centre={x:r.left+r.width/2,y:r.top+r.height/2};
     return {kind,
       move(x,y){
         if(x===last.x&&y===last.y)return;
-        travel+=Math.hypot(x-last.x,y-last.y);
         const now=performance.now();samples.push({t:now,x,y});while(samples.length>2&&now-samples[0].t>100)samples.shift();
         if(kind==='fly'&&spin){const p=screen(clientX,clientY),h=height();nav.spinGlobe((x-last.x)*gain/h,-(y-last.y)*gain/h,p.x,p.y);o.changed();o.request();}
         else if(kind==='fly'){const p=screen(clientX+(x-clientX)*gain,clientY+(y-clientY)*gain);nav.drag(p.x,p.y);o.request();}
@@ -67,7 +65,6 @@ export function createCameraController(o:Options){
           if(Math.hypot(x-centre.x,y-centre.y)>24&&Math.hypot(last.x-centre.x,last.y-centre.y)>24){nav.roll(Math.atan2(Math.sin(b-a),Math.cos(b-a)));o.changed();}
         }
         last={x,y};
-        if(!taught&&travel>24){taught=true;o.used(kind);}
       },
       end(fling=true){
         const now=performance.now(),first=samples[0],latest=samples.at(-1)!,span=(latest.t-first.t)/1000;
@@ -86,40 +83,37 @@ export function createCameraController(o:Options){
     nav.stop();
     const spinning=!lookOnly&&pick(clientX,clientY).hit;
     if(spinning)free();
-    let travel=0,taught=false;
     return {kind:spinning?'fly':'look',
       by(dx,dy){
         if(!dx&&!dy)return;
         if(spinning){const p=screen(clientX,clientY),h=Math.max(1,o.canvas.getBoundingClientRect().height);nav.spinGlobe(dx/h,-dy/h,p.x,p.y);o.changed();}
         else look(clientX,clientY,clientX+dx,clientY+dy);
-        travel+=Math.hypot(dx,dy);
-        if(!taught&&travel>24){taught=true;o.used(spinning?'fly':'look');}
       }};
   };
   return {
     screen,pick,press,scroll,
     /** Two-finger drag: the sky under the fingers' centre follows them. */
-    look(x0:number,y0:number,x1:number,y1:number){if(o.ready()){look(x0,y0,x1,y1);o.used('look');}},
+    look(x0:number,y0:number,x1:number,y1:number){if(o.ready())look(x0,y0,x1,y1);},
     zoom(log:number,clientX?:number,clientY?:number,smooth=false){
       if(!o.ready()||!log)return;
       free();
       const p=clientX===undefined||clientY===undefined?{x:0,y:0}:screen(clientX,clientY);
       if(smooth&&!o.reducedMotion())nav.zoomBy(log,p.x,p.y);else nav.zoom(log,p.x,p.y);
-      o.used('approach');o.changed();o.request();
+      o.changed();o.request();
     },
     /** Lens zoom about the pointer, or the image centre. Positive log
      * magnifies. The camera stays put and a followed orbit stays followed. */
     lens(log:number,clientX?:number,clientY?:number,smooth=false){
       if(!o.ready()||!log)return;
       const p=clientX===undefined||clientY===undefined?{x:0,y:0}:screen(clientX,clientY);
-      o.lens(log,p.x,p.y,smooth&&!o.reducedMotion());o.used('lens');
+      o.lens(log,p.x,p.y,smooth&&!o.reducedMotion());
     },
-    roll(angle:number){if(o.ready()&&angle){free();nav.roll(angle);o.used('roll');o.changed();}},
+    roll(angle:number){if(o.ready()&&angle){free();nav.roll(angle);o.changed();}},
     flyTo(clientX:number,clientY:number,out=false){
       if(!o.ready())return;
       free();const p=screen(clientX,clientY);
       nav.flyTo(p.x,p.y,out?Math.log(2):-Math.log(2),o.reducedMotion()?0:.9);
-      o.marked(clientX,clientY);o.used('approach');o.request();
+      o.marked(clientX,clientY);o.request();
     },
   };
 }

@@ -112,7 +112,8 @@ export async function verifyFlight({run,evaluate,wait,base}){
   let flown=flung;
   for(let i=0;i<40;i++){await run('wait','300');const next=await read();if(next.position===flown.position)break;flown=next;}
   await run('wait','300');assert.equal((await read()).position,flown.position);
-  await input.drag([40,height/2],[90,height/2-60]);await run('wait','300');
+  // Sky at the left edge, above the horizon gauge that sits at its middle.
+  await input.drag([40,height/2-120],[90,height/2-180]);await run('wait','300');
   const turned=await read();assert.equal(turned.position,flown.position);assert.ok(!same(turned,flown));
   await input.drag([centre[0]+50,centre[1]],[centre[0]+60,centre[1]+50],'right');await run('wait','300');
   const rightLook=await read();assert.equal(rightLook.position,turned.position,'right-drag only looks, even over Earth');

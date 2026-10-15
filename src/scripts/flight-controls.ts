@@ -2,10 +2,10 @@ import type { FlightInput } from './orbit-navigation.ts';
 import type { ScrollSession } from './orbit-camera.ts';
 import { SCENE_CONTROLS } from './orbit-camera-drag.ts';
 
-export type FlightCommand='level'|'help'|'route-iss'|'route-polar'|'route-high'|'zoom-in'|'zoom-out';
+export type FlightCommand='level'|'help'|'info'|'free'|'route-iss'|'route-polar'|'route-high'|'zoom-in'|'zoom-out';
 export type WheelDevice='mouse'|'trackpad';
 const HELD=['KeyW','KeyA','KeyS','KeyD','KeyR','KeyF','KeyQ','KeyE','KeyZ','KeyX','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
-const COMMANDS:Record<string,FlightCommand>={KeyH:'level',Digit1:'route-iss',Digit2:'route-polar',Digit3:'route-high',Equal:'zoom-in',NumpadAdd:'zoom-in',Minus:'zoom-out',NumpadSubtract:'zoom-out'};
+const COMMANDS:Record<string,FlightCommand>={KeyH:'level',KeyI:'info',Digit0:'free',Digit1:'route-iss',Digit2:'route-polar',Digit3:'route-high',Equal:'zoom-in',NumpadAdd:'zoom-in',Minus:'zoom-out',NumpadSubtract:'zoom-out'};
 type GestureEvent=UIEvent&{scale:number;rotation:number;clientX:number;clientY:number;shiftKey:boolean};
 // Shift-wheel steps the lens by a third of a doubling per notch.
 const LENS_NOTCH=Math.log(2)/3;
@@ -66,7 +66,7 @@ export function createFlightControls(surface:HTMLElement,options:{
   const down=(event:KeyboardEvent)=>{
     control=event.ctrlKey;
     if(!options.enabled()||event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||typing(event.target))return;
-    if(event.key==='?'){event.preventDefault();options.command('help');return;}
+    if(event.key==='?'){event.preventDefault();if(!event.repeat){options.key('Slash',true);options.command('help');}return;}
     const command=COMMANDS[event.code];
     if(command&&!event.shiftKey){event.preventDefault();if(!event.repeat){options.key(event.code,true);options.command(command);}return;}
     if(!HELD.includes(event.code))return;
@@ -76,7 +76,7 @@ export function createFlightControls(surface:HTMLElement,options:{
   };
   const up=(event:KeyboardEvent)=>{
     control=event.ctrlKey;
-    if(COMMANDS[event.code])options.key(event.code,false);
+    if(COMMANDS[event.code]||event.code==='Slash')options.key(event.code,false);
     release(event.code);
     // macOS sends no keyup for keys held while Command goes down.
     if(event.key==='Meta')[...keys].forEach(release);

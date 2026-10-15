@@ -68,12 +68,14 @@ These are unedited frames from the demo. Each one is a URL, for example
 
 ## Explore
 
-Follow the orbit, or switch to free flight. Drag to look around; pinch or
-<kbd>Ctrl</kbd>/<kbd>⌘</kbd>-scroll to zoom. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
-move, <kbd>Q</kbd>/<kbd>E</kbd> move down or up, and <kbd>Space</kbd> pauses
-time. The settings panel offers ISS, polar and high orbits, plus date, time of
-day, time scale, Moon phase, aurora and exposure. Every view can be shared as a
-URL.
+Follow the ISS, a polar or a high orbit, or grab Earth and fly freely. Drag
+Earth to fly over it and the sky to look around; scroll or pinch to come
+closer. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly, arrow keys look,
+<kbd>F</kbd>/<kbd>R</kbd> come closer or back away, <kbd>Q</kbd>/<kbd>E</kbd>
+roll, <kbd>Z</kbd>/<kbd>X</kbd> zoom the lens and <kbd>Space</kbd> pauses time.
+Help lists every gesture for the mouse, trackpad, touchscreen and keyboard you
+have. Settings offer date, time of day, time scale, Moon phase, aurora and
+exposure. Every view can be shared as a URL.
 
 ## How it is built
 

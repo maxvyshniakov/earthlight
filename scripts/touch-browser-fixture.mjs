@@ -26,7 +26,7 @@ export async function verifyTouch({run,evaluate,wait,base}){
   // One finger on the sky looks around while the orbit keeps following.
   await touch('touchStart',[[1,150,300]]);await glide([[1,150,300]],[[1,210,350]]);await touch('touchEnd',[]);await run('wait','300');
   const looked=await read();assert.notEqual(looked.basis,original.basis);assert.equal(looked.position,original.position);assert.equal(looked.mode,'follow');
-  assert.equal(await evaluate("document.querySelector('.orbit-hud').dataset.modality"),'touch','the tutorial switches to touch gestures');
+  assert.equal(await evaluate("document.querySelector('.orbit-hud').dataset.modality"),'touch','the gesture hints switch to touch');
   // Two fingers moving together also look; they never move the camera.
   await touch('touchStart',[[1,110,300],[2,250,300]]);await glide([[1,110,300],[2,250,300]],[[1,145,340],[2,285,340]]);await run('wait','200');
   const turned=await read();assert.notEqual(turned.basis,looked.basis);assert.equal(turned.position,looked.position);assert.equal(turned.mode,'follow');

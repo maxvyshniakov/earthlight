@@ -35,7 +35,7 @@ export class OrbitalSky extends HTMLElement {
     }
     const canvas = this.querySelector('canvas')!;
     const viewport = this.querySelector<HTMLElement>('.sky-viewport')!;
-    const button = this.querySelector<HTMLButtonElement>('.sky-motion')!;
+    const motionButtons = [...this.querySelectorAll<HTMLButtonElement>('.sky-motion')];
     const controls = this.querySelector<HTMLElement>('.sky-controls')!;
     const settingsToggle = this.querySelector<HTMLButtonElement>('.sky-settings-toggle')!;
     const orbitLink = this.querySelector<HTMLAnchorElement>('.sky-orbit-link');
@@ -44,7 +44,8 @@ export class OrbitalSky extends HTMLElement {
     const orbitInput = this.querySelector<HTMLInputElement>('.sky-track input')!;
     const orbitOutput = this.querySelector<HTMLOutputElement>('.sky-track output')!;
     const timeStatus = this.querySelector<HTMLTimeElement>('.sky-time')!;
-    const coordinateStatus = this.querySelector<HTMLElement>('.sky-coordinates')!;
+    const coordinateStatus = this.querySelector<HTMLElement>('.sky-coordinates');
+    const timeScaleOutputs = [...this.querySelectorAll<HTMLElement>('[data-time-scale]')];
     const lookInputs = [...this.querySelectorAll<HTMLInputElement>('[data-look]')];
     const exposureMode=this.querySelector<HTMLSelectElement>('#sky-exposure-mode')!;
     const auroraMode=this.querySelector<HTMLSelectElement>('#sky-aurora')!;
@@ -58,8 +59,6 @@ export class OrbitalSky extends HTMLElement {
     // Slider 100% is the accepted image grade; renderer gains retain its appearance.
     const lookBase = sceneLook;
     const look:SceneLook = { ...lookBase, moonPhase:null };
-    const playIcon = this.querySelector('.motion-play')!;
-    const pauseIcon = this.querySelector('.motion-pause')!;
     const attributes:WebGLContextAttributes={alpha:false,antialias:false,depth:false,powerPreference:'low-power'};
     const gl=sceneContext(canvas,new URLSearchParams(location.search),attributes);
     if (!gl) return;
@@ -142,7 +141,7 @@ export class OrbitalSky extends HTMLElement {
       while(perfTicks.length&&perfTicks[0].at<now-3000)perfTicks.shift();
     };
     if(perf)try{new PerformanceObserver(list=>{for(const entry of list.getEntries())longFrames.push({at:entry.startTime+entry.duration,ms:entry.duration});}).observe({type:'long-animation-frame',buffered:false});}catch{/* unsupported */}
-    if(perf){perf.style.cssText='position:fixed;left:8px;bottom:104px;z-index:30;padding:4px 6px;font:11px/1.35 ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;pointer-events:none;white-space:pre';this.append(perf);}
+    if(perf){perf.className='sky-perf';(this.querySelector('.sky-service')??this).append(perf);}
     let scrollTimer=0;
     let pendingURL:URL|null=null;
     const updateURL=(url:URL)=>{
@@ -187,6 +186,7 @@ export class OrbitalSky extends HTMLElement {
     const updateSpeedLabel = () => {
 
       speedOutput.value = `${speed}×`;
+      for(const output of timeScaleOutputs)output.textContent=`${speed}×`;
       speedInput.setAttribute('aria-valuetext', `${speed} times orbital speed`);
       paintRange(speedInput);
     };
@@ -248,7 +248,8 @@ export class OrbitalSky extends HTMLElement {
     const updateNavigationUI=()=>{
       if(!standalone)return;
       this.dataset.flightMode=navigation.mode;this.dataset.route=navigation.route;
-      this.querySelector('.sky-title')!.textContent=navigation.free?'Free flight':ROUTE_LABELS[navigation.route];
+      const title=this.querySelector('.sky-title');
+      if(title)title.textContent=navigation.free?'Free flight':ROUTE_LABELS[navigation.route];
       this.querySelector<HTMLElement>('.sky-track')!.hidden=!!navigation.free;
       for(const input of viewInputs)input.closest<HTMLElement>('.setting')!.hidden=!!navigation.free;
       orbitInput.setAttribute('aria-label',`Position in ${ROUTE_LABELS[navigation.route]}`);
@@ -296,7 +297,7 @@ export class OrbitalSky extends HTMLElement {
         if(look.moonPhase==null)updateMoonLabel(orbit.date);
         timeStatus.dateTime=orbit.date.toISOString();
         timeStatus.textContent=`${replayDateFormat.format(orbit.date)} · ${orbit.date.toISOString().slice(11,19)} UTC`;
-        coordinateStatus.textContent=`${Math.abs(orbit.latitude).toFixed(1)}° ${orbit.latitude<0?'S':'N'} · ${Math.abs(orbit.longitude).toFixed(1)}° ${orbit.longitude<0?'W':'E'} · ${Math.round(orbit.altitude)} km`;
+        if(coordinateStatus)coordinateStatus.textContent=`${Math.abs(orbit.latitude).toFixed(1)}° ${orbit.latitude<0?'S':'N'} · ${Math.abs(orbit.longitude).toFixed(1)}° ${orbit.longitude<0?'W':'E'} · ${Math.round(orbit.altitude)} km`;
       }
     };
     const statusTick = () => {
@@ -443,10 +444,13 @@ export class OrbitalSky extends HTMLElement {
       playback.setRunning(!paused && !document.hidden && !lost && this.hasAttribute('data-ready'),performance.now());
       lastAnimationDraw=0;
       renderer?.resetCadence();
-      playIcon.toggleAttribute('data-hidden',!paused);
-      pauseIcon.toggleAttribute('data-hidden',paused);
-      button.setAttribute('aria-label', paused ? 'Play' : 'Pause');
-      button.title = paused ? 'Play' : 'Pause';
+      this.toggleAttribute('data-paused',paused);
+      for(const button of motionButtons){
+        button.querySelector('.motion-play')?.toggleAttribute('data-hidden',!paused);
+        button.querySelector('.motion-pause')?.toggleAttribute('data-hidden',paused);
+        button.setAttribute('aria-label', paused ? 'Play' : 'Pause');
+        button.title = paused ? 'Play' : 'Pause';
+      }
       updateOrbitLink();
       if(paused&&!document.hidden&&!lost&&this.hasAttribute('data-ready')&&performance.now()<exposureUntil)draw();
       if (!paused && !document.hidden && !lost && this.hasAttribute('data-ready')) {
@@ -480,6 +484,7 @@ export class OrbitalSky extends HTMLElement {
       const target=event.target;
       if(target instanceof Element&&target.closest('input,textarea,select,button,a,[contenteditable]:not([contenteditable="false"]),[role="slider"]'))return;
       event.preventDefault();toggle();
+      hud?.key('Space',true);window.setTimeout(()=>hud?.key('Space',false),120);
     };
     const seek = () => {
       const offset=composition().offset;
@@ -708,11 +713,10 @@ export class OrbitalSky extends HTMLElement {
       if(!ready())return;
       if(animate&&!reducedMotion()){lensGoal={log:Math.log(Math.max(1,Math.min(LENS_MAX,zoom))/lensZoom()),x:0,y:0};flightControls?.request();}
       else{lensGoal=null;applyLens(zoom);}
-      hud?.learn('lens');
     };
     // Z and X zoom about the centre, about ×2 per second; Shift is faster.
     const stepLens=(dt:number,input:FlightInput)=>{
-      if(input.lens){lensGoal=null;applyLens(lensZoom()*2**(input.lens*(input.fast?2.5:1)*dt));hud?.learn('lens');return;}
+      if(input.lens){lensGoal=null;applyLens(lensZoom()*2**(input.lens*(input.fast?2.5:1)*dt));return;}
       if(!lensGoal)return;
       const goal=lensGoal,part=Math.abs(goal.log)<1e-3?goal.log:goal.log*(1-Math.exp(-dt/.09));
       goal.log-=part;if(goal.log===0)lensGoal=null;
@@ -722,7 +726,7 @@ export class OrbitalSky extends HTMLElement {
     const camera=createCameraController({canvas,navigation,frame:currentObserver,ready,detach:enterFree,
       followLook:(dx,dy)=>lookCamera(draggedCamera(cameraView.yaw,cameraView.pitch,dx,dy,canvas.getBoundingClientRect().height,navigation.focal)),
       lens:zoomLens,
-      changed:cameraChanged,request:()=>flightControls?.request(),used:action=>hud?.learn(action),
+      changed:cameraChanged,request:()=>flightControls?.request(),
       marked:(x,y)=>hud?.pulse(x,y),reducedMotion});
     // While following an orbit, arrows turn the head and any other flight key
     // starts free flight from the current pose.
@@ -735,8 +739,14 @@ export class OrbitalSky extends HTMLElement {
     const command=(name:FlightCommand)=>{
       if(!ready())return;
       if(name==='help')hud?.toggleHelp();
-      else if(name==='level'){if(navigation.free){navigation.level(reducedMotion());cameraChanged();flightControls?.request();}else lookCamera({yaw:0,pitch:0});}
+      else if(name==='info')hud?.toggleInfo();
+      // A followed orbit first drops its look-around; once facing ahead, H flies free to turn over.
+      else if(name==='level'){
+        if(!navigation.free&&(cameraView.yaw||cameraView.pitch))lookCamera({yaw:0,pitch:0});
+        else{enterFree();navigation.level(reducedMotion());cameraChanged();flightControls?.request();}
+      }
       else if(name==='zoom-in'||name==='zoom-out')camera.zoom((name==='zoom-in'?-1:1)*Math.log(1.6),undefined,undefined,true);
+      else if(name==='free'){enterFree();draw();}
       else followRoute(name.slice(6) as Route);
     };
     if(dragSurface)flightControls=createFlightControls(dragSurface,{
@@ -746,10 +756,6 @@ export class OrbitalSky extends HTMLElement {
         stepLens(dt,input);
         if(!navigation.free)followKeys(dt,input);
         if(navigation.free?navigation.step(dt,input):navigation.moving)cameraChanged();
-        if(input.forward||input.right)hud?.learn('fly');
-        if(input.yaw||input.pitch)hud?.learn('look');
-        if(input.climb)hud?.learn('approach');
-        if(input.roll)hud?.learn('roll');
         return navigation.moving||lensGoal!==null;
       },
       zoom:(log,x,y,smooth)=>camera.zoom(log,x,y,smooth),
@@ -763,16 +769,16 @@ export class OrbitalSky extends HTMLElement {
       stop:()=>{navigation.stop();settleLens();},
     });
     const disposeCameraDrag=dragSurface?createCameraDrag(dragSurface,camera,(x,y,intent)=>{
-      if(x===null||!ready()){hud?.hover(null,0,null);delete dragSurface.dataset.cursor;return;}
+      if(x===null||!ready()){delete dragSurface.dataset.cursor;return;}
       const kind=intent==='roll'?'roll':intent==='look'||!camera.pick(x,y).hit?'look':'fly';
-      dragSurface.dataset.cursor=kind;hud?.hover(x,y,kind);
+      dragSurface.dataset.cursor=kind;
     }):()=>{};
     const touchSurface=dragSurface?.querySelector<HTMLElement>('.orbit-gestures');
     const touch=touchSurface?createTouchCamera(touchSurface,camera,()=>hud?.setModality('touch'),touchGain,touchSpin):null;
     hud=standalone?createOrbitHud(this,{
       route:route=>{if(ready())followRoute(route);},
       free:()=>{if(ready()){enterFree();draw();}},
-      altitude:km=>{if(!ready())return;enterFree();navigation.setAltitude(km);hud?.learn('approach');flightControls?.request();},
+      altitude:km=>{if(!ready())return;enterFree();navigation.setAltitude(km);flightControls?.request();},
       current:()=>currentObserver().altitude,
       lens:lensTo,
       lensZoom,
@@ -894,7 +900,7 @@ export class OrbitalSky extends HTMLElement {
       if(controls.hidden)panelController.close();
     });
     if (hero) visibility.observe(hero);
-    button.addEventListener('click', toggle);
+    motionButtons.forEach(button=>button.addEventListener('click', toggle));
     window.addEventListener('keydown',playbackKey);
     speedInput.addEventListener('input', changeSpeed);
     orbitInput.addEventListener('input', seek);
@@ -927,7 +933,7 @@ export class OrbitalSky extends HTMLElement {
       cancelAnimationFrame(urlUpdateFrame);
       observer.disconnect();
       visibility.disconnect();
-      button.removeEventListener('click', toggle);
+      motionButtons.forEach(button=>button.removeEventListener('click', toggle));
       window.removeEventListener('keydown',playbackKey);
       panelController.close();
       orbitLink?.removeEventListener('pointerdown',prepareOrbitLink);
@@ -952,6 +958,7 @@ export class OrbitalSky extends HTMLElement {
       canvas.removeEventListener('webglcontextlost', contextLost);
       canvas.removeEventListener('webglcontextrestored', contextRestored);
       renderer.dispose();
+      this.removeAttribute('data-paused');
       delete this.dataset.ready;
       delete this.dataset.surfaceReady;
       delete this.dataset.starsReady;

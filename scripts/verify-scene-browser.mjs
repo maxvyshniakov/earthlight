@@ -456,6 +456,8 @@ try{
  // A control click must not begin a camera drag, and dragging must not pause playback.
  await run('click','.sky-settings-toggle');
  assert.equal((await viewState()).yaw,dragged.yaw);
+ // The settings drawer slides in; click inside it once it has arrived.
+ await wait("document.querySelector('#sky-settings').matches(':popover-open')&&!document.querySelector('#sky-settings').getAnimations().length");
  await run('click','.sky-motion');
  await run('mouse','move','500','400');await run('mouse','down');await run('mouse','move','550','440');await run('mouse','up');
  assert.equal((await viewState()).motion,'Pause');

@@ -1,74 +1,83 @@
 import { attitude, MIN_ALTITUDE, MAX_ALTITUDE, PROJECTION, type ObserverFrame, type Route } from './orbit-navigation.ts';
-import { EARTH_RADIUS_KM, dot, type Vec3 } from './iss-orbit.ts';
-import type { CameraAction } from './orbit-camera.ts';
+import { shellCoverage, SHELL } from './scene-view-scale.ts';
+import { EARTH_RADIUS_KM, add, cross, dot, normalize, scale, type Vec3 } from './iss-orbit.ts';
 
 export type Modality='mouse'|'trackpad'|'touch';
-const VERBS:CameraAction[]=['fly','look','approach','lens','roll'];
-const STORAGE='orbit-controls-learned';
-const LABELS:Record<string,string>={fly:'Drag · fly',look:'Drag · look',roll:'Drag · roll'};
 const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
+/** Horizon gauge geometry in its 48 px drawing: dial radius, pixels per degree of
+ * pitch, and the Earth arc and Sun ring 3 px outside the dial's 1 px stroke. */
+export const GAUGE={dial:19,pitch:.42,earthAt:23.25,sun:2.6,sunAt:25.6};
+const deg=Math.PI/180;
+// The Earth arc never gets shorter than 8 px, so it still reads as an arc.
+const EARTH_MIN=4/GAUGE.earthAt/deg;
+/** Earth surrounds the view: the frame's centre is on it, or its whole disk is in frame. */
+const earthWhole=(camera:ArrayLike<number>,b:number[],focal:number,aspect:number)=>{
+  const p:Vec3=[camera[0],camera[1],camera[2]],far=Math.hypot(...p),ahead=dot(p,b.slice(6,9) as Vec3);
+  if(ahead<0&&ahead*ahead>far*far-SHELL*SHELL)return true;
+  const centre=scale(p,-1/far),sin=Math.min(1,SHELL/far),cos=Math.sqrt(1-sin*sin);
+  const u=normalize(cross(centre,Math.abs(centre[2])<.9?[0,0,1]:[1,0,0])),v=cross(centre,u);
+  for(let i=0;i<16;i++){
+    const t=i*Math.PI/8,limb=add(scale(centre,cos),scale(add(scale(u,Math.cos(t)),scale(v,Math.sin(t))),sin));
+    const z=dot(limb,b.slice(6,9) as Vec3);
+    if(z<=0||Math.abs(focal*dot(limb,b.slice(0,3) as Vec3)/z)>aspect/2||Math.abs(focal*dot(limb,b.slice(3,6) as Vec3)/z)>.5)return false;
+  }
+  return true;
+};
+const arc=(centre:number,half:number)=>{
+  const R=GAUGE.earthAt;
+  if(half>=179.5)return `M${R} 0A${R} ${R} 0 1 1 ${-R} 0A${R} ${R} 0 1 1 ${R} 0`;
+  const at=(a:number)=>`${(R*Math.cos(a*deg)).toFixed(2)} ${(R*Math.sin(a*deg)).toFixed(2)}`;
+  return `M${at(centre-half)}A${R} ${R} 0 ${half>90?1:0} 1 ${at(centre+half)}`;
+};
 const signed=(v:number)=>`${v<0?'−':'+'}${String(Math.abs(Math.round(v))).padStart(2,'0')}°`;
 // Whole magnifications read as such; in between, one decimal, as a phone camera shows.
 const lensLabel=(zoom:number)=>zoom>=9.95||Math.abs(zoom-Math.round(zoom))<.05?String(Math.round(zoom)):zoom.toFixed(1);
 
-/** Orbit page instruments: camera presets, a logarithmic altitude tape, a
- * horizon gauge, lens presets and a five-verb tutorial that ticks off as each
- * gesture is tried. Pure presentation; navigation happens through the callbacks. */
+/** Orbit page instruments: a replay clock, camera presets, a logarithmic
+ * altitude tape, a horizon gauge, lens presets, gesture hints and the controls
+ * panel. Hints and help cover only the inputs this device has. Pure
+ * presentation; navigation happens through the callbacks. */
 export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;free:()=>void;altitude:(km:number)=>void;current:()=>number;level:()=>void;
   /** Lens magnification about the image centre, 1–20; animated unless told otherwise. */
   lens:(zoom:number,animate?:boolean)=>void;lensZoom:()=>number}){
-  const hud=root.querySelector<HTMLElement>('.orbit-hud'),help=root.querySelector<HTMLElement>('#flight-help');
-  if(!hud||!help)return null;
+  const hud=root.querySelector<HTMLElement>('.orbit-hud'),help=root.querySelector<HTMLElement>('#flight-help'),info=root.querySelector<HTMLElement>('#sky-info');
+  if(!hud||!help||!info)return null;
   const tape=hud.querySelector<HTMLElement>('.hud-tape')!,output=hud.querySelector<HTMLOutputElement>('.altitude-output')!;
   const gauge=hud.querySelector<HTMLElement>('.hud-attitude')!,horizon=gauge.querySelector<SVGElement>('.gauge-horizon')!;
+  const earthArc=gauge.querySelector<SVGPathElement>('.gauge-earth')!,sunRing=gauge.querySelector<SVGCircleElement>('.gauge-sun')!;
   const readouts=Object.fromEntries([...hud.querySelectorAll<HTMLElement>('[data-attitude]')].map(e=>[e.dataset.attitude!,e]));
-  const cursor=hud.querySelector<HTMLElement>('.hud-cursor')!,cursorLabel=cursor.querySelector<HTMLElement>('.hud-cursor-label')!;
   const pulseTemplate=hud.querySelector<HTMLElement>('.hud-pulse')!;
   const fpm=hud.querySelector<HTMLElement>('.hud-fpm')!,speed=fpm.querySelector<HTMLElement>('.hud-speed')!,canvas=root.querySelector('canvas')!;
   const modeButtons=[...hud.querySelectorAll<HTMLButtonElement>('.hud-modes :is([data-route],[data-flight-mode])')];
   const lensControl=hud.querySelector<HTMLElement>('.hud-lens')!,lensButtons=[...lensControl.querySelectorAll<HTMLButtonElement>('[data-lens]')];
-  const lensValue=lensControl.querySelector<HTMLElement>('.lens-value')!,lensFocal=lensControl.querySelector<HTMLElement>('.lens-focal')!;
-  const verbs=[...hud.querySelectorAll<HTMLElement>('.hud-verb')];
   const timers=new Set<number>();
   const later=(fn:()=>void,ms:number)=>{const id=window.setTimeout(()=>{timers.delete(id);fn();},ms);timers.add(id);};
-  // Option is ⌥ only on Apple keyboards.
-  if(!/Mac|iPhone|iPad/.test(navigator.platform)){
-    hud.querySelectorAll('.hud-alt').forEach(e=>e.textContent='Alt');
-    help.querySelectorAll('[role="cell"]').forEach(e=>{e.textContent=e.textContent!.replaceAll('⌥','Alt');});
-  }
+  // Option is a key only on Apple keyboards.
+  if(!/Mac|iPhone|iPad/.test(navigator.platform))for(const e of [...hud.querySelectorAll('.hud-alt'),...help.querySelectorAll('.hud-alt')])e.textContent='Alt';
+  // Only Safari reports a trackpad rotation.
+  if('ongesturestart' in window)hud.dataset.gesture=help.dataset.gesture='';
 
-  let learned=new Set<string>();
-  try{const saved=JSON.parse(localStorage.getItem(STORAGE)??'[]');if(Array.isArray(saved))learned=new Set(saved.filter(v=>VERBS.includes(v)));}catch{/* Storage is optional. */}
-  const complete=()=>VERBS.every(v=>learned.has(v));
-  const paintLearned=()=>{
-    const next=verbs.find(verb=>!learned.has(verb.dataset.verb!));
-    for(const verb of verbs){verb.toggleAttribute('data-learned',learned.has(verb.dataset.verb!));verb.toggleAttribute('data-next',verb===next);}
-    hud.toggleAttribute('data-learned',complete());hud.toggleAttribute('data-teaching',!complete());
-  };
-  paintLearned();
-  const learn=(action:CameraAction)=>{
-    if(learned.has(action))return;
-    learned.add(action);
-    try{localStorage.setItem(STORAGE,JSON.stringify([...learned]));}catch{/* Storage is optional. */}
-    const verb=verbs.find(v=>v.dataset.verb===action);
-    if(verb){verb.dataset.justLearned='';later(()=>delete verb.dataset.justLearned,700);}
-    // Let the last tick land before the tutorial folds away.
-    if(complete()){for(const v of verbs){v.setAttribute('data-learned','');v.removeAttribute('data-next');}later(paintLearned,1400);}
-    else paintLearned();
-  };
-  const replay=()=>{
-    learned.clear();try{localStorage.removeItem(STORAGE);}catch{/* Storage is optional. */}
-    paintLearned();help.hidePopover();
-  };
 
-  let modality:Modality=matchMedia('(any-pointer: fine)').matches?'mouse':'touch';
-  const setModality=(next:Modality)=>{if(next!==modality){modality=next;hud.dataset.modality=help.dataset.modality=next;}};
+  // The inputs this device has, so hints and help never teach a missing one. A
+  // fine pointer comes with a keyboard; anything else counts once it is used.
+  const fine=matchMedia('(any-pointer: fine)').matches,coarse=navigator.maxTouchPoints>0||matchMedia('(any-pointer: coarse)').matches;
+  const inputs={pointer:fine||!coarse,touch:coarse,keyboard:fine};
+  // An action in the controls panel with no lane left for this device hides its heading too.
+  const tidyHelp=()=>{
+    for(const head of help.querySelectorAll<HTMLElement>('.help-head')){
+      const cells=[...help.querySelectorAll<HTMLElement>(`.help-cell[data-column="${head.dataset.column}"]`)];
+      head.hidden=!head.querySelector('.help-note')&&cells.every(cell=>getComputedStyle(cell).display==='none');
+    }
+  };
+  const paintInputs=()=>{for(const e of [hud,help])for(const [name,present] of Object.entries(inputs))e.toggleAttribute(`data-${name}`,present);tidyHelp();};
+  const seen=(input:keyof typeof inputs)=>{if(!inputs[input]){inputs[input]=true;paintInputs();}};
+  paintInputs();
+  let modality:Modality=fine?'mouse':'touch';
+  const setModality=(next:Modality)=>{seen(next==='touch'?'touch':'pointer');if(next!==modality){modality=next;hud.dataset.modality=help.dataset.modality=next;}};
   hud.dataset.modality=help.dataset.modality=modality;
-  const keyboard=()=>{hud.setAttribute('data-keyboard','');help.setAttribute('data-keyboard','');};
-  if(modality==='mouse')keyboard();
   const key=(code:string,down:boolean)=>{
-    if(down)keyboard();
-    hud.querySelectorAll(`kbd[data-key="${code}"]`).forEach(k=>k.toggleAttribute('data-pressed',down));
+    if(down)seen('keyboard');
+    for(const scope of [hud,help])scope.querySelectorAll(`kbd[data-key="${code}"]`).forEach(k=>k.toggleAttribute('data-pressed',down));
   };
 
   // The tape is logarithmic, like the climb itself.
@@ -108,18 +117,10 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
       button.setAttribute('aria-pressed',String(Math.abs(zoom-preset)<.005*preset));
       if(number.textContent!==text)number.textContent=text;
     }
-    lensValue.textContent=`${label}×`;lensFocal.textContent=`${Math.round(30*zoom)} mm`;
     lensControl.setAttribute('aria-label',`Lens ${label}×, ${Math.round(30*zoom)} mm`);
   };
 
-  // Fade the instruments once the tutorial is done and nothing moves for a while.
-  let idleTimer=0;
-  const wake=()=>{
-    root.removeAttribute('data-hud-idle');clearTimeout(idleTimer);
-    idleTimer=window.setTimeout(()=>{if(!hud.matches(':hover,:focus-within'))root.setAttribute('data-hud-idle','');},4500);
-  };
-  const touchSeen=(event:PointerEvent)=>{wake();if(event.pointerType==='touch')setModality('touch');else if(event.pointerType==='pen'||modality==='touch')setModality('mouse');};
-  wake();
+  const touchSeen=(event:PointerEvent)=>{if(event.pointerType==='touch')setModality('touch');else if(event.pointerType==='pen'||modality==='touch')setModality('mouse');else seen('pointer');};
 
   tape.addEventListener('pointerdown',tapeDown);tape.addEventListener('pointermove',tapeMove);
   for(const type of ['pointerup','pointercancel','lostpointercapture'])tape.addEventListener(type,tapeUp as EventListener);
@@ -128,18 +129,30 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   gauge.addEventListener('click',level);
   lensButtons.forEach(button=>button.addEventListener('click',lensPreset));
   lensControl.addEventListener('wheel',lensWheel,{passive:false});
-  const replayButton=help.querySelector('.flight-help-replay')!;replayButton.addEventListener('click',replay);
+  // The controls panel docks under the scene and shrinks it, as a phone's
+  // browser bars do, so the scene's resize path gets exercised here too.
+  const dockInset=()=>root.style.setProperty('--sky-inset-bottom',help.matches(':popover-open')?`${help.offsetHeight}px`:'0px');
+  const dockSize=new ResizeObserver(dockInset);
+  const helpToggled=()=>{
+    const open=help.matches(':popover-open');
+    dockInset();root.toggleAttribute('data-controls-open',open);
+    if(open)dockSize.observe(help);else dockSize.unobserve(help);
+  };
+  // It stays open while you fly; Escape closes it unless a dialog takes the key.
+  const helpEscape=(event:KeyboardEvent)=>{if(event.key==='Escape'&&help.matches(':popover-open')&&!root.querySelector('[popover="auto"]:popover-open'))help.hidePopover();};
+  // The panel scrolls sideways; a plain wheel does that too.
+  const helpGrid=help.querySelector<HTMLElement>('.help-grid')!;
+  const helpWheel=(event:WheelEvent)=>{if(Math.abs(event.deltaY)>Math.abs(event.deltaX)&&helpGrid.scrollWidth>helpGrid.clientWidth){event.preventDefault();helpGrid.scrollLeft+=event.deltaY;}};
+  help.addEventListener('toggle',helpToggled);window.addEventListener('keydown',helpEscape);helpGrid.addEventListener('wheel',helpWheel,{passive:false});
   window.addEventListener('pointerdown',touchSeen,{passive:true});
-  window.addEventListener('pointermove',wake,{passive:true});
-  window.addEventListener('keydown',wake,{passive:true});
-  window.addEventListener('wheel',wake,{passive:true});
 
-  const shown={altitude:-1,lens:1,heading:'',pitch:'',roll:'',state:'',mode:''};
+  const shown={altitude:-1,lens:1,heading:'',pitch:'',roll:'',mode:'',earth:'',sun:''};
   return {
-    learn,setModality,key,
+    setModality,key,
     get modality(){return modality;},
     toggleHelp(){help.togglePopover();},
-    frame(frame:ObserverFrame&{focal?:number},free:boolean,route:Route,motion:Vec3){
+    toggleInfo(){info.togglePopover();},
+    frame(frame:ObserverFrame&{focal?:number;sun?:Vec3},free:boolean,route:Route,motion:Vec3){
       // Flight path marker: where the camera is heading, and how fast, through the frame's lens.
       const focal=frame.focal??PROJECTION,b=frame.cameraBasis,kms=Math.hypot(...motion)*EARTH_RADIUS_KM,z=dot(motion,b.slice(6,9) as Vec3);
       const r=canvas.getBoundingClientRect();
@@ -163,23 +176,34 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
       }
       const a=attitude(frame);
       horizon.style.setProperty('--roll',`${a.roll.toFixed(2)}deg`);
-      horizon.style.setProperty('--pitch',`${clamp(a.pitch*.42,-28,28).toFixed(2)}px`);
-      const values={heading:`${String(Math.round(a.heading)%360).padStart(3,'0')}°`,pitch:signed(a.pitch),roll:signed(a.roll),
-        state:Math.abs(a.roll)>100?'Inverted':'Level'};
-      for(const k of ['heading','pitch','roll','state'] as const)if(shown[k]!==values[k]){shown[k]=values[k];readouts[k].textContent=values[k];}
-      gauge.toggleAttribute('data-tilted',Math.abs(a.roll)>1.5);
+      const shift=clamp(a.pitch*GAUGE.pitch,-38,38);
+      horizon.style.setProperty('--pitch',`${shift.toFixed(2)}px`);
+      // Earth: an arc about the ground side, out to where the horizon line meets
+      // the dial, but no wider than the share of the view Earth fills. It closes
+      // when Earth surrounds the view.
+      const aspect=r.width/Math.max(1,r.height),coverage=shellCoverage(frame.camera,b,focal,aspect,12,12);
+      const ground=shift>=GAUGE.dial?0:shift<=-GAUGE.dial?180:Math.acos(shift/GAUGE.dial)/deg;
+      const earth=arc(90+a.roll,earthWhole(frame.camera,b,focal,aspect)?180:Math.max(EARTH_MIN,Math.min(ground,coverage>=.5?180:coverage*360)));
+      if(earth!==shown.earth){shown.earth=earth;earthArc.setAttribute('d',earth);}
+      // Sun: a ring outside the dial at its direction across the image, faint
+      // when behind. In frame it flies inside, as far out as the pitch ladder
+      // would put it.
+      if(frame.sun){
+        const x=dot(frame.sun,b.slice(0,3) as Vec3),y=dot(frame.sun,b.slice(3,6) as Vec3),z=dot(frame.sun,b.slice(6,9) as Vec3),across=Math.hypot(x,y);
+        const inFrame=z>0&&Math.abs(focal*x/z)<=aspect/2&&Math.abs(focal*y/z)<=.5;
+        const out=inFrame?Math.acos(clamp(z,-1,1))/deg*GAUGE.pitch:GAUGE.sunAt;
+        sunRing.toggleAttribute('hidden',!inFrame&&across<1e-3);
+        const place=across<1e-6?'translate(0px, 0px)':`translate(${(out*x/across).toFixed(2)}px, ${(-out*y/across).toFixed(2)}px)`;
+        if(place!==shown.sun){shown.sun=place;sunRing.style.transform=place;}
+        sunRing.toggleAttribute('data-behind',z<0);
+      }
+      const values={heading:`${String(Math.round(a.heading)%360).padStart(3,'0')}°`,pitch:signed(a.pitch),roll:signed(a.roll)};
+      for(const k of ['heading','pitch','roll'] as const)if(shown[k]!==values[k]){shown[k]=values[k];readouts[k].textContent=values[k];}
       const current=free?'free':route;
       if(shown.mode!==current){
         shown.mode=current;
         for(const button of modeButtons)button.setAttribute('aria-pressed',String(button.dataset.route?!free&&button.dataset.route===route:free));
       }
-    },
-    hover(clientX:number|null,clientY:number,kind:CameraAction|null){
-      const teach=clientX!==null&&!!kind&&!!LABELS[kind]&&!learned.has(kind)&&modality!=='touch';
-      cursor.hidden=!teach;
-      if(!teach)return;
-      cursor.style.setProperty('--x',`${clientX}px`);cursor.style.setProperty('--y',`${clientY}px`);
-      if(cursor.dataset.kind!==kind){cursor.dataset.kind=kind;cursorLabel.textContent=LABELS[kind];}
     },
     pulse(clientX:number,clientY:number){
       if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
@@ -187,15 +211,16 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
       ring.style.left=`${clientX}px`;ring.style.top=`${clientY}px`;hud.append(ring);later(()=>ring.remove(),800);
     },
     dispose(){
-      clearTimeout(idleTimer);timers.forEach(id=>clearTimeout(id));timers.clear();root.removeAttribute('data-hud-idle');
+      timers.forEach(id=>clearTimeout(id));timers.clear();
       tape.removeEventListener('pointerdown',tapeDown);tape.removeEventListener('pointermove',tapeMove);
       for(const type of ['pointerup','pointercancel','lostpointercapture'])tape.removeEventListener(type,tapeUp as EventListener);
       tape.removeEventListener('keydown',tapeKey);tape.removeEventListener('wheel',tapeWheel);
       modeButtons.forEach(button=>button.removeEventListener('click',mode));
-      gauge.removeEventListener('click',level);replayButton.removeEventListener('click',replay);
+      gauge.removeEventListener('click',level);
       lensButtons.forEach(button=>button.removeEventListener('click',lensPreset));lensControl.removeEventListener('wheel',lensWheel);
-      window.removeEventListener('pointerdown',touchSeen);window.removeEventListener('pointermove',wake);
-      window.removeEventListener('keydown',wake);window.removeEventListener('wheel',wake);
+      window.removeEventListener('pointerdown',touchSeen);
+      help.removeEventListener('toggle',helpToggled);window.removeEventListener('keydown',helpEscape);helpGrid.removeEventListener('wheel',helpWheel);
+      dockSize.disconnect();root.style.removeProperty('--sky-inset-bottom');root.removeAttribute('data-controls-open');
     },
   };
 }

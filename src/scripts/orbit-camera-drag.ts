@@ -6,7 +6,8 @@ export function draggedCamera(yaw:number,pitch:number,dx:number,dy:number,height
   const degrees=180/Math.PI/focal/Math.max(1,height);
   return {yaw:((yaw-dx*degrees+180)%360+360)%360-180,pitch:Math.max(-90,Math.min(90,pitch+dy*degrees))};
 }
-export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.sky-panel,.sky-controls,.scene-comparison,.orbit-hud,.flight-help';
+// Wheels, drags and pinches over these stay theirs; the scene ignores them.
+export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.sky-panel,.sky-dialog,.sky-controls,.scene-comparison,.orbit-hud,.flight-help';
 
 /** Mouse and pen. Left button grabs whatever is under it; right or middle
  * button, or Shift, always looks; Option/Alt twists the image. Orbit page only. */

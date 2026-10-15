@@ -410,6 +410,69 @@ Credits and settings use native auto popovers with Escape, light dismiss and
 focus restoration. They are positioned beside the telemetry and constrained to
 the viewport. Home telemetry is part of the hero rather than a fixed overlay.
 
+Since 2026-10-15 the explorer (`/`) has no telemetry block. A replay clock sits
+top centre: date and UTC time, time scale, a Play/Pause button and its Space
+key. Camera presets (ISS, Polar, High, Free) stack top right above the altitude
+tape without a plate, names left of their keys 1, 2, 3 and 0; the active one's key looks pressed, like a held
+key, rather than the button filling like a segmented control. The HUD stays visible; it no longer fades when idle. Every HUD element keeps
+12 px from the screen edges. Help, Info and Settings stack in the lower-right corner, set like the presets:
+Help and Info show their keys, ? and i, and Settings a gear. Help opens a
+controls panel docked along the bottom, like an editor's shortcut sheet, which
+stays open while you fly (× or Escape closes it). It shrinks the scene above it,
+canvas and HUD alike, as a phone's browser bars do, so the explorer itself
+exercises the resize path the embedded scene meets on the personal site; the HUD
+is a size container, so its tape and short layout follow its own height. The
+panel has no tabs: a column per action (Fly, Look, Closer and farther, Lens,
+Roll, Orbits, Time), scrolling sideways, and a lane per input (Keyboard, Mouse,
+Trackpad, Touch) labelled at the left, so each input sits at the same height
+under every action. Lanes for inputs the device lacks go, every lane reads alike
+whatever input is in use, and a column with nothing left hides. Keys come as rows of key and
+effect: a cluster laid out as on the keyboard (W over A S D, the arrows
+likewise), alternatives joined by "or", and ⇧ as Faster wherever it applies.
+Obvious taps and clicks are left out, and the cards' own gesture lines hide
+while it is open. The panel's text and key caps share one size and a 16 KB
+subset of Inter (`public/fonts`, OFL, weights 400–700) for its arrows and ⇧ ⌥;
+inline keys sit on the text baseline. Info and
+Settings are centred dialogs that scroll inside: Info carries a short note on
+what the scene shows and the image credits. Diagnostics (`compare=1`, the MODIS study, `perf=1`) stack in
+the top-left corner. The altitude tape stands alone at the middle of the right
+edge, without a card and without an axis line: the right ends of its ticks form
+the line. Long ticks sit at 1, 2, 3 and 5 of each decade from the 150 km floor
+to 50K, each labelled with its number only. Short ticks split each gap evenly, so
+spacing changes only at a long tick; a gap gets as many as its round steps (25 km
+from 200 to 300, 200 km from 1K to 2K), so each sits near a round value. Short
+screens show only the long ticks and drop the 200, 3K and 30K labels. The reading sits beyond the labels, plain text
+joined to the tape by a rule that passes under them; on hover or focus it turns
+black on opaque orange. The horizon gauge and its HDG/PIT/ROL readouts sit at
+the middle of the left edge and the lens presets at the bottom centre, both
+plain like the tape and presets: no card, grey names, the lit preset white. Cards have no borders and no backdrop blur,
+which cost frames over the live canvas and smeared at their edges; keyboard
+focus shows as a fill or glow, never an outline.
+
+The horizon gauge has a pitch ladder over the whole ±90° (a rung every 6°, long
+every 30°) and no ticks on its dial. Outside the dial, 3 px off it, a ring marks
+the Sun's direction across the image (faint when behind the camera; in frame it
+flies inside the dial, as far out as the pitch ladder would place it) and an arc
+marks Earth's: centred on the ground side, reaching where the horizon line meets
+the dial, no wider than the share of the view Earth fills, and never under 8 px;
+it closes into a ring when the frame's centre is on Earth or its whole disk is in
+frame.
+H, or a click on the gauge, levels a tilted view; on a level one it turns the
+view upside down, and back. Long turns run clockwise. Following an orbit, H first clears the look-around
+and then flies free to turn over. The gauge and H measure roll against the local
+vertical right down to the nadir; north up stands in only for an exactly
+vertical view. It used to take over within about 6° of straight down, which
+flipped the gauge by the heading as the view passed that cone.
+
+There is no tutorial and no hints on the instruments; every key and gesture is
+in the controls panel. Shift and Option show as their
+key-cap symbols (Alt off Apple keyboards). Key caps keep 3 px inner corners all
+round; the 2 px bottom edge gets a taller outer curve. Every single-glyph cap
+has one width, set by the widest (⇧, W) plus padding. Nothing animates on
+hover. Key caps appear only once a keyboard is likely (a fine pointer) or used;
+the controls panel's lanes follow the same detection, and Safari alone is told
+that a trackpad rotation rolls.
+
 `SceneCalendar` anchors simulation seconds to an independent UTC epoch. A fresh
 page uses now, including links that specify only the old route offset `t`.
 Saved interactions and links include `epoch` (ISO UTC) so the chosen lighting
@@ -824,7 +887,7 @@ flare flux. `moon` in the URL preserves the override. Reset all restores the cur
 Moon phase, starting route time, 10× speed, playback, default camera and 100% image
 controls, removing their URL overrides.
 
-Popover headers support pointer-captured mouse/touch dragging, excluding buttons.
+In page composition, popover headers support pointer-captured mouse/touch dragging, excluding buttons; the explorer's drawers do not move.
 Positions persist while the component is mounted, including close/reopen, and
 are clamped on drag and viewport resize. Moving a panel does not resize or redraw
 the WebGL render targets.

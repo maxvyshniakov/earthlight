@@ -1,7 +1,7 @@
 // Fragment work follows the pixels whose rays meet the atmosphere; open sky
 // costs little. With Earth small in the frame the same budget buys a larger
 // buffer, so a distant planet need not be as soft as a close horizon.
-const SHELL=1+120/6371;
+export const SHELL=1+120/6371;
 
 /** Fraction of the frame whose camera rays meet the atmosphere shell. */
 export function shellCoverage(camera:ArrayLike<number>,basis:ArrayLike<number>,focal:number,aspect:number,columns=24,rows=24){

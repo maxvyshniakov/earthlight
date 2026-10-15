@@ -1,6 +1,9 @@
-/** Owns popover positioning, dragging and their event lifecycle. No renderer state. */
+/** Owns popover positioning, dragging and their event lifecycle. No renderer state.
+ * The explorer's dialogs and controls panel place themselves in CSS and are only
+ * closed from here. */
 export function createScenePanels(root:HTMLElement,controls:HTMLElement,settingsToggle:HTMLElement){
-    const panels = [...root.querySelectorAll<HTMLElement>('.sky-panel')];
+    const panels = [...root.querySelectorAll<HTMLElement>('.sky-panel:not(.sky-dialog)')];
+    const placed = [...root.querySelectorAll<HTMLElement>('.sky-dialog, .flight-help')];
     const panelHeaders=panels.map(panel=>panel.querySelector<HTMLElement>('.panel-header')!);
     const panelPositions=new Map<HTMLElement,{left:number;top:number}>();
     let panelDrag:{panel:HTMLElement;header:HTMLElement;pointer:number;x:number;y:number;left:number;top:number}|null=null;
@@ -39,7 +42,7 @@ export function createScenePanels(root:HTMLElement,controls:HTMLElement,settings
       const {panel,left,top,x,y}=panelDrag;
       panelPositions.set(panel,placePanel(panel,left+event.clientX-x,top+event.clientY-y));
     };
-    const closePanels = () => panels.forEach(panel=>{
+    const closePanels = () => [...panels,...placed].forEach(panel=>{
       if(panel.matches(':popover-open'))panel.hidePopover();
     });
     panels.forEach(panel=>panel.addEventListener('toggle',positionPanels));

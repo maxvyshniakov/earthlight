@@ -13,6 +13,14 @@ The adaptation excludes Sol and stars fainter than magnitude 7, converts
 distance-normalized positions and velocities to float32, and retains visual
 magnitude and B−V color. This binary adaptation remains under CC BY-SA 4.0.
 
+## Inter
+
+`public/fonts/inter-subset.woff2` is a subset of [Inter](https://rsms.me/inter/)
+4.1, copyright The Inter Project Authors, under the SIL Open Font License 1.1
+(`public/fonts/Inter-LICENSE.txt`). It keeps printable ASCII, a few quotes and
+dashes, arrows and the ⇧ ⌥ ⌘ ⌃ key symbols, weights 400–700 at the text optical
+size, for the explorer's controls panel and key caps.
+
 ## NASA imagery
 
 Night lights: NASA Earth Observatory / Joshua Stevens, using Suomi NPP VIIRS

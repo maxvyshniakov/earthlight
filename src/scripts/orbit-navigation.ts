@@ -6,6 +6,8 @@ export type Route = 'iss'|'polar'|'high';
 export type ObserverFrame = ReturnType<typeof issFrame>;
 export type Pose = {camera:Vec3;cameraBasis:number[]};
 export const MIN_ALTITUDE=150,MAX_ALTITUDE=50_000;
+/** Degrees of roll within which the horizon counts as level, so H turns the view over instead. */
+export const LEVEL_TOLERANCE=1;
 export const ROUTE_LABELS={iss:'ISS orbit replay',polar:'Polar orbit',high:'High orbit'};
 const rad=Math.PI/180;
 const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
@@ -130,6 +132,7 @@ export function earthPoint(camera:Vec3,ray:Vec3){
 /** Image rotation of a reference direction: 0 when the horizon is level, sky up. */
 export const horizonRoll=(basis:number[],vertical:Vec3)=>Math.atan2(dot(axis(basis,0),vertical),dot(axis(basis,3),vertical));
 // Looking straight down or up the horizon has no angle; north up stands in.
+const wrapAngle=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a));
 const levelRoll=(basis:number[],vertical:Vec3)=>horizonRoll(basis,Math.abs(dot(axis(basis,6),vertical))<.995?vertical:[0,0,1]);
 // The ground direction toward the top of the image: the view's heading near
 // the horizon, the image's up direction when looking straight down or up.
@@ -142,8 +145,13 @@ export function attitude(pose:Pose){
  const vertical=normalize(pose.camera),heading=groundHeading(pose.cameraBasis,vertical);
  const east:Vec3=Math.hypot(vertical[0],vertical[1])>1e-9?normalize(cross([0,0,1],vertical)):[0,1,0],north=cross(vertical,east);
  return {heading:(Math.atan2(dot(heading,east),dot(heading,north))/rad+360)%360,
-  pitch:Math.asin(clamp(dot(axis(pose.cameraBasis,6),vertical),-1,1))/rad,roll:levelRoll(pose.cameraBasis,vertical)/rad};
+  pitch:Math.asin(clamp(dot(axis(pose.cameraBasis,6),vertical),-1,1))/rad,roll:gaugeRoll(pose.cameraBasis,vertical)/rad};
 }
+/** Roll as the gauge shows it and H levels it: against the local vertical
+ * right down to the nadir, so it turns smoothly there. The north-up stand-in
+ * used to take over within about 6° of straight down, flipping the gauge; now
+ * only an exactly vertical view, where the horizon has no angle, falls back. */
+const gaugeRoll=(basis:number[],vertical:Vec3)=>Math.abs(dot(axis(basis,6),vertical))<1-1e-9?horizonRoll(basis,vertical):levelRoll(basis,vertical);
 /** Following an orbit the camera turns only by yaw about the local vertical
  * and pitch above the horizon. Re-aim those angles so the direction under
  * screen point (x,y) keeps its place while the focal length changes from
@@ -192,6 +200,8 @@ export class OrbitNavigation {
  flingLimit=2;
  flingCoast=.45;
  private leveling=false;
+ private levelTarget=0;
+ private levelLeft=0;
  /** Camera velocity over the last step, Earth radii per second. */
  motion:Vec3=[0,0,0];
  private transition:{from:Pose;start:number}|null=null;
@@ -287,10 +297,16 @@ export class OrbitNavigation {
  }
  roll(angle:number){if(this.free){this.free.basis=orthonormal(rollBasis(this.free.basis,angle));this.leveling=false;}}
  spinLook(yaw:number,pitch:number){if(this.free)this.spin=[yaw,pitch];}
+ /** Level the horizon; when it already is, turn the view upside down, and back.
+  * A small correction takes the short way; a longer turn always runs clockwise. */
  level(now=false){
   if(!this.free)return;
+  const pose=this.free,roll=gaugeRoll(pose.basis,normalize(pose.position));
+  this.levelTarget=Math.abs(roll)<LEVEL_TOLERANCE*rad?Math.PI:0;
+  const left=wrapAngle(roll-this.levelTarget);
+  this.levelLeft=Math.abs(left)<=Math.PI/2?left:left>0?left-2*Math.PI:left;
   this.leveling=true;
-  if(now){const pose=this.free;pose.basis=orthonormal(rollBasis(pose.basis,-levelRoll(pose.basis,normalize(pose.position))));this.leveling=false;}
+  if(now){pose.basis=orthonormal(rollBasis(pose.basis,-left));this.leveling=false;}
  }
  /** Hold an Earth-fixed point under the pointer; the rig follows each frame. */
  grab(anchor:Vec3,x:number,y:number){if(this.free){this.stop();this.grip={anchor,x,y,sx:x,sy:y,rate:[0,0,0]};}}
@@ -394,8 +410,10 @@ export class OrbitNavigation {
    grip.rate=add(grip.rate,scale(add(scale(turn,1/Math.max(dt,1/240)),scale(grip.rate,-1)),settle(.05)));
   }
   if(this.leveling){
-   const roll=levelRoll(pose.basis,normalize(pose.position)),part=Math.abs(roll)<1e-3?roll:roll*settle(.1);
-   pose.basis=orthonormal(rollBasis(pose.basis,-part));if(part===roll)this.leveling=false;
+   // Measure the last quarter turn afresh, so the view ends exactly level.
+   const roll=Math.abs(this.levelLeft)<Math.PI/2?wrapAngle(gaugeRoll(pose.basis,normalize(pose.position))-this.levelTarget):this.levelLeft;
+   const part=Math.abs(roll)<1e-3?roll:roll*settle(.1);
+   pose.basis=orthonormal(rollBasis(pose.basis,-part));this.levelLeft=roll-part;if(part===roll)this.leveling=false;
   }
   const after=[...pose.position,...pose.basis];
   this.motion=dt>0?[0,1,2].map(i=>(after[i]-before[i])/dt) as Vec3:[0,0,0];
