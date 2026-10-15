@@ -706,11 +706,15 @@ Pauses and background time are excluded.
 
 Since 2026-10-13 the explorer renders on whole display refreshes, every k-th
 refresh nearest to 24 FPS (30 FPS at 60 Hz, 24 at 120 Hz), so frames are evenly
-spaced; `cadence=timer` restores the old timer. At full scale a gesture and
-its coast render at up to 60 FPS, also on whole refreshes; three late frames
-in 24 slow that by one refresh, and a long clean run tries faster again, each
-failed attempt waiting twice as long. A downscaled device keeps its passive
-cadence during gestures. Three late frames in 24 at that cadence lower
+spaced; `cadence=timer` restores the old timer. Above 0.75 scale a gesture
+and its coast render at up to 60 FPS, also on whole refreshes; three frames in
+24 that miss one or two refreshes slow that by one refresh, and a long clean
+run tries faster again, each failed attempt waiting twice as long. A gesture
+after a pause starts fast again unless one was slowed in the last 20 s. A
+downscaled device keeps its passive cadence during gestures. A longer stall,
+from garbage collection, the compositor or another app, is not overload and
+changes neither cadence nor scale. Three late frames in 24 at the passive
+cadence lower
 the scale once the view is quiet (`headroom=0` disables), and the last
 sustained scale is remembered per screen (`startScale=fresh` ignores it). The
 buffer grows when Earth and its atmosphere cover less of the frame, assuming a

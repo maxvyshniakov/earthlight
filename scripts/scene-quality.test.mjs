@@ -409,6 +409,13 @@ test('headroom lowers scale when frames miss refreshes although the mean holds',
  assert.ok(headroom.scale<.8,`headroom ${headroom.scale}`);
  assert.ok(Math.abs((.8-headroom.scale)/.06-Math.round((.8-headroom.scale)/.06))<1e-6,'reductions are single steps');
 });
+test('isolated stalls are not overload: headroom keeps the scale',()=>{
+ const q=new SceneQuality();q.scale=.8;q.headroom=true;q.setCadence(1000/24,1000/120);
+ let now=stream(q,4,1000/24).now,i=0;
+ // A 100 ms stall every second, as a garbage collection or the compositor makes.
+ while(now<20000){const interval=++i%24===0?100:1000/24;now+=interval;q.observeCadence(interval,now);}
+ assert.ok(q.scale>=.8,`no reduction: ${q.scale}`);
+});
 test('headroom defers its resize until a gesture ends and blocks upward probes',()=>{
  const q=new SceneQuality();q.scale=.8;q.headroom=true;q.setCadence(1000/24,1000/120);
  let {now}=stream(q,4,1000/24);

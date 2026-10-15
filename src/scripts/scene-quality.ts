@@ -23,9 +23,12 @@ export class SceneQuality {
  private headroomPending=false;
  /** Current submission target and display refresh, in milliseconds. */
  setCadence(target:number,refresh:number){this.frameTarget=target;this.refreshPeriod=refresh;}
+ // Overload makes frames miss one or two refreshes. A much longer gap is a
+ // stall elsewhere, a garbage collection, the compositor or another app; a
+ // smaller buffer would not prevent it, so it is not evidence of overload.
  private lateFrames(){
-  const limit=this.frameTarget+Math.max(4,this.refreshPeriod*.5);
-  return this.recent.filter(ms=>ms>limit).length;
+  const limit=this.frameTarget+Math.max(4,this.refreshPeriod*.5),stall=this.frameTarget+Math.max(25,this.refreshPeriod*2.5);
+  return this.recent.filter(ms=>ms>limit&&ms<=stall).length;
  }
  // RAF quantization informs the tail only. A slower RAF under GPU load must
  // never relax the mean delivery budget and disguise a real FPS deficit.

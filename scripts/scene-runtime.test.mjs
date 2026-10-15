@@ -486,6 +486,30 @@ test('a gesture renders on whole refreshes up to 60 FPS, slowing a step at a tim
  for(let n=0;n<60;n++){now+=period;clock.observe(now);clock.due(now);}
  assert.ok(Math.abs(clock.fps-24)<.1);
 });
+test('a slowed gesture cadence holds for the next swipe, and a swipe after a long pause starts fast',()=>{
+ const clock=new SceneFrameClock(24,true),period=1000/120;let now=0,renders=0,skip=false;
+ const tick=(gesture)=>{now+=skip?3*period:period;skip=false;clock.observe(now);if(gesture)clock.interact(now,60);if(clock.due(now)&&gesture&&++renders%4===0)skip=true;};
+ for(let i=0;i<240;i++)tick(false);
+ // Every fourth fast frame misses a refresh: 60 FPS is not held.
+ for(let i=0;i<300;i++)tick(true);
+ assert.ok(Math.abs(clock.fps-40)<.5,`slowed: ${clock.fps}`);
+ for(let i=0;i<180;i++)tick(false);
+ tick(true);tick(true);assert.ok(Math.abs(clock.fps-40)<.5,`a swipe soon after: ${clock.fps}`);
+ for(let i=0;i<3000;i++)tick(false);
+ tick(true);tick(true);assert.ok(Math.abs(clock.fps-60)<.5,`after 25 s: ${clock.fps}`);
+});
+test('a gesture keeps its fast cadence through isolated stalls',()=>{
+ const clock=new SceneFrameClock(24,true),period=1000/120;let now=0,stalls=0;const gaps=[];let previous=0;
+ for(let i=0;i<240;i++){now+=period;clock.observe(now);clock.due(now);}
+ for(let n=0;n<1200;n++){
+  // Every second the page stalls for 100 ms.
+  const stall=n%120===60;if(stall)stalls++;
+  now+=stall?12*period:period;clock.observe(now);clock.interact(now,60);
+  if(clock.due(now)){if(n>600)gaps.push(Math.round((now-previous)/period));previous=now;}
+ }
+ assert.ok(stalls>8&&Math.abs(clock.fps-60)<.5,`still 60 FPS: ${clock.fps}`);
+ assert.ok(gaps.filter(gap=>gap===2).length>gaps.length*.9);
+});
 test('steady cadence keeps the display period through GPU backpressure, not a real rate change',()=>{
  const clock=new SceneFrameClock(24,true);let now=0;
  for(let i=0;i<240;i++){now+=1000/120;clock.observe(now);clock.due(now);}

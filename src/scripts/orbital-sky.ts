@@ -674,9 +674,10 @@ export class OrbitalSky extends HTMLElement {
     const dragSurface=this.dataset.composition==='orbit'?this.closest<HTMLElement>('.orbit-view'):null;
     // Throttled rather than debounced, so a long glide keeps its link current.
     // A device with headroom renders gestures and their coast at up to 60 FPS;
-    // the steady clock slows that while frames come late. A downscaled device
-    // keeps its passive cadence (swipeFps=24 does so on the old timer).
-    const interactionFPS=()=>qualityScale>=.9?60:steadyCadence||params.get('swipeFps')==='24'?profile.fps:30;
+    // the steady clock slows that while frames come late. Loading can cost a
+    // desktop a few scale steps, so steady mode asks only for 0.75; a phone at
+    // its floor keeps its passive cadence (swipeFps=24 does so on the old timer).
+    const interactionFPS=()=>qualityScale>=(steadyCadence?.75:.9)?60:steadyCadence||params.get('swipeFps')==='24'?profile.fps:30;
     const cameraChanged=()=>{const now=performance.now();frameClock.interact(now,interactionFPS());lastStatus=-1;exposureUntil=now+EXPOSURE_SETTLE_MS;draw();if(!navigationURLTimer)navigationURLTimer=window.setTimeout(()=>{navigationURLTimer=0;saveNavigation();},180);};
     const lookCamera=(view:typeof cameraView)=>{
       for(const input of viewInputs)input.value=String(view[input.dataset.view as keyof typeof view]);

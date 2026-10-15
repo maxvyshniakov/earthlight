@@ -16,19 +16,25 @@ export class SceneFrameClock {
  private cleanNeeded=240;
  private probing=false;
  private fastBefore=false;
+ private slowedAt=-Infinity;
  fps:number;
  /** Steady mode renders every k-th display refresh, the largest k that keeps
   * at least the passive rate. 24 FPS on a 60 Hz display alternates 33/50 ms;
   * 30 FPS there is even. A gesture asking for more renders up to that rate,
   * as fast as the device keeps every frame on time. */
  constructor(private passiveFPS=24,private steady=false){this.fps=passiveFPS;}
- interact(now:number,fps=60){this.interactionUntil=now+180;this.interactionFPS=fps;}
- private judge(late:boolean,canSlow:boolean){
+ interact(now:number,fps=60){
+  // A new gesture tries the fast cadence again unless the last one was
+  // slowed recently. Loading or a busy moment must not cost every later swipe.
+  if(now>this.interactionUntil+1000&&now-this.slowedAt>20000){this.slower=0;this.cleanNeeded=240;this.probing=false;this.lateRenders=[];this.cleanRenders=0;}
+  this.interactionUntil=now+180;this.interactionFPS=fps;
+ }
+ private judge(late:boolean,canSlow:boolean,now:number){
   this.lateRenders.push(late);if(this.lateRenders.length>24)this.lateRenders.shift();
   if(canSlow&&this.lateRenders.filter(Boolean).length>=3){
    // A failed attempt at the faster rate waits twice as long before the next.
    if(this.probing)this.cleanNeeded=Math.min(1920,this.cleanNeeded*2);
-   this.slower++;this.probing=false;this.lateRenders=[];this.cleanRenders=0;return;
+   this.slower++;this.slowedAt=now;this.probing=false;this.lateRenders=[];this.cleanRenders=0;return;
   }
   this.cleanRenders=late?0:this.cleanRenders+1;
   if(this.probing&&this.cleanRenders>=240){this.probing=false;this.cleanNeeded=240;}
@@ -66,7 +72,9 @@ export class SceneFrameClock {
    this.fps=1000/(refreshes*this.period);
    if(this.elapsedRefreshes<refreshes)return false;
    // The first fast frame follows a slower one; only later ones can be late.
-   if(fast&&this.fastBefore)this.judge(this.elapsedRefreshes>refreshes,refreshes<passive);
+   // Missing one or two refreshes is overload; a longer stall happens
+   // elsewhere and says nothing about the cadence.
+   if(fast&&this.fastBefore&&this.elapsedRefreshes<=refreshes+2)this.judge(this.elapsedRefreshes>refreshes,refreshes<passive,now);
    this.fastBefore=fast;
    // A late frame shifts the phase once; it never queues a catch-up draw.
    this.elapsedRefreshes=0;this.last=now;return true;
