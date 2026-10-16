@@ -1,6 +1,6 @@
 import {textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
-import { VEIL_COMPONENTS } from './solar-light';
+import { FRAME_VEIL_COMPONENTS } from './solar-light';
 
 /** Per-axis spread of pyramid level k: σ = this · 2^k full-resolution pixels.
  * Box 4×4 downsampling (1.25 texel² per step), the 3×3 tent upsample and the
@@ -52,7 +52,7 @@ export function glareLevels(width:number,height:number){
 export function glareWeights(height:number,levels:number,focal=1.25){
   const sigma=(k:number)=>GLARE_LEVEL_SPREAD*2**k;
   const weights=new Array<number>(levels).fill(0);
-  for(const {share,scale} of VEIL_COMPONENTS){
+  for(const {share,scale} of FRAME_VEIL_COMPONENTS){
     const a=scale*focal*height;
     const below=(s:number)=>s===Infinity?1:s===0?0:Math.exp(-a*a/(2*s*s));
     for(let k=1;k<=levels;k++){

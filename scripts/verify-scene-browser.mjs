@@ -397,7 +397,7 @@ try{
  await wait(settled);
  // Clearing completed entries does not remove prior in-flight DEM requests.
  const compact=await evaluate(`performance.getEntriesByType('resource').filter(x=>x.startTime>=window.saveDataStarted&&x.name.includes('/media/earthlight/')).map(x=>x.name)`);
- assert.ok(compact.length>=6);assert.ok(compact.every(x=>x.includes('/preview/')||x.endsWith('stars-hyg-v2.bin')||x.endsWith('optical-psf-v2.bin')));results.push({saveDataRequests:compact.length});
+ assert.ok(compact.length>=6);assert.ok(compact.every(x=>x.includes('/preview/')||x.endsWith('stars-hyg-v2.bin')||x.endsWith('optical-psf-v3.bin')));results.push({saveDataRequests:compact.length});
  console.log('save-data: no large maps or tiles');
  // Slow optional detail must not leave the scene permanently defocused.
  await run('open',`${base}/?t=1000&motion=0`);await wait(settled);

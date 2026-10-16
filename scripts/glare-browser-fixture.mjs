@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import {browserModule} from './browser-module.mjs';
-import {VEIL_COMPONENTS} from '../src/scripts/solar-light.ts';
+import {FRAME_VEIL_COMPONENTS} from '../src/scripts/solar-light.ts';
 import {GLARE_SOLAR_CAP} from '../src/scripts/camera-glare.ts';
 
 // Run the production glare pyramid on a point source in a float target. It
 // returns the normalized kernel: its integral must be one and its radial
-// profile the analytic two-component Moffat that the solar veil uses.
+// profile the analytic Moffat kernels of FRAME_VEIL_COMPONENTS: the solar
+// veil's kernels without the broad contamination one, which only the Sun's
+// analytic veil draws.
 export async function verifyGlare(evaluate){
  const glareModule=await browserModule('camera-glare');
  const size=512;
@@ -48,7 +50,7 @@ export async function verifyGlare(evaluate){
  assert.equal(result.error,0);
  // Light beyond the frame edge is lost; at 512 px that is about 0.3%.
  assert.ok(Math.abs(result.point.energy-1)<.02,`glare integral ${result.point.energy}`);
- const moffat=r=>VEIL_COMPONENTS.reduce((sum,{share,scale})=>{const a=scale*1.25*size;return sum+share/(Math.PI*a*a)*(1+r*r/(a*a))**-2;},0);
+ const moffat=r=>FRAME_VEIL_COMPONENTS.reduce((sum,{share,scale})=>{const a=scale*1.25*size;return sum+share/(Math.PI*a*a)*(1+r*r/(a*a))**-2;},0);
  const ratios=result.point.profile.map(([r,v])=>[r,v/moffat(r)]);
  for(const [r,ratio] of ratios)if(r>=8)assert.ok(ratio>.85&&ratio<1.15,`glare profile at ${r}px is ${ratio.toFixed(2)} of the Moffat veil`);
  assert.ok(Math.abs(result.open.energy-1)<.02,'a bright source outside the solar footprint scatters fully');

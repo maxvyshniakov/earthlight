@@ -95,8 +95,11 @@ The replay's initial night arc is mostly ocean; `t=0` includes Santiago and
 Daytime atmospheric color uses single Rayleigh scattering
 through an exponential 8 km scale-height atmosphere: 12 view samples and 6
 sunlight samples, with geometric Earth shadow and wavelength-dependent
-extinction. Multiple scattering, aerosols, ozone, refraction, and measured
-weather are omitted. Airglow uses fixed Gaussian emission profiles centered at
+extinction. Multiple scattering, ozone and measured weather are omitted.
+Light that reaches the lens through the limb is treated more fully: sunlight
+grazing the limb is refracted, dimmed by a background aerosol as well as
+Rayleigh extinction, and forward-scattered by that aerosol into a solar
+aureole ([sunrise and sunset at the limb](lab/limb-sunrise-sunset-2026-10-16.md)). Airglow uses fixed Gaussian emission profiles centered at
 90 km (warm, 8 km standard deviation) and 98 km (green, 4 km). View rays integrate
 16 midpoint samples per visible shell segment between 50 and 130 km; the ground
 occludes the far side. Smooth local solar illumination reduces visibility to a
@@ -251,11 +254,14 @@ WebGL context restoration.
 
 ### Optical response
 
-`bun scripts/build-optical-psf.mjs` generates three 256 × 256 RGB diffraction
-profiles packed vertically into one 256 × 768 atlas (589,824 bytes). Each is the
-squared Fourier transform of a different iris opening: rounded six blades,
-partly withdrawn blades, and a nearly circular wider pupil. The widest state
-still has short blade edges: f/3.18 is not an entirely unobstructed aperture. A 512 × 512 pupil grid
+`bun scripts/build-optical-psf.mjs` generates four 256 × 256 RGB diffraction
+profiles packed vertically into one 256 × 1024 atlas (786,432 bytes,
+`optical-psf-iris9.bin`, gzipped to `optical-psf-v3.bin`). Each is the
+squared Fourier transform of the camera's iris (`camera-iris.ts`) at f/3.2,
+5.5, 9.4 and 16, scaled to equal pupil area: nine slightly curved blades with
+fixed manufacturing errors inside a circular stop. Stopping down flattens the
+arcs relative to the opening and moves the stop off the corners. Wide open the
+stop rounds the corners but the blades still bound the opening. A 512 × 512 pupil grid
 reduces blade rasterization artifacts; the central 256 × 256 focal region is
 retained at the original display scale. Wavelengths from 420–680 nm are integrated
 in 5 nm steps with approximate RGB sensitivities, small fixed wavefront errors,
@@ -263,7 +269,7 @@ and a pixel-response blur. The finite Fourier window fades gradually before
 its boundary. At runtime, 4% of the energy goes into a normalized analytic
 Moffat scattering tail rather than circular wings cropped into the texture.
 This removes the visible disc-shaped support edge around bright sources. Every tile/channel has the same radiant integral; log radiance spans
-2^-24 to 2^2. The shader decodes the two adjacent openings before interpolating
+2^-24 to 2^2. The shader decodes the two adjacent f-number tiles before interpolating
 linear light, clamps sampling inside each tile, and scales area by f-number.
 No extra sampler or render pass is needed; each PSF evaluation uses two atlas
 reads instead of one. Catalog stars put 96% of their flux in a compact Gaussian
@@ -287,7 +293,7 @@ include extra space for the wing.
 This is a physically motivated synthetic lens, not a calibration of a particular
 camera. Exposure, PSF display scale, scattering fraction, and sensor clipping
 are chosen for the scene. The field-dependent wing is an approximation; lens
-ghosts use an illustrative seven-element aperture preset. The Moon uses a Lambertian sphere without terrain or earthshine.
+ghosts use an illustrative preset of eight aperture paths and two barrel reflections. The Moon uses a Lambertian sphere without terrain or earthshine.
 
 References for the method (no code or assets copied):
 - [GalSim optical PSFs, pupils and wavefront aberrations](https://galsim-developers.github.io/GalSim/_build/html/psf.html)
@@ -712,7 +718,7 @@ A temporary optical pass handles aperture-shaped loading defocus once. The final
 camera pass reuses that image for radial red/blue magnification differences,
 then adds lens reflections and sensor noise. The temporary target is freed when
 focus settles. Optical
-defocus averages linear light with a rounded six-blade pupil; it does not blur
+defocus averages linear light with the rounded nine-blade iris; it does not blur
 sensor grain. Ghosts change size and softness independently per path during the
 focus pull instead of receiving the scene blur. This remains a photographic
 approximation. The separation grows smoothly toward the frame edges; text and
@@ -802,28 +808,71 @@ sensor or spectral atmosphere model. See the browser's
 [canvas color-space contract](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/drawingBufferColorSpace)
 and [exposure adaptation reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/auto-exposure-in-unreal-engine).
 
-Seven tinted lens-reflection elements follow conjugate positions on the
-source-to-optical-center line: compact aperture images, softer broad ghosts and
-a thin aperture rim. The outline matches the PSF's rounded six-blade pupil
-(blade-normal orientation 0.27 radians). Pixel-width edge filtering prevents
-hard polygon edges from aliasing. Radial stretch and barrel clipping grow
-continuously off-axis; the pupil orientation stays fixed to the camera. Smooth
-blade joins and a broad asymmetric illumination profile
+Eight tinted lens-reflection paths follow conjugate positions on the
+source-to-optical-center line: a nearly focused point, compact and broad
+aperture images, and caustic rings. Their sizes and strengths follow the
+28–300 mm ghosts in ISS067-E-124177 and 124188
+([overlay ghosts](lab/ghost-overlay-2026-10-16.md)). The filled outline is the
+PSF's nine-blade iris and stop at the current f-number. A ring is the caustic
+at a round element edge: a thin rim around a dim interior with a fainter
+reddish ring outside it, its radius split by about 1/V across the visible, so
+a sharp rim is a rainbow. Pixel-width edge filtering prevents
+hard polygon edges from aliasing. Radial stretch grows continuously off-axis.
+An element rim, a fixed circle outside the stop, cuts the ghost's side
+away from the source near full aperture and clears it as the lens stops down
+([ghost clipping](lab/ghost-clipping-2026-10-16.md)). One path's rim is a wide
+front element whose footprint walks fast with field, so it cuts that ghost
+almost straight. The rim's image is a little larger in blue, which leaves a
+blue edge on the cut and a yellow one opposite. Two barrel reflections add
+the bore of the barrel. One path's beam is wider than the barrel, so its image, a
+large soft pupil disk, is vignetted: dim inside the spacer ring's edge, cut
+off at the next element's rim. The ring's lit lip is the brightest part, a
+crescent with a sharp bevel at its inner edge that is thick on the side away
+from the source and thins towards it. Beyond the lip the bore's wall lies in
+shadow out to the rim, darkest beside the lip and lightening outwards, and
+the rim shows as a thin reddish glint. The wall's shadow also dims the Sun's
+veil. A lens surface down the tube adds a small colour-split image. The disk and the two edges have their own conjugates, so
+off axis they separate along the source's line and the tube is seen at an
+angle; on axis it is concentric. The edges keep their size as the lens stops
+down while the disk shrinks, so on axis the shadow is gone by about f/11. The front element's edge gives one large rainbow arc at the frame
+edge, a thin glint that fades as the source nears the picture's corner. The pupil orientation
+stays fixed to the camera. A broad asymmetric illumination profile
 avoid uniformly filled geometric stamps. Edge softness varies by element and
-field angle. A three-wavelength thin-film-inspired tint varies with source angle
-and gently across each ghost; its phase differs for each reflection path. This
-is an artistic coating approximation, not measured multilayer coating data.
-Sources just outside the picture can still contribute, fading with field angle.
+field angle. Each path reflects at two coated surfaces whose reflectance is a
+sinusoid in wavenumber through the path's tint. Across the ghost, each pupil
+point meets the surfaces at its own angle and coating thickness, which shifts
+that spectrum: blotchy, oil-on-water colour, fixed for a given source position.
+Dispersion gives each colour its own ghost size and position, so ghosts have
+coloured rims. This is an illustrative coating model, not measured multilayer
+data ([lab note](lab/ghost-coating-2026-10-16.md)).
+Sources beyond the picture still contribute: the front barrel, a fixed
+aperture ahead of the stop, passes the overlap of its circle with the opening,
+about half at field 1.16 (49° at 1×) at f/4 and nothing past field 2; stopped
+down, the cut sharpens round field 1.3. The element rims then clip each ghost
+into a cat's eye ([flare phases](lab/flare-phases-2026-10-17.md)).
 Energy follows the integrated illuminated, Earth-unoccluded lunar disk. The Sun
-uses its circular disk's visible area above the spherical limb, rather than
-popping on at its center's sunrise. Tests compare this area approximation to
-independent ray/sphere disk samples. Ghosts can overlay Earth because they form
+uses the visible area of its refracted image above the spherical limb, rather
+than popping on at its center's sunrise: 16 rows across the disk, each lifted
+by refraction, weighted by its refractive dilution and dimmed by the air along
+its own ray. The drawn disk is raised and flattened to match. Tests compare the
+unrefracted area approximation to independent ray/sphere disk samples. Ghosts can overlay Earth because they form
 inside the lens after scene compositing. Each path receives a fraction of the
 source's integrated image-plane flux, divided by a conservative bound on its
 elliptical support integral. The strongest path returns 2.5 × 10⁻⁵ of the
-source flux, two reflections at about 0.5% from multicoated surfaces; the seven
-paths together return about 6.9 × 10⁻⁵ at the default slider. This efficiency
+source flux, two reflections at about 0.5% from multicoated surfaces. The
+barrel tube and edge arc, one grazing bounce off a blackened wall of part of
+an oblique beam that the barrel vignettes, are estimated at 2 × 10⁻⁴ and
+1.4 × 10⁻⁴. All paths together return about 4.8 × 10⁻⁴ at the default slider;
+the five clearest 28–300 mm ghosts in ISS067-E-124188 return at least
+1.4 × 10⁻⁴. This efficiency
 and the path shapes are chosen parameters, not a calibrated lens prescription.
+The Lens setting (`lens-preset`) picks it: `iss`, the default, as above, or
+`flare`, a flare-prone lens at 7.5 × 10⁻⁴ for the strongest path (about 2.7%
+per surface, as with a single-layer coating), 30 times every reflection of
+the Sun, Moon, stars and frame. Its ghosts at the reference's core and veil
+match the Free Lens Flare Overlay
+([flare phases](lab/flare-phases-2026-10-17.md)). The iris, scatter and
+shapes are shared, and the background always uses `iss`.
 Each path's kernel scales with the entrance pupil, focal length over f-number,
 so zooming in on the Sun or Moon widens their reflections as their flux grows
 and keeps reflection surface brightness constant. Stars and planets use
@@ -837,7 +886,7 @@ ghost size cannot multiply integrated energy. A float-buffer GPU regression
 integrates the actual kernels for multiple pupils, focal lengths, disk sizes
 and chain types. The calibration is recorded in
 [the lens reflection lab note](lab/lens-reflections-2026-10-16.md).
-Everything else in the picture reflects through the same seven paths from the
+Everything else in the picture reflects through the same paths from the
 glare pyramid: path i reads the scene at p / c_i, at the level whose spread
 matches its aperture, with 1/c² preserving flux. The Moon's and the selected
 points' stamps keep only their share outside the picture, so nothing reflects
@@ -874,7 +923,8 @@ This is a data-driven photographic preset, not a named lens calibration or an
 implementation of the full paraxial ray-transfer method. Positions, sizes and
 tints are chosen for the scene; the count is not a measured property of a lens.
 The tint/pupil model needs no network asset. Source transmission adds only a
-five-pixel RGBA8 texture and framebuffer on supported devices.
+five-pixel half-float texture (RGBA8 where half-float targets are missing) and
+framebuffer on supported devices.
 References (no code or assets copied):
 - [Lee and Eisemann: Practical Real-Time Lens-Flare Rendering](https://publications.graphics.tudelft.nl/papers/335), aperture images and source-dependent ghost placement.
 - [Unity Lens Flare Data Asset](https://docs.unity.com/en-us/engine/6000.7/manual/visual-effects/lens-flares/lens-flare/asset), individually configured aperture, ring and soft elements.
@@ -1046,15 +1096,32 @@ low display brightness. Below about 5 CSS px of radius, twenty-four disk samples
 convolve the shared lens PSF; the work is restricted to the source neighborhood.
 From about 9 px the disk is analytic and limb-darkened, with the PSF's own edge
 response and Earth's limb as a second edge, so a zoomed Sun stays round.
-Diffraction rays beyond the PSF table's window are analytic bands along the
-blade normals, C/r² per line, measured from the pupil FFT and carrying 1.5%
-of the flux with a closed iris. See [the solar disk lab note](lab/solar-disk-2026-10-16.md). A normalized two-scale
-Moffat veil redirects 1.5% of incident solar energy into broad optical scatter
-after atmospheric compositing. It remains when the ghost slider is zero. The
+Diffraction rays beyond the PSF table's window come from the same atlas: each
+f-number's far-field angular profile, measured from the FFT of the iris with
+micron-scale waviness on its blade edges. Each slightly curved edge throws a
+fan of needles along its normals, merged near the core and falling as 1/r²
+there, separate and falling as 1/r³ farther out. Nine blades give 18 unequal
+rays, some split, some soft. The far field carries 2.6% of the flux and is
+taken from the disk; partial
+occlusion narrows the rays to the visible part. See [the solar disk lab note](lab/solar-disk-2026-10-16.md)
+and [the aperture ray lab note](lab/aperture-rays-2026-10-16.md). A normalized three-scale
+Moffat veil redirects 3% of incident solar energy into broad optical scatter
+after atmospheric compositing; its broadest kernel is contamination on the
+lens and the window in front of it. For the Sun, angular lobes fixed to the
+lens make the haze uneven, and smudges send up to 12% of the scattered
+light into offset lobes: a lopsided haze that keeps its shape as it moves
+with the Sun; which smudges are lit depends on where the Sun is in the frame.
+They and the swirl below take their share from every kernel alike, so the
+round veil keeps its θ⁻² tail ([flare phases](lab/flare-phases-2026-10-17.md)). Circular cleaning scratches diffract a rainbow ring around the
+Sun, red outside, slightly brighter on two opposite sides that turn as the Sun
+crosses the frame. The
+integral is unchanged. Window dust adds specks fixed in
+direction that grow with focal length squared and only heavy flare lights,
+and sensor dust faint shadows that deepen as the camera stops down ([lens dirt](lab/lens-dirt-2026-10-16.md)). It remains when the ghost slider is zero. The
 kernel is angular: scatter at the window and front element precedes focusing,
 so the halo grows with focal length at constant surface brightness. The rest
-of the frame scatters with the same kernel and fraction through a half-float
-image pyramid whose level weights decompose the Moffat into Gaussians; the
+of the frame scatters with the two narrow kernels (1.95% of its light) through a
+half-float image pyramid whose level weights decompose the Moffat into Gaussians; the
 Sun's footprint is capped out of it. Glare moves light, L + η(L ⊛ V − L), so
 sunlit limbs, the Moon and planets get halos at no energy cost. RGBE scene
 buffers keep only the solar veil. `glare=off` disables the frame glare for
@@ -1274,7 +1341,8 @@ curve, outside the meter feedback loop. Manual sets a fixed camera gain from
 -5.5 to +5.1 EV and bypasses automatic adaptation and compensation. These are
 relative scene gain stops, not calibrated photographic EV100. Auto compensation
 is preserved as `look-exposure`, manual mode as `exposure-mode=manual` and its
-setting as `exposure-fixed`. Reset all returns to Auto with zero compensation.
+setting as `exposure-fixed`. Reset all returns to Auto with zero compensation
+and the ISS lens.
 The model is still not absolutely radiometrically calibrated: a single camera
 cannot repair incorrect relative source strengths, or reveal a zero-light
 surface. Compare sources at fixed exposure before changing their radiance.

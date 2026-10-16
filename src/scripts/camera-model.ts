@@ -5,6 +5,9 @@ export const EXPOSURE_MAX_EV=5.1;
 // Keep the full manual/storage range; automatic metering has a brighter floor.
 export const AUTO_EXPOSURE_MIN_EV=-3;
 export const CAMERA_SHUTTER_SECONDS=1/48;
+/** f-numbers of the PSF table's tiles, evenly spaced in log f across the
+ * program from its widest f/3.2 to f/16 (scripts/build-optical-psf.mjs). */
+export const OPTICAL_PSF_F_NUMBERS=[3.2,5.47,9.36,16] as const;
 export function cameraProgram(ev:number){
   const correction=Math.max(-6,Math.min(EXPOSURE_MAX_EV-.5,ev-.5));
   const apertureStops=correction<0?correction*2/3:Math.min(correction,1.1)*.6;
@@ -20,6 +23,10 @@ vec4 cameraProgram(float ev){
   float apertureStops=correction<0.?correction*2./3.:min(correction,1.1)*.6;
   float opticalGain=exp2(apertureStops);
   return vec4(4./sqrt(opticalGain),opticalGain,exp2(correction-apertureStops),clamp(correction/1.1,0.,1.));
+}
+// Fractional PSF tile for an f-number, 0 at f/3.2 to ${OPTICAL_PSF_F_NUMBERS.length-1} at f/16.
+float opticalPsfState(float fNumber){
+  return clamp(log(fNumber/${OPTICAL_PSF_F_NUMBERS[0].toFixed(1)})/${Math.log(OPTICAL_PSF_F_NUMBERS.at(-1)!/OPTICAL_PSF_F_NUMBERS[0]).toFixed(6)}*${(OPTICAL_PSF_F_NUMBERS.length-1).toFixed(1)},0.,${(OPTICAL_PSF_F_NUMBERS.length-1).toFixed(1)});
 }
 float decodeCameraEV(vec2 state){return dot(state,vec2(65280.,255.))/65535.*${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)}+${EXPOSURE_MIN_EV.toFixed(1)};}
 `;

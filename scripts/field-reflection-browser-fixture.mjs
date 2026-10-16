@@ -1,12 +1,19 @@
 import assert from 'node:assert/strict';
 import {browserModule} from './browser-module.mjs';
-import {lensReflectionShader,fieldReflectionShader,LENS_REFLECTION_FRACTION} from '../src/scripts/lens-reflections.ts';
+import {lensReflectionShader,fieldReflectionShader,LENS_REFLECTION_FRACTION,LENS_PATHS} from '../src/scripts/lens-reflections.ts';
 import {sceneColorShader} from '../src/scripts/scene-color.ts';
 import {FIELD_LEVEL_SPREAD,GLARE_MAX_LEVELS} from '../src/scripts/camera-glare.ts';
 
 // Reflect a small disk through the production pyramid and field shader. The
 // integral must be the reflection fraction of the disk's flux, and the
-// brightest image lies at the conjugate of the most concentrated path.
+// brightest image lies at the conjugate of the most concentrated path: its
+// strength over the area of the larger of its half-aperture blur and the
+// disk's image at that conjugate.
+const DISK=[.10,.06],DISK_RADIUS=6/512;
+const concentrated=LENS_PATHS.reduce((best,path)=>{
+ const spot=Math.max(.5*path.radius,Math.abs(path.conjugate)*DISK_RADIUS),score=path.strength/spot**2;
+ return score>best.score?{score,conjugate:path.conjugate}:best;
+},{score:0,conjugate:0}).conjugate;
 export async function verifyFieldReflections(evaluate){
  const glareModule=await browserModule('camera-glare');
  const fragment=`#version 300 es
@@ -32,9 +39,9 @@ export async function verifyFieldReflections(evaluate){
   for(const f of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,f,gl.LINEAR);
   for(const a of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,a,gl.CLAMP_TO_EDGE);
   // A white disk of radius 6 px at (0.10, 0.06) frame heights from centre.
-  const source=[.10,.06],data=new Float32Array(size*size*4);let flux=0;
+  const source=${JSON.stringify(DISK)},data=new Float32Array(size*size*4);let flux=0;
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-   if(Math.hypot(x+.5-size*(.5+source[0]),y+.5-size*(.5+source[1]))<6){data.set([100,100,100,1],(y*size+x)*4);flux+=100/(size*size);}
+   if(Math.hypot(x+.5-size*(.5+source[0]),y+.5-size*(.5+source[1]))<${DISK_RADIUS}*size){data.set([100,100,100,1],(y*size+x)*4);flux+=100/(size*size);}
   }
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,size,size,0,gl.RGBA,gl.FLOAT,data);
   const glare=new exports.CameraGlare(gl,gl.HALF_FLOAT);
@@ -64,10 +71,10 @@ export async function verifyFieldReflections(evaluate){
    energy+=l/(size*size);if(l>peak){peak=l;at=[(x+.5)/size-.5,(y+.5)/size-.5];}
   }
   const error=gl.getError();glare.dispose();gl.getExtension('WEBGL_lose_context').loseContext();
-  return {error,ratio:energy/flux,peakAt:at,expectedPeak:[source[0]*.21,source[1]*.21]};
+  return {error,ratio:energy/flux,peakAt:at,expectedPeak:[source[0]*${concentrated},source[1]*${concentrated}]};
  })()`);
  assert.equal(result.error,0);
  assert.ok(Math.abs(result.ratio/LENS_REFLECTION_FRACTION-1)<.05,`field reflections return ${result.ratio} of the flux`);
- assert.ok(Math.hypot(result.peakAt[0]-result.expectedPeak[0],result.peakAt[1]-result.expectedPeak[1])<.006,'the brightest reflection sits at the c=0.21 conjugate');
+ assert.ok(Math.hypot(result.peakAt[0]-result.expectedPeak[0],result.peakAt[1]-result.expectedPeak[1])<.006,`the brightest reflection sits at the c=${concentrated} conjugate`);
  return result;
 }

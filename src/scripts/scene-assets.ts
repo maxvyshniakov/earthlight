@@ -11,9 +11,9 @@ export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean
  const large=desktop&&!saveData&&maxTexture>=8192;
  return [
   ...(['day','night','clouds','galaxy'] as ImageLayer[]).map(key=>({key,url:`${root}preview/${key}.webp`,preview:true})),
-  // Gzipped transfer copies (scripts/pack-startup-assets.mjs): 590 -> 84 KB
-  // and 499 -> 231 KB; both decode to the original bytes and float layout.
-  {key:'psf',url:root+'optical-psf-v2.bin',preview:true},
+  // Gzipped transfer copies (scripts/pack-startup-assets.mjs) of the
+  // nine-blade PSF and the catalog; both decode to the original bytes.
+  {key:'psf',url:root+'optical-psf-v3.bin',preview:true},
   {key:'stars',url:root+'stars-hyg-v2.bin',preview:true},
   ...(saveData?[]:[
    {key:'galaxy' as const,url:galaxyOverview(compactTextures,assetBaseURL)},

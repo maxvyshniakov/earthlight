@@ -1,0 +1,186 @@
+{
+ "date": "2026-10-16",
+ "lensEnergy": {
+  "method": "scripts/lens-energy-browser-fixture.mjs kernel, 512x512 float, Sun at (0.35, 0.10), luminance integral; bound = LENS_REFLECTION_FRACTION",
+  "bound": 0.00006897058823529413,
+  "rows": [
+   {
+    "pupil": 0.6,
+    "focal": 1,
+    "sourceRadius": 0,
+    "chain": "point",
+    "before": 0.000021329,
+    "after": 0.000020605,
+    "ratio": 0.9661,
+    "shareOfBound": 0.299
+   },
+   {
+    "pupil": 0.6,
+    "focal": 1,
+    "sourceRadius": 0,
+    "chain": "full",
+    "before": 0.000025723,
+    "after": 0.000025035,
+    "ratio": 0.9733,
+    "shareOfBound": 0.363
+   },
+   {
+    "pupil": 0.6,
+    "focal": 1,
+    "sourceRadius": 0.006,
+    "chain": "point",
+    "before": 0.000019638,
+    "after": 0.000018945,
+    "ratio": 0.9647,
+    "shareOfBound": 0.275
+   },
+   {
+    "pupil": 0.6,
+    "focal": 1,
+    "sourceRadius": 0.006,
+    "chain": "full",
+    "before": 0.000023772,
+    "after": 0.000023112,
+    "ratio": 0.9722,
+    "shareOfBound": 0.335
+   },
+   {
+    "pupil": 1,
+    "focal": 1,
+    "sourceRadius": 0,
+    "chain": "point",
+    "before": 0.000026789,
+    "after": 0.000025844,
+    "ratio": 0.9647,
+    "shareOfBound": 0.375
+   },
+   {
+    "pupil": 1,
+    "focal": 1,
+    "sourceRadius": 0,
+    "chain": "full",
+    "before": 0.000031176,
+    "after": 0.000030262,
+    "ratio": 0.9707,
+    "shareOfBound": 0.439
+   },
+   {
+    "pupil": 1,
+    "focal": 1,
+    "sourceRadius": 0.006,
+    "chain": "point",
+    "before": 0.000023317,
+    "after": 0.00002246,
+    "ratio": 0.9633,
+    "shareOfBound": 0.326
+   },
+   {
+    "pupil": 1,
+    "focal": 1,
+    "sourceRadius": 0.006,
+    "chain": "full",
+    "before": 0.000027552,
+    "after": 0.000026725,
+    "ratio": 0.97,
+    "shareOfBound": 0.387
+   },
+   {
+    "pupil": 2,
+    "focal": 1,
+    "sourceRadius": 0,
+    "chain": "point",
+    "before": 0.000030731,
+    "after": 0.000029646,
+    "ratio": 0.9647,
+    "shareOfBound": 0.43
+   },
+   {
+    "pupil": 2,
+    "focal": 1,
+    "sourceRadius": 0,
+    "chain": "full",
+    "before": 0.000034935,
+    "after": 0.000033877,
+    "ratio": 0.9697,
+    "shareOfBound": 0.491
+   },
+   {
+    "pupil": 2,
+    "focal": 1,
+    "sourceRadius": 0.006,
+    "chain": "point",
+    "before": 0.000026207,
+    "after": 0.000025293,
+    "ratio": 0.9651,
+    "shareOfBound": 0.367
+   },
+   {
+    "pupil": 2,
+    "focal": 1,
+    "sourceRadius": 0.006,
+    "chain": "full",
+    "before": 0.000030332,
+    "after": 0.000029445,
+    "ratio": 0.9707,
+    "shareOfBound": 0.427
+   },
+   {
+    "pupil": 1,
+    "focal": 4,
+    "sourceRadius": 0,
+    "chain": "point",
+    "before": 0.000031158,
+    "after": 0.00003008,
+    "ratio": 0.9654,
+    "shareOfBound": 0.436
+   },
+   {
+    "pupil": 1,
+    "focal": 4,
+    "sourceRadius": 0,
+    "chain": "full",
+    "before": 0.000035293,
+    "after": 0.000034242,
+    "ratio": 0.9702,
+    "shareOfBound": 0.496
+   },
+   {
+    "pupil": 1,
+    "focal": 4,
+    "sourceRadius": 0.006,
+    "chain": "point",
+    "before": 0.000028534,
+    "after": 0.000027555,
+    "ratio": 0.9657,
+    "shareOfBound": 0.4
+   },
+   {
+    "pupil": 1,
+    "focal": 4,
+    "sourceRadius": 0.006,
+    "chain": "full",
+    "before": 0.000032629,
+    "after": 0.000031676,
+    "ratio": 0.9708,
+    "shareOfBound": 0.459
+   }
+  ]
+ },
+ "fieldReflections": {
+  "before": 0.00006893199453350631,
+  "after": 0.0000689319942214494
+ },
+ "scene1x": {
+  "method": "agent-browser 1200x800 DPR1, look-grain=0, motion=0, t=1500, epoch=2026-10-08T04:00:00Z, yaw=17, pitch=7; look-ghosts=1 minus look-ghosts=0 (shared exposure), 8-bit luminance levels",
+  "before": {
+   "mean": 0.0165,
+   "peak": 53.3,
+   "clipped": 0
+  },
+  "after": {
+   "mean": 0.0161,
+   "peak": 54,
+   "clipped": 0
+  }
+ }
+}

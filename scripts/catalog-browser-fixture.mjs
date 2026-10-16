@@ -7,13 +7,14 @@ import {sceneColorShader} from '../src/scripts/scene-color.ts';
 // optical atlas. A tighter core must not flicker as it crosses a sensor pixel.
 export async function verifyCatalog(evaluate){
  const optics=JSON.parse(await readFile(new URL('../src/data/optical-psf.json',import.meta.url),'utf8'));
+ const bytesRows=optics.size*optics.states+optics.rays.rows*optics.rays.levels.length*optics.states;
  const catalogModule=await browserModule('catalog-stars');
  const result=await evaluate(`(async()=>{
  const catalog=${catalogModule};
  const c=document.createElement('canvas');c.width=64;c.height=64;const gl=c.getContext('webgl');gl.disable(gl.DITHER);
  const atlas=gl.createTexture();gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,atlas);
- const bytes=new Uint8Array(await (await fetch('/media/earthlight/optical-psf.bin')).arrayBuffer());
- gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,256,768,0,gl.RGB,gl.UNSIGNED_BYTE,bytes);
+ const bytes=new Uint8Array(await (await fetch('/media/earthlight/optical-psf-iris9.bin')).arrayBuffer());
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,${optics.size},${bytesRows},0,gl.RGB,gl.UNSIGNED_BYTE,bytes);
  for(const f of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,f,gl.LINEAR);
  for(const f of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,f,gl.CLAMP_TO_EDGE);
  const state=gl.createTexture();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,state);

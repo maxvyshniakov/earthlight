@@ -20,14 +20,14 @@ export async function verifyLighting(evaluate){
   .replaceAll('${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)}',String(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)));
  const solar=`precision highp float;
  #define FOCAL 1.25
- uniform vec3 sunDirection;uniform mat3 cameraBasis;uniform float solarVisibility;
+ uniform vec3 sunDirection;uniform mat3 cameraBasis;uniform float solarVisibility;uniform vec4 solarImage;
  const vec3 cameraPosition=vec3(0.,0.,2.);
  vec2 screenPosition(vec3 d){return 1.25*vec2(dot(d,cameraBasis[0]),dot(d,cameraBasis[1]))/dot(d,cameraBasis[2]);}
  vec3 lensPsf(vec2 delta,vec2 center){return vec3(.000001);}
  // This 3 px Sun stays on the sampled path; the resolved disk and its rays
  // have their own fixture (solar-disk-browser-fixture.mjs).
  vec4 solarCameraState(){return vec4(4.,1.,1.,0.);}
- vec3 solarRayShare(float opening){return vec3(0.);}
+ vec3 solarRayShare(vec4 camera){return vec3(0.);}
  vec3 solarRays(vec2 delta,float radius,vec4 camera){return vec3(0.);}
  vec3 resolvedSolarDisk(vec2 delta,float radius,float limb,vec4 camera){return vec3(0.);}
  void main(){float cssHeight=512.;vec2 p=vec2((gl_FragCoord.x-160.)/512.,0.);vec3 earthRay=vec3(0.,0.,1.);
@@ -60,7 +60,7 @@ export async function verifyLighting(evaluate){
  const program=source=>{const p=gl.createProgram();for(const [type,text] of [[gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'],[gl.FRAGMENT_SHADER,source]]){const s=gl.createShader(type);gl.shaderSource(s,text);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));gl.attachShader(p,s);}gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));gl.useProgram(p);const a=gl.getAttribLocation(p,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);return p;};
  const draw=()=>{gl.drawArrays(gl.TRIANGLES,0,3);const bytes=new Uint8Array(320*4);gl.readPixels(0,0,320,1,gl.RGBA,gl.UNSIGNED_BYTE,bytes);return Array.from(bytes).filter((_,i)=>i%4===0);};
  const s=program(${JSON.stringify(solar)});
- const eclipse=${JSON.stringify(cases)}.map(({direction:d,visibility})=>{gl.uniform3fv(gl.getUniformLocation(s,'sunDirection'),d);gl.uniformMatrix3fv(gl.getUniformLocation(s,'cameraBasis'),false,[d[2],0,-d[0],0,1,0,...d]);gl.uniform1f(gl.getUniformLocation(s,'solarVisibility'),visibility);const pixels=draw();return {visibility,peak:Math.max(...pixels),energy:pixels.reduce((a,b)=>a+b,0),edge:pixels.slice(250,300)};});
+ const eclipse=${JSON.stringify(cases)}.map(({direction:d,visibility})=>{gl.uniform3fv(gl.getUniformLocation(s,'sunDirection'),d);gl.uniformMatrix3fv(gl.getUniformLocation(s,'cameraBasis'),false,[d[2],0,-d[0],0,1,0,...d]);gl.uniform1f(gl.getUniformLocation(s,'solarVisibility'),visibility);gl.uniform4f(gl.getUniformLocation(s,'solarImage'),d[0],d[1],d[2],1);const pixels=draw();return {visibility,peak:Math.max(...pixels),energy:pixels.reduce((a,b)=>a+b,0),edge:pixels.slice(250,300)};});
  const m=program(${JSON.stringify(lunar)});
  const moon=(z,phase)=>{gl.uniform4f(gl.getUniformLocation(m,'moon'),0,0,z,.0045);gl.uniform1f(gl.getUniformLocation(m,'lunarIrradiance'),phase);return draw()[0];};
  const g=program(${JSON.stringify(glow)});

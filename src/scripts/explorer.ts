@@ -15,6 +15,7 @@ import { SceneClock } from './scene-clock';
 import { issFrame, ISS_PERIOD_SECONDS, initialSceneSeconds, cross, dot, normalize, type Vec3 } from './iss-orbit';
 import { celestialFrame, currentLunarPhase } from './celestial-sky';
 import { createSceneRenderer, type SceneLook } from './scene-renderer';
+import { readLensPreset } from './lens-reflections';
 import { SceneFocus } from './scene-assets';
 import { sceneBufferSize, sceneComposition, focusRenderScale } from './scene-viewport';
 import { sceneProfile } from './scene-profile';
@@ -52,6 +53,7 @@ export class EarthlightExplorer extends HTMLElement {
     const exposureMode=this.querySelector<HTMLSelectElement>('#explorer-exposure-mode')!;
     const auroraMode=this.querySelector<HTMLSelectElement>('#explorer-aurora')!;
     const cloudsMode=this.querySelector<HTMLSelectElement>('#explorer-clouds')!;
+    const lensPreset=this.querySelector<HTMLSelectElement>('#explorer-lens-preset')!;
     const auroraStatus=this.querySelector<HTMLElement>('#explorer-aurora-status')!;
     const fixedExposure=this.querySelector<HTMLInputElement>('#explorer-fixed-exposure')!;
     const viewInputs=[...this.querySelectorAll<HTMLInputElement>('[data-view]')];
@@ -71,6 +73,7 @@ export class EarthlightExplorer extends HTMLElement {
     cloudsMode.value=readCloudMode(params);
     cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis'].includes(params.get('cloudStudy')??'');
     exposureMode.value=params.get('exposure-mode')==='manual'?'manual':'auto';
+    lensPreset.value=readLensPreset(params.get('lens-preset'));
     const restoredFixed=Number(params.get('exposure-fixed'));
     if(Number.isFinite(restoredFixed))fixedExposure.value=String(Math.max(EXPOSURE_MIN_EV,Math.min(EXPOSURE_MAX_EV,restoredFixed)));
     const profile=sceneProfile(params);
@@ -259,6 +262,7 @@ export class EarthlightExplorer extends HTMLElement {
       if(cameraView.pitch)url.searchParams.set('pitch',String(cameraView.pitch));
       for(const input of lookInputs)if(input.value!==input.defaultValue)url.searchParams.set(`look-${input.dataset.look}`,input.value);
       if(exposureMode.value==='manual'){url.searchParams.set('exposure-mode','manual');url.searchParams.set('exposure-fixed',fixedExposure.value);}
+      if(lensPreset.value!=='iss')url.searchParams.set('lens-preset',lensPreset.value);
       explorerLink.href=url.href;
     };
     const prepareExplorerLink = () => updateExplorerLink();
@@ -590,6 +594,7 @@ export class EarthlightExplorer extends HTMLElement {
       const exposureInput=lookInputs.find(input=>input.dataset.look==='exposure')!;
       const manual=exposureMode.value==='manual';
       look.manualExposure=manual?Number(fixedExposure.value):null;
+      look.lensPreset=readLensPreset(lensPreset.value);
       if(manual)look.exposure=0;
       this.querySelector<HTMLElement>('[data-manual-setting]')!.hidden=!manual;
       exposureInput.closest<HTMLElement>('.setting')!.hidden=manual;
@@ -606,6 +611,7 @@ export class EarthlightExplorer extends HTMLElement {
       if(exposureInput.value===exposureInput.defaultValue)url.searchParams.delete('look-exposure');else url.searchParams.set('look-exposure',exposureInput.value);
       if(exposureMode.value==='manual'){url.searchParams.set('exposure-mode','manual');url.searchParams.set('exposure-fixed',fixedExposure.value);}
       else{url.searchParams.delete('exposure-mode');url.searchParams.delete('exposure-fixed');}
+      if(lensPreset.value==='iss')url.searchParams.delete('lens-preset');else url.searchParams.set('lens-preset',lensPreset.value);
       updateURL(url);
     };
     const restoreAll = () => {
@@ -626,9 +632,9 @@ export class EarthlightExplorer extends HTMLElement {
       viewInputs.forEach(input=>{input.value=input.defaultValue;});
       cameraView.yaw=0;cameraView.pitch=0;
       lookInputs.forEach(input=>{input.value=input.defaultValue;});
-      exposureMode.value="auto";fixedExposure.value=fixedExposure.defaultValue;
+      exposureMode.value="auto";fixedExposure.value=fixedExposure.defaultValue;lensPreset.value='iss';
       const url=new URL(pendingURL??location.href);
-      for(const key of ['t','yaw','pitch','motion','still','moon','orbit','route','flight','position','heading','elevation','roll','orientation','lens','aurora','clouds'])url.searchParams.delete(key);
+      for(const key of ['t','yaw','pitch','motion','still','moon','orbit','route','flight','position','heading','elevation','roll','orientation','lens','lens-preset','aurora','clouds'])url.searchParams.delete(key);
       for(const input of [...lookInputs,speedInput])url.searchParams.delete(input===speedInput?'rate':`look-${input.dataset.look}`);
       updateURL(url);
       updateSpeedLabel();updateViewLabels();
@@ -903,7 +909,7 @@ export class EarthlightExplorer extends HTMLElement {
     explorerLink?.addEventListener('click',prepareExplorerLink);
     explorerLink?.addEventListener('focus',prepareExplorerLink);
     lookInputs.forEach(input=>input.addEventListener('input',changeLook));
-    exposureMode.addEventListener('change',changeLook);fixedExposure.addEventListener('input',changeLook);
+    exposureMode.addEventListener('change',changeLook);fixedExposure.addEventListener('input',changeLook);lensPreset.addEventListener('change',changeLook);
     resetAll.addEventListener('click',restoreAll);
     viewInputs.forEach(input=>input.addEventListener('input',changeView));
     const contextLost = (event: Event) => {
@@ -991,7 +997,7 @@ export class EarthlightExplorer extends HTMLElement {
       cloudShapeSelect.removeEventListener('change',changeCloudShape);
       modisMode.removeEventListener('change',changeModis);
       lookInputs.forEach(input=>input.removeEventListener('input',changeLook));
-      exposureMode.removeEventListener('change',changeLook);fixedExposure.removeEventListener('input',changeLook);
+      exposureMode.removeEventListener('change',changeLook);fixedExposure.removeEventListener('input',changeLook);lensPreset.removeEventListener('change',changeLook);
       auroraObserver.disconnect();auroraMode.removeEventListener('change',changeAurora);
       cloudsMode.removeEventListener('change',changeClouds);
       resetAll.removeEventListener('click',restoreAll);

@@ -167,7 +167,7 @@ float cloudShadow(vec3 point){return cloudLightTransmission(point,sunDirection,6
 // Five source rays are evaluated in a tiny prepass, never once per screen pixel.
 // The same coverage, height profile and filtering drive visible clouds and the
 // light reaching the lens. Scattering into the ray does not feed lens ghosts.
-vec3 lensTransmission(vec3 ray){
+float lensCloudDepth(vec3 ray){
  float b=dot(cameraPosition,ray),c=dot(cameraPosition,cameraPosition);
  float cloudTau=0.;
  const float outer=1.0018835,inner=1.00009418;
@@ -184,10 +184,17 @@ vec3 lensTransmission(vec3 ray){
    cloudTau+=cloudIntegratedDensity(samplePoint,max(distance/(resolution.y*FOCAL),width*.5),true,width*3185.5*abs(dot(normalize(samplePoint),ray)))*width*6371.;
   }
  }
+ return cloudTau;
+}
+// Clear air between the lens and the source, aerosol included: a source near
+// the limb is seen through ~300 km of the lowest kilometres.
+vec3 lensAirTransmission(vec3 ray){
+ float b=dot(cameraPosition,ray),c=dot(cameraPosition,cameraPosition);
  float limit=10.;
  float ground=b*b-c+1.;if(b<0.&&ground>0.)limit=max(0.,-b-sqrt(ground));
- return exp(-airExtinction*airColumn(cameraPosition,ray,limit)-vec3(cloudTau));
+ return exp(-limbExtinction(limbColumns(cameraPosition,ray,limit)));
 }
+vec3 lensTransmission(vec3 ray){return lensAirTransmission(ray)*exp(-lensCloudDepth(ray));}
 ${stormLightShader}
 vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out float atmosphereDistance){
   transmission=1.;

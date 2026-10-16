@@ -15,6 +15,8 @@ import { cloudShader } from './earth-clouds';
 import { terrainShader } from './earth-terrain';
 import { sceneColorShader } from './scene-color';
 import { atmosphericLightShader } from './atmospheric-light';
+import { solarAureoleShader } from './solar-aureole';
+import { SOLAR_ROWS } from './limb-refraction';
 import { noiseTableShader } from './noise-table';
 
 // ISS trajectory and sunlight, graded like a photograph taken from orbit.
@@ -49,6 +51,9 @@ uniform vec4 moon;
 uniform vec4 planets[5];
 uniform vec3 sunDirection;
 uniform float solarVisibility;
+// Refracted image of the Sun (limb-refraction.ts): apparent direction and
+// vertical compression; w is zero once no air in view can be sunlit.
+uniform vec4 solarImage;
 #ifdef SOLAR_TRANSMISSION
 uniform sampler2D solarTransmission;
 #endif
@@ -154,6 +159,7 @@ vec3 atmosphere(vec3 ray,float groundDistance,vec3 background,out vec3 scatter) 
   }
   return max(vec3(0.),background*exp(-beta*opticalDepth)+scatter);
 }
+${solarAureoleShader}
 // Fixed mesospheric emission profiles, integrated along the visible ray.
 // Split at the empty inner sphere so a ground-facing ray cannot skip the thin
 // layer. Midpoint samples are deterministic: no temporal shimmer or shell mix.
@@ -292,12 +298,17 @@ void main() {
   // Legacy composition encoding, decoded before the linear HDR output.
   color=pow(max(color,vec3(0.)),vec3(1./2.2));
   color*=skyMask;
-  vec2 solarCenter=screenPosition(sunDirection);
+  vec2 solarCenter=screenPosition(solarImage.xyz);
   float solarPixels=${SOLAR_RADIUS}*cssHeight*FOCAL;
   vec2 solarDelta=(p-solarCenter)*cssHeight;
   vec3 solarDisk=vec3(0.);
-  if(solarVisibility>0. && dot(sunDirection,cameraBasis[2])>0.){
+  if(solarVisibility>0. && dot(solarImage.xyz,cameraBasis[2])>0.){
     vec4 solarCamera=solarCameraState();
+    // Refraction squeezes the disk along the limb's normal on screen.
+    vec3 limbUp=normalize(cameraPosition-dot(cameraPosition,solarImage.xyz)*solarImage.xyz);
+    vec2 solarUp=screenPosition(normalize(solarImage.xyz+.001*limbUp))-solarCenter;
+    solarUp/=max(length(solarUp),1e-6);
+    float solarSquash=clamp(solarImage.w,.05,1.);
     // Below ~5 CSS px the disk is 24 PSF-convolved samples; from ~9 px it is
     // resolved analytically, where the samples would show as separate beads.
     float solarResolved=smoothstep(${SOLAR_RESOLVED_PX[0].toFixed(1)},${SOLAR_RESOLVED_PX[1].toFixed(1)},solarPixels);
@@ -311,6 +322,7 @@ void main() {
         for(int i=0;i<24;i++){
           float angle=float(i)*2.39996323;
           vec2 offset=vec2(cos(angle),sin(angle))*sqrt((float(i)+.5)/24.)*solarPixels;
+          offset+=solarUp*dot(offset,solarUp)*(solarSquash-1.);
           // Occlude each piece of the source BEFORE spreading its light through
           // the lens. A small footprint makes partial eclipses continuous.
           vec3 sourceRay=normalize(cameraBasis*vec3(solarCenter+offset/cssHeight,FOCAL));
@@ -329,13 +341,15 @@ void main() {
       if(solarResolved>0.){
         // Earth's limb is a second edge across the disk, in CSS px above it.
         float limbAngle=asin(clamp(dot(normalize(cameraPosition),earthRay),-1.,1.))+acos(1./length(cameraPosition));
-        resolved=resolvedSolarDisk(solarDelta,solarPixels,limbAngle*FOCAL*cssHeight,solarCamera);
+        resolved=resolvedSolarDisk(solarDelta+solarUp*dot(solarDelta,solarUp)*(1./solarSquash-1.),solarPixels,limbAngle*FOCAL*cssHeight,solarCamera);
       }
       solarCore=mix(sampled,resolved,solarResolved)*(1.-smoothstep(solarPixels+95.,solarPixels+130.,length(solarDelta)));
     }
     // The LUT's rays end ~10 px from each source point; beyond, they are
-    // analytic and reach across the frame. Their flux leaves the disk.
-    solarDisk=solarCore*(1.-solarRayShare(solarCamera.w))+solarRays(solarDelta,solarPixels,solarCamera)*solarVisibility;
+    // analytic and reach across the frame. Their flux leaves the disk. They
+    // come from the visible part only: a disk of the same area, so a rising
+    // sliver throws narrower bands than the whole Sun.
+    solarDisk=solarCore*(1.-solarRayShare(solarCamera))+solarRays(solarDelta,solarPixels*sqrt(solarVisibility),solarCamera);
     #ifdef SOLAR_TRANSMISSION
     solarDisk*=texture2D(solarTransmission,vec2(.3,.5)).rgb;
     #endif
@@ -449,6 +463,7 @@ void main() {
   // Rayleigh scattering lies below the separate mesospheric emission layer.
   vec3 scattering;
   color=atmosphere(earthRay,atmosphereDistance,color,scattering);
+  color+=solarAureole(earthRay,atmosphereDistance);
   // Dense cloud tops occlude the air below them; their own uplight is already
   // integrated in cloudVolume. Clear rays continue down to the actual ground.
   color+=cityHaze(earthRay,atmosphereDistance);
@@ -476,12 +491,28 @@ void main() {
 // A separate five-pixel program keeps source-ray integration out of the
 // screen-sized shader's control flow/register allocation. Unused scene helpers
 // are removed by the compiler; shared density functions stay identical.
+// The Sun's texel is the mean transmission of its visible refracted rows:
+// near the limb the top of the disk is far clearer than its centre, and
+// cloud tops hide the lower rows first.
 export const sourceTransmissionFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
+uniform vec4 solarRows[${SOLAR_ROWS}];
 void main(){
   float source=floor(gl_FragCoord.x);
   vec3 ray=moon.xyz;
-  if(source>.5)ray=sunDirection;
   if(source>1.5)for(int i=0;i<3;i++)if(abs(source-float(i+2))<.5)ray=normalize(cameraBasis*vec3(pointGhosts[i].xy,FOCAL));
+  if(abs(source-1.)<.5){
+    vec3 light=vec3(0.);
+    float weight=0.;
+    for(int i=0;i<${SOLAR_ROWS};i++){
+      if(solarRows[i].w<=0.)continue;
+      vec3 rowAir=lensAirTransmission(solarRows[i].xyz);
+      // Rows already darker than 1e-6 do not need their clouds traced.
+      if(max(rowAir.r,max(rowAir.g,rowAir.b))>1e-6)light+=rowAir*exp(-lensCloudDepth(solarRows[i].xyz))*solarRows[i].w;
+      weight+=solarRows[i].w;
+    }
+    gl_FragColor=vec4(weight>0.?light/weight:vec3(0.),1.);
+    return;
+  }
   gl_FragColor=vec4(lensTransmission(ray),1.);
 }
 `;

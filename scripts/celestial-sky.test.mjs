@@ -149,9 +149,10 @@ test('changing the phase changes lunar light, but never its sampled position or 
   assert.ok(blocked>0&&blocked<a.length/4);
 });
 
-test('iris atlas preserves equal spectral energy and zero boundaries at every opening',()=>{
-  const data=readFileSync(new URL('../public/media/earthlight/optical-psf.bin',import.meta.url));
-  assert.equal(data.length,optics.size**2*optics.states*3);
+test('iris atlas preserves equal spectral energy and zero boundaries at every f-number',()=>{
+  const data=readFileSync(new URL('../public/media/earthlight/optical-psf-iris9.bin',import.meta.url));
+  const rays=optics.rays,rayRows=rays.rows*rays.levels.length*optics.states;
+  assert.equal(data.length,optics.size*(optics.size*optics.states+rayRows)*3);
   for(let state=0;state<optics.states;state++)for(let c=0;c<3;c++){
     let sum=0;
     for(let y=0;y<optics.size;y++)for(let x=0;x<optics.size;x++){
@@ -163,21 +164,20 @@ test('iris atlas preserves equal spectral energy and zero boundaries at every op
     const integral=sum*(optics.span/optics.size)**2;
     assert.ok(Math.abs(integral/optics.integral-1)<.015,`iris ${state}, channel ${c}: ${integral}`);
   }
-  // The wider, rounder pupil must strongly reduce blade angular modulation.
-  const angularVariation=state=>{
-    const sample=(x,y)=>{
-      const i=((state*optics.size+y)*optics.size+x)*3;
-      return (2**(data[i]/255*26-24)+2**(data[i+1]/255*26-24)+2**(data[i+2]/255*26-24))/3;
-    };
-    const values=Array.from({length:72},(_,i)=>{
-      const angle=i/72*Math.PI*2;let sum=0;
-      for(let r=24;r<60;r++)sum+=sample(Math.round(optics.size/2+Math.cos(angle)*r),Math.round(optics.size/2+Math.sin(angle)*r));
-      return sum;
-    });
-    const mean=values.reduce((a,b)=>a+b)/values.length;
-    return values.reduce((sum,v)=>sum+(v/mean-1)**2,0)/values.length;
-  };
-  assert.ok(angularVariation(optics.states-1)<angularVariation(0)*.3);
+  // Below the tiles, each f-number's far-field ray profile: 1020 angles in
+  // four rows that share their end samples, per blur level. The unblurred
+  // profile's mean is the flux share the shader takes from the Sun's disk.
+  const decode=code=>2**(code/255*rays.encoding[0]+rays.encoding[1]);
+  const rayRow=(state,level,row)=>optics.size*optics.size*optics.states*3+(((state*rays.levels.length+level)*rays.rows+row)*optics.size)*3;
+  for(let state=0;state<optics.states;state++){
+    for(let level=0;level<rays.levels.length;level++)for(let row=0;row+1<rays.rows;row++)for(let c=0;c<3;c++)
+      assert.equal(data[rayRow(state,level,row)+(optics.size-1)*3+c],data[rayRow(state,level,row+1)+c]);
+    for(let c=0;c<3;c++){
+      let sum=0;for(let row=0;row<rays.rows;row++)for(let x=0;x<optics.size-1;x++)sum+=decode(data[rayRow(state,0,row)+x*3+c]);
+      const mean=sum/rays.samples;
+      assert.ok(Math.abs(mean/rays.mean[state][c]-1)<.04,`ray mean ${state}/${c}: ${mean} vs ${rays.mean[state][c]}`);
+    }
+  }
 });
 
 test('packed HYG contains real J2000 stars, magnitudes and proper motion',()=>{

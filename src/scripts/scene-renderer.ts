@@ -1,6 +1,6 @@
 import {cropTextureBitmap} from './texture-bitmap.ts';
 import {assetURL,type SceneSources} from './asset-location';
-import {shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './webgl-context.ts';
+import {halfFloatTarget,shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {ShaderProgramBatch} from './shader-programs';
 import {textureProfile} from './texture-profile';
 import {CloudBuffer} from './cloud-buffer';
@@ -17,13 +17,15 @@ import { celestialFrame, currentLunarLight, lunarSamples } from './celestial-sky
 import { CatalogStars } from './catalog-stars';
 import { decodeStarCatalog } from './star-pack';
 import type { MoonSurface } from './moon-surface';
-import { optics } from './optical-psf';
+import { OPTICAL_PSF_ROWS, optics } from './optical-psf';
 import { SurfaceTiles } from './night-tiles';
 import { TerrainStream } from './terrain-stream';
 import type { decodeTerrain } from './earth-terrain';
-import { visibleSourceDisk } from './lens-reflections';
+import { refractedSource } from './limb-refraction';
+import { AUREOLE_SUN_DEPTH } from './solar-aureole';
 import { configureSceneColor } from './scene-color';
 import { PointReflections } from './point-reflections';
+import { lensReflectance, type LensPreset } from './lens-reflections';
 import { SceneTimer } from './scene-quality';
 import { sceneProfile } from './scene-profile';
 import {auroraEnabled,auroraMode,cloudMode} from './scene-effects';
@@ -33,7 +35,7 @@ import { NOISE_TABLE_SIZE, NOISE_TABLE_UNIT, noiseTableData } from './noise-tabl
 import { TemporalClouds, temporalCloudMain, temporalResolveFragment, temporalCompositeShader, TEMPORAL_FRESH_UNITS, TEMPORAL_HISTORY_UNITS, TEMPORAL_PREVIOUS_UNIT, TEMPORAL_RESOLVED_UNITS } from './cloud-temporal';
 import { vertexSource, fragmentSource, sourceTransmissionFragment, volumeFragment, halfCloudFragment, halfCloudVolumeFragment } from './scene-shader';
 
-export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number;exposure:number;manualExposure?:number|null};
+export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number;exposure:number;manualExposure?:number|null;lensPreset?:LensPreset};
 /** Owns the WebGL resources and passes; never reads or mutates page controls. */
 export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasElement,params:URLSearchParams,notify:()=>void,sources:SceneSources={}) {
     const base=sources.assetBaseURL;
@@ -224,8 +226,9 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           await submit(()=>{starData=data;pointReflections.upload(data);catalog?.upload(data);state.starsReady='';});return;
         }
         if(asset.key==='psf'){
-          const data=new Uint8Array(await new Response(asset.url.endsWith('-v2.bin')?blob.stream().pipeThrough(new DecompressionStream('gzip')):blob).arrayBuffer());
-          if(data.length!==optics.size*optics.size*optics.states*3)throw Error('Invalid optical PSF');
+          // Versioned copies (optical-psf-v3.bin) are gzipped transfers of the table.
+          const data=new Uint8Array(await new Response(/-v\d+\.bin$/.test(asset.url)?blob.stream().pipeThrough(new DecompressionStream('gzip')):blob).arrayBuffer());
+          if(data.length!==optics.size*OPTICAL_PSF_ROWS*3)throw Error('Invalid optical PSF');
           if(disposed||lost||current!==generation)return;
           await submit(()=>{psfData=data;uploadPsf();});return;
         }
@@ -321,7 +324,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     const uploadPsf=()=>{
       if(!psfTexture||!psfData||gl.isContextLost())return;
       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,psfTexture);
-      textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGB,optics.size,optics.size*optics.states,0,gl.RGB,gl.UNSIGNED_BYTE,psfData);
+      textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGB,optics.size,OPTICAL_PSF_ROWS,0,gl.RGB,gl.UNSIGNED_BYTE,psfData);
     };
     const initialize = async(started=performance.now()):Promise<boolean> => {
       // Query once, while the GPU queue is still empty. Asked after each map
@@ -409,7 +412,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         scenePosition=gl.getAttribLocation(program,'position');
         resolution = gl.getUniformLocation(program, 'resolution');
         time = gl.getUniformLocation(program, 'time');
-        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','cameraState','stormSources[0]']) sceneUniforms[name] = gl.getUniformLocation(program,name);
+        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','solarImage','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','cameraState','stormSources[0]']) sceneUniforms[name] = gl.getUniformLocation(program,name);
         gl.uniform1f(gl.getUniformLocation(program, 'surfaceEnabled'),params.get('surface') === '0' ? 0 : 1);
         gl.uniform2f(gl.getUniformLocation(program,'nightMapResolution'),1,1);
         ['surfaceMap','nightMap','cloudMap'].forEach((name,index) => {
@@ -436,7 +439,8 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
         for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
         if(!psfData){
-          psfData=new Uint8Array(optics.size*optics.size*optics.states*3);
+          // Gaussian tiles and no far-field rays until the table arrives.
+          psfData=new Uint8Array(optics.size*OPTICAL_PSF_ROWS*3);
           for(let state=0;state<optics.states;state++)for(let y=0;y<optics.size;y++)for(let x=0;x<optics.size;x++){
             const r2=((x-optics.size/2)*optics.span/optics.size)**2+((y-optics.size/2)*optics.span/optics.size)**2;
             const value=Math.round(Math.max(0,Math.min(1,(Math.log2(Math.exp(-r2/2)+2**-24)+24)/26))*255);
@@ -466,22 +470,28 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         if(supportsSourceAttenuation){
           sourceProgram=batch.take(attenuationProgram!);
           sourcePosition=gl.getAttribLocation(sourceProgram,'position');
-          for(const name of ['zoomExcess','resolution','time','cameraPosition','cameraBasis','sunDirection','moon','pointGhosts[0]','cloudMapWidth','cloudTileLayout'])sourceUniforms[name]=gl.getUniformLocation(sourceProgram,name);
+          for(const name of ['zoomExcess','resolution','time','cameraPosition','cameraBasis','sunDirection','moon','pointGhosts[0]','solarRows[0]','cloudMapWidth','cloudTileLayout'])sourceUniforms[name]=gl.getUniformLocation(sourceProgram,name);
           gl.useProgram(sourceProgram);gl.uniform1i(gl.getUniformLocation(sourceProgram,'cloudMap'),2);
           if(supportsCloudTiles)gl.uniform1i(gl.getUniformLocation(sourceProgram,'cloudTileAtlas'),9);
           gl.useProgram(program);
           sourceTexture=gl.createTexture();sourceTarget=gl.createFramebuffer();
           if(!sourceTexture||!sourceTarget)throw Error('Cannot allocate source attenuation target');
           gl.activeTexture(gl.TEXTURE0+10);gl.bindTexture(gl.TEXTURE_2D,sourceTexture);
-          textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,5,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+          // Half floats keep the rising Sun's 10⁻⁴–10⁻³ transmission, which
+          // eight bits round to zero or 1/255; RGBA8 remains the fallback.
+          const sourceType=halfFloatTarget(gl)??gl.UNSIGNED_BYTE;
+          textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,5,1,0,gl.RGBA,sourceType,null);
           for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
           for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
           gl.bindFramebuffer(gl.FRAMEBUFFER,sourceTarget);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,sourceTexture,0);
+          if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE&&sourceType!==gl.UNSIGNED_BYTE){
+            textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,5,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+          }
           if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Incomplete source attenuation target');
           gl.bindFramebuffer(gl.FRAMEBUFFER,null);
         }
         if(separateVolume){
-          const uniformNames=['zoomExcess','resolution','cloudResolution','time','cameraPosition','cameraBasis','sunDirection','moon','lunarIrradiance','galacticBasis','pixelRatio','stormSources[0]','galaxyAmount','solarVisibility','cloudMapWidth','galaxyMapWidth','nightMapResolution','mapsReady','surfaceEnabled','cloudTileLayout','nightTileLayout','sceneLinear','displayP3'];
+          const uniformNames=['zoomExcess','resolution','cloudResolution','time','cameraPosition','cameraBasis','sunDirection','moon','lunarIrradiance','galacticBasis','pixelRatio','stormSources[0]','galaxyAmount','solarVisibility','solarImage','cloudMapWidth','galaxyMapWidth','nightMapResolution','mapsReady','surfaceEnabled','cloudTileLayout','nightTileLayout','sceneLinear','displayP3'];
           const samplers={surfaceMap:0,nightMap:1,cloudMap:2,opticalPsf:4,milkyWayMap:5,nightTileAtlas:7,cloudTileAtlas:9,auroraMap:11,solarTransmission:12,worldScene:14,cameraState:10,cloudRadiance:6,cloudDepth:13,noiseTable:NOISE_TABLE_UNIT,temporalRadiance:TEMPORAL_RESOLVED_UNITS[0],temporalDepth:TEMPORAL_RESOLVED_UNITS[1]};
           for(const pass of volumePasses){
             const cloudPass=pass==='cloud';
@@ -670,7 +680,12 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       gl.uniform3fv(sceneUniforms.cameraPosition,observer.camera);
       gl.uniformMatrix3fv(sceneUniforms.cameraBasis,false,observer.cameraBasis);
       gl.uniform3fv(sceneUniforms.sunDirection,observer.sun);
-      gl.uniform1f(sceneUniforms.solarVisibility,visibleSourceDisk(observer.camera,observer.sun,SOLAR_RADIUS));
+      // The Sun as the camera sees it through the limb: raised, flattened and
+      // dimmed by refraction. Its rows feed the lens transmission below.
+      const solarImage=refractedSource(observer.camera,observer.sun,SOLAR_RADIUS);
+      const solarImageState=[...solarImage.direction,solarImage.altitude<-AUREOLE_SUN_DEPTH?0:solarImage.compression];
+      gl.uniform1f(sceneUniforms.solarVisibility,solarImage.visibility);
+      gl.uniform4fv(sceneUniforms.solarImage,solarImageState);
       if(params.get('surface')!=='0')nightTiles?.update(observer,width,height,program);
       if(params.get('surface')!=='0')dayTiles?.update(terrainView?{...observer,sun:observer.camera}:observer,width,height,program);
       if(params.get('surface')!=='0'&&cloudTiles){
@@ -694,7 +709,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.uniform2f(sourceUniforms.resolution,width,height);gl.uniform1f(sourceUniforms.time,sceneTime);gl.uniform1f(sourceUniforms.zoomExcess,zoomExcess);
         gl.uniform3fv(sourceUniforms.cameraPosition,observer.camera);gl.uniformMatrix3fv(sourceUniforms.cameraBasis,false,observer.cameraBasis);
         gl.uniform3fv(sourceUniforms.sunDirection,observer.sun);gl.uniform4fv(sourceUniforms.moon,sky.moon);
-        gl.uniform4fv(sourceUniforms['pointGhosts[0]'],points);gl.uniform1f(sourceUniforms.cloudMapWidth,imageWidths.clouds??1);
+        gl.uniform4fv(sourceUniforms['pointGhosts[0]'],points);gl.uniform4fv(sourceUniforms['solarRows[0]'],solarImage.rows);gl.uniform1f(sourceUniforms.cloudMapWidth,imageWidths.clouds??1);
         if(cloudTiles)gl.uniform2fv(sourceUniforms.cloudTileLayout,cloudTiles.layout());
         gl.enableVertexAttribArray(sourcePosition);gl.vertexAttribPointer(sourcePosition,2,gl.FLOAT,false,0,0);
         gl.bindFramebuffer(gl.FRAMEBUFFER,sourceTarget);gl.viewport(0,0,5,1);gl.drawArrays(gl.TRIANGLES,0,3);
@@ -728,7 +743,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.uniform1f(uniforms.pixelRatio,height/Math.max(1,cssHeight));
         gl.uniform4fv(uniforms['stormSources[0]'],storms);
         gl.uniform1f(uniforms.galaxyAmount,look.galaxy);
-        gl.uniform1f(uniforms.solarVisibility,visibleSourceDisk(observer.camera,observer.sun,SOLAR_RADIUS));
+        gl.uniform1f(uniforms.solarVisibility,solarImage.visibility);gl.uniform4fv(uniforms.solarImage,solarImageState);
         gl.uniform1f(uniforms.cloudMapWidth,imageWidths.clouds??1);
         gl.uniform1f(uniforms.galaxyMapWidth,imageWidths.galaxy??1);
         gl.uniform2f(uniforms.nightMapResolution,imageWidths.night??1,(imageWidths.night??2)/2);
@@ -801,12 +816,13 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       previousPose=pose;
       if(!terrainView)finish.render(height/Math.max(1,cssHeight),grainIndex,look.grain*1.3,look.chromatic*.8,focusRadius,{
         motion,
+        reflectance:lensReflectance(look.lensPreset??'iss'),
         moon:project(sky.moon,lunarFlux*Math.PI*(sky.moon[3]*focal)**2*18*look.ghosts),
         moonRadius:sky.moon[3],
         glare:params.get('glare')!=='off',
         fieldReflections:params.get('fieldReflections')!=='off',
         pyramidMeter:params.get('meter')!=='points',
-        sun:project(observer.sun,visibleSourceDisk(observer.camera,observer.sun,SOLAR_RADIUS)),
+        sun:project(solarImage.direction,solarImage.visibility),
         points,pointAmount:look.ghosts,attenuation:sourceTexture,sunReflections:look.ghosts,focal,
       },look.exposure,look.manualExposure);
 

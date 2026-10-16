@@ -4,7 +4,7 @@ import {dirname,resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const source=join(root,'public/media/earthlight');
-const background=['preview/poster.webp','preview/day.webp','preview/night.webp','preview/clouds.webp','preview/galaxy.webp','mobile/day-2048.avif','mobile/galaxy-2048.avif','earth-night.avif','earth-clouds-nasa-4096.avif','stars-hyg-v2.bin','optical-psf-v2.bin'];
+const background=['preview/poster.webp','preview/day.webp','preview/night.webp','preview/clouds.webp','preview/galaxy.webp','mobile/day-2048.avif','mobile/galaxy-2048.avif','earth-night.avif','earth-clouds-nasa-4096.avif','stars-hyg-v2.bin','optical-psf-v3.bin'];
 const excluded=new Set(['earth-day.avif','earth-day-8k.avif','earth-clouds.avif','earth-clouds-8k.avif','.DS_Store']);
 async function walk(dir,prefix=''){
  const files=[];

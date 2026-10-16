@@ -57,7 +57,7 @@ tile implementations were rejected or revised before retaining this version.
    Failed refinements preserve working previews. Reduced motion skips defocus.
 
 Focus runs in a temporary optical prepass, not a CSS canvas filter.
-Forty-eight fixed area samples approximate a rounded six-blade aperture with
+Forty-eight fixed area samples approximate the rounded nine-blade iris with
 a maximum radius of 6 CSS pixels, averaging linear light. Half-float scene
 targets now store linear values, so hardware interpolation also preserves
 highlight energy. RGBA8 retains encoded storage and decodes four texels before

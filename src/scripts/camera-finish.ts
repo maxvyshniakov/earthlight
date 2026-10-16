@@ -3,8 +3,9 @@ import type {ShaderProgramBatch} from './shader-programs';
 import { sceneImageShader } from './scene-image';
 import { CameraDefocus } from './camera-defocus';
 import { CameraGlare, FIELD_LEVEL_SPREAD, GLARE_MAX_LEVELS, GLARE_SOLAR_CAP, SOLAR_PSF_REACH } from './camera-glare';
-import { SOLAR_IRRADIANCE, SOLAR_RADIUS, SOLAR_SCATTER_FRACTION, VEIL_COMPONENTS } from './solar-light';
+import { FRAME_SCATTER_FRACTION, SOLAR_IRRADIANCE, SOLAR_RADIUS, SOLAR_SCATTER_FRACTION, VEIL_COMPONENTS } from './solar-light';
 import { fieldReflectionShader, lensReflectionShader } from './lens-reflections';
+import { lensDirtShader } from './lens-dirt';
 import { sceneColorShader } from './scene-color';
 import { poissonQuantiles, POISSON_COLUMNS, POISSON_ROWS } from './sensor-noise';
 import { CameraExposure } from './camera-exposure';
@@ -12,7 +13,7 @@ import { cameraModelShader } from './camera-model';
 export const CAMERA_EXPOSURE_EV=0;
 /** Camera poses of this and the previous submitted frame, for shutter blur. */
 export type ShutterMotion={shutter:number;sky:boolean;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
-export type LensFrame={moon:[number,number,number];moonRadius?:number;glare?:boolean;fieldReflections?:boolean;pyramidMeter?:boolean;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
+export type LensFrame={reflectance?:number;moon:[number,number,number];moonRadius?:number;glare?:boolean;fieldReflections?:boolean;pyramidMeter?:boolean;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
 const fragmentSource = `
 precision highp float;
 precision highp sampler2D;
@@ -31,6 +32,8 @@ uniform vec3 moonGhost;
 uniform float moonGhostRadius;
 uniform vec3 sunGhost;
 uniform float sunReflectionAmount;
+// The lens preset's ghost gain (lensReflectance); the slider stays separate.
+uniform float lensReflectance;
 uniform vec4 pointGhosts[3];
 uniform float pointGhostAmount;
 uniform sampler2D sourceAttenuation;
@@ -53,6 +56,7 @@ float ghostFocalScale;
 float ghostSourceRadius;
 ${lensReflectionShader}
 ${fieldReflectionShader(FIELD_LEVEL_SPREAD,GLARE_MAX_LEVELS)}
+${lensDirtShader}
 // At coated-lens reflectance the field's reflections stay a few output levels,
 // so they fade in only as the Lens flares control rises from 100% to 125%.
 uniform float reflectionFieldWeight;
@@ -91,20 +95,36 @@ vec3 reflectionsAt(vec2 p,float aspect){
         *(1.-fieldShare(source.xy,aspect));
     }
   }
-  return lensToOutputLinear(result);
+  return lensToOutputLinear(result)*lensReflectance;
 }
-// Smooth forward scatter is separate from the colored reflection ghosts.
-// Kernels integrate to one over solid angle: scatter at the window and front
-// element happens before the lens focuses, so the halo grows with focal
-// length at constant surface brightness. Do not clip it to Earth's limb.
+// Forward scatter is separate from the colored reflection ghosts. Kernels
+// integrate to one over solid angle: scatter at the window and front element
+// happens before the lens focuses, so the halo grows with focal length at
+// constant surface brightness. Do not clip it to Earth's limb. Contamination
+// breaks the round kernel into lobes fixed to the lens (veilPatternRGB,
+// lens-dirt.ts) without changing its integral.
 vec3 solarVeil(vec2 p){
   if(sunGhost.z<=0.)return vec3(0.);
   vec2 delta=(p-sunGhost.xy)/FOCAL;
   float r2=dot(delta,delta);
-  float kernel=${VEIL_COMPONENTS.map(({share,scale})=>`${share}/(3.14159265*${(scale*scale).toFixed(8)})*pow(1.+r2/${(scale*scale).toFixed(8)},-2.)`).join('+')};
+  // The smudges and the cleaning swirl the Sun's beam currently crosses take
+  // their share from every kernel alike, so the round veil keeps its profile:
+  // drawn from the broad kernel alone, they left its tail at 0.3 rad half as
+  // bright and falling as θ^-2.6 instead of the reference's θ^-2.
+  vec2 sunAngle=atan(sunGhost.xy/FOCAL);
+  float lobes=smudgeShare(sunAngle);
+  float kernel=(1.-lobes)*(${VEIL_COMPONENTS.map(({share,scale})=>`${share.toFixed(4)}/(3.14159265*${(scale*scale).toFixed(8)})*pow(1.+r2/${(scale*scale).toFixed(8)},-2.)`).join('+')});
   float acceptance=1.-smoothstep(.8,1.4,length(sunGhost.xy)/1.25);
   return sceneToOutputLinear(vec3(1.,.97,.92))*sourceEnergy(.3)*sunGhost.z
-    *${SOLAR_IRRADIANCE*SOLAR_SCATTER_FRACTION}*kernel*acceptance;
+    *${SOLAR_IRRADIANCE*SOLAR_SCATTER_FRACTION}*(kernel*veilPatternRGB(delta)+smudgeVeilRGB(delta,sunAngle))*acceptance;
+}
+// Window dust lit from behind by the Sun (lens-dirt.ts): out-of-focus specks
+// a few 1e-6 of the solar flux each, so they show only in heavy flare.
+vec3 solarDustGlints(vec2 p){
+  if(sunGhost.z<=0.)return vec3(0.);
+  float acceptance=1.-smoothstep(.8,1.4,length(sunGhost.xy)/1.25);
+  float projectionArea=FOCAL*FOCAL*pow(1.+dot(sunGhost.xy,sunGhost.xy)/(FOCAL*FOCAL),1.5);
+  return sceneToOutputLinear(vec3(1.,.97,.92))*sourceEnergy(.3)*sunGhost.z*${SOLAR_IRRADIANCE}*projectionArea*dustGlints(p,sunGhost.xy,4./cameraPupilScale)*acceptance;
 }
 // The rest of the frame scatters with the same kernel (CameraGlare). Glare
 // moves light: what the pyramid spreads out is taken from where it was.
@@ -229,8 +249,12 @@ void main() {
   vec3 linear=shutterImage(uv,shift,p,aspect);
   // Ghost paths have their own conjugates; focus changes their size/softness
   // in apertureGhost instead of convolving them with the scene's pupil.
-  if(glareAmount>.5)linear+=${SOLAR_SCATTER_FRACTION}*(texture2D(glare,uv).rgb-glareSource(linear,p));
-  linear+=reflectionsAt(p,aspect)+fieldReflections(p,aspect)*sunReflectionAmount*reflectionFieldWeight+solarVeil(p);
+  if(glareAmount>.5)linear+=${FRAME_SCATTER_FRACTION.toFixed(5)}*(texture2D(glare,uv).rgb-glareSource(linear,p));
+  // The lens barrel's bore shades the veil where it shades its own ghost.
+  float barrelShade=sunGhost.z>0.?mix(1.,barrelVeilShadow(p,sunGhost.xy),clamp(sunReflectionAmount,0.,1.)):1.;
+  linear+=reflectionsAt(p,aspect)+fieldReflections(p,aspect)*sunReflectionAmount*lensReflectance*reflectionFieldWeight+solarVeil(p)*barrelShade+solarDustGlints(p);
+  // Dust on the filter stack shades whatever light reaches the sensor.
+  linear*=dustShadow(p,camera.x);
   // Aperture changes collected light; ISO amplifies the sampled sensor signal.
   // Their product exactly retains the previously accepted metered exposure.
   float vignette=max(0.,1.-mix(.20,.28,cameraOpening)*pow(length(p/vec2(aspect*.8,.9)),2.));
@@ -297,7 +321,7 @@ export class CameraFinish {
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
       this.position=gl.getAttribLocation(this.program,'position');
-      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal','glare','glareAmount','glareMask','reflectionField','reflectionLevels[0]','reflectionFieldSize','reflectionLevelCount','reflectionFieldWeight'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','lensReflectance','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal','glare','glareAmount','glareMask','reflectionField','reflectionLevels[0]','reflectionFieldSize','reflectionLevelCount','reflectionFieldWeight'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
       this.exposure=new CameraExposure(gl,prepared?.exposure);
       this.defocus=new CameraDefocus(gl,this.pixelType,prepared?.defocus);
       // RGBE scene values cannot be filtered, so the fallback keeps only the
@@ -360,6 +384,7 @@ export class CameraFinish {
     gl.uniform1f(this.uniforms.moonGhostRadius,lens.moonRadius??0);
     gl.uniform3fv(this.uniforms.sunGhost,lens.sun);
     gl.uniform1f(this.uniforms.sunReflectionAmount,lens.sunReflections??1);
+    gl.uniform1f(this.uniforms.lensReflectance,lens.reflectance??1);
     gl.uniform4fv(this.uniforms['pointGhosts[0]'],lens.points);
     gl.uniform1f(this.uniforms.pointGhostAmount,lens.pointAmount);
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,lens.attenuation??this.noiseTexture);

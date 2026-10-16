@@ -1,7 +1,7 @@
-// The Sun as a resolved, limb-darkened disk seen through the shared lens.
-// Coefficients come from the pupil FFT behind optical-psf.bin
-// (scripts/build-optical-psf.mjs), measured before its focal-plane window;
-// see docs/lab/solar-disk-2026-10-16.md.
+// The Sun as a resolved, limb-darkened disk seen through the shared lens,
+// with the iris's diffraction rays. Needs opticalPsfSource for the rays'
+// angular profile. See docs/lab/solar-disk-2026-10-16.md and
+// docs/lab/aperture-rays-2026-10-16.md.
 
 /** Radius in CSS px where the analytic disk replaces the 24 PSF samples. */
 export const SOLAR_RESOLVED_PX=[5,9] as const;
@@ -9,15 +9,12 @@ export const SOLAR_RESOLVED_PX=[5,9] as const;
  * fits to the measured solar centre-to-limb profile). The mean radiance over
  * the disk is preserved: I(μ) = (1 − u(1 − μ)) / (1 − u/3). */
 export const SOLAR_LIMB_DARKENING=[.56,.63,.76] as const;
-/** Diffraction ray line density C/r² (C in CSS px at f/4), per iris state
- * (closed, half, open) and RGB channel. Rays lie along the blade normals. */
-export const SOLAR_RAY_COEFFICIENTS=[[.0291,.0261,.0225],[.0155,.0140,.0122],[.0032,.0032,.0033]] as const;
-export const SOLAR_RAY_ANGLE=.2705;
-/** Radius (CSS px at f/4) of the window that ends the LUT's own rays; the
- * analytic rays carry the light beyond it. */
+/** Radius (CSS px at f/4) of the window that ends the LUT's own far field;
+ * the analytic rays carry the light beyond it. */
 export const SOLAR_RAY_WINDOW=10.24;
-/** Share of a source's flux in the analytic rays, three full lines. */
-export const solarRayShare=(c:number)=>3*2*c/SOLAR_RAY_WINDOW;
+/** Γ(3/4) = ∫(1 − e^(−x⁴))/x² dx: the window's reach, so the far field
+ * carries 2π·P̄·Γ(3/4)/window of the flux, P̄ the mean of r³·I. */
+const WINDOW_REACH=1.2254167;
 
 const vec3=(v:readonly number[])=>`vec3(${v.map(x=>x.toFixed(4)).join(',')})`;
 export const solarDiskShader=`
@@ -39,33 +36,51 @@ float solarEdge(float d,float spread){
   float outside=.96*core+.04*wing;
   return d>0.?outside:1.-outside;
 }
-vec3 solarRayCoefficient(float opening){
-  float position=clamp(opening,0.,1.)*2.;
-  return position<1.?mix(${vec3(SOLAR_RAY_COEFFICIENTS[0])},${vec3(SOLAR_RAY_COEFFICIENTS[1])},position)
-    :mix(${vec3(SOLAR_RAY_COEFFICIENTS[1])},${vec3(SOLAR_RAY_COEFFICIENTS[2])},position-1.);
+// The analytic far field falls as q(r) = r (r³ + c³)^(-4/3): 1/r³ beyond
+// the LUT window, zero at the source, c = window/Γ(3/4). solarRayReach is
+// ∫ q(x) x dx from rho outwards, the light past rho along one direction.
+float solarRayFalloff(float r,float c){return r*pow(r*r*r+c*c*c,-4./3.);}
+float solarRayReach(float rho,float c){return pow(rho*rho*rho+c*c*c,-1./3.);}
+// Flux the analytic rays carry beyond the window. It is taken from the disk,
+// so the rays add no light.
+vec3 solarRayShare(vec4 camera){
+  return apertureRayMean(opticalPsfState(camera.x))*${(2*Math.PI*WINDOW_REACH/SOLAR_RAY_WINDOW).toFixed(6)};
 }
-// Flux the analytic rays carry beyond the window: 2C/window per line, three
-// lines. It is taken from the disk, so the rays add no light.
-vec3 solarRayShare(float opening){return solarRayCoefficient(opening)*${(6/SOLAR_RAY_WINDOW).toFixed(6)};}
-// Each blade pair diffracts a line of density C/r². Convolved with a disk of
-// radius R, a line becomes a band: ∫ ds/(u−s)² over the chord at offset v,
-// counting only source points farther than the LUT window from the pixel.
-float solarRayBand(vec2 delta,float radius,float window,float angle){
-  vec2 along=vec2(cos(angle),sin(angle));
-  float u=abs(dot(delta,along)),v=dot(delta,vec2(-along.y,along.x));
-  float chord=sqrt(max(0.,radius*radius-v*v));
-  if(chord<=0.)return 0.;
-  float behind=min(chord,u-window),ahead=max(-chord,u+window);
-  float sum=behind>-chord?1./(u-behind)-1./(u+chord):0.;
-  if(ahead<chord)sum+=1./(ahead-u)-1./(chord-u);
-  return sum;
+// ∫ q over a disk of radius R seen from distance r of its centre, in polar
+// coordinates around the pixel: each direction crosses the disk between two
+// distances and contributes reach(near) − reach(far). Far away it is the disk
+// area times q, with the leading correction for the disk's extent.
+float solarRayField(float r,float R,float c){
+  if(r>4.*R)return 3.141592654*R*R*solarRayFalloff(r,c)*(1.+1.125*R*R/(r*r));
+  float sum=0.;
+  if(r<R){
+    for(int i=0;i<16;i++){
+      float phi=(float(i)+.5)*.39269908,sine=sin(phi);
+      sum+=solarRayReach(0.,c)-solarRayReach(-r*cos(phi)+sqrt(max(0.,R*R-r*r*sine*sine)),c);
+    }
+    return sum*.39269908;
+  }
+  float spread=asin(min(1.,R/r));
+  for(int i=0;i<16;i++){
+    float phi=((float(i)+.5)/8.-1.)*spread,sine=sin(phi),across=sqrt(max(0.,R*R-r*r*sine*sine)),along=r*cos(phi);
+    sum+=solarRayReach(along-across,c)-solarRayReach(along+across,c);
+  }
+  return sum*spread/8.;
 }
-// Diffraction rays of the whole disk, relative to its mean radiance.
+// Diffraction rays of the whole disk, relative to its mean radiance. The
+// angular profile is the iris's measured far field (apertureRays): every
+// blade's slightly wavy edge throws its own fan of needles. Near the core an
+// edge still acts as a straight one of half-length 0.36 apothems, so the rays
+// merge into a needle about one diffraction width across, 1/(k·0.36) in
+// angle, falling as 1/r²; farther out they separate and fall as 1/r³. Seen
+// from the pixel, the disk smears them over its angular half-width. k is the
+// spatial frequency in apothem units: 2.756 per CSS px at f/4.
 vec3 solarRays(vec2 delta,float radius,vec4 camera){
-  float spread=camera.x/4.,window=${SOLAR_RAY_WINDOW.toFixed(2)}*spread;
-  float bands=0.;
-  for(int k=0;k<3;k++)bands+=solarRayBand(delta,radius,window,${SOLAR_RAY_ANGLE.toFixed(4)}+float(k)*1.0471976);
-  return solarRayCoefficient(camera.w)*spread*bands;
+  float spread=camera.x/4.,c=${(SOLAR_RAY_WINDOW/WINDOW_REACH).toFixed(5)}*spread;
+  float r=length(delta),k=2.756*max(r,1.)/spread;
+  float disk=asin(min(1.,radius/max(r,.0001))),edge=1./(k*.364);
+  vec3 profile=apertureRays(atan(delta.y,delta.x),opticalPsfState(camera.x),sqrt(disk*disk+edge*edge));
+  return spread*profile*solarRayField(r,radius,c);
 }
 // The resolved disk relative to its mean radiance: limb darkening, the lens
 // edge, and Earth's limb as a second edge (above it is positive).

@@ -3,6 +3,7 @@ import type {ShaderProgramBatch} from './shader-programs';
 import { sceneColorShader } from './scene-color';
 import { cameraModelShader } from './camera-model';
 import { sceneImageShader } from './scene-image';
+import { IRIS_BLADES, IRIS_ROTATION, cameraIrisShader } from './camera-iris';
 const fragmentSource=`
 precision highp float;
 uniform sampler2D scene;
@@ -11,21 +12,24 @@ uniform vec2 resolution;
 uniform float pixelRatio;
 uniform float focusRadius;
 uniform float sceneLinear;
-float cameraOpening;
 float cameraPupilScale;
 ${sceneColorShader}
 ${cameraModelShader}
+${cameraIrisShader}
 ${sceneImageShader}
 vec3 defocusedImage(vec2 uv){
   if(focusRadius<.01)return imageAt(uv);
   vec3 sum=vec3(0.);
-  // Fixed area-uniform samples of a rounded six-blade pupil. Optical energy
-  // is averaged in linear light. No temporal jitter and no blur of sensor noise.
+  // Fixed area-uniform samples of the rounded nine-blade iris: along angle a
+  // the opening ends on the arc of the nearest blade, radius rho, that
+  // crosses the unit apothem, or on the stop. Optical energy is averaged in
+  // linear light. No temporal jitter and no blur of sensor noise.
+  float fNumber=4./cameraPupilScale,excess=irisCurvature(fNumber)-1.,stop=irisStop(fNumber);
   for(int i=0;i<48;i++){
     float a=float(i)*2.39996323;
     float r=sqrt((float(i)+.5)/48.);
-    float sector=mod(a-.27+.523598776,1.047197551)-.523598776;
-    float pupil=mix(1.,.866025404/cos(sector),mix(.75,.20,cameraOpening));
+    float sector=mod(a-${IRIS_ROTATION.toFixed(4)}+${(Math.PI/IRIS_BLADES).toFixed(7)},${(2*Math.PI/IRIS_BLADES).toFixed(7)})-${(Math.PI/IRIS_BLADES).toFixed(7)};
+    float pupil=min(stop,-excess*cos(sector)+sqrt((1.+excess)*(1.+excess)-excess*excess*sin(sector)*sin(sector)));
     vec2 offset=vec2(cos(a),sin(a))*r*pupil*focusRadius*cameraPupilScale*pixelRatio/resolution;
     sum+=imageAt(uv+offset);
   }
@@ -34,7 +38,7 @@ vec3 defocusedImage(vec2 uv){
 
 void main(){
   vec4 camera=cameraProgram(decodeCameraEV(texture2D(exposureState,vec2(.5)).rg));
-  cameraOpening=camera.w;cameraPupilScale=4./camera.x;
+  cameraPupilScale=4./camera.x;
   vec3 color=defocusedImage(gl_FragCoord.xy/resolution);
   gl_FragColor=sceneLinear>.5?vec4(color,1.):packSceneRadiance(color);
 }

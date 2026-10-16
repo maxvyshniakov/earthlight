@@ -54,6 +54,8 @@ export async function verifyNightLight(evaluate,explicitLod=true){
  vec3 galacticIrradiance(vec3 p){return vec3(0.);}
  vec3 nightSkyTransmission(vec3 p){return vec3(1.);}
  float airColumn(vec3 p,vec3 r,float d){return 0.;}
+ vec2 limbColumns(vec3 p,vec3 r,float d){return vec2(0.);}
+ vec3 limbExtinction(vec2 c){return vec3(0.);}
  ${cloudShader}
  void main(){
    vec3 ray=normalize(vec3(-1.,(gl_FragCoord.x/256.-.5)*.65,0.));

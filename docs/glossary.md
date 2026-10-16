@@ -45,6 +45,10 @@ called Orbit, and older lab notes still use that name.
 - **Camera model**: the photographic camera: exposure, lens point-spread,
   reflections, defocus, grain (`camera-model.ts` and the other `camera-*`
   optics modules). It is separate from the camera controller.
+- **Lens preset**: how strongly the camera's lens reflects into ghosts.
+  `iss` (default) is the coated ISS zoom; `flare` is a flare-prone lens with
+  30 times the reflections. The type is `LensPreset`, the URL parameter
+  `lens-preset`; `lens` remains the zoom.
 
 ## Assets
 
