@@ -43,11 +43,13 @@ retrieved on 6 October 2026. Its element epoch is
 Opening a page without `t` starts at orbit offset `t=1000`. The calendar starts
 at the device’s current date and time; sunrise and moonrise therefore vary with
 the date. Orbit position and lighting date can be adjusted independently.
-A small captured scene poster covers startup. Lightweight overview maps reveal
-an initially defocused live scene; detailed maps and visible tiles then load in
-the background. Focus settles over 1.3 seconds once detail is available, or after
-a six-second wait limit. A failed refinement retains the working overview;
-complete failure retains the poster. Reduced-motion preferences skip defocus.
+A rendered poster of the defocused opening frame covers startup; the background
+picks it for the Sun's current position. A first light of about 77 KB (overview
+maps and bright stars) reveals the same picture live and still defocused; the
+full catalog, PSF, detailed maps and visible tiles then load in the background.
+Focus closes as they arrive and pulls in with the last one, or by a ten-second
+limit. A failed refinement retains the working overview; complete failure
+retains the poster. Reduced-motion preferences skip defocus.
 Every page entry starts at 10x; speed adjustments apply to the current page.
 The displayed calendar uses UTC. Its initial instant comes from the device clock.
 Explicit `t` links override the opening position and `motion=0` pauses motion.

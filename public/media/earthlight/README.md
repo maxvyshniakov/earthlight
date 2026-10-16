@@ -277,9 +277,17 @@ it automatically before the renderer's explicit DecompressionStream.
   opening moonrise, with page content hidden, resized/encoded as WebP. This
   avoids a gradient placeholder when WebGL or image requests are unavailable.
 - `cloud-tiles/*.avif`: the same NASA western/eastern July 2001 cloud plates,
+  `preview/clouds-512.avif` (AVIF Q55, about 18 KB) is the first light's cloud
+  layer, from the same script and source.
   resampled to a 16,384 × 8192 scalar field, split into 32 × 16 tiles with
   512-square interiors and 16-pixel true-neighbor gutters. AVIF Q65, effort 5.
   `bun scripts/build-cloud-tiles.mjs /path/to/orbital-reference` rebuilds them;
+- `posters/<n>.webp`: 840 × 360 captures of our renderer's background opening
+  frame at the loading defocus and first light, without the celestial sky, for
+  subsolar points every 5° of longitude at five latitudes. Alike posters share a file;
+  `src/data/background-posters.json` maps grid cells to files.
+  `bun scripts/render-posters.mjs <base-url>` renders them through `/lab/poster`
+  of a running build. They derive from the credited maps above.
   `--resume` reuses existing tile files when continuing the same source/settings.
   The manifest records original source SHA-256 hashes. Only visible tiles load.
 - `earth-terrain-{4096,8192}-v2.dem`: lossless re-encoding of the DEM1 containers
@@ -303,7 +311,8 @@ it automatically before the renderer's explicit DecompressionStream.
   24-bit longitude and latitude (under 0.1 arcsec), velocities as half floats
   of value × 2^20, and magnitude and colour index in thousandths. It unpacks
   to the same eight-float layout; `scripts/star-pack.test.mjs` bounds the
-  errors.
+  errors. `stars-hyg-m5-v2.bin` (25,158 bytes) holds the 1,637 stars to
+  magnitude 5 in the same format, for the first light.
 
 See [the optimization report](../../../docs/scene-optimization.md) for codec
 measurements, runtime budgets, limitations and reproduction commands.

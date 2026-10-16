@@ -1,5 +1,6 @@
 ---
 import {assetURL} from '../scripts/asset-location';
+import {firstLightAssets} from '../scripts/scene-assets';
 import SceneCredits from './SceneCredits.astro';
 import FlightHud from './FlightHud.astro';
 import { EV_MIN, EV_MAX, speedFraction } from '../scripts/flight-hud';
@@ -7,7 +8,11 @@ import { EXPOSURE_MIN_EV, EXPOSURE_MAX_EV } from '../scripts/camera-model';
 import { sceneProfiles, comparisonProfileGroups as profileGroups } from '../scripts/scene-profile';
 interface Props { standalone?: boolean; assetBaseURL?: string; terrainBaseURL?: string; exploreURL?: string; }
 const { standalone = true, assetBaseURL = import.meta.env.PUBLIC_EARTHLIGHT_ASSET_BASE_URL || '/media/earthlight/', terrainBaseURL = '/media/earthlight/dem90/', exploreURL = '/' } = Astro.props;
+// The first light downloads beside the scene script instead of after it,
+// at low priority so it never delays the page's own fonts and images.
+const firstLight=firstLightAssets(assetBaseURL.replace(/\/+$/,'')+'/');
 ---
+{firstLight.map(asset=><link rel="preload" as="fetch" crossorigin="anonymous" fetchpriority="low" href={asset.url}>)}
 <earthlight-explorer data-asset-base={assetBaseURL} data-terrain-base={terrainBaseURL} data-explore-url={exploreURL} data-composition={standalone ? "explorer" : "page"}>
   <div class="explorer-viewport" aria-hidden="true"></div>
   <div class="explorer-fallback" aria-hidden="true" style={{backgroundImage:`url("${assetURL('preview/poster.webp',assetBaseURL)}")`}}></div>

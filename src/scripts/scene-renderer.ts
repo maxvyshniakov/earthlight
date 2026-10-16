@@ -40,6 +40,7 @@ export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number
 export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasElement,params:URLSearchParams,notify:()=>void,sources:SceneSources={}) {
     const base=sources.assetBaseURL;
     const background=!!sources.background;
+    const showSky=sources.sky!==false;
     // Opt-in terrain inspection, independent of photographic exposure/effects.
     const terrainView=['clay','color','albedo'].indexOf(params.get('terrainView')??'')+1;
     const terrainSun=(params.get('terrainSun')??'').split(',').map(Number);
@@ -621,6 +622,11 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       // Loading-only optical work must not lower the settled scene's quality.
       if(focusRadius===0&&!inspection)timer?.begin();
       const sky = celestialFrame(observer.date,observer.camera);
+      if(!showSky){
+        // The Moon behind the camera and planets far below visibility.
+        sky.moon=[-observer.cameraBasis[6],-observer.cameraBasis[7],-observer.cameraBasis[8],sky.moon[3]];
+        sky.planets=sky.planets.map((x,i)=>i%4===3?30:x);
+      }
       // The lens: focal length in viewport heights, 1.25 at 1×; a wide angle goes below it.
       const focal=observer.focal??1.25,zoomExcess=focal/1.25-1;
       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,psfTexture);
@@ -676,7 +682,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       gl.uniform1f(sceneUniforms.zoomExcess,zoomExcess);
       const storms=params.get('lightning')==='0'?new Float32Array(32):stormLights(sceneTime,playbackRate,observer.camera,observer.cameraBasis,width/height,profile.fps,focal);
       gl.uniform4fv(sceneUniforms['stormSources[0]'],storms);
-      gl.uniform1f(sceneUniforms.galaxyAmount,look.galaxy);
+      gl.uniform1f(sceneUniforms.galaxyAmount,showSky?look.galaxy:0);
       gl.uniform3fv(sceneUniforms.cameraPosition,observer.camera);
       gl.uniformMatrix3fv(sceneUniforms.cameraBasis,false,observer.cameraBasis);
       gl.uniform3fv(sceneUniforms.sunDirection,observer.sun);
@@ -833,6 +839,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     const target=sceneBufferSize(bounds.width,bounds.height,devicePixelRatio,profile.scale);
     const compactSurface=compactSurfaceOverview(target.width,target.height,streamDetail);
     const plan=sceneAssetPlan(!background&&canvas.clientWidth>=1000,gl.getParameter(gl.MAX_TEXTURE_SIZE),supportsTerrain&&params.get('terrain')!=='0',saveData,background||compactSurface,background||textureProfile(params)==='compact',base);
+    if(!showSky)plan.splice(0,plan.length,...plan.filter(asset=>asset.key!=='stars'&&asset.key!=='galaxy'));
     if(modisStudy)plan.push({key:'modis',url:assetURL('modis-demo/orbit-patch.png',base),preview:true});
     if(supportsCloudTiles)for(const asset of plan)if(asset.key==='clouds'&&!asset.preview)asset.url=assetURL('earth-clouds-nasa-4096.avif',base);
     // Streamed 1.85 km and 92 m tiles replace global heights wherever a pixel

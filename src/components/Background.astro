@@ -1,10 +1,26 @@
 ---
 import {assetURL} from '../scripts/asset-location';
+import {firstLightAssets} from '../scripts/scene-assets';
+import {posterCell} from '../scripts/background-poster';
+import posters from '../data/background-posters.json';
 interface Props { assetBaseURL?: string; }
 const {assetBaseURL='/media/earthlight/'}=Astro.props;
+// The first light downloads beside the scene script instead of after it,
+// at low priority so it never delays the page's own fonts and images.
+// Reduced motion keeps the poster and loads no scene.
+const firstLight=firstLightAssets(assetBaseURL.replace(/\/+$/,'')+'/');
+// The poster for the Sun's current position, chosen before any module loads.
+// Without scripts the most common poster, the night side, stays.
+const counts=new Map<string,number>();
+for(let i=0;i<posters.cells.length;i+=2)counts.set(posters.cells.slice(i,i+2),(counts.get(posters.cells.slice(i,i+2))??0)+1);
+const night=parseInt([...counts].sort((a,b)=>b[1]-a[1])[0][0],36);
+const posterURL=(index:number)=>assetURL(`posters/${index}.webp`,assetBaseURL);
+const choosePoster=`(()=>{const p=document.currentScript.previousElementSibling,c=${JSON.stringify(posters.cells)},i=parseInt(c.substr(2*(${posterCell.toString()})(Date.now(),${JSON.stringify(posters.latitudes)},${posters.longitudeStep}),2),36);if(i>=0)p.style.backgroundImage='url("'+${JSON.stringify(posterURL(0).replace(/0\.webp$/,''))}+i+'.webp")';})()`;
 ---
+{firstLight.map(asset=><link rel="preload" as="fetch" crossorigin="anonymous" fetchpriority="low" media="(prefers-reduced-motion: no-preference)" href={asset.url}>)}
 <earthlight-background data-asset-base={assetBaseURL} aria-hidden="true">
-  <div class="poster" style={{backgroundImage:`url("${assetURL('preview/poster.webp',assetBaseURL)}")`}}></div>
+  <div class="poster" style={{backgroundImage:`url("${posterURL(night)}")`}}></div>
+  <script is:inline set:html={choosePoster}></script>
   <canvas></canvas>
 </earthlight-background>
 <script>

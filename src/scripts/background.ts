@@ -4,7 +4,7 @@ import {SceneCalendar,calendarFrame} from './scene-calendar';
 import {SceneClock} from './scene-clock';
 import {issFrame,initialSceneSeconds} from './iss-orbit';
 import {SceneFocus} from './scene-assets';
-import {sceneBufferSize,sceneComposition,focusRenderScale} from './scene-viewport';
+import {sceneBufferSize,sceneComposition,focusRenderScale,focusGrainScale,bufferDensity} from './scene-viewport';
 import {sceneContext,isWebGL2} from './webgl-context';
 import {SceneFrameClock} from './scene-frame-clock';
 
@@ -18,7 +18,7 @@ export class EarthlightBackground extends HTMLElement {
     let renderer:ReturnType<typeof createSceneRenderer>|undefined;
     let gl:WebGLRenderingContext|null=null;
     let disposed=false,visible=false,lost=false,unavailable=false,frame=0,lastAnimationDraw=0,grain=0;
-    let scale=.75,focusRadius=6,cssHeight=1;
+    let scale=.75,focusRadius=6,cssHeight=1,density=1.5;
     const params=new URLSearchParams({texture:'compact',aurora:'0'});
     const seconds=initialSceneSeconds(new URLSearchParams());
     const calendar=new SceneCalendar(new URLSearchParams(),seconds);
@@ -31,7 +31,8 @@ export class EarthlightBackground extends HTMLElement {
     const resize=()=>{
       const bounds=canvas.getBoundingClientRect();
       cssHeight=Math.max(1,bounds.height);
-      const size=sceneBufferSize(bounds.width,bounds.height,devicePixelRatio,Math.min(.75,scale)*focusRenderScale(focusRadius));
+      density=bufferDensity(bounds.width,bounds.height,devicePixelRatio,Math.min(.75,scale));
+      const size=sceneBufferSize(bounds.width,bounds.height,devicePixelRatio,Math.min(.75,scale)*focusRenderScale(focusRadius,density));
       const changed=canvas.width!==size.width||canvas.height!==size.height;
       if(canvas.width!==size.width)canvas.width=size.width;
       if(canvas.height!==size.height)canvas.height=size.height;
@@ -42,7 +43,10 @@ export class EarthlightBackground extends HTMLElement {
       const sceneTime=playback.read(now);
       const composition=sceneComposition(scrollY,innerHeight,cssHeight,true);
       const observer=calendarFrame(issFrame(sceneTime+composition.offset,composition.limb,{yaw:0,pitch:0},composition.altitudeLift),calendar.date(sceneTime+composition.offset));
-      return renderer!.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grain++,sceneLook,focusRadius,10);
+      // Grain cells are buffer pixels; scale with a reduced loading buffer so
+      // the noise per CSS area stays that of the settled image.
+      const look=focusRadius>0?{...sceneLook,grain:sceneLook.grain*focusGrainScale(focusRadius,density)}:sceneLook;
+      return renderer!.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grain++,look,focusRadius,10);
     };
     // A new buffer size clears the opaque drawing buffer. Repaint before
     // yielding to the compositor, or the cleared buffer shows as a black frame.
@@ -60,11 +64,12 @@ export class EarthlightBackground extends HTMLElement {
           const wasReady=this.hasAttribute('data-ready');
           this.dataset.ready='';Object.assign(this.dataset,result.state);
           if(!wasReady)playback.setRunning(true,now);
-          const nextFocus=focus.value(now,true,renderer.assets.settled,true);
+          const nextFocus=focus.value(now,true,renderer.assets.detailProgress);
           const nextScale=Math.min(.75,result.scale);
-          const needsResize=nextScale!==scale||focusRenderScale(nextFocus)!==focusRenderScale(focusRadius);
+          const needsResize=nextScale!==scale||focusRenderScale(nextFocus,density)!==focusRenderScale(focusRadius,density);
           scale=nextScale;focusRadius=nextFocus;
           this.dataset.focus=focusRadius<.01?'sharp':'acquiring';
+          this.dataset.focusRadius=focusRadius.toFixed(2);
           this.dataset.renderScale=scale.toFixed(2);
           this.dataset.frames=String(grain);
           if(needsResize)refit(now);

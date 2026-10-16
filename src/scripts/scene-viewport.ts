@@ -28,8 +28,24 @@ export function compactSurfaceOverview(width:number,height:number,streamDetail:b
 }
 
 
-/** A defocused preview does not need full pixel density. Two bounded target
- * upgrades finish before the image becomes sharp; settled quality is unchanged. */
-export function focusRenderScale(radius:number) {
-  return radius>3?.6:radius>1?.8:1;
+/** Buffer pixels per CSS pixel for a viewport at a settled quality. */
+export function bufferDensity(width:number,height:number,dpr:number,quality:number) {
+  return sceneBufferSize(width,height,dpr,quality).width/Math.max(1,width);
+}
+
+/** A defocused image needs only enough pixels to resolve its blur. Pick the
+ * smallest tier whose blur radius still spans FOCUS_BLUR_PIXELS buffer pixels
+ * (density: buffer pixels per CSS pixel when settled). Below 0.8 CSS px of
+ * blur, before the image reads as sharp, the full buffer returns. */
+export const FOCUS_SCALES=[.35,.5,.6,.7,1],FOCUS_BLUR_PIXELS=2.5;
+export function focusRenderScale(radius:number,density=1.5) {
+  if(radius<=.8)return 1;
+  const needed=FOCUS_BLUR_PIXELS/(radius*Math.max(.1,density));
+  return FOCUS_SCALES.find(scale=>scale>=needed)??1;
+}
+/** Grain cells are one CSS pixel, or one buffer pixel when those are larger.
+ * Keep the settled noise per CSS area on a reduced loading buffer. */
+export function focusGrainScale(radius:number,density=1.5) {
+  const cell=(d:number)=>Math.max(1,1/Math.max(.01,d));
+  return cell(density)/cell(density*focusRenderScale(radius,density));
 }

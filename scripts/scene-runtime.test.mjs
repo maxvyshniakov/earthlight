@@ -1,14 +1,16 @@
 import {SceneFrameClock} from '../src/scripts/scene-frame-clock.ts';
 import {PointReflections} from '../src/scripts/point-reflections.ts';
 import {draggedCamera} from '../src/scripts/camera-drag.ts';
-import {test} from 'bun:test';
+import {test,spyOn,mock,afterEach} from 'bun:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,statSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
-import {SceneAssets,SceneFocus,sceneAssetPlan} from '../src/scripts/scene-assets.ts';
+import {SceneAssets,SceneFocus,sceneAssetPlan,firstLightAssets,focusTarget,FOCUS_RADIUS,FOCUS_HOLD_MS,FOCUS_LIMIT_MS} from '../src/scripts/scene-assets.ts';
+import {posterCell,POSTER_LATITUDES,POSTER_LONGITUDE_STEP} from '../src/scripts/background-poster.ts';
+import {equatorialFrame} from '../src/scripts/celestial-sky.ts';
 import {SceneWork,scenePriority} from '../src/scripts/scene-work.ts';
 import {SceneQuality} from '../src/scripts/scene-quality.ts';
-import {focusRenderScale,sceneComposition,sceneBufferSize,compactSurfaceOverview} from '../src/scripts/scene-viewport.ts';
+import {focusRenderScale,focusGrainScale,FOCUS_SCALES,FOCUS_BLUR_PIXELS,sceneComposition,sceneBufferSize,compactSurfaceOverview} from '../src/scripts/scene-viewport.ts';
 import {poissonQuantiles,POISSON_COLUMNS,POISSON_ROWS} from '../src/scripts/sensor-noise.ts';
 import {decodeTerrain} from '../src/scripts/earth-terrain.ts';
 import {cameraProgram,EXPOSURE_MAX_EV} from '../src/scripts/camera-model.ts';
@@ -180,16 +182,68 @@ test('sensor quantiles preserve dark shot-noise mean and variance without an ite
   assert.ok(Math.abs(variance-expected)<.04,`${expected}: variance ${variance}`);
  }
 });
-test('focus settles for both successful detail and failed/slow detail, without refocusing',()=>{
- for(const success of [true,false]){
-  const focus=new SceneFocus();assert.equal(focus.value(0,true,false,false),6);
-  assert.equal(focus.value(100,true,success,success),6);
-  const release=success?500:6000;
-  assert.equal(focus.value(release,true,success,success),6);
-  const middle=focus.value(release+650,true,false,false);assert.ok(middle>0&&middle<6);
-  assert.equal(focus.value(release+1300,true,false,false),0);
-  assert.equal(focus.value(release+15000,true,false,false),0);
+test('focus follows arriving detail, pulls in with the last refinement and never refocuses',()=>{
+ const run=(progressAt,until=16000,tiles=()=>true)=>{
+  const focus=new SceneFocus(),samples=[];
+  assert.equal(focus.value(0,false,0),FOCUS_RADIUS);
+  for(let t=0;t<=until;t+=1000/30)samples.push({t,r:focus.value(t,true,progressAt(t),tiles(t))});
+  for(let i=1;i<samples.length;i++)assert.ok(samples[i].r<=samples[i-1].r+1e-12,`refocused at ${samples[i].t}`);
+  return t=>samples.findLast(x=>x.t<=t).r;
+ };
+ // Everything cached: the opening hold, then a pull of about 1.3 s.
+ const cached=run(()=>1);
+ assert.equal(cached(FOCUS_HOLD_MS-1),FOCUS_RADIUS);
+ assert.ok(cached(FOCUS_HOLD_MS+600)>0&&cached(FOCUS_HOLD_MS+600)<FOCUS_RADIUS);
+ assert.equal(cached(FOCUS_HOLD_MS+1500),0);
+ // Half the refinements: the blur closes to the share still missing and waits.
+ const half=run(t=>t<2000?0:t<7000?.5:1);
+ assert.equal(half(1999),FOCUS_RADIUS);
+ assert.ok(Math.abs(half(4900)-FOCUS_RADIUS*Math.sqrt(.5))<.05);
+ assert.ok(half(6999)>0);assert.equal(half(8600),0);
+ // No refinement ever arrives, or tiles never settle: the time limit still focuses.
+ assert.ok(run(()=>0)(FOCUS_LIMIT_MS/2-1)===FOCUS_RADIUS);
+ assert.equal(run(()=>0)(FOCUS_LIMIT_MS+800),0);
+ const tiles=run(()=>1,16000,()=>false);
+ assert.ok(tiles(4000)>=FOCUS_RADIUS*Math.sqrt(.1)-1e-9);assert.equal(tiles(FOCUS_LIMIT_MS+800),0);
+ assert.equal(focusTarget(0,1),FOCUS_RADIUS);assert.equal(focusTarget(FOCUS_LIMIT_MS,0),0);
+});
+test('refinement progress counts arrivals and failures once, previews never',async()=>{
+ spyOn(console,'warn').mockImplementation(()=>{});
+ const previous=globalThis.fetch,seen=[];
+ globalThis.fetch=async url=>url==='broken'?new Response('',{status:500}):new Response(url);
+ const plan=[{key:'day',url:'preview',preview:true},{key:'day',url:'detail'},{key:'night',url:'broken'},{key:'clouds',url:'more'}];
+ const assets=new SceneAssets(plan,async()=>{},()=>seen.push(assets.detailProgress));
+ try{
+  assert.equal(assets.detailProgress,0);await assets.start();
+  assert.equal(assets.detailProgress,1);assert.deepEqual(assets.failures,['broken']);
+  for(const value of [1/3,2/3])assert.ok(seen.some(x=>Math.abs(x-value)<1e-9));
+ }finally{assets.dispose();globalThis.fetch=previous;}
+});
+test('the first light is a small preloadable set, refined by every heavier layer',()=>{
+ const root='https://media.example/earthlight/v1/';
+ for(const save of [false,true]){
+  const plan=sceneAssetPlan(false,8192,true,save,true,true,root);
+  assert.deepEqual(plan.filter(x=>x.preview),firstLightAssets(root));
+  for(const key of ['stars','clouds'])assert.ok(plan.some(x=>x.key===key&&!x.preview),`${key} refines`);
+  assert.ok(plan.some(x=>x.key==='psf'&&!x.preview)&&!plan.some(x=>x.key==='psf'&&x.preview));
  }
+ const media=new URL('../public/media/earthlight/',import.meta.url);
+ const bytes=firstLightAssets('').reduce((sum,asset)=>sum+statSync(new URL(asset.url,media)).size,0);
+ assert.ok(bytes<100_000,`first light ${bytes} bytes`);
+});
+test('the inlined poster cell follows the precise subsolar point',()=>{
+ const columns=360/POSTER_LONGITUDE_STEP,degrees=180/Math.PI;
+ let checked=0;
+ for(let i=0;i<400;i++){
+  const time=Date.UTC(2026,0,1)+i*2_160_000_013%(4*365*86400000);
+  const [x,y,z]=equatorialFrame(new Date(time)).sun,latitude=Math.asin(z)*degrees,longitude=Math.atan2(y,x)*degrees;
+  const column=((Math.round(longitude/POSTER_LONGITUDE_STEP)%columns)+columns)%columns;
+  const rows=POSTER_LATITUDES.map((value,row)=>({row,d:Math.abs(value-latitude)})).sort((a,b)=>a.d-b.d);
+  const edge=Math.abs((longitude/POSTER_LONGITUDE_STEP)%1)-.5;
+  if(Math.abs(edge)<.02||rows[1].d-rows[0].d<.2)continue;
+  assert.equal(posterCell(time,POSTER_LATITUDES,POSTER_LONGITUDE_STEP),rows[0].row*columns+column,new Date(time).toISOString());checked++;
+ }
+ assert.ok(checked>350);
 });
 test('adaptive quality ignores invalid samples and uses cooldown instead of oscillating',()=>{
  const quality=new SceneQuality();
@@ -230,9 +284,10 @@ test('severe mobile GPU and cadence stalls trigger bounded recovery instead of b
  for(let i=0;i<12;i++)gpu.observe(12,3000);
  assert.equal(gpu.scale,.5);
 });
-test('save-data uses only small previews and the two compact sky inputs',()=>{
+test('save-data loads the first light, then only the star catalog, PSF and cloud preview',()=>{
  const plan=sceneAssetPlan(true,16384,true,true);
- assert.ok(plan.every(x=>x.preview));assert.ok(!plan.some(x=>x.key==='terrain'));
+ assert.deepEqual(plan.filter(x=>!x.preview).map(x=>x.url.split('/').pop()),['stars-hyg-v2.bin','optical-psf-v3.bin','clouds.webp']);
+ assert.ok(!plan.some(x=>x.key==='terrain'));
 });
 test('a failed refinement keeps the preview, other layers progress, and context restore uses compressed inputs',async()=>{
  const previous=globalThis.fetch,warning=console.warn;
@@ -305,13 +360,22 @@ test('a decode crossing context restoration retries against the restored context
 });
 
 
-test('defocus uses bounded temporary render sizes and restores full resolution before sharp',()=>{
- assert.equal(focusRenderScale(6),.6);
- assert.equal(focusRenderScale(3),.8);
- assert.equal(focusRenderScale(1),1);
- assert.equal(focusRenderScale(0),1);
- const tiers=new Set(Array.from({length:601},(_,i)=>focusRenderScale(i/100)));
- assert.equal(tiers.size,3);
+test('defocus renders just enough pixels to resolve its blur, then full resolution',()=>{
+ for(const density of [.5,.75,1.125,1.5,2.25]){
+  let previous=0;
+  for(let radius=FOCUS_RADIUS;radius>=0;radius-=.01){
+   const scale=focusRenderScale(radius,density);
+   assert.ok(FOCUS_SCALES.includes(scale));
+   assert.ok(scale>=previous,'only grows while focusing');previous=scale;
+   if(scale<1)assert.ok(radius*density*scale>=FOCUS_BLUR_PIXELS-1e-9,`${radius} at ${density}`);
+   if(radius<=.8)assert.equal(scale,1);
+  }
+ }
+ assert.equal(focusRenderScale(FOCUS_RADIUS,1.5),.35);
+ assert.equal(focusRenderScale(FOCUS_RADIUS,.75),.6);
+ assert.equal(focusGrainScale(0,1.5),1);
+ assert.ok(Math.abs(focusGrainScale(FOCUS_RADIUS,1.5)-.525)<1e-9);
+ assert.ok(Math.abs(focusGrainScale(FOCUS_RADIUS,.75)-.6)<1e-9);
 });
 
 test('GPU quality responds during warmup but a single slow sample cannot lower fidelity',()=>{
@@ -534,3 +598,5 @@ test('steady cadence keeps the display period through GPU backpressure, not a re
  assert.ok(Math.abs(clock.refreshPeriod-1000/60)<.2,`now ${clock.refreshPeriod}`);
  assert.ok(Math.abs(clock.fps-30)<.2);
 });
+
+afterEach(()=>mock.restore());
