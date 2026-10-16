@@ -61,12 +61,12 @@ const cluster = (...keys: string[]) => `<span class="keys-t">${keys.join('')}</s
 const devices = ['pointer', 'touch'] as const;
 type Group = { name: string; keys: [string, string][][]; faster?: string; how?: Partial<Record<(typeof devices)[number], string[]>> };
 const groups: Group[] = [
-  { name: 'Look', keys: [[[cluster(key('ArrowUp', '↑'), key('ArrowLeft', '←'), key('ArrowDown', '↓'), key('ArrowRight', '→')), '']], [[key('Backslash', '\\'), 'Reset camera']]], faster: 'turn',
-    how: { pointer: [`Drag with ${shift}, or middle-drag.`, 'Two-finger press and drag on a trackpad.', `Scroll on a trackpad with ${shift}.`, 'Right-drag with a mouse circles the point under the pointer.'], touch: ['Two fingers together.'] } },
+  { name: 'Look', keys: [[[cluster(key('ArrowUp', '↑'), key('ArrowLeft', '←'), key('ArrowDown', '↓'), key('ArrowRight', '→')), '']], [[key('Backslash', '\\'), 'Horizon']]], faster: 'turn',
+    how: { pointer: [`Drag with ${shift}, or middle-drag.`, 'Two-finger press and drag on a trackpad.', `Scroll on a trackpad with ${shift}.`, 'Right-drag with a mouse circles the point under the pointer.', 'Click the gauge for the horizon.'], touch: ['Two fingers together.', 'Tap the gauge for the horizon.'] } },
   { name: 'Fly', keys: [[[cluster(key('KeyW', 'W'), key('KeyA', 'A'), key('KeyS', 'S'), key('KeyD', 'D')), '']]], faster: 'fly',
     how: { pointer: ['Drag, or scroll on a trackpad.', 'Flick to coast.'], touch: ['Drag.', 'Flick to coast.'] } },
   { name: 'Roll', keys: [[[key('KeyQ', 'Q'), 'Left'], [key('KeyE', 'E'), 'Right'], [key('KeyH', 'H'), 'Level or flip']]], faster: 'roll',
-    how: { pointer: [`Drag around the centre with ${option}<span data-only="gesture">, or rotate two fingers</span>.`, 'Click the gauge to level or flip.'], touch: ['Twist two fingers.', 'Tap the gauge to level or flip.'] } },
+    how: { pointer: [`Drag around the centre with ${option}<span data-only="gesture">, or rotate two fingers</span>.`], touch: ['Twist two fingers.'] } },
   { name: 'Altitude', keys: [[[key('KeyF', 'F'), 'Closer'], [key('KeyR', 'R'), 'Farther']]], faster: 'move',
     how: { pointer: ['Wheel or pinch.', 'Double-click a point to fly in.', `Double-click with ${shift} to back off.`], touch: ['Pinch, or double-tap and slide.', 'Double-tap to fly in.', 'Tap with two fingers to back off.'] } },
   { name: 'Zoom', keys: [[[key('Equal', '+'), 'In'], [key('Minus', '−'), 'Out'], [key('Digit0', '0'), 'Reset']]], faster: 'zoom',
@@ -164,7 +164,7 @@ const groups: Group[] = [
           <path class="gauge-sun-cut" d={sunStar} style={`transform: translate(0px, ${-GAUGE.sunAt}px)`} />
           <path class="gauge-moon-cut" d={crescent} style={`transform: translate(0px, ${-GAUGE.moonAt}px)`} />
         </mask></defs>
-        <g class="gauge-dial" role="button" tabindex="0" aria-label="Level the horizon, or turn the view over"><title>Level or flip (H)</title>
+        <g class="gauge-dial" role="button" tabindex="0" aria-label="Look at the horizon"><title>Horizon (\)</title>
           <circle class="gauge-hit" r={GAUGE.dial} />
           <g class="gauge-fill" mask="url(#hud-gauge-mask)"><g class="gauge-horizon">
             <rect class="gauge-sky" x="-48" y="-96" width="96" height="96" />
@@ -198,7 +198,7 @@ const groups: Group[] = [
     <div class="hud-pad hud-look" role="group" aria-label="Look">
       <button type="button" class="hud-key" data-hold="ArrowUp" tabindex="-1" aria-label="Look up" title="Look up (↑)"><kbd data-key="ArrowUp">↑</kbd></button>
       <button type="button" class="hud-key" data-hold="ArrowLeft" tabindex="-1" aria-label="Look left" title="Look left (←)"><kbd data-key="ArrowLeft">←</kbd></button>
-      <button type="button" class="hud-key" data-press="Backslash" tabindex="-1" aria-label="Reset camera" title="Reset camera (\)"><kbd data-key="Backslash">\</kbd></button>
+      <button type="button" class="hud-key" data-press="Backslash" tabindex="-1" aria-label="Horizon" title="Horizon (\)"><kbd data-key="Backslash">\</kbd></button>
       <button type="button" class="hud-key" data-hold="ArrowRight" tabindex="-1" aria-label="Look right" title="Look right (→)"><kbd data-key="ArrowRight">→</kbd></button>
       <button type="button" class="hud-key" data-hold="ArrowDown" tabindex="-1" aria-label="Look down" title="Look down (↓)"><kbd data-key="ArrowDown">↓</kbd></button>
     </div>
@@ -330,7 +330,7 @@ const groups: Group[] = [
   .hud-dock { position: fixed; left: var(--hud-left); right: var(--hud-right); bottom: calc(var(--hud-bottom) + var(--hud-dock-lift, 0px)); display: flex; justify-content: center; align-items: flex-end; gap: 8px; pointer-events: none; }
 
 
-  /* Horizon gauge; click to level, again to turn over. Outside the dial, 3 px off
+  /* Horizon gauge; click for the horizon. Outside the dial, 3 px off
      it, an arc points to Earth and a ring to the Sun. */
   /* One row at the bottom centre: Roll left, the dial, Roll right, each key
      against the dial and its icon outside. The gaps leave room for the Sun ring

@@ -763,10 +763,12 @@ export class OrbitalSky extends HTMLElement {
         if(!navigation.free&&(cameraView.yaw||cameraView.pitch))lookCamera({yaw:0,pitch:0});
         else{enterFree();navigation.level(reducedMotion());cameraChanged();flightControls?.request();}
       }
-      // \ resets the camera: a followed orbit drops its look-around, free flight turns to face Earth.
+      // \ and the gauge's dial bring back the horizon: a followed orbit drops
+      // its look-around; free flight levels and looks out along its heading as
+      // an orbit at this height would (Earth's arc on the gauge faces it instead).
       else if(name==='reset-camera'){
         if(!navigation.free)tweenLook({yaw:0,pitch:0});
-        else{navigation.centre(reducedMotion());cameraChanged();flightControls?.request();}
+        else{navigation.horizon(reducedMotion());cameraChanged();flightControls?.request();}
       }
       // 0 takes the lens back to 1×.
       else if(name==='reset-lens')lensTo(1);
@@ -829,7 +831,6 @@ export class OrbitalSky extends HTMLElement {
       speed:()=>paused?0:speed,
       setSpeed:target=>speedSet(target>0?Math.max(1,Math.round(speedFraction(target)*1000)):0),
       stepSpeed:notches=>speedSet((paused?0:Math.round(speedFraction(speed)*1000))+notches*10),
-      level:()=>command('level'),
     }):null;
     const panelController=createScenePanels(this,controls,settingsToggle);
     const comparison=this.querySelector<HTMLElement>('.scene-comparison')!;

@@ -92,6 +92,15 @@ export type FlightInput={forward:number;right:number;climb:number;roll:number;ya
  * the frame's own focal length. */
 export const PROJECTION=1.25;
 const smooth=(a:number,b:number,x:number)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+/** The level view \ returns to, facing `heading` along the ground: what
+ * following an orbit at this height shows. Low, the horizon sits `limb` of the
+ * frame up from the bottom, as from the ISS; once Earth's disk is less than
+ * twice as tall as the frame the view tips down, and from about where the disk
+ * fits, as from the high orbit, Earth is centred. */
+export function horizonBasis(position:Vec3,heading:Vec3,focal=PROJECTION,limb=.138){
+ const radius=Math.asin(1/Math.hypot(...position)),half=Math.atan(.5/focal),rest=Math.atan((.5-limb)/focal);
+ return basisAt(position,heading,{yaw:0,pitch:0},-Math.PI/2+(radius+rest)*smooth(half,2*half,radius));
+}
 const wrap=(a:number)=>a-2*Math.PI*Math.round(a/(2*Math.PI));
 const columns=(basis:number[])=>[axis(basis,0),axis(basis,3),axis(basis,6)];
 const turnBasis=(basis:number[],about:Vec3,angle:number)=>columns(basis).flatMap(v=>rotate(v,about,angle));
@@ -103,6 +112,8 @@ function orthonormal(basis:number[]){
  const forward=normalize(axis(basis,6)),right=tangent(axis(basis,0),forward);
  return [...right,...normalize(cross(right,forward)),...forward];
 }
+// Turn one camera attitude toward another by a share of the way.
+const turnToward=(from:number[],to:number[],t:number)=>blendPose({camera:[1,0,0],cameraBasis:from},{camera:[1,0,0],cameraBasis:to},t).cameraBasis;
 const anyTangent=(n:Vec3)=>tangent(Math.abs(n[2])<.9?[0,0,1]:[1,0,0],n);
 // Clip the entire movement segment, so a large gesture cannot tunnel through Earth.
 function boundedMove(start:Vec3,delta:Vec3):Vec3{
@@ -202,6 +213,8 @@ export class OrbitNavigation {
  private leveling=false;
  /** A world direction the camera is turning to face, read afresh each step. */
  private facing:(()=>Vec3)|null=null;
+ /** The ground heading of the level view the camera is turning to. */
+ private homing:Vec3|null=null;
  private levelTarget=0;
  private levelLeft=0;
  /** Camera velocity over the last step, Earth radii per second. */
@@ -210,7 +223,7 @@ export class OrbitNavigation {
  get mode(){return this.free?'free':'follow';}
  get moving(){
   return Math.hypot(...this.velocity)>1e-6||this.climb!==0||this.rolling!==0||this.spin[0]!==0||this.spin[1]!==0||this.targetAltitude!==null
-   ||this.zooming!==null||this.flight!==null||this.grip!==null||this.leveling||this.facing!==null||this.transition!==null;
+   ||this.zooming!==null||this.flight!==null||this.grip!==null||this.leveling||this.facing!==null||this.homing!==null||this.transition!==null;
  }
  read(seconds:number,view:CameraView,now:number):ObserverFrame{
   const target=this.free?observer(new Date(START_DATE.getTime()+seconds*1000),{camera:this.free.position,cameraBasis:this.free.basis}):routeFrame(this.route,seconds,view);
@@ -228,11 +241,12 @@ export class OrbitNavigation {
  }
  stop(){
   this.velocity=[0,0,0];this.motion=[0,0,0];this.coast=.12;this.climb=this.rolling=0;this.spin=[0,0];
-  this.targetAltitude=null;this.zooming=null;this.flight=null;this.leveling=false;this.facing=null;
+  this.targetAltitude=null;this.zooming=null;this.flight=null;this.leveling=false;this.facing=null;this.homing=null;
  }
  setAltitude(km:number){if(this.free){this.stop();this.targetAltitude=clamp(km,MIN_ALTITUDE,MAX_ALTITUDE);}}
  private turnRig(about:Vec3,angle:number){
   const pose=this.free!;pose.position=rotate(pose.position,about,angle);pose.basis=orthonormal(turnBasis(pose.basis,about,angle));
+  if(this.homing)this.homing=rotate(this.homing,about,angle);
  }
  // Turn the rig about Earth's centre until Earth-fixed `anchor` lies under (x,y).
  private pull(anchor:Vec3,x:number,y:number):Vec3{
@@ -297,14 +311,14 @@ export class OrbitNavigation {
   const previous=this.focal;this.focal=focal;
   if(this.free&&focal!==previous&&(x||y))this.aim(cameraRay(this.free.basis,x,y,previous),x,y);
  }
- roll(angle:number){if(this.free){this.free.basis=orthonormal(rollBasis(this.free.basis,angle));this.leveling=false;}}
+ roll(angle:number){if(this.free){this.free.basis=orthonormal(rollBasis(this.free.basis,angle));this.leveling=false;this.homing=null;}}
  spinLook(yaw:number,pitch:number){if(this.free)this.spin=[yaw,pitch];}
  /** Level the horizon; when it already is, turn the view upside down, and back.
   * A small correction takes the short way; a longer turn always runs clockwise. */
  level(now=false){
   if(!this.free)return;
   const pose=this.free,roll=gaugeRoll(pose.basis,normalize(pose.position));
-  this.levelTarget=Math.abs(roll)<LEVEL_TOLERANCE*rad?Math.PI:0;
+  this.homing=null;this.levelTarget=Math.abs(roll)<LEVEL_TOLERANCE*rad?Math.PI:0;
   const left=wrapAngle(roll-this.levelTarget);
   this.levelLeft=Math.abs(left)<=Math.PI/2?left:left>0?left-2*Math.PI:left;
   this.leveling=true;
@@ -313,11 +327,19 @@ export class OrbitNavigation {
  /** Turn to face a world direction, such as the Sun's, over a moment unless `now`. */
  face(direction:()=>Vec3,now=false){
   if(!this.free)return;
-  this.flight=null;this.spin=[0,0];this.facing=direction;
+  this.flight=null;this.spin=[0,0];this.homing=null;this.facing=direction;
   if(now){this.aim(direction(),0,0);this.facing=null;}
  }
- /** Turn to face Earth's centre. */
- centre(now=false){const pose=this.free;if(pose)this.face(()=>normalize(scale(pose.position,-1)),now);}
+ /** Turn to the level view of `horizonBasis`, keeping the heading along the
+  * ground (looking straight down, the way the top of the image points), over
+  * a moment unless `now`. */
+ horizon(now=false){
+  if(!this.free)return;
+  const pose=this.free;
+  this.flight=null;this.spin=[0,0];this.facing=null;this.leveling=false;
+  this.homing=groundHeading(pose.basis,normalize(pose.position));
+  if(now){pose.basis=horizonBasis(pose.position,this.homing,this.focal);this.homing=null;}
+ }
  /** Circle the camera about an Earth point, which keeps its place on screen:
   * `across` turns about the point's vertical, `up` raises the camera over it
   * (negative lowers it). The camera stays at least 5° above the point's
@@ -343,7 +365,7 @@ export class OrbitNavigation {
       if((up>0?h>now:h<now)&&(h>now?h<Math.cos(.5*rad)&&km<=MAX_ALTITUDE:h>Math.sin(5*rad)&&km>=MIN_ALTITUDE)){pose.position=next.position;pose.basis=next.basis;break;}
     }
   }
-  this.leveling=false;this.facing=null;
+  this.leveling=false;this.facing=null;this.homing=null;
  }
  /** Hold an Earth-fixed point under the pointer; the rig follows each frame. */
  grab(anchor:Vec3,x:number,y:number){if(this.free){this.stop();this.grip={anchor,x,y,sx:x,sy:y,rate:[0,0,0]};}}
@@ -419,12 +441,12 @@ export class OrbitNavigation {
    if(Math.abs(altitude(pose.position)-this.targetAltitude)<.05||start.every((v,i)=>Math.abs(v-pose.position[i])<1e-12))this.targetAltitude=null;
   }
   this.rolling+=((input.roll??0)*70*rad*(fast?2:1)-this.rolling)*settle(.08);
-  if(input.roll)this.leveling=false;
+  if(input.roll){this.leveling=false;this.homing=null;}
   if(Math.abs(this.rolling)<1e-3)this.rolling=0;else pose.basis=orthonormal(rollBasis(pose.basis,this.rolling*dt));
   this.spin=this.spin.map(v=>Math.abs(v)<.05?0:v*(1-settle(.3))) as [number,number];
   // A longer lens turns slower, so the sky keeps its pace across the image.
   const look=60*(fast?2.5:1)*PROJECTION/this.focal,yaw=(input.yaw??0)*look+this.spin[0],pitch=(input.pitch??0)*look+this.spin[1];
-  if(input.yaw||input.pitch)this.facing=null;
+  if(input.yaw||input.pitch)this.facing=this.homing=null;
   if(yaw||pitch)this.turn(yaw*dt,pitch*dt);
   if(this.zooming){
    const zoom=this.zooming,part=Math.abs(zoom.log)<1e-3?zoom.log:zoom.log*settle(.09);
@@ -460,6 +482,13 @@ export class OrbitNavigation {
    const angle=Math.atan2(across,dot(forward,target));
    if(angle<1e-3){this.aim(target,0,0);this.facing=null;}
    else this.orient(turnBasis(pose.basis,across>1e-9?scale(about,1/across):axis(pose.basis,0),angle*settle(.12)));
+  }
+  if(this.homing){
+   // Ease the whole attitude, pitch and roll together, and land on it exactly.
+   const target=horizonBasis(pose.position,this.homing,this.focal),a=quaternion(pose.basis),b=quaternion(target);
+   const angle=2*Math.acos(clamp(Math.abs(a.reduce((s,x,i)=>s+x*b[i],0)),0,1));
+   if(angle<1e-3){pose.basis=target;this.homing=null;}
+   else pose.basis=orthonormal(turnToward(pose.basis,target,settle(.12)));
   }
   const after=[...pose.position,...pose.basis];
   this.motion=dt>0?[0,1,2].map(i=>(after[i]-before[i])/dt) as Vec3:[0,0,0];

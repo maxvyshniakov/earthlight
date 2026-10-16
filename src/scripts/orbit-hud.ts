@@ -63,12 +63,12 @@ const lensLabel=(zoom:number)=>zoom>=9.95||Math.abs(zoom-Math.round(zoom))<.05?S
  * and lens tapes, a horizon gauge and the controls panel. Help covers only the
  * inputs this device has. Pure presentation; navigation happens through the
  * callbacks. */
-export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;free:()=>void;altitude:(km:number)=>void;current:()=>number;level:()=>void;
+export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;free:()=>void;altitude:(km:number)=>void;current:()=>number;
   /** Lens magnification about the image centre, LENS_MIN–LENS_MAX; animated unless told otherwise. */
   lens:(zoom:number,animate?:boolean)=>void;lensZoom:()=>number;
   /** Press or release a held flight key, as the keyboard would. */
   hold:(code:string,down:boolean)=>void;
-  /** Reset the camera, as \ does. */
+  /** Bring back the horizon, as \ does. */
   resetCamera:()=>void;
   /** Turn the camera to face Earth's centre, or the Sun. */
   faceEarth:()=>void;faceSun:()=>void;faceMoon:()=>void;
@@ -345,11 +345,10 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   for(const type of ['pointerup','pointercancel','lostpointercapture'])tape.addEventListener(type,tapeUp as EventListener);
   tape.addEventListener('keydown',tapeKey);tape.addEventListener('wheel',tapeWheel,{passive:false});
   modeButtons.forEach(button=>button.addEventListener('click',mode));
-  // A click on the dial levels the view, and turns a level one over, as H does.
-  // The gauge's three targets: the dial levels or flips, as H does; the Earth
-  // arc and the Sun ring turn the camera to face them. Enter or Space works on
-  // each, as on a button.
-  const gaugeTargets:[Element,()=>void][]=[[gauge.querySelector('.gauge-dial')!,()=>o.level()],[gauge.querySelector('.gauge-earth')!,()=>o.faceEarth()],[sunRing,()=>o.faceSun()],[moonMark,()=>o.faceMoon()]];
+  // The gauge's targets: the dial brings back the horizon, as \ does; the
+  // Earth arc, the Sun and the Moon turn the camera to face them. Enter or
+  // Space works on each, as on a button.
+  const gaugeTargets:[Element,()=>void][]=[[gauge.querySelector('.gauge-dial')!,()=>o.resetCamera()],[gauge.querySelector('.gauge-earth')!,()=>o.faceEarth()],[sunRing,()=>o.faceSun()],[moonMark,()=>o.faceMoon()]];
   const gaugeClick=(event:Event)=>{gaugeTargets.find(([target])=>target===event.currentTarget)?.[1]();refocus(event);};
   const gaugeKey=(event:Event)=>{const key=(event as KeyboardEvent).key;if(key==='Enter'||key===' '){event.preventDefault();event.stopPropagation();gaugeTargets.find(([target])=>target===event.currentTarget)?.[1]();}};
   gaugeTargets.forEach(([target])=>{target.addEventListener('click',gaugeClick);target.addEventListener('keydown',gaugeKey);});

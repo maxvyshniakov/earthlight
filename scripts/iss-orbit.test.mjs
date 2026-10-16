@@ -106,6 +106,32 @@ test('looking around never tips a level horizon; a rolled camera looks about its
  assert.ok(Math.abs(Math.abs(horizon(nav).roll)-180)<1e-6);
 });
 
+test('the horizon view levels and looks out along the heading, as an orbit at that height would',()=>{
+ // Low, from straight down and rolled: the top of the image becomes the way
+ // ahead, and the view matches the followed ISS orbit's limb composition.
+ const iss=routeFrame('iss',1000),nav=new OrbitNavigation();nav.detach(iss,{yaw:0,pitch:0});
+ const ahead=horizon(nav).heading;
+ nav.face(()=>normalize(scale(nav.free.position,-1)),true);nav.roll(.7);
+ const up=nav.free.basis.slice(3,6),down=normalize(scale(nav.free.position,-1));
+ nav.horizon();let frames=0;while(nav.moving&&frames<600){nav.step(1/60);frames++;}
+ assert.ok(frames<120,`settles in ${frames} frames`);
+ const a=horizon(nav),vertical=normalize(nav.free.position),forward=nav.free.basis.slice(6,9);
+ assert.ok(Math.abs(a.roll)<1e-6,'level');
+ assert.ok(dot(normalize(add(forward,scale(vertical,-dot(forward,vertical)))),normalize(add(up,scale(down,-dot(up,down)))))>.9999,'faces where the top of the image pointed');
+ const dip=Math.acos(1/Math.hypot(...nav.free.position));
+ assert.ok(Math.abs(Math.asin(dot(forward,vertical))-(Math.atan(.362/1.25)-dip))<1e-4,'the limb sits where the followed orbit puts it');
+ // From the followed view itself, it changes nothing.
+ const again=new OrbitNavigation();again.detach(iss,{yaw:0,pitch:0});again.horizon(true);
+ for(let i=0;i<9;i++)assert.ok(Math.abs(again.free.basis[i]-iss.cameraBasis[i])<1e-6);
+ assert.ok(Math.abs(ahead-horizon(again).heading)<1e-6);
+ // High, Earth's whole disk fits in the frame, so the view centres it.
+ const high=new OrbitNavigation();high.detach(routeFrame('high',1000),{yaw:0,pitch:0});high.turn(0,60);high.horizon(true);
+ assert.ok(dot(high.free.basis.slice(6,9),normalize(scale(high.free.position,-1)))>1-1e-9,'Earth centred from high orbit');
+ // Looking around interrupts the turn.
+ nav.face(()=>normalize(scale(nav.free.position,-1)),true);nav.horizon();nav.step(1/60);nav.step(1/60,{yaw:1});
+ assert.equal(nav.moving,false);
+});
+
 test('a scroll spins the globe about its centre in the swipe direction, without running out',()=>{
  for(const [x,y] of [[.1,.05],[-.2,.1]]){
   const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
