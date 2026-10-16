@@ -474,7 +474,13 @@ try{
  await run('press','Space');assert.equal((await viewState()).motion,'Pause');
  await evaluate("window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',repeat:true,bubbles:true}));true");
  assert.equal((await viewState()).motion,'Pause');
+ // The button offers the other state. A playing link plays on; a paused one
+ // reopens on the same frame.
+ await run('wait','100');assert.equal(new URLSearchParams(await evaluate('location.search')).get('motion'),null);
  await run('press','Space');assert.equal((await viewState()).motion,'Play');
+ await run('wait','100');
+ const pausedLink=new URLSearchParams(await evaluate('location.search'));
+ assert.equal(pausedLink.get('motion'),'0');assert.ok(Number.isFinite(Number(pausedLink.get('t'))));
  // A slider Settings still shows on the explorer; the HUD carries camera direction.
  await evaluate("document.querySelector('#sky-settings').showPopover();document.querySelector('[data-look=grain]').focus();true");
  await run('press','Space');assert.equal((await viewState()).motion,'Play');

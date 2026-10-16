@@ -44,6 +44,8 @@ export class OrbitalSky extends HTMLElement {
     const orbitInput = this.querySelector<HTMLInputElement>('.sky-track input')!;
     const orbitOutput = this.querySelector<HTMLOutputElement>('.sky-track output')!;
     const timeStatus = this.querySelector<HTMLTimeElement>('.sky-time')!;
+    // The HUD sets date and time apart by spacing alone; the embedded caption is one line.
+    const dateStatus=timeStatus.querySelector<HTMLElement>('.sky-date'),clockStatus=timeStatus.querySelector<HTMLElement>('.sky-clock');
     const coordinateStatus = this.querySelector<HTMLElement>('.sky-coordinates');
     const timeScaleOutputs = [...this.querySelectorAll<HTMLElement>('[data-time-scale]')];
     const lookInputs = [...this.querySelectorAll<HTMLInputElement>('[data-look]')];
@@ -287,7 +289,8 @@ export class OrbitalSky extends HTMLElement {
         // The Moon's phase as the renderer lights it, from the scene's date.
         this.dataset.moonPhase=String(currentLunarPhase(orbit.date));
         timeStatus.dateTime=orbit.date.toISOString();
-        timeStatus.textContent=`${replayDateFormat.format(orbit.date)} · ${orbit.date.toISOString().slice(11,19)} UTC`;
+        if(dateStatus&&clockStatus){dateStatus.textContent=replayDateFormat.format(orbit.date);clockStatus.textContent=`${orbit.date.toISOString().slice(11,19)} UTC`;}
+        else timeStatus.textContent=`${replayDateFormat.format(orbit.date)} · ${orbit.date.toISOString().slice(11,19)} UTC`;
         if(coordinateStatus)coordinateStatus.textContent=`${Math.abs(orbit.latitude).toFixed(1)}° ${orbit.latitude<0?'S':'N'} · ${Math.abs(orbit.longitude).toFixed(1)}° ${orbit.longitude<0?'W':'E'} · ${Math.round(orbit.altitude)} km`;
       }
     };
@@ -463,15 +466,18 @@ export class OrbitalSky extends HTMLElement {
         if(!disposed && paused && !document.hidden)draw();
       },1000/24);
     };
+    // The link follows: paused, it reopens on this frame (motion=0 and its t);
+    // playing, it plays on from here.
     const toggle = () => {
       paused = !paused;
-      if(!paused) {
-        const url=new URL(pendingURL??location.href);
-        url.searchParams.delete('motion');
-        url.searchParams.delete('still');
-        updateURL(url);
-      }
       sync();
+      const url=new URL(pendingURL??location.href);
+      url.searchParams.set('t',playback.read(performance.now()).toFixed(2));
+      url.searchParams.delete('still');
+      if(paused)url.searchParams.set('motion','0');else url.searchParams.delete('motion');
+      updateURL(url);
+      // The frame and clock on screen are the ones the link names, not the last drawn.
+      if(paused){draw();lastStatus=-1;updateStatus(playback.read(performance.now())+composition().offset);}
     };
     const playbackKey = (event:KeyboardEvent) => {
       if(this.dataset.composition!=='orbit'||event.code!=='Space'||event.repeat||event.defaultPrevented
@@ -795,7 +801,7 @@ export class OrbitalSky extends HTMLElement {
       // A plain drag moves over Earth wherever it starts, so the cursor is Earth's.
       const kind=intent==='roll'?'roll':intent==='look'?'look':'fly';
       dragSurface.dataset.cursor=kind;
-    }):()=>{};
+    },()=>hud?.modality==='trackpad'):()=>{};
     const touchSurface=dragSurface?.querySelector<HTMLElement>('.orbit-gestures');
     const touch=touchSurface?createTouchCamera(touchSurface,camera,()=>hud?.setModality('touch'),touchGain,touchSpin):null;
     const compensation=lookInputs.find(input=>input.dataset.look==='exposure')!;

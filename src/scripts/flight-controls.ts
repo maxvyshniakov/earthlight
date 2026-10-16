@@ -74,7 +74,8 @@ export function createFlightControls(surface:HTMLElement,options:{
   const down=(event:KeyboardEvent)=>{
     control=event.ctrlKey;
     if(!options.enabled()||event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||typing(event.target))return;
-    if(event.key==='?'){event.preventDefault();if(!event.repeat){options.key('Slash',true);options.command('help');}return;}
+    // ? or F1, which also keeps the browser's own help page from opening.
+    if(event.key==='?'||event.code==='F1'){event.preventDefault();if(!event.repeat){options.key('Slash',true);options.command('help');}return;}
     const code=ALIAS[event.code]??event.code,command=COMMANDS[code];
     if(command&&!event.shiftKey){event.preventDefault();if(!event.repeat){options.key(code,true);options.command(command);}return;}
     if(!HELD.includes(code))return;
@@ -85,7 +86,7 @@ export function createFlightControls(surface:HTMLElement,options:{
   const up=(event:KeyboardEvent)=>{
     control=event.ctrlKey;
     const code=ALIAS[event.code]??event.code;
-    if(COMMANDS[code]||code==='Slash')options.key(code,false);
+    if(COMMANDS[code]||code==='Slash')options.key(code,false);else if(code==='F1')options.key('Slash',false);
     release(code);
     // macOS sends no keyup for keys held while Command goes down.
     if(event.key==='Meta')[...keys].forEach(release);

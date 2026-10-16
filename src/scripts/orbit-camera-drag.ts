@@ -11,12 +11,14 @@ export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.sky
 
 /** Mouse and pen. The left button moves over Earth from anywhere; the middle
  * button, as it pans in design tools, or Shift, looks; Option/Alt twists the
- * image; the right button circles the point under the pointer. Orbit page only. */
-export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraIntent)=>void){
+ * image; the right button circles the point under the pointer. On a trackpad
+ * the right button is a two-finger press, which looks instead: browsers report
+ * both alike, so `secondaryLooks` says which device was in use. Orbit page only. */
+export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraIntent)=>void,secondaryLooks:()=>boolean=()=>false){
   let drag:{pointer:number;session:CameraSession;x:number;y:number}|null=null,frame=0;
   let hovering:{x:number;y:number}|null=null;
   const control=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
-  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1?'look':event.button===2?'orbit':event.button!==0?null:event.altKey?'roll':event.shiftKey?'look':'auto';
+  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1?'look':event.button===2?(secondaryLooks()?'look':'orbit'):event.button!==0?null:event.altKey?'roll':event.shiftKey?'look':'auto';
   const flush=()=>{cancelAnimationFrame(frame);frame=0;drag?.session.move(drag.x,drag.y);};
   const end=(event?:PointerEvent)=>{
     if(!drag||(event&&event.pointerId!==drag.pointer))return;

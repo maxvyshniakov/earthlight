@@ -52,38 +52,33 @@ const ladder = Array.from({ length: 30 }, (_, i) => (i < 15 ? i + 1 : 14 - i) * 
   .map(deg => { const half = deg % 30 ? 2 : 5; return `M${-half} ${(-deg * GAUGE.pitch).toFixed(2)}h${half * 2}`; }).join('');
 // Modifier keys as their key-cap symbols (Inter draws them); Option reads Alt off Apple keyboards.
 const shift = '<kbd>⇧</kbd>', option = '<kbd class="hud-alt">⌥</kbd>';
-// The controls panel: a column per action, a lane per input. Keys come as rows
-// of key and effect (a cluster laid out as on the keyboard, alternatives joined
-// by "or"); each pointing device gets a line. Obvious taps are left out.
+// The controls panel: a column of paragraphs per action, keys first, then
+// pointer and touch, whichever the device has. Keys come in paragraphs of key-and-effect rows
+// (a cluster laid out as on the keyboard). Every sentence is one idea and leads
+// with the action; a modifier comes last, "with ⇧". Mouse and trackpad share text.
 const key = (code: string, label: string) => `<kbd data-key="${code}">${label}</kbd>`;
-const either = (...keys: string[]) => keys.join('<span class="help-or">or</span>');
 const cluster = (...keys: string[]) => `<span class="keys-t">${keys.join('')}</span>`;
-const faster: [string, string] = [key('ShiftLeft', '⇧'), 'Faster'];
-const devices = [{ id: 'mouse', name: 'Mouse' }, { id: 'trackpad', name: 'Trackpad' }, { id: 'touch', name: 'Touch' }] as const;
-type Group = { name: string; keys: [string, string][]; how?: Partial<Record<(typeof devices)[number]['id'], string>>; note?: string };
-const flyIn = `Double-click a point to fly in; ${shift} double-click to back off.`;
-const gauge = (verb: string) => `${verb} the gauge to level or flip.`;
+const devices = ['pointer', 'touch'] as const;
+type Group = { name: string; keys: [string, string][][]; faster?: string; how?: Partial<Record<(typeof devices)[number], string[]>> };
 const groups: Group[] = [
-  { name: 'Fly', keys: [[cluster(key('KeyW', 'W'), key('KeyA', 'A'), key('KeyS', 'S'), key('KeyD', 'D')), ''], faster],
-    how: { mouse: 'Drag anywhere; flick to coast.', trackpad: 'Scroll anywhere, or drag.', touch: 'Drag anywhere; flick to coast.' } },
-  { name: 'Look', keys: [[cluster(key('ArrowUp', '↑'), key('ArrowLeft', '←'), key('ArrowDown', '↓'), key('ArrowRight', '→')), ''], [key('Backslash', '\\'), 'Reset camera'], faster],
-    how: { mouse: `Middle-drag, or ${shift} drag. Right-drag circles the point under the pointer.`, trackpad: `${shift} scroll, or ${shift} drag.`, touch: 'Two fingers together.' } },
-  { name: 'Closer, farther', keys: [[key('KeyF', 'F'), 'Closer'], [key('KeyR', 'R'), 'Farther'], faster],
-    how: { mouse: `Wheel. ${flyIn}`, trackpad: `Pinch. ${flyIn}`, touch: 'Pinch, or double-tap and slide. Double-tap to fly in; two-finger tap to back off.' } },
-  { name: 'Lens', keys: [[key('Equal', '+'), 'Zoom in'], [key('Minus', '−'), 'Zoom out'], [key('Digit0', '0'), 'Reset zoom'], faster],
-    how: { mouse: `${shift} wheel.`, trackpad: `${shift} pinch.` } },
-  { name: 'Roll', keys: [[key('KeyQ', 'Q'), 'Roll left'], [key('KeyE', 'E'), 'Roll right'], [key('KeyH', 'H'), 'Level or flip'], faster],
-    how: { mouse: `${option} drag around the centre. ${gauge('Click')}`, trackpad: `${option} drag around the centre<span data-only="gesture">, or rotate two fingers</span>. ${gauge('Click')}`, touch: `Twist two fingers. ${gauge('Tap')}` } },
-  { name: 'Orbits', keys: [[key('Digit1', '1'), 'Free flight'], [key('Digit2', '2'), 'ISS'], [key('Digit3', '3'), 'Polar'], [key('Digit4', '4'), 'High']] },
-  { name: 'Time', keys: [[key('Space', 'Space'), 'Pause or play']], note: 'Speed, date and time of day are in Settings.' },
+  { name: 'Look', keys: [[[cluster(key('ArrowUp', '↑'), key('ArrowLeft', '←'), key('ArrowDown', '↓'), key('ArrowRight', '→')), '']], [[key('Backslash', '\\'), 'Reset camera']]], faster: 'turn',
+    how: { pointer: [`Drag with ${shift}, or middle-drag.`, 'Two-finger press and drag on a trackpad.', `Scroll on a trackpad with ${shift}.`, 'Right-drag with a mouse circles the point under the pointer.'], touch: ['Two fingers together.'] } },
+  { name: 'Fly', keys: [[[cluster(key('KeyW', 'W'), key('KeyA', 'A'), key('KeyS', 'S'), key('KeyD', 'D')), '']]], faster: 'fly',
+    how: { pointer: ['Drag, or scroll on a trackpad.', 'Flick to coast.'], touch: ['Drag.', 'Flick to coast.'] } },
+  { name: 'Roll', keys: [[[key('KeyQ', 'Q'), 'Left'], [key('KeyE', 'E'), 'Right'], [key('KeyH', 'H'), 'Level or flip']]], faster: 'roll',
+    how: { pointer: [`Drag around the centre with ${option}<span data-only="gesture">, or rotate two fingers</span>.`, 'Click the gauge to level or flip.'], touch: ['Twist two fingers.', 'Tap the gauge to level or flip.'] } },
+  { name: 'Altitude', keys: [[[key('KeyF', 'F'), 'Closer'], [key('KeyR', 'R'), 'Farther']]], faster: 'move',
+    how: { pointer: ['Wheel or pinch.', 'Double-click a point to fly in.', `Double-click with ${shift} to back off.`], touch: ['Pinch, or double-tap and slide.', 'Double-tap to fly in.', 'Tap with two fingers to back off.'] } },
+  { name: 'Zoom', keys: [[[key('Equal', '+'), 'In'], [key('Minus', '−'), 'Out'], [key('Digit0', '0'), 'Reset']]], faster: 'zoom',
+    how: { pointer: [`Wheel or pinch with ${shift}.`] } },
+  { name: 'Orbits', keys: [[[key('Digit1', '1'), 'Free flight'], [key('Digit2', '2'), 'ISS'], [key('Digit3', '3'), 'Polar'], [key('Digit4', '4'), 'High']]] },
+  { name: 'Time', keys: [[[key('Space', 'Space'), 'Pause or play']]] },
 ];
-// One lane per input, so each sits at the same height under every action.
-const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
 ---
 <div class="orbit-hud" data-modality="mouse">
   <div class="hud-time" role="group" aria-label="Time">
     <button class="sky-motion hud-time-toggle" type="button" aria-label="Pause" title="Pause"><svg class="motion-play" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" data-hidden><path d="m5 3 8 5-8 5z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg><svg class="motion-pause" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 3v10M11 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></button>
-    <time class="sky-time">—</time>
+    <time class="sky-time"><span class="sky-date">—</span><span class="sky-clock">—</span></time>
     <span class="hud-time-scale" data-time-scale title="Time scale; change it in Settings">10×</span>
     <span class="time-hint" aria-hidden="true"><button type="button" class="time-key" data-press="Space" tabindex="-1" title="Stop or start time (Space)"><kbd data-key="Space">Space</kbd></button><span>Time</span></span>
     <div class="hud-clock">
@@ -111,14 +106,13 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
     </div>
   </div>
 
-  <nav class="hud-modes hud-list" aria-label="Camera">
-    <button type="button" data-flight-mode="free" aria-pressed="false" title="Fly from here"><kbd data-key="Digit1">1</kbd>Free</button>
-    <button type="button" data-route="iss" aria-pressed="true"><kbd data-key="Digit2">2</kbd>ISS</button>
-    <button type="button" data-route="polar" aria-pressed="false"><kbd data-key="Digit3">3</kbd>Polar</button>
-    <button type="button" data-route="high" aria-pressed="false"><kbd data-key="Digit4">4</kbd>High</button>
-  </nav>
-
   <div class="hud-altimeter hud-meter" style={`--longest: ${Math.max(...scale.map(({ km }) => label(km).length))}`}>
+    <nav class="hud-modes hud-list" aria-label="Camera">
+      <button type="button" data-flight-mode="free" aria-pressed="false" title="Fly from here"><kbd data-key="Digit1">1</kbd>Free</button>
+      <button type="button" data-route="iss" aria-pressed="true"><kbd data-key="Digit2">2</kbd>ISS</button>
+      <button type="button" data-route="polar" aria-pressed="false"><kbd data-key="Digit3">3</kbd>Polar</button>
+      <button type="button" data-route="high" aria-pressed="false"><kbd data-key="Digit4">4</kbd>High</button>
+    </nav>
     <div id="sky-altitude" class="hud-tape" role="slider" tabindex="0" aria-label="Altitude" aria-orientation="vertical" aria-valuemin={MIN_ALTITUDE} aria-valuemax={MAX_ALTITUDE} aria-valuenow="420" aria-valuetext="420 km">
       <div class="hud-scale" aria-hidden="true">
         {short.map(top => <span class="hud-tick" style={`top:${top.toFixed(3)}%`}></span>)}
@@ -152,13 +146,6 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
       <button type="button" class="hud-key" data-hold="Minus" tabindex="-1" title="Zoom out (−)"><kbd data-key="Minus">−</kbd><span>Zoom out</span></button>
       <button type="button" class="hud-key" data-press="Digit0" tabindex="-1" title="Reset zoom (0)"><kbd data-key="Digit0">0</kbd><span>Reset zoom</span></button>
     </div>
-  </div>
-
-  <div class="hud-readouts">
-    <span class="hud-readout hud-position">
-      <span>LAT <b data-attitude="latitude">00.0° N</b></span>
-      <span>LON <b data-attitude="longitude">000.0° E</b></span>
-    </span>
   </div>
 
   <div class="hud-dock">
@@ -217,9 +204,9 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
     </div>
 
   <div class="sky-controls hud-corner hud-list" hidden>
-    <button type="button" popovertarget="sky-info" title="Info (i)"><kbd data-key="KeyI">i</kbd>Info</button>
-    <button type="button" popovertarget="flight-help" title="Help (?)"><kbd data-key="Slash">?</kbd>Help</button>
-    <button class="sky-settings-toggle" type="button" popovertarget="sky-settings" title="Settings"><svg class="hud-gear" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg>Settings</button>
+    <button class="hud-info" type="button" popovertarget="sky-info" title="Info (i)"><kbd data-key="KeyI">i</kbd>Info</button>
+    <button type="button" popovertarget="flight-help" title="Help (? or F1)"><kbd data-key="Slash">?</kbd>Help</button>
+    <button class="sky-settings-toggle" type="button" popovertarget="sky-settings" title="Settings" aria-label="Settings"><span class="hud-cap"><svg class="hud-gear" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg></span></button>
   </div>
 
   <span class="hud-pulse" aria-hidden="true" hidden></span>
@@ -227,18 +214,17 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   <div class="hud-fpm" aria-hidden="true" hidden><svg viewBox="-18 -12 36 24" width="36" height="24"><g class="fpm-halo"><circle r="5" /><path d="M-16 0h11M5 0h11M0 -5v-6" /></g><circle r="5" /><path d="M-16 0h11M5 0h11M0 -5v-6" /></svg><span class="hud-speed"></span></div>
 </div>
 
-<div id="flight-help" class="flight-help" popover="manual" role="region" aria-labelledby="flight-help-heading" data-modality="mouse">
-  <button class="help-close" type="button" popovertarget="flight-help" popovertargetaction="hide" aria-label="Close controls" title="Close (?)"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
-  <header class="help-bar">
-    <h2 id="flight-help-heading" class="help-title">Controls</h2>
-  </header>
-  <div class="help-grid" style={`grid-template-columns: auto repeat(${groups.length}, auto)`}>
-    {lanes.map((lane, row) => <span class="help-lane" data-lane={lane.id} style={`grid-row: ${row + 2}`}>{lane.name}</span>)}
-    {groups.map((group, column) => <>
-      <div class="help-head" data-column={column} style={`grid-row: 1; grid-column: ${column + 2}`}><h3>{group.name}</h3></div>
-      {group.keys.length > 0 && <div class="help-cell" data-lane="keys" data-column={column} style={`grid-row: 2; grid-column: ${column + 2}`}>{group.keys.map(([keys, effect]) => <div class="help-bind"><span class="help-k" set:html={keys} />{effect && <span class="help-a">{effect}</span>}</div>)}{group.note && <p class="help-note">{group.note}</p>}</div>}
-      {devices.map((device, row) => group.how?.[device.id] && <div class="help-cell" data-lane={device.id} data-column={column} style={`grid-row: ${row + 3}; grid-column: ${column + 2}`} set:html={group.how[device.id]} />)}
-    </>)}
+<div id="flight-help" class="flight-help" popover="manual" role="region" aria-label="Controls" data-modality="mouse">
+  <button class="help-close" type="button" popovertarget="flight-help" popovertargetaction="hide" aria-label="Close controls" title="Close (? or F1)"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+  <div class="help-grid">
+    {groups.map((group, column) => <section class="help-col">
+      <div class="help-head" data-column={column}><h2>{group.name}</h2></div>
+      <div class="help-cell" data-lane="keys" data-column={column}>
+        {group.keys.map(paragraph => <div class="help-par">{paragraph.map(([keys, effect]) => <div class="help-bind"><span class="help-k" set:html={keys} />{effect && <span class="help-a">{effect}</span>}</div>)}</div>)}
+        {group.faster && <p class="help-hold" set:html={`Hold ${key('ShiftLeft', '⇧')} to ${group.faster} faster.`} />}
+      </div>
+      {devices.map(device => group.how?.[device] && <div class="help-cell" data-lane={device} data-column={column}>{group.how[device]!.map(line => <p set:html={line} />)}</div>)}
+    </section>)}
   </div>
 </div>
 
@@ -275,18 +261,18 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   /* Without a keyboard, key caps mean nothing. */
   .orbit-hud:not([data-keyboard]) :is(.hud-key, .hud-pad), .orbit-hud:not([data-keyboard]) .time-hint, .orbit-hud:not([data-keyboard]) :is(.hud-list, .hud-roll) kbd { display: none; }
   /* Plain translucent fills; a backdrop blur over the live canvas costs frames and leaves artefacts. */
-  .hud-time { background: var(--hud-glass); }
   button { font: inherit; color: inherit; cursor: pointer; }
   /* Focus shows as a fill, never a frame. */
   :is(button, [role="slider"]):focus-visible { outline: none; }
 
   /* Replay clock: Space or the button pauses it. */
-  .hud-time { position: fixed; top: var(--hud-top); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px 0 4px; box-sizing: border-box; border-radius: 12px; font: 600 10px/1 var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .hud-time-toggle { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 9px; background: rgb(255 255 255 / 10%); }
-  .hud-time-toggle:is(:hover, :focus-visible) { background: rgb(255 255 255 / 22%); }
+  .hud-time { position: fixed; top: var(--hud-top); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; height: 24px; padding: 0; box-sizing: border-box; font: 500 10px/1 var(--hud-mono); color: #fff; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* Play and pause sit in a key cap's frame, like the Settings gear, and never shrink. */
+  .hud-time-toggle { flex: none; padding: 0; background: none; color: #fff; }
+  .sky-time { display: flex; gap: 14px; }
   .hud-time-toggle svg[data-hidden] { display: none; }
-  .hud-time-scale { color: var(--hud-dim); }
-  .time-hint { display: flex; align-items: center; gap: 5px; color: var(--hud-dim); font-weight: 500; }
+  /* Never squeezed: the cap keeps its word inside its frame at any width. */
+  .time-hint { flex: none; display: flex; align-items: center; gap: 5px; color: var(--hud-dim); font-weight: 500; white-space: nowrap; }
   /* Key caps on the screen are buttons too: hold R, F, Z or X as you would the
      key; Space pauses. The button is the cap alone, so they look as before; a
      cap lights while held, as for the real key. */
@@ -295,11 +281,12 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
      side ones: time scale, date and time of day (UTC), after only Space and its
      name; 0× is stopped, so no play button. Ticks hang from the edge, labels
      sit under them and the reading under the labels, joined by a rule; press or
-     drag along a tape, scroll over it, or use the arrow keys. Narrower, they
-     would run into the camera presets, so the one-line clock stays. */
+     drag along a tape, scroll over it, or use the arrow keys. Only the Settings
+     gear shares the top edge, so the tapes fit from 820 px; narrower, the
+     one-line clock stays. */
   /* The gap clears the end labels, which stand half out of their tapes. */
   .hud-clock { display: none; align-items: flex-start; gap: 48px; }
-  @container (min-width: 960px) {
+  @container (min-width: 820px) {
     /* As wide as its tapes: centred from the middle, it would otherwise squeeze them. */
     .hud-time { width: max-content; align-items: flex-start; gap: 24px; height: auto; padding: 0; background: none; }
     .hud-time :is(.sky-time, .hud-time-scale, .hud-time-toggle) { display: none; }
@@ -319,11 +306,14 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   /* Camera presets and free flight, top right above the altitude tape: no plate,
      keys flush with the screen edge like R and F, names to their left. */
   .hud-list { display: grid; justify-items: end; }
-  /* Camera presets top left, mirrored: keys flush with the edge, names to their right. */
-  .hud-modes { position: fixed; left: var(--hud-left); top: var(--hud-top); justify-items: start; }
-  .hud-list.hud-modes button { flex-direction: row; padding: 0 12px 0 0; }
-  /* Settings alone top right; Info, then Help, in the lower-right corner. */
-  .hud-corner .sky-settings-toggle { position: fixed; top: var(--hud-top); right: var(--hud-right); }
+  /* The presets head the altitude tape: keys flush with the edge, names to their left. */
+  .hud-modes { justify-self: end; }
+  /* Settings alone top right, a gear in a key cap's frame; Info, then Help, in the lower-right corner. */
+  .hud-corner .sky-settings-toggle { position: fixed; top: var(--hud-top); right: var(--hud-right); padding: 0; }
+  .hud-cap, .hud-time-toggle { display: grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1px solid rgb(255 255 255 / 30%); border-bottom-width: 2px; border-radius: 5px 5px 5px 5px / 5px 5px 6px 6px; transition: background-color .08s; }
+  :is(.sky-settings-toggle:is(:hover, :focus-visible) .hud-cap, .hud-time-toggle:is(:hover, :focus-visible)) { background: rgb(255 255 255 / 16%); }
+  /* Info alone in the lower-left corner, mirrored: key at the edge, name inside. */
+  .hud-corner .hud-info { position: fixed; left: var(--hud-left); bottom: var(--hud-bottom); flex-direction: row; padding: 0 12px 0 0; }
   /* Settings, help and info in the lower-right corner, set like the presets; settings has no key, so a gear. */
   .hud-corner { position: fixed; right: var(--hud-right); bottom: var(--hud-bottom); }
   .hud-corner[hidden] { display: none; }
@@ -376,7 +366,6 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   .hud-pad > :is([data-hold="KeyD"], [data-hold="ArrowRight"]) { grid-area: 2 / 3; }
   .hud-pad > :is([data-hold="KeyS"], [data-hold="ArrowDown"]) { grid-area: 3 / 2; }
   /* Heading, pitch and roll, then latitude and longitude below, in the lower-left corner. */
-  .hud-readouts { position: fixed; left: var(--hud-left); bottom: var(--hud-bottom); display: grid; gap: 10px; pointer-events: none; }
   /* Only the drawn parts take the pointer: the masked sky and ground are far larger than the dial. */
   .hud-gauge { line-height: 0; pointer-events: none; }
   .gauge { pointer-events: none; }
@@ -417,8 +406,6 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
      outline drawn over it. */
   :is(.gauge-sun-cut, .gauge-moon-cut) { fill: #000; stroke: #000; stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
   :is(.gauge-sun, .gauge-sun-cut, .gauge-moon, .gauge-moon-cut)[hidden] { display: none; }
-  .hud-readout { display: grid; gap: 1px; color: var(--hud-dim); font: 500 9px/12px var(--hud-mono); letter-spacing: .05em; white-space: nowrap; }
-  .hud-readout b { font-weight: 600; font-variant-numeric: tabular-nums; }
 
   /* Two logarithmic tapes, mid-height at either edge: altitude on the right, with
      R and F, and its mirror, the lens, on the left, with Z and X. Drag one, scroll
@@ -455,7 +442,7 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   .hud-tick { position: absolute; right: var(--tick-end); width: 6px; height: 1px; background: rgb(255 255 255 / 50%); }
   .hud-tick.major { width: 12px; }
   .hud-tick b { position: absolute; right: 17px; top: -6px; color: rgb(255 255 255 / 66%); font: 500 9px/12px var(--hud-mono); white-space: nowrap; }
-  .hud-tick b, .hud-now output, .hud-readout { text-shadow: 0 0 3px rgb(0 0 0 / 85%), 0 0 1px rgb(0 0 0 / 90%); }
+  .hud-tick b, .hud-now output { text-shadow: 0 0 3px rgb(0 0 0 / 85%), 0 0 1px rgb(0 0 0 / 90%); }
   /* The reading: plain text beyond the labels, joined to the axis by a rule that
      passes under them. Hover or focus fills it opaque orange. */
   .hud-now { position: absolute; left: 0; right: 0; top: var(--at); height: 0; color: #fff; }
@@ -492,23 +479,24 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
 
   /* Phones: compact instruments. */
   @media (max-width: 640px) {
-    .hud-time { gap: 8px; padding-right: 8px; }
-    /* Below the clock, which spans most of a phone's width. */
-    .hud-modes, .hud-corner .sky-settings-toggle { top: calc(var(--hud-top) + 44px); }
+    .hud-time { gap: 10px; }
+    .sky-time { gap: 10px; }
     .gauge { width: 50px; height: 50px; }
     .hud-attitude { gap: 12px; }
-    /* Above the gauge row, which needs the width. */
-    .hud-readouts { bottom: calc(var(--hud-bottom) + 84px); }
     /* Centred in the room the corner buttons leave. */
-    .hud-dock { right: calc(var(--hud-right) + 96px); }
+    .hud-dock { left: calc(var(--hud-left) + 64px); right: calc(var(--hud-right) + 64px); }
     .hud-meter { --tape: clamp(150px, 26cqh, 240px); }
   }
+  /* The clock row shares the top edge with the gear until it would reach it:
+     with Space and its name below 420 px, without them below 330 px. */
+  @container (max-width: 420px) { .orbit-hud[data-keyboard] .hud-corner .sky-settings-toggle { top: calc(var(--hud-top) + 36px); } }
+  @container (max-width: 330px) { .hud-corner .sky-settings-toggle { top: calc(var(--hud-top) + 36px); } }
   /* A short HUD, such as a phone on its side: one compact row. */
-  /* Wide enough that the clock leaves the corner free: presets back to the top. */
-  @container (max-height: 480px) and (min-width: 480px) { .hud-modes, .hud-corner .sky-settings-toggle { top: var(--hud-top); } }
+  /* Wide enough that the clock leaves the corner free: Settings back to the top. */
+  @container (max-height: 480px) and (min-width: 480px) { .hud-corner .sky-settings-toggle { top: var(--hud-top); } }
   @container (max-height: 480px) {
-    /* The tapes sit low, level with each other: the right one between the presets
-       and the corner buttons. No keys. */
+    /* The tapes sit low, level with each other: the right one, under its
+       presets, above the corner buttons. No keys. */
     :is(.hud-meter, .hud-left) { top: auto; bottom: calc(var(--hud-bottom) + 84px); transform: none; }
     .hud-meter .hud-key { display: none; }
     .hud-attitude { gap: 12px; }
@@ -521,7 +509,7 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   /* orbital-sky passes pointer-events: none down; the panel takes them back. */
   /* Controls: a panel docked along the bottom, like an editor's shortcut sheet. It
      stays open while you fly. Per action: its keys, if there is a keyboard, then
-     a line for each pointing device the device has. */
+     then pointer and touch paragraphs, as the device has them. */
   /* It slides up from the bottom edge and back, tab and all; the scene follows its
      edge (orbit-hud.ts). The grid scrolls, so the tab can stand out above it. */
   .flight-help { --help-size: 10.5px; --help-tab: 18px; box-sizing: border-box; position: fixed; inset: auto 0 0 0; display: flex; flex-direction: column; width: 100%; max-width: none; height: auto; max-height: 50vh; max-height: 50dvh; margin: 0; padding: 0; overflow: visible; border: 0; border-top: 1px solid rgb(255 255 255 / 9%); background: rgb(12 14 18); color: #fff; color-scheme: dark; font: 500 var(--help-size)/1.6 'Inter Subset', -apple-system, BlinkMacSystemFont, sans-serif; pointer-events: auto; transform: translateY(calc(100% + var(--help-tab))); transition: transform .3s cubic-bezier(.2, .7, .2, 1), display .3s allow-discrete, overlay .3s allow-discrete; }
@@ -529,43 +517,44 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   @starting-style { .flight-help:popover-open { transform: translateY(calc(100% + var(--help-tab))); } }
   @media (prefers-reduced-motion: reduce) { .flight-help { transition: none; } }
   .flight-help :global(kbd) { font-size: var(--help-size); }
-  .help-bar { flex: none; display: flex; align-items: center; height: 40px; padding: 0 20px; }
-  .help-title { margin: 0; font: 600 10px/1 'SFMono-Regular', Menlo, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
   /* Closing is a tab on the panel's top edge, in the middle: a chevron down. It
      covers the edge's rule beneath it, so tab and panel read as one piece. */
   .help-close { position: absolute; left: 50%; bottom: 100%; display: grid; place-items: center; width: 44px; height: var(--help-tab); margin: 0 0 -1px -22px; padding: 0; border: 1px solid rgb(255 255 255 / 9%); border-bottom: 0; border-radius: 9px 9px 0 0; background: rgb(12 14 18); color: rgb(255 255 255 / 62%); }
   .help-close::before { content: ''; position: absolute; inset: -10px -12px 0; }
   .help-close:is(:hover, :focus-visible) { color: #fff; outline: none; }
-  /* Actions run across and scroll sideways, lane names with them; inputs are lanes.
-     No rules inside the panel: spacing alone separates heading, actions and lanes. */
+  /* Actions run across and scroll sideways, each a column of paragraphs.
+     No rules inside the panel: spacing alone separates headings and paragraphs. */
   /* The grid's own padding keeps its scrollbar on the screen's bottom edge, side to side. */
-  .help-grid { --help-column: 172px; display: grid; grid-template-rows: repeat(5, auto); min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 14px 0 max(12px, env(safe-area-inset-bottom)); }
+  .help-grid { --help-column: 172px; display: flex; align-items: flex-start; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 15px 0 max(12px, env(safe-area-inset-bottom)) 20px; }
+  .help-col { flex: none; display: flex; flex-direction: column; gap: 12px; }
   /* Cells set the column width, so a column left empty on this device takes no room. */
-  .help-head, .help-cell { box-sizing: content-box; width: var(--help-column); padding: 0 24px 12px 0; }
-  .help-lane { grid-column: 1; padding: 10px 18px 12px 20px; color: rgb(255 255 255 / 45%); font: 600 8.5px/16px 'SFMono-Regular', Menlo, Consolas, monospace; letter-spacing: .06em; text-transform: uppercase; }
+  .help-head, .help-cell { box-sizing: content-box; width: var(--help-column); padding: 0 24px 0 0; }
   /* Every lane reads alike, whichever input is in use; text matches the key caps. */
-  .help-cell { padding-top: 10px; color: #fff; }
-  .help-head h3 { margin: 0; font: 600 9px/12px 'SFMono-Regular', Menlo, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
-  .help-note { margin: 2px 0 0; color: rgb(255 255 255 / 58%); }
+  .help-cell { color: #fff; }
+  .help-cell p { margin: 0; }
+  .help-cell p + p { margin-top: 12px; }
+  /* Action names head the panel; there is no separate title. */
+  .help-head { padding-bottom: 6px; }
+  .help-head h2 { margin: 0; font: 600 10px/1 'SFMono-Regular', Menlo, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
   /* Each binding is one line: its keys, then what they do. */
-  .help-cell[data-lane="keys"] { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+  .help-cell[data-lane="keys"] { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+  .help-par { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+  .help-hold { margin: 0; }
   .help-bind { display: flex; align-items: center; gap: 8px; }
   .help-k { display: flex; align-items: center; gap: 3px; }
-  .help-k :global(.help-or) { margin: 0 3px; color: rgb(255 255 255 / 45%); }
   /* Same face, size, weight and colour as the keys beside it. */
   .help-a { color: inherit; }
   /* W over A S D, and the arrows the same way. */
   .help-cell :global(.keys-t) { display: grid; grid-template-columns: repeat(3, auto); gap: 3px; }
   .help-cell :global(.keys-t > :first-child) { grid-column: 2; }
   .help-cell :global(.keys-t > :not(:first-child)) { grid-row: 2; }
-  /* Lanes for inputs the device lacks go. */
-  .flight-help:not([data-keyboard]) [data-lane="keys"], .flight-help:not([data-pointer]) :is([data-lane="mouse"], [data-lane="trackpad"]), .flight-help:not([data-touch]) [data-lane="touch"] { display: none; }
+  /* Rows for inputs the device lacks go. */
+  .flight-help:not([data-keyboard]) [data-lane="keys"], .flight-help:not([data-pointer]) [data-lane="pointer"], .flight-help:not([data-touch]) [data-lane="touch"] { display: none; }
   .help-head[hidden] { display: none; }
-  .flight-help:not([data-gesture]) [data-only="gesture"] { display: none; }
+  /* Injected with set:html, so outside the component scope. */
+  .flight-help:not([data-gesture]) :global([data-only="gesture"]) { display: none; }
   @media (max-width: 640px) {
-    .help-bar { padding: 0 16px; }
-    .help-grid { --help-column: 156px; }
-    .help-lane { padding-left: 16px; padding-right: 12px; }
+    .help-grid { --help-column: 156px; padding-left: 16px; }
   }
   /* Info: what the scene shows, then the credits. */
   .help-lede { margin: 0 0 22px; color: rgb(255 255 255 / 72%); }

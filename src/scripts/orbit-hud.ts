@@ -86,7 +86,6 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   // The Sun's and Moon's cut-outs in the gauge's masks move with their markers.
   const earthArc=[...gauge.querySelectorAll<SVGPathElement>('.gauge-earth path')],sunRing=gauge.querySelector<SVGGElement>('.gauge-sun')!,sunCuts=[...gauge.querySelectorAll<SVGPathElement>('.gauge-sun-cut')];
   const moonMark=gauge.querySelector<SVGGElement>('.gauge-moon')!,moonCuts=[...gauge.querySelectorAll<SVGPathElement>('.gauge-moon-cut')];
-  const readouts=Object.fromEntries([...hud.querySelectorAll<HTMLElement>('[data-attitude]')].map(e=>[e.dataset.attitude!,e]));
   const pulseTemplate=hud.querySelector<HTMLElement>('.hud-pulse')!;
   const fpm=hud.querySelector<HTMLElement>('.hud-fpm')!,speed=fpm.querySelector<HTMLElement>('.hud-speed')!,canvas=root.querySelector('canvas')!;
   const modeButtons=[...hud.querySelectorAll<HTMLButtonElement>('.hud-modes :is([data-route],[data-flight-mode])')];
@@ -408,7 +407,7 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
     const moving=earth.half!==earth.target;
     earth.at=moving?now:0;earth.frame=moving?requestAnimationFrame(easeEarth):0;
   };
-  const shown={moon:'',globe:[999,0],ev:NaN as number|null,day:'',time:'',speed:NaN,altitude:-1,lens:-1,mode:'',earth:'',sun:'',latitude:'',longitude:''};
+  const shown={moon:'',globe:[999,0],ev:NaN as number|null,day:'',time:'',speed:NaN,altitude:-1,lens:-1,mode:'',earth:'',sun:''};
   return {
     setModality,key,
     get modality(){return modality;},
@@ -489,9 +488,6 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
         mark(frame.sun,GAUGE.sunAt,sunRing,sunCuts,'sun');
         mark(celestialFrame(frame.date,frame.camera as Vec3).moon.slice(0,3) as Vec3,GAUGE.moonAt,moonMark,moonCuts,'moon');
       }
-      // Where the camera is over the ground, in the lower-left corner.
-      const place={latitude:`${Math.abs(frame.latitude).toFixed(1).padStart(4,'0')}° ${frame.latitude<0?'S':'N'}`,longitude:`${Math.abs(frame.longitude).toFixed(1).padStart(5,'0')}° ${frame.longitude<0?'W':'E'}`};
-      for(const k of ['latitude','longitude'] as const)if(shown[k]!==place[k]){shown[k]=place[k];readouts[k].textContent=place[k];}
       const current=free?'free':route;
       if(shown.mode!==current){
         shown.mode=current;
