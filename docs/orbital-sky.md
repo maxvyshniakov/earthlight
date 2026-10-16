@@ -728,6 +728,10 @@ It trims the lowest 10% and highest 2% by weighted area, then uses the retained
 log mean to target 0.055 linear radiance. Within-bin log sums avoid rounding
 uniform scenes to a stop boundary. A coverage-weighted strongest-channel
 measurement protects extended coloured highlights; isolated stars may clip.
+Both targets are limited to the automatic range before coverage blends them
+(full weight from 2.5% of samples, none below 0.6%): blended unbounded, a
+black sky's +15 EV outweighed any smaller bright subject. See
+[the zoom metering lab note](lab/auto-exposure-zoom-2026-10-16.md).
 An analytic disk-area measurement catches the Sun between taps, including
 occultation and atmospheric transmission. The meter does not receive Earth
 position or object labels. All automatic views use one -1.5 to +4.1 EV range; manual exposure retains -5.5 to +4.1 EV.

@@ -19,6 +19,10 @@ export async function verifyExposure(evaluate){
    for(let y=0;y<128;y++)for(let x=0;x<128;x++){let i=(y*128+x)*4;pixels[i+3]=255;if(band?y>=offset&&y<offset+4:x===66&&y===66){pixels[i]=5;pixels[i+1]=128;pixels[i+2]=12;}}
    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,128,128,0,gl.RGBA,gl.UNSIGNED_BYTE,pixels);meter.update(texture,true,false,0,[0,0,0],1.5,null,null);const ev=read();meter.dispose();return ev;};
   const aurora=emission(true,66),auroraShifted=emission(true,69),point=emission(false);
+  // A bright 14x14 block on black: 1.2% of the frame, a small Earth or a zoomed Moon.
+  const block=(()=>{const meter=new exports.CameraExposure(gl),pixels=new Uint8Array(128*128*4);
+   for(let y=0;y<128;y++)for(let x=0;x<128;x++){const i=(y*128+x)*4;pixels[i+3]=255;if(x>=57&&x<71&&y>=57&&y<71)pixels[i]=pixels[i+1]=pixels[i+2]=128;}
+   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,128,128,0,gl.RGBA,gl.UNSIGNED_BYTE,pixels);meter.update(texture,true,false,0,[0,0,0],1.5,null,null);const ev=read();meter.dispose();return ev;})();
   const uniform=(value,manual=null)=>{const meter=new exports.CameraExposure(gl);fill(value);meter.update(texture,true,false,0,[0,0,0],1.5,null,manual);const ev=read();meter.dispose();return ev;};
   const uniformLevels=[0,1,4,16,64,255].map(value=>uniform(value));
   const manual=[0,1,255].map(value=>uniform(value,1.2));
@@ -26,7 +30,7 @@ export async function verifyExposure(evaluate){
   const flashMeter=new exports.CameraExposure(gl);fill(1);flashMeter.update(texture,true,false,0);const beforeFlash=read();fill(255);
   const flash=[];for(let i=1;i<=8;i++){flashMeter.update(texture,true,false,i*10);flash.push(read());}
   fill(1);flashMeter.update(texture,true,false,90);const afterFlash=read();flashMeter.dispose();
-  const error=gl.getError();gl.deleteTexture(texture);gl.getExtension('WEBGL_lose_context')?.loseContext();return {low,high,sun,offscreen,occluded,highlight,aurora,auroraShifted,point,uniformLevels,manual,manualMinimum,beforeFlash,flash,afterFlash,error};
+  const error=gl.getError();gl.deleteTexture(texture);gl.getExtension('WEBGL_lose_context')?.loseContext();return {low,high,sun,offscreen,occluded,highlight,aurora,auroraShifted,point,block,uniformLevels,manual,manualMinimum,beforeFlash,flash,afterFlash,error};
  })()`);
  assert.equal(exposure.error,0);
  assert.ok(Math.abs(exposure.sun-cameraModel.AUTO_EXPOSURE_MIN_EV)<.001,'solar disk reaches the brighter automatic floor even between grid taps');
@@ -35,6 +39,7 @@ export async function verifyExposure(evaluate){
  assert.ok(exposure.aurora<1.0,'thin colored emission protects its strongest channel');
  assert.ok(Math.abs(exposure.aurora-exposure.auroraShifted)<.05,'moving a thin curtain between grid rows must retain metering');
  assert.ok(exposure.point>4,'an isolated point must not darken the sky');
+ assert.ok(exposure.block<cameraModel.EXPOSURE_MAX_EV-.5,'a bright region of 1.2% pulls exposure below the black-sky ceiling');
  assert.ok(Math.abs(exposure.uniformLevels[0]-cameraModel.EXPOSURE_MAX_EV)<.001,'black frame reaches the single bounded ceiling');
  for(let i=1;i<exposure.uniformLevels.length;i++)assert.ok(exposure.uniformLevels[i]<=exposure.uniformLevels[i-1],'more light never raises exposure');
  for(let i=2;i<5;i++)if(exposure.uniformLevels[i]>cameraModel.AUTO_EXPOSURE_MIN_EV+.001)assert.ok(Math.abs(exposure.uniformLevels[i-1]-exposure.uniformLevels[i]-2)<.005,'fourfold radiance reduces exposure by two stops');

@@ -68,10 +68,12 @@ void main(){
     cumulative+=count;
   }
   float measured=exp2(logSum/max(retained,.00001));
-  float target=log2(.055/max(measured+sunMean*.45,.00001));
-  float emissionTarget=log2(.25/max(emission/max(emissionWeight,.0001),.00001));
+  // Blend within the metering range. A black sky asks for about +15 EV; mixed
+  // before clamping, it outweighed any bright subject under 2.5% of the frame,
+  // so a small Earth or a zoomed Moon was metered as empty sky.
+  float target=clamp(log2(.055/max(measured+sunMean*.45,.00001)),${AUTO_EXPOSURE_MIN_EV},${EXPOSURE_MAX_EV});
+  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),.00001)),${AUTO_EXPOSURE_MIN_EV},${EXPOSURE_MAX_EV});
   target=mix(target,min(target,emissionTarget),smoothstep(.006,.025,coverage/1024.));
-  target=clamp(target,${AUTO_EXPOSURE_MIN_EV},${EXPOSURE_MAX_EV});
   vec4 state=texture2D(previous,vec2(.5));
   float old=decodeCameraEV(state.rg);
   // EV is logarithmic; brighten more slowly than the response to daylight.
