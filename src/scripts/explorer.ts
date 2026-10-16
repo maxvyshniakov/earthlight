@@ -328,7 +328,12 @@ export class EarthlightExplorer extends HTMLElement {
       const observer=observerAt(sceneTime);
       // Grain cells are buffer pixels: keep the settled noise per CSS area.
       const focusLook=focusRadius>0?{...look,grain:look.grain*focusGrainScale(focusRadius,focusDensity)}:look;
-      const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,focusLook,focusRadius,speed,inspection);
+      // A paused view at rest has no frame rate to protect: its frames only
+      // carry exposure toward inspection, so they are not timed either. Timed,
+      // a busy GPU stepped the scale, and each resize's tiles restarted the
+      // settle window, deferring inspection indefinitely.
+      const still=standalone&&paused&&!frameClock.interacting(performance.now());
+      const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,focusLook,focusRadius,speed,inspection||still);
       if(!result)return;
       const now=performance.now();
       if(standalone){
