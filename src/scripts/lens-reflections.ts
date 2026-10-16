@@ -20,7 +20,26 @@ export function visibleSourceDisk(camera: number[], direction: number[], radius:
 // scale from it. The earlier 0.2% total was uncoated-lens territory: a solar
 // ghost the size of the disk was tens of times brighter than sunlit cloud.
 export const LENS_STRONGEST_PATH=2.5e-5;
-export const LENS_REFLECTION_FRACTION=LENS_STRONGEST_PATH*2.345/.85;
+/** The seven reflection paths: image conjugate, aperture radius and edge
+ * softness (frame heights), rim profile, linear Display-P3 tint and relative
+ * strength. The first three also serve point sources. */
+export const LENS_PATHS=[
+  {conjugate:-.92,radius:.009,softness:.10,ring:0,tint:[.28,.84,.025],strength:.85},
+  {conjugate:-.58,radius:.022,softness:.13,ring:0,tint:[.025,.65,.21],strength:.48},
+  {conjugate:.21,radius:.013,softness:.12,ring:0,tint:[.92,.24,.015],strength:.60},
+  {conjugate:-.26,radius:.034,softness:.20,ring:0,tint:[.48,.035,.78],strength:.22},
+  {conjugate:.48,radius:.057,softness:.33,ring:0,tint:[.025,.48,.72],strength:.065},
+  {conjugate:-1.16,radius:.081,softness:.08,ring:1,tint:[.42,.68,.02],strength:.095},
+  {conjugate:.72,radius:.098,softness:.40,ring:0,tint:[.72,.18,.035],strength:.035},
+] as const;
+const POINT_PATHS=3;
+const pathStrength=Math.max(...LENS_PATHS.map(path=>path.strength));
+const pathWeightSum=LENS_PATHS.reduce((sum,path)=>sum+path.strength,0);
+export const LENS_REFLECTION_FRACTION=LENS_STRONGEST_PATH*pathWeightSum/pathStrength;
+const glsl=(x:number)=>Number.isInteger(x)?`${x}.`:String(x);
+const tint=(path:typeof LENS_PATHS[number])=>`vec3(${path.tint.map(glsl).join(',')})`;
+const apertureCall=(path:typeof LENS_PATHS[number])=>
+  `light+=apertureGhost(p,source,${glsl(path.conjugate)},${glsl(path.radius)},${glsl(path.softness)},${glsl(path.ring)},${tint(path)},${glsl(path.strength)});`;
 export const lensReflectionShader=`
 float ghostAperture(vec2 q){
   float polygon=max(abs(dot(q,vec2(.963771,.266731))),
@@ -94,17 +113,57 @@ vec3 lensReflections(vec2 p,vec2 source,float aspect,float fullChain){
   if(acceptance<=0.)return vec3(0.);
   vec3 light=vec3(0.);
   // Saturated linear Display-P3 colors; the compositor converts for sRGB.
-  light+=apertureGhost(p,source,-.92,.009,.10,0.,vec3(.28,.84,.025),.85);
-  light+=apertureGhost(p,source,-.58,.022,.13,0.,vec3(.025,.65,.21),.48);
-  light+=apertureGhost(p,source, .21,.013,.12,0.,vec3(.92,.24,.015),.60);
+  ${LENS_PATHS.slice(0,POINT_PATHS).map(apertureCall).join('\n  ')}
   if(fullChain>.5){
-  light+=apertureGhost(p,source,-.26,.034,.20,0.,vec3(.48,.035,.78),.22);
-  light+=apertureGhost(p,source, .48,.057,.33,0.,vec3(.025,.48,.72),.065);
-  light+=apertureGhost(p,source,-1.16,.081,.08,1.,vec3(.42,.68,.02),.095);
-  light+=apertureGhost(p,source, .72,.098,.40,0.,vec3(.72,.18,.035),.035);
+  ${LENS_PATHS.slice(POINT_PATHS).map(apertureCall).join('\n  ')}
   }
-  // All seven path weights sum to 2.345; the shorter point-source chain uses
-  // less of the same energy budget. Inputs are integrated source flux.
-  return light*acceptance*${LENS_REFLECTION_FRACTION}/2.345;
+  // The shorter point-source chain uses less of the same energy budget.
+  // Inputs are integrated source flux.
+  return light*acceptance*${LENS_REFLECTION_FRACTION/pathWeightSum};
+}
+`;
+
+/** Reflections of everything the frame shows, read from the glare pyramid.
+ * Path i images the scene at p / c_i, convolved with its aperture: the scene
+ * level whose spread matches the aperture's (a disk of radius ρ has σ = ρ/2)
+ * stands in for the aperture shape, as variance matching does for the Sun.
+ * The 1/c² keeps each path's flux at its reflectance times the source flux.
+ * Needs lensReflectionShader, cameraPupilScale, ghostFocalScale, resolution,
+ * the field uniforms below and FIELD_LEVEL_SPREAD. */
+export const fieldReflectionShader=(levelSpread:number,maxLevels:number)=>`
+uniform sampler2D reflectionField;
+uniform vec4 reflectionLevels[${maxLevels}];
+uniform vec2 reflectionFieldSize;
+uniform float reflectionLevelCount;
+// The field fades over the outer 4% of the picture, so a bright subject at the
+// edge leaves no rectangular reflection. Sources there stay analytic.
+float fieldWindow(vec2 uv){
+  vec2 w=smoothstep(0.,.04,uv)*smoothstep(1.,.96,uv);
+  return w.x*w.y;
+}
+vec3 fieldLevel(vec2 uv,float level){
+  vec4 rect=vec4(0.);
+  for(int k=0;k<${maxLevels};k++)if(abs(float(k+1)-level)<.5)rect=reflectionLevels[k];
+  vec2 edge=.5/reflectionFieldSize;
+  return texture2D(reflectionField,rect.xy+clamp(uv*rect.zw,edge,rect.zw-edge)).rgb;
+}
+vec3 fieldGhost(vec2 p,float aspect,float conjugate,float radius,vec3 tint,float strength){
+  vec2 s=p/conjugate;
+  vec2 uv=s/vec2(aspect,1.)+.5;
+  float window=fieldWindow(uv);
+  float field=length(s)/1.25;
+  float acceptance=window*(1.-smoothstep(.70,1.05,field));
+  if(acceptance<=0.)return vec3(0.);
+  float spread=.5*radius*cameraPupilScale*ghostFocalScale/abs(conjugate)*resolution.y;
+  float lod=clamp(log2(max(spread,.001)/${levelSpread.toFixed(4)}),1.,reflectionLevelCount);
+  float lower=floor(lod);
+  vec3 scene=mix(fieldLevel(uv,lower),fieldLevel(uv,min(lower+1.,reflectionLevelCount)),lod-lower);
+  return scene*lensToOutputLinear(ghostCoating(tint,field,0.,conjugate))*strength*acceptance/(conjugate*conjugate);
+}
+vec3 fieldReflections(vec2 p,float aspect){
+  if(reflectionLevelCount<1.5)return vec3(0.);
+  vec3 light=vec3(0.);
+  ${LENS_PATHS.map(path=>`light+=fieldGhost(p,aspect,${glsl(path.conjugate)},${glsl(path.radius)},${tint(path)},${glsl(path.strength)});`).join('\n  ')}
+  return light*${LENS_REFLECTION_FRACTION/pathWeightSum};
 }
 `;

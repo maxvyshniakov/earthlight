@@ -1,0 +1,51 @@
+{
+ "date": "2026-10-16",
+ "method": "agent-browser 1200x800 DPR1, look-grain=0, motion=0, 9 s exposure settle; field reflections on vs fieldReflections=off; 9x9 box-filtered luminance difference in 8-bit output levels",
+ "views": {
+  "moon20": {
+   "peak": 1.2,
+   "mean": 0.03,
+   "visibleShare": 0,
+   "clipped": 0
+  },
+  "sun15": {
+   "peak": 0.1,
+   "mean": 0,
+   "visibleShare": 0,
+   "clipped": 1
+  },
+  "sun1": {
+   "peak": 0.1,
+   "mean": 0,
+   "visibleShare": 0,
+   "clipped": 0
+  },
+  "crescent": {
+   "peak": 4.9,
+   "mean": 0.01,
+   "visibleShare": 0.01,
+   "clipped": 0
+  },
+  "earthMoon": {
+   "peak": 3.8,
+   "mean": 0.01,
+   "visibleShare": 0,
+   "clipped": 9
+  }
+ },
+ "fixture": {
+  "ratioToFraction": 0.9994,
+  "peakOffsetFrameHeights": 0.0023
+ },
+ "timingMs": {
+  "method": "fieldReflections alone as a full-screen pass vs an empty pass, EXT_disjoint_timer_query_webgl2, Apple GPU, median of 40",
+  "size1200x800": {
+   "empty": 0.038,
+   "field": 0.207
+  },
+  "size2400x1600": {
+   "empty": 0.098,
+   "field": 0.698
+  }
+ }
+}

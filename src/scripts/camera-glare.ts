@@ -11,7 +11,11 @@ export const GLARE_LEVEL_SPREAD=1.14;
 export const GLARE_SOLAR_CAP=16;
 /** The scene draws the solar PSF out to this many CSS pixels past the disk. */
 export const SOLAR_PSF_REACH=130;
-const MAX_LEVELS=9;
+export const GLARE_MAX_LEVELS=9;
+const MAX_LEVELS=GLARE_MAX_LEVELS;
+/** Per-axis spread of a downsampled level image read bilinearly, as 2^k times
+ * this: the 4×4 boxes (1.25 texel² per step) plus the bilinear tent. */
+export const FIELD_LEVEL_SPREAD=.76;
 
 /** Pyramid levels 1..n until the short side would fall below two texels. */
 export function glareLevels(width:number,height:number){
@@ -80,16 +84,31 @@ void main(){
   gl_FragColor=vec4(c/16.*coarseScale+texture2D(detail,uv).rgb*detailWeight,1.);
 }`;
 
+// Copies a level image into its rectangle of the atlas, texel for texel.
+const copySource=`
+precision highp float;
+uniform sampler2D source;
+uniform vec4 rect;
+void main(){gl_FragColor=texture2D(source,(gl_FragCoord.xy-rect.xy)/rect.zw);}`;
+
 type Level={texture:WebGLTexture;target:WebGLFramebuffer;width:number;height:number};
+/** All downsampled levels in one texture, so a shader reads any level of the
+ * scene through one sampler: level 1 on the left, the rest stacked beside it.
+ * rects holds each level's origin and size in atlas UV, level 1 first. */
+export type GlareField={texture:WebGLTexture;rects:Float32Array;levels:number;width:number;height:number};
 
 /** Veiling glare of the whole frame: L ⊛ V, V normalized, from a half-float image pyramid.
  * Costs a quarter-resolution pass and a few smaller ones; it needs filtered
  * half-float targets and is absent with the RGBE fallback. */
 export class CameraGlare {
-  static prepare(batch:ShaderProgramBatch){return {batch,down:batch.add('Camera glare down',vertexSource,downSource),up:batch.add('Camera glare up',vertexSource,upSource)};}
+  static prepare(batch:ShaderProgramBatch){return {batch,down:batch.add('Camera glare down',vertexSource,downSource),up:batch.add('Camera glare up',vertexSource,upSource),copy:batch.add('Camera glare atlas',vertexSource,copySource)};}
 
   private down:WebGLProgram|null=null;
   private up:WebGLProgram|null=null;
+  private copy:WebGLProgram|null=null;
+  private atlas:Level|null=null;
+  private rects=new Float32Array(4*MAX_LEVELS);
+  private atlasRects:[number,number,number,number][]=[];
   private buffer:WebGLBuffer|null=null;
   private images:Level[]=[];
   private sums:Level[]=[];
@@ -101,10 +120,12 @@ export class CameraGlare {
     try{
       this.down=prepared?prepared.batch.take(prepared.down):link(gl,downSource);
       this.up=prepared?prepared.batch.take(prepared.up):link(gl,upSource);
+      this.copy=prepared?prepared.batch.take(prepared.copy):link(gl,copySource);
       this.buffer=gl.createBuffer();if(!this.buffer)throw Error('Cannot allocate glare pass');
       gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
       for(const name of ['source','sourceSize','targetSize','solarMask'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down,name);
       for(const name of ['coarse','detail','coarseSize','targetSize','coarseScale','detailWeight'])this.uniforms[`up.${name}`]=gl.getUniformLocation(this.up,name);
+      for(const name of ['source','rect'])this.uniforms[`copy.${name}`]=gl.getUniformLocation(this.copy,name);
     }catch(error){this.dispose();throw error;}
   }
   /** Returns the glare image at half resolution, or null when the frame is
@@ -131,6 +152,18 @@ export class CameraGlare {
       gl.drawArrays(gl.TRIANGLES,0,3);
       source=level.texture;sourceWidth=level.width;sourceHeight=level.height;
     }
+    gl.useProgram(this.copy);
+    const copyPosition=gl.getAttribLocation(this.copy!,'position');
+    gl.enableVertexAttribArray(copyPosition);gl.vertexAttribPointer(copyPosition,2,gl.FLOAT,false,0,0);
+    gl.uniform1i(this.uniforms['copy.source'],4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,this.atlas!.target);
+    for(const [k,level] of this.images.entries()){
+      const rect=this.atlasRects[k];
+      gl.viewport(rect[0],rect[1],rect[2],rect[3]);
+      gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,level.texture);
+      gl.uniform4fv(this.uniforms['copy.rect'],rect);
+      gl.drawArrays(gl.TRIANGLES,0,3);
+    }
     gl.useProgram(this.up);
     const upPosition=gl.getAttribLocation(this.up!,'position');
     gl.enableVertexAttribArray(upPosition);gl.vertexAttribPointer(upPosition,2,gl.FLOAT,false,0,0);
@@ -148,16 +181,20 @@ export class CameraGlare {
     }
     return this.sums[0].texture;
   }
+  /** The levels of the last render, for reading the scene at any spread. */
+  get field():GlareField|null{
+    const atlas=this.atlas;
+    return atlas&&this.images.length>=2?{texture:atlas.texture,rects:this.rects,levels:this.images.length,width:atlas.width,height:atlas.height}:null;
+  }
   private allocate(width:number,height:number){
     const gl=this.gl;
     this.release();
     this.width=width;this.height=height;
     const levels=glareLevels(width,height);
     this.focal=NaN;
-    const level=(k:number):Level=>{
+    const level=(k:number,w=Math.max(1,width>>k),h=Math.max(1,height>>k)):Level=>{
       const texture=gl.createTexture(),target=gl.createFramebuffer();
       if(!texture||!target)throw Error('Cannot allocate glare level');
-      const w=Math.max(1,width>>k),h=Math.max(1,height>>k);
       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,texture);
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
@@ -170,15 +207,26 @@ export class CameraGlare {
     for(let k=1;k<=levels;k++)this.images.push(level(k));
     // The coarsest sum is its weighted image, read directly by the next pass.
     for(let k=1;k<levels;k++)this.sums.push(level(k));
+    if(levels<2)return;
+    // Level 1 on the left; levels 2 and up stacked in a column to its right.
+    const [first,second]=this.images;
+    this.atlas=level(0,first.width+second.width,first.height);
+    this.atlasRects=this.images.map((image,k)=>{
+      const y=k===0?0:this.images.slice(1,k).reduce((sum,previous)=>sum+previous.height,0);
+      return [k===0?0:first.width,y,image.width,image.height];
+    });
+    this.rects.fill(0);
+    this.atlasRects.forEach(([x,y,w,h],k)=>this.rects.set([x/this.atlas!.width,y/this.atlas!.height,w/this.atlas!.width,h/this.atlas!.height],k*4));
   }
   private release(){
-    for(const level of [...this.images,...this.sums]){this.gl.deleteTexture(level.texture);this.gl.deleteFramebuffer(level.target);}
-    this.images=[];this.sums=[];this.width=0;this.height=0;
+    for(const level of [...this.images,...this.sums,...(this.atlas?[this.atlas]:[])]){this.gl.deleteTexture(level.texture);this.gl.deleteFramebuffer(level.target);}
+    this.images=[];this.sums=[];this.atlas=null;this.atlasRects=[];this.width=0;this.height=0;
   }
   dispose(){
     this.release();
     if(this.down)this.gl.deleteProgram(this.down);
     if(this.up)this.gl.deleteProgram(this.up);
+    if(this.copy)this.gl.deleteProgram(this.copy);
     if(this.buffer)this.gl.deleteBuffer(this.buffer);
   }
 }

@@ -829,6 +829,13 @@ ghost size cannot multiply integrated energy. A float-buffer GPU regression
 integrates the actual kernels for multiple pupils, focal lengths, disk sizes
 and chain types. The calibration is recorded in
 [the lens reflection lab note](lab/lens-reflections-2026-10-16.md).
+Everything else in the picture reflects through the same seven paths from the
+glare pyramid: path i reads the scene at p / c_i, at the level whose spread
+matches its aperture, with 1/c² preserving flux. The Moon's and the selected
+points' stamps keep only their share outside the picture, so nothing reflects
+twice. At coated-lens reflectance these reflections of Earth and the Moon stay
+a few output levels at most; their glare dominates. `fieldReflections=off`
+disables them. See [the field reflection lab note](lab/field-reflections-2026-10-16.md).
 The visual reference is [Don Pettit's spacewalk photograph](https://svs.gsfc.nasa.gov/31347/):
 bright white source scatter with weaker colored reflections through which scene
 detail remains visible; it does not calibrate this preset to that camera.
