@@ -2,12 +2,15 @@ import { attitude, MIN_ALTITUDE, MAX_ALTITUDE, PROJECTION, type ObserverFrame, t
 import { shellCoverage, SHELL } from './scene-view-scale.ts';
 import { EARTH_RADIUS_KM, add, cross, dot, normalize, scale, type Vec3 } from './iss-orbit.ts';
 import { dayOfYear, daysInYear } from './scene-calendar.ts';
+import { GLOBE_LAND } from './globe-land.ts';
+import { celestialFrame } from './celestial-sky.ts';
 
 export type Modality='mouse'|'trackpad'|'touch';
 const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
-/** Horizon gauge geometry in its 48 px drawing: dial radius, pixels per degree of
- * pitch, and the Earth arc and Sun ring 3 px outside the dial's 1 px stroke. */
-export const GAUGE={dial:19,pitch:.42,earthAt:23.25,sun:2.6,sunAt:25.6};
+/** Horizon gauge geometry in its 48-unit drawing (64 px): dial radius, units per
+ * degree of pitch, the Earth arc's radius, and the Sun's and Moon's marker radii
+ * and where they fly: the Sun clear outside the arc, the Moon along it. */
+export const GAUGE={dial:16.33,pitch:.42,earthAt:23.25,sun:4.2,sunAt:29.3,moon:3.3,moonAt:23.25};
 /** The lens range, as magnifications of the 1× pinhole (about 30 mm): from a
  * 15 mm wide angle to 600 mm. */
 export const LENS_MIN=.5,LENS_MAX=20;
@@ -53,7 +56,6 @@ const arc=(centre:number,half:number)=>{
   const at=(a:number)=>`${(R*Math.cos(a*deg)).toFixed(2)} ${(R*Math.sin(a*deg)).toFixed(2)}`;
   return `M${at(centre-half)}A${R} ${R} 0 ${half>90?1:0} 1 ${at(centre+half)}`;
 };
-const signed=(v:number)=>`${v<0?'−':'+'}${String(Math.abs(Math.round(v))).padStart(2,'0')}°`;
 // Whole magnifications read as such; in between, one decimal, as a phone camera shows.
 const lensLabel=(zoom:number)=>zoom>=9.95||Math.abs(zoom-Math.round(zoom))<.05?String(Math.round(zoom)):zoom.toFixed(1);
 
@@ -68,6 +70,8 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   hold:(code:string,down:boolean)=>void;
   /** Reset the camera, as \ does. */
   resetCamera:()=>void;
+  /** Turn the camera to face Earth's centre, or the Sun. */
+  faceEarth:()=>void;faceSun:()=>void;faceMoon:()=>void;
   /** Exposure compensation in EV, or null under manual exposure; and setting it. */
   exposure:()=>number|null;setExposure:(ev:number)=>void;
   /** Set the replay's day of the year and minute of the day (UTC). */
@@ -79,7 +83,9 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   const tape=hud.querySelector<HTMLElement>('#sky-altitude')!,output=hud.querySelector<HTMLOutputElement>('.altitude-output')!;
   // The dial's fill and the cuts in its mask turn together, from the variables on the dial.
   const gauge=hud.querySelector<HTMLElement>('.hud-attitude')!,horizon=gauge.querySelector<SVGElement>('.gauge')!;
-  const earthArc=gauge.querySelector<SVGPathElement>('.gauge-earth')!,sunRing=gauge.querySelector<SVGCircleElement>('.gauge-sun')!;
+  // The Sun's and Moon's cut-outs in the gauge's masks move with their markers.
+  const earthArc=[...gauge.querySelectorAll<SVGPathElement>('.gauge-earth path')],sunRing=gauge.querySelector<SVGGElement>('.gauge-sun')!,sunCuts=[...gauge.querySelectorAll<SVGPathElement>('.gauge-sun-cut')];
+  const moonMark=gauge.querySelector<SVGGElement>('.gauge-moon')!,moonCuts=[...gauge.querySelectorAll<SVGPathElement>('.gauge-moon-cut')];
   const readouts=Object.fromEntries([...hud.querySelectorAll<HTMLElement>('[data-attitude]')].map(e=>[e.dataset.attitude!,e]));
   const pulseTemplate=hud.querySelector<HTMLElement>('.hud-pulse')!;
   const fpm=hud.querySelector<HTMLElement>('.hud-fpm')!,speed=fpm.querySelector<HTMLElement>('.hud-speed')!,canvas=root.querySelector('canvas')!;
@@ -141,7 +147,6 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
     if(button.dataset.route)o.route(button.dataset.route as Route);else o.free();
     refocus(event);
   };
-  const level=(event:Event)=>{o.level();refocus(event);};
   // The lens tape mirrors the altitude tape. A press eases to its point, a drag
   // follows the pointer, and near a labelled mark either takes the mark exactly.
   const lensSpan=Math.log(LENS_MAX/LENS_MIN),lensMarks=[...lensTape.querySelectorAll<HTMLElement>('[data-mark]')].map(e=>Number(e.dataset.mark));
@@ -171,7 +176,7 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   };
 
   // Key caps on the screen work as the keys: hold R, F, + or −, the roll keys or
-  // the arrows; Space pauses, Backspace takes the lens to 1×, \ resets the camera.
+  // the arrows; Space stops or starts time, 0 takes the lens to 1×, \ resets the camera.
   // Focus goes back to the scene, so the keyboard keeps working.
   const scene=()=>root.closest<HTMLElement>('.orbit-view')?.focus({preventScroll:true});
   const holdButtons=[...hud.querySelectorAll<HTMLButtonElement>('[data-hold]')];
@@ -182,7 +187,7 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   };
   const holdUp=(event:PointerEvent)=>{o.hold((event.currentTarget as HTMLElement).dataset.hold!,false);scene();};
   const motionToggle=hud.querySelector<HTMLButtonElement>('.hud-time-toggle')!;
-  const actions:Record<string,()=>void>={Space:()=>motionToggle.click(),Backspace:()=>o.lens(1),Backslash:()=>o.resetCamera()};
+  const actions:Record<string,()=>void>={Space:()=>motionToggle.click(),Digit0:()=>o.lens(1),Backslash:()=>o.resetCamera()};
   const pressButtons=[...hud.querySelectorAll<HTMLButtonElement>('[data-press]')];
   const press=(event:Event)=>{
     const code=(event.currentTarget as HTMLElement).dataset.press!;
@@ -269,6 +274,72 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
     if(shown.speed!==speed){shown.speed=speed;speedTape.style.setProperty('--at',`${speedFraction(speed)*100}%`);speedTape.setAttribute('aria-valuenow',String(speed));speedTape.setAttribute('aria-valuetext',`${speed}×`);}
   };
 
+  // The WASD globe: an orthographic Earth centred under the camera, north up,
+  // with land filled the colour of the tapes' ticks and the far side unseen.
+  // Each device pixel of the disc is traced back to a latitude and longitude
+  // in the land mask, four samples a pixel for smooth coasts.
+  const landBits=Uint8Array.from(atob(GLOBE_LAND.bits),c=>c.charCodeAt(0));
+  const onLand=(lat:number,lon:number)=>{
+    const x=Math.floor((lon/(2*Math.PI)+.5)*GLOBE_LAND.width)%GLOBE_LAND.width,y=Math.min(GLOBE_LAND.height-1,Math.floor((lat/Math.PI+.5)*GLOBE_LAND.height)),i=y*GLOBE_LAND.width+x;
+    return (landBits[i>>3]>>(i&7))&1;
+  };
+  const globeCanvas=hud.querySelector<HTMLCanvasElement>('.hud-globe canvas')!,globeContext=globeCanvas.getContext('2d');
+  const paintGlobe=(latitude:number,longitude:number)=>{
+    if(!globeContext)return;
+    const ratio=Math.min(3,Math.max(1,Math.round(devicePixelRatio||1))),size=18*ratio,radius=8.5*ratio,centre=size/2;
+    if(globeCanvas.width!==size){globeCanvas.width=size;globeCanvas.height=size;}
+    const lat0=latitude*deg,lon0=longitude*deg,sl=Math.sin(lat0),cl=Math.cos(lat0),so=Math.sin(lon0),co=Math.cos(lon0);
+    const image=globeContext.createImageData(size,size);
+    for(let py=0;py<size;py++)for(let px=0;px<size;px++){
+      let covered=0;
+      for(const [sx,sy] of [[.25,.25],[.75,.25],[.25,.75],[.75,.75]]){
+        const x=(px+sx-centre)/radius,y=(centre-py-sy)/radius,d=x*x+y*y;
+        if(d>1)continue;
+        // East, north and out from the centre point, in Earth-fixed axes.
+        const z=Math.sqrt(1-d),wx=-so*x-sl*co*y+cl*co*z,wy=co*x-sl*so*y+cl*so*z,wz=cl*y+sl*z;
+        covered+=onLand(Math.asin(Math.max(-1,Math.min(1,wz))),Math.atan2(wy,wx));
+      }
+      if(covered){const i=(py*size+px)*4;image.data[i]=image.data[i+1]=image.data[i+2]=255;image.data[i+3]=Math.round(covered/4*128);}
+    }
+    globeContext.putImageData(image,0,0);
+  };
+
+  // The ground pin. Points on the ground round the anchor are projected through
+  // the last frame's camera; sizes scale with the depth so the pin keeps its
+  // size on screen. It hides on Earth's far side or behind the camera.
+  const pinLayer=hud.querySelector<HTMLElement>('.hud-pin')!,pinSpot=pinLayer.querySelector<SVGPathElement>('.pin-spot')!;
+  const pinRings=[...pinLayer.querySelectorAll<SVGPathElement>('.pin-ring')],pinStalks=[...pinLayer.querySelectorAll<SVGLineElement>('.pin-stalk')];
+  const pinHead=pinLayer.querySelector<SVGCircleElement>('.pin-head')!,pinRipples=[...pinLayer.querySelectorAll<SVGPathElement>('.pin-ripples path')];
+  let view:{camera:Vec3;basis:number[];focal:number}|null=null,pinned:{anchor:Vec3;since:number;until:number}|null=null,pinFrame=0;
+  const PIN={ring:12,stalk:26,ripple:900,fade:250};
+  const drawPin=(now:number)=>{
+    pinFrame=0;
+    if(!pinned||!view){pinLayer.toggleAttribute('hidden',true);return;}
+    const {anchor,since,until}=pinned,up=normalize(anchor),r=canvas.getBoundingClientRect(),b=view.basis;
+    const toward=add(anchor,scale(view.camera,-1)),depth=dot(toward,b.slice(6,9) as Vec3);
+    const fading=until?Math.max(0,1-(now-until)/PIN.fade):1;
+    if(until&&fading===0){pinned=null;pinLayer.toggleAttribute('hidden',true);return;}
+    // The near side faces the camera; behind it, or past the horizon, nothing shows.
+    if(depth<=1e-6||dot(toward,up)>=0){pinLayer.toggleAttribute('hidden',true);pinFrame=requestAnimationFrame(drawPin);return;}
+    const project=(p:Vec3)=>{const d=add(p,scale(view!.camera,-1)),z=Math.max(1e-6,dot(d,b.slice(6,9) as Vec3));return [r.width/2+view!.focal*dot(d,b.slice(0,3) as Vec3)/z*r.height,r.height/2-view!.focal*dot(d,b.slice(3,6) as Vec3)/z*r.height];};
+    const perPixel=depth/(view.focal*r.height),across=normalize(cross(up,Math.abs(up[2])<.9?[0,0,1]:[1,0,0])),along=cross(up,across);
+    const ring=(pixels:number)=>Array.from({length:41},(_,i)=>{const a=i/40*2*Math.PI;return project(add(anchor,scale(add(scale(across,Math.cos(a)),scale(along,Math.sin(a))),pixels*perPixel)));}).map(([x,y],i)=>`${i?'L':'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('')+'Z';
+    const base=project(anchor),top=project(add(anchor,scale(up,PIN.stalk*perPixel))),outline=ring(PIN.ring);
+    pinSpot.setAttribute('d',outline);pinRings.forEach(path=>path.setAttribute('d',outline));
+    pinStalks.forEach(line=>{line.setAttribute('x1',base[0].toFixed(1));line.setAttribute('y1',base[1].toFixed(1));line.setAttribute('x2',top[0].toFixed(1));line.setAttribute('y2',top[1].toFixed(1));});
+    pinHead.setAttribute('cx',top[0].toFixed(1));pinHead.setAttribute('cy',top[1].toFixed(1));
+    // Ripples spread over the ground as the pin lands, like rings on water.
+    let rippling=false;
+    pinRipples.forEach((path,i)=>{
+      const t=still.matches?1:(now-since-i*220)/PIN.ripple;
+      if(t<=0||t>=1){path.setAttribute('d','');return;}
+      rippling=true;path.setAttribute('d',ring(PIN.ring*(1+2.6*t)));path.style.opacity=String((1-t)*.9);
+    });
+    pinLayer.style.opacity=String(fading);pinLayer.toggleAttribute('hidden',false);
+    if(!until||fading>0||rippling)pinFrame=requestAnimationFrame(drawPin);
+  };
+  const showPin=(anchor:Vec3,until:number)=>{const now=performance.now();pinned={anchor,since:now,until};cancelAnimationFrame(pinFrame);drawPin(now);};
+
   const touchSeen=(event:PointerEvent)=>{if(event.pointerType==='touch')setModality('touch');else if(event.pointerType==='pen'||modality==='touch')setModality('mouse');else seen('pointer');};
 
   tape.addEventListener('pointerdown',tapeDown);tape.addEventListener('pointermove',tapeMove);
@@ -276,7 +347,13 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   tape.addEventListener('keydown',tapeKey);tape.addEventListener('wheel',tapeWheel,{passive:false});
   modeButtons.forEach(button=>button.addEventListener('click',mode));
   // A click on the dial levels the view, and turns a level one over, as H does.
-  const levelButtons=[...gauge.querySelectorAll<HTMLButtonElement>('.hud-gauge')];levelButtons.forEach(button=>button.addEventListener('click',level));
+  // The gauge's three targets: the dial levels or flips, as H does; the Earth
+  // arc and the Sun ring turn the camera to face them. Enter or Space works on
+  // each, as on a button.
+  const gaugeTargets:[Element,()=>void][]=[[gauge.querySelector('.gauge-dial')!,()=>o.level()],[gauge.querySelector('.gauge-earth')!,()=>o.faceEarth()],[sunRing,()=>o.faceSun()],[moonMark,()=>o.faceMoon()]];
+  const gaugeClick=(event:Event)=>{gaugeTargets.find(([target])=>target===event.currentTarget)?.[1]();refocus(event);};
+  const gaugeKey=(event:Event)=>{const key=(event as KeyboardEvent).key;if(key==='Enter'||key===' '){event.preventDefault();event.stopPropagation();gaugeTargets.find(([target])=>target===event.currentTarget)?.[1]();}};
+  gaugeTargets.forEach(([target])=>{target.addEventListener('click',gaugeClick);target.addEventListener('keydown',gaugeKey);});
   lensTape.addEventListener('pointerdown',lensDown);lensTape.addEventListener('pointermove',lensMove);
   for(const type of ['pointerup','pointercancel','lostpointercapture'])lensTape.addEventListener(type,lensUp as EventListener);
   lensTape.addEventListener('keydown',lensKey);lensTape.addEventListener('wheel',lensWheel,{passive:false});
@@ -327,11 +404,11 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
     earth.half=still.matches?earth.target:earth.target+(earth.half-earth.target)*Math.exp(-dt/.09);
     if(Math.abs(earth.half-earth.target)<.1)earth.half=earth.target;
     const d=arc(earth.centre,earth.half);
-    if(d!==shown.earth){shown.earth=d;earthArc.setAttribute('d',d);}
+    if(d!==shown.earth){shown.earth=d;earthArc.forEach(path=>path.setAttribute('d',d));}
     const moving=earth.half!==earth.target;
     earth.at=moving?now:0;earth.frame=moving?requestAnimationFrame(easeEarth):0;
   };
-  const shown={ev:NaN as number|null,day:'',time:'',speed:NaN,altitude:-1,lens:-1,heading:'',pitch:'',roll:'',mode:'',earth:'',sun:'',latitude:'',longitude:''};
+  const shown={moon:'',globe:[999,0],ev:NaN as number|null,day:'',time:'',speed:NaN,altitude:-1,lens:-1,mode:'',earth:'',sun:'',latitude:'',longitude:''};
   return {
     setModality,key,
     get modality(){return modality;},
@@ -341,6 +418,7 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
       // Flight path marker: where the camera is heading, and how fast, through the frame's lens.
       const focal=frame.focal??PROJECTION,b=frame.cameraBasis,kms=Math.hypot(...motion)*EARTH_RADIUS_KM,z=dot(motion,b.slice(6,9) as Vec3);
       const r=canvas.getBoundingClientRect();
+      view={camera:[frame.camera[0],frame.camera[1],frame.camera[2]],basis:[...b],focal};
       let marked=false;
       if(kms>.5&&z>.08*Math.hypot(...motion)){
         const x=r.left+r.width/2+focal*dot(motion,b.slice(0,3) as Vec3)/z*r.height,y=r.top+r.height/2-focal*dot(motion,b.slice(3,6) as Vec3)/z*r.height;
@@ -353,6 +431,8 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
       const zoom=focal/PROJECTION;
       if(Math.abs(zoom-shown.lens)>1e-4){shown.lens=zoom;paintLens(zoom);}
       paintClock(frame.date);
+      // The globe redraws only once the camera has moved a tenth of a degree.
+      if(Math.abs(frame.latitude-shown.globe[0])>.1||Math.abs(((frame.longitude-shown.globe[1])%360+540)%360-180)>.1){shown.globe=[frame.latitude,frame.longitude];paintGlobe(frame.latitude,frame.longitude);}
       const ev=o.exposure();
       if(ev!==shown.ev){
         shown.ev=ev;evMeter.hidden=ev===null;
@@ -374,32 +454,42 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
       // long way round when the view turns over.
       dialRoll=a.roll+360*Math.round((dialRoll-a.roll)/360);
       horizon.style.setProperty('--roll',`${dialRoll.toFixed(2)}deg`);
-      const shift=clamp(a.pitch*GAUGE.pitch,-38,38);
+      // The dial's horizon is the one in the picture: Earth's edge, which sinks
+      // below the local horizontal as the camera climbs (12° at 150 km, 30° at
+      // 1,000 km, 71° at 13,000 km). Once Earth's disk is narrower than the
+      // dial's reach, its ground side stretches, so looking straight down still
+      // fills the dial and the horizon never swings about the nadir.
+      const far=Math.hypot(frame.camera[0],frame.camera[1],frame.camera[2]),dip=Math.acos(Math.min(1,1/far))/deg;
+      const above=a.pitch+dip,seen=above<0?above*Math.max(1,GAUGE.dial/GAUGE.pitch/Math.max(1,90-dip)):above;
+      const shift=clamp(seen*GAUGE.pitch,-38,38);
       horizon.style.setProperty('--pitch',`${shift.toFixed(2)}px`);
-      // Earth: an arc about the ground side, out to where the horizon line meets
-      // the dial, so it closes once the dial is all ground; it closes too when
-      // Earth fills the frame or its whole disk is in it. It shrinks only as
-      // Earth leaves the frame, below a tenth of it. (Capping it by the share
-      // of the frame Earth fills opened it while flying away from a planet that
-      // was shrinking into view, then closed it again.)
-      const aspect=r.width/Math.max(1,r.height),coverage=shellCoverage(frame.camera,b,focal,aspect,12,12);
-      const ground=shift>=GAUGE.dial?0:shift<=-GAUGE.dial?180:Math.acos(shift/GAUGE.dial)/deg;
+      // Earth: an arc about the ground side, as long as the share of Earth's
+      // surface in frame against what looking straight at it would show. A sliver at the
+      // edge is a short arc; it closes once Earth fills the frame or its whole
+      // disk is in it, and stays closed while flying straight away from it.
+      const aspect=r.width/Math.max(1,r.height),down=scale(frame.camera as unknown as Vec3,-1/far);
+      const across=normalize(cross(down,Math.abs(down[2])<.9?[0,0,1]:[1,0,0])),straight=[...across,...cross(down,across),...down];
+      const most=shellCoverage(frame.camera,straight,focal,aspect,32,20,1),share=most>0?Math.min(1,shellCoverage(frame.camera,b,focal,aspect,32,20,1)/most):0;
       earth.centre=90+a.roll;
-      earth.target=earthWhole(frame.camera,b,focal,aspect)?180:Math.max(EARTH_MIN,ground*Math.min(1,coverage/.1));
+      earth.target=earthWhole(frame.camera,b,focal,aspect)?180:Math.max(EARTH_MIN,180*share);
       if(!earth.frame)easeEarth(performance.now());
-      // Sun: a ring outside the dial at its direction across the image. In frame
-      // it flies inside, as far out as the pitch ladder would put it.
-      if(frame.sun){
-        const x=dot(frame.sun,b.slice(0,3) as Vec3),y=dot(frame.sun,b.slice(3,6) as Vec3),z=dot(frame.sun,b.slice(6,9) as Vec3),across=Math.hypot(x,y);
+      // Sun and Moon: markers at their directions across the image, the Sun
+      // outside the Earth arc and the Moon along it. In frame each flies inside
+      // the dial, as far out as the pitch ladder would put it.
+      const mark=(direction:Vec3,at:number,marker:SVGGElement,cuts:SVGPathElement[],key:'sun'|'moon')=>{
+        const x=dot(direction,b.slice(0,3) as Vec3),y=dot(direction,b.slice(3,6) as Vec3),z=dot(direction,b.slice(6,9) as Vec3),across=Math.hypot(x,y);
         const inFrame=z>0&&Math.abs(focal*x/z)<=aspect/2&&Math.abs(focal*y/z)<=.5;
-        const out=inFrame?Math.acos(clamp(z,-1,1))/deg*GAUGE.pitch:GAUGE.sunAt;
-        sunRing.toggleAttribute('hidden',!inFrame&&across<1e-3);
-        const place=across<1e-6?'translate(0px, 0px)':`translate(${(out*x/across).toFixed(2)}px, ${(-out*y/across).toFixed(2)}px)`;
-        if(place!==shown.sun){shown.sun=place;sunRing.style.transform=place;}
+        const out=inFrame?Math.acos(clamp(z,-1,1))/deg*GAUGE.pitch:at;
+        const hidden=!inFrame&&across<1e-3;marker.toggleAttribute('hidden',hidden);cuts.forEach(cut=>cut.toggleAttribute('hidden',hidden));
+        const point=across<1e-6?[0,0]:[out*x/across,-out*y/across],place=`translate(${point[0].toFixed(2)}px, ${point[1].toFixed(2)}px)`;
+        if(place!==shown[key]){shown[key]=place;marker.style.transform=place;cuts.forEach(cut=>cut.style.transform=place);}
+        return point;
+      };
+      if(frame.sun){
+        mark(frame.sun,GAUGE.sunAt,sunRing,sunCuts,'sun');
+        mark(celestialFrame(frame.date,frame.camera as Vec3).moon.slice(0,3) as Vec3,GAUGE.moonAt,moonMark,moonCuts,'moon');
       }
-      const values={heading:`${String(Math.round(a.heading)%360).padStart(3,'0')}°`,pitch:signed(a.pitch),roll:signed(a.roll)};
-      for(const k of ['heading','pitch','roll'] as const)if(shown[k]!==values[k]){shown[k]=values[k];readouts[k].textContent=values[k];}
-      // Where the camera is over the ground, right of the dial.
+      // Where the camera is over the ground, in the lower-left corner.
       const place={latitude:`${Math.abs(frame.latitude).toFixed(1).padStart(4,'0')}° ${frame.latitude<0?'S':'N'}`,longitude:`${Math.abs(frame.longitude).toFixed(1).padStart(5,'0')}° ${frame.longitude<0?'W':'E'}`};
       for(const k of ['latitude','longitude'] as const)if(shown[k]!==place[k]){shown[k]=place[k];readouts[k].textContent=place[k];}
       const current=free?'free':route;
@@ -408,18 +498,25 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
         for(const button of modeButtons)button.setAttribute('aria-pressed',String(button.dataset.route?!free&&button.dataset.route===route:free));
       }
     },
+    /** Pin the point a right-drag circles, or let it go (null), fading out. */
+    pin(anchor:Vec3|null){
+      if(anchor)showPin(anchor,0);
+      else if(pinned&&!pinned.until){pinned.until=performance.now();if(!pinFrame)pinFrame=requestAnimationFrame(drawPin);}
+    },
+    /** Drop the pin where a double-click flies: it lands with ripples, then fades. */
+    drop(anchor:Vec3){showPin(anchor,performance.now()+PIN.ripple+200);},
     pulse(clientX:number,clientY:number){
       if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
       const ring=pulseTemplate.cloneNode() as HTMLElement;ring.hidden=false;
       ring.style.left=`${clientX}px`;ring.style.top=`${clientY}px`;hud.append(ring);later(()=>ring.remove(),800);
     },
     dispose(){
-      timers.forEach(id=>clearTimeout(id));timers.clear();
+      timers.forEach(id=>clearTimeout(id));timers.clear();cancelAnimationFrame(pinFrame);
       tape.removeEventListener('pointerdown',tapeDown);tape.removeEventListener('pointermove',tapeMove);
       for(const type of ['pointerup','pointercancel','lostpointercapture'])tape.removeEventListener(type,tapeUp as EventListener);
       tape.removeEventListener('keydown',tapeKey);tape.removeEventListener('wheel',tapeWheel);
       modeButtons.forEach(button=>button.removeEventListener('click',mode));
-      levelButtons.forEach(button=>button.removeEventListener('click',level));
+      gaugeTargets.forEach(([target])=>{target.removeEventListener('click',gaugeClick);target.removeEventListener('keydown',gaugeKey);});
       lensTape.removeEventListener('pointerdown',lensDown);lensTape.removeEventListener('pointermove',lensMove);
       for(const type of ['pointerup','pointercancel','lostpointercapture'])lensTape.removeEventListener(type,lensUp as EventListener);
       lensTape.removeEventListener('keydown',lensKey);lensTape.removeEventListener('wheel',lensWheel);

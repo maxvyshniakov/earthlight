@@ -12,8 +12,8 @@ import { OrbitNavigation, followLens, routePeriod, PROJECTION, ROUTE_LABELS, typ
 import { createScenePanels } from './scene-panels';
 import { EXPOSURE_SETTLE_MS } from './camera-exposure';
 import { OrbitPlayback } from './orbit-playback';
-import { issFrame, ORBIT_SECONDS, initialOrbitSeconds } from './iss-orbit';
-import { currentLunarPhase } from './celestial-sky';
+import { issFrame, ORBIT_SECONDS, initialOrbitSeconds, cross, dot, normalize, type Vec3 } from './iss-orbit';
+import { celestialFrame, currentLunarPhase } from './celestial-sky';
 import { createOrbitRenderer, type SceneLook } from './orbit-renderer';
 import { SceneFocus } from './scene-assets';
 import { sceneBufferSize, sceneComposition, focusRenderScale } from './scene-viewport';
@@ -54,11 +54,9 @@ export class OrbitalSky extends HTMLElement {
     const fixedExposure=this.querySelector<HTMLInputElement>('#sky-fixed-exposure')!;
     const viewInputs=[...this.querySelectorAll<HTMLInputElement>('[data-view]')];
     const resetAll = this.querySelector<HTMLButtonElement>('.reset-all')!;
-    const moonInput = this.querySelector<HTMLInputElement>('.sky-moon')!;
-    const moonOutput = this.querySelector<HTMLOutputElement>('[data-moon-output]')!;
     // Slider 100% is the accepted image grade; renderer gains retain its appearance.
     const lookBase = sceneLook;
-    const look:SceneLook = { ...lookBase, moonPhase:null };
+    const look:SceneLook = { ...lookBase };
     const attributes:WebGLContextAttributes={alpha:false,antialias:false,depth:false,powerPreference:'low-power'};
     const gl=sceneContext(canvas,new URLSearchParams(location.search),attributes);
     if (!gl) return;
@@ -111,8 +109,6 @@ export class OrbitalSky extends HTMLElement {
     let keyFlightUntil=0;
     let hud:OrbitHud|null=null;
     let navigationURLTimer=0;
-    const moonParam=params.get('moon');
-    if(moonParam!==null&&Number.isFinite(Number(moonParam)))look.moonPhase=Math.max(0,Math.min(360,Number(moonParam)));
     const cameraView={yaw:0,pitch:0};
     for(const input of viewInputs){
       const key=input.dataset.view as keyof typeof cameraView;
@@ -153,6 +149,9 @@ export class OrbitalSky extends HTMLElement {
         if(pendingURL){history.replaceState(null,'',pendingURL);pendingURL=null;}
       });
     };
+    // The Moon's phase follows the scene's date; links from when it could be
+    // set by hand drop their `moon`.
+    if(standalone&&params.has('moon')){const url=new URL(location.href);url.searchParams.delete('moon');updateURL(url);}
     const scrollComposition=this.dataset.composition==='page';
     // Time scale: the slider's 0–1000 runs over the HUD tape's scale, 0× to
     // 1000×. 0× is stopped time; a link that stops it starts paused at 10×.
@@ -172,18 +171,6 @@ export class OrbitalSky extends HTMLElement {
       input.style.setProperty('--range-start',`${Math.min(origin,position)}%`);
       input.style.setProperty('--range-end',`${Math.max(origin,position)}%`);
     };
-    const updateMoonLabel=(date=calendar.date(playback.read(performance.now())))=>{
-      const phase=look.moonPhase??currentLunarPhase(date);
-      const names=['New moon','Waxing crescent','First quarter','Waxing gibbous','Full moon','Waning gibbous','Last quarter','Waning crescent'];
-      const name=names[Math.round(phase/45)%8];
-      moonInput.value=String(phase);
-      moonOutput.value=(look.moonPhase==null?'Auto · ':'')+name;
-      moonInput.setAttribute('aria-valuetext',moonOutput.value);
-      paintRange(moonInput);
-      this.dataset.moonPhase=String(phase);
-      this.dataset.moonMode=look.moonPhase==null?'auto':'manual';
-    };
-    updateMoonLabel();
     rangeInputs.forEach(paintRange);
     // Stopped time reads 0×; the speed it had waits for Play.
     const updateSpeedLabel = () => {
@@ -266,7 +253,6 @@ export class OrbitalSky extends HTMLElement {
       url.searchParams.set('t',sceneTime.toFixed(2));
       calendar.write(url.searchParams);
       if(paused)url.searchParams.set('motion','0');
-      if(look.moonPhase!=null)url.searchParams.set('moon',String(look.moonPhase));
       if(cameraView.yaw)url.searchParams.set('yaw',String(cameraView.yaw));
       if(cameraView.pitch)url.searchParams.set('pitch',String(cameraView.pitch));
       for(const input of lookInputs)if(input.value!==input.defaultValue)url.searchParams.set(`look-${input.dataset.look}`,input.value);
@@ -298,7 +284,8 @@ export class OrbitalSky extends HTMLElement {
           this.querySelector<HTMLOutputElement>(`[data-calendar-output=${input.dataset.calendar}]`)!.value=label;
           input.setAttribute('aria-valuetext',label);
         }
-        if(look.moonPhase==null)updateMoonLabel(orbit.date);
+        // The Moon's phase as the renderer lights it, from the scene's date.
+        this.dataset.moonPhase=String(currentLunarPhase(orbit.date));
         timeStatus.dateTime=orbit.date.toISOString();
         timeStatus.textContent=`${replayDateFormat.format(orbit.date)} · ${orbit.date.toISOString().slice(11,19)} UTC`;
         if(coordinateStatus)coordinateStatus.textContent=`${Math.abs(orbit.latitude).toFixed(1)}° ${orbit.latitude<0?'S':'N'} · ${Math.abs(orbit.longitude).toFixed(1)}° ${orbit.longitude<0?'W':'E'} · ${Math.round(orbit.altitude)} km`;
@@ -577,7 +564,6 @@ export class OrbitalSky extends HTMLElement {
     };
     const calendarChanged=()=>{
       lastStatus=-1;exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
-      updateMoonLabel(calendar.date(playback.read(performance.now())+composition().offset));
       saveNavigation();updateOrbitLink();draw();statusTick();
     };
     const changeCalendar=(event:Event)=>{
@@ -616,14 +602,6 @@ export class OrbitalSky extends HTMLElement {
       else{url.searchParams.delete('exposure-mode');url.searchParams.delete('exposure-fixed');}
       updateURL(url);
     };
-    const changeMoon=()=>{
-      look.moonPhase=Number(moonInput.value);
-      const url=new URL(pendingURL??location.href);url.searchParams.set('moon',String(look.moonPhase));
-      updateURL(url);
-      updateMoonLabel();updateOrbitLink();
-      exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
-      draw();
-    };
     const restoreAll = () => {
       const resetAurora=auroraMode.value!=='auto';
       const cloudDefaults=new URLSearchParams(location.search);cloudDefaults.delete('clouds');
@@ -647,7 +625,6 @@ export class OrbitalSky extends HTMLElement {
       for(const key of ['t','yaw','pitch','motion','still','moon','route','flight','position','heading','elevation','roll','orientation','lens','aurora','clouds'])url.searchParams.delete(key);
       for(const input of [...lookInputs,speedInput])url.searchParams.delete(input===speedInput?'rate':`look-${input.dataset.look}`);
       updateURL(url);
-      look.moonPhase=null;updateMoonLabel();
       updateSpeedLabel();updateViewLabels();
       exposureUntil=now+EXPOSURE_SETTLE_MS;
       changeLook();
@@ -661,11 +638,6 @@ export class OrbitalSky extends HTMLElement {
         const seconds=playback.read(performance.now())+composition().offset,date=calendar.date(seconds),now=new Date();
         const milliseconds=input.dataset.calendar==='date'?utcDay(now)+(date.getTime()-utcDay(date)):utcDay(date)+(now.getTime()-utcDay(now));
         calendar.set(new Date(milliseconds),seconds);calendarChanged();
-      }else if(input===moonInput){
-        look.moonPhase=null;
-        const url=new URL(pendingURL??location.href);url.searchParams.delete('moon');updateURL(url);
-        updateMoonLabel();updateOrbitLink();
-        exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;draw();
       }else if(input===orbitInput){
         playback.seek(initialOrbitSeconds(new URLSearchParams())-composition().offset,performance.now());
         const url=new URL(pendingURL??location.href);url.searchParams.delete('t');url.searchParams.delete('still');updateURL(url);
@@ -736,7 +708,8 @@ export class OrbitalSky extends HTMLElement {
       followLook:(dx,dy)=>lookCamera(draggedCamera(cameraView.yaw,cameraView.pitch,dx,dy,canvas.getBoundingClientRect().height,navigation.focal)),
       lens:zoomLens,
       changed:cameraChanged,request:()=>flightControls?.request(),
-      marked:(x,y)=>hud?.pulse(x,y),reducedMotion});
+      // Earth takes the ground pin with its ripples; the sky keeps the flat pulse.
+      marked:(x,y,anchor)=>anchor?hud?.drop(anchor):hud?.pulse(x,y),pin:anchor=>hud?.pin(anchor),reducedMotion});
     // While following an orbit, arrows turn the head and any other flight key
     // starts free flight from the current pose.
     const followKeys=(dt:number,input:FlightInput)=>{
@@ -744,6 +717,36 @@ export class OrbitalSky extends HTMLElement {
       if(!input.yaw&&!input.pitch)return;
       const rate=60*(input.fast?2.5:1)*dt/lensZoom();
       lookCamera({yaw:((cameraView.yaw+input.yaw*rate+180)%360+360)%360-180,pitch:Math.max(-90,Math.min(90,cameraView.pitch+input.pitch*rate))});
+    };
+    // A followed orbit's look-around eases to a new view rather than jumping.
+    let lookTween=0;
+    const tweenLook=(to:typeof cameraView)=>{
+      cancelAnimationFrame(lookTween);
+      if(reducedMotion()){lookCamera(to);return;}
+      const from={...cameraView},turn=((to.yaw-from.yaw)%360+540)%360-180,start=performance.now();
+      const step=(now:number)=>{
+        const t=Math.min(1,(now-start)/450),e=t*t*(3-2*t),yaw=from.yaw+turn*e;
+        lookCamera({yaw:((yaw+540)%360)-180,pitch:from.pitch+(to.pitch-from.pitch)*e});
+        if(t<1)lookTween=requestAnimationFrame(step);
+      };
+      lookTween=requestAnimationFrame(step);
+    };
+    // Turn to a world direction, Earth's centre or the Sun. A followed orbit
+    // re-aims its look-around and keeps following; past its reach (the high
+    // orbit cannot look above its horizon), or in free flight, the camera turns.
+    const face=(target:()=>Vec3)=>{
+      if(!ready())return;
+      if(!navigation.free){
+        const now=performance.now(),base=navigation.read(playback.read(now)+composition().offset,{yaw:0,pitch:0},now);
+        // The basis, not the ISS frame's own right and forward, which are inertial.
+        const b=base.cameraBasis,up=normalize([...base.camera] as Vec3),side=[b[0],b[1],b[2]] as Vec3,along=cross(up,side),d=target();
+        const elevation=Math.asin(Math.max(-1,Math.min(1,dot([b[6],b[7],b[8]],up))));
+        const yaw=Math.atan2(dot(d,side),dot(d,along))*180/Math.PI,pitch=(Math.asin(Math.max(-1,Math.min(1,dot(d,up))))-elevation)*180/Math.PI;
+        // Straight down or up, yaw means nothing; keep the current one.
+        const vertical=Math.abs(dot(d,up))>.9999;
+        if(Math.abs(pitch)<=90){tweenLook({yaw:vertical?cameraView.yaw:yaw,pitch});return;}
+      }
+      enterFree();navigation.face(target,reducedMotion());cameraChanged();flightControls?.request();
     };
     const command=(name:FlightCommand)=>{
       if(!ready())return;
@@ -756,10 +759,10 @@ export class OrbitalSky extends HTMLElement {
       }
       // \ resets the camera: a followed orbit drops its look-around, free flight turns to face Earth.
       else if(name==='reset-camera'){
-        if(!navigation.free)lookCamera({yaw:0,pitch:0});
+        if(!navigation.free)tweenLook({yaw:0,pitch:0});
         else{navigation.centre(reducedMotion());cameraChanged();flightControls?.request();}
       }
-      // Backspace takes the lens back to 1×.
+      // 0 takes the lens back to 1×.
       else if(name==='reset-lens')lensTo(1);
       else if(name==='free'){enterFree();draw();}
       else followRoute(name.slice(6) as Route);
@@ -789,7 +792,8 @@ export class OrbitalSky extends HTMLElement {
     });
     const disposeCameraDrag=dragSurface?createCameraDrag(dragSurface,camera,(x,y,intent)=>{
       if(x===null||!ready()){delete dragSurface.dataset.cursor;return;}
-      const kind=intent==='roll'?'roll':intent==='look'||!camera.pick(x,y).hit?'look':'fly';
+      // A plain drag moves over Earth wherever it starts, so the cursor is Earth's.
+      const kind=intent==='roll'?'roll':intent==='look'?'look':'fly';
       dragSurface.dataset.cursor=kind;
     }):()=>{};
     const touchSurface=dragSurface?.querySelector<HTMLElement>('.orbit-gestures');
@@ -809,6 +813,9 @@ export class OrbitalSky extends HTMLElement {
       lensZoom,
       hold:(code,down)=>flightControls?.hold(code,down),
       resetCamera:()=>command('reset-camera'),
+      faceEarth:()=>face(()=>normalize(currentObserver().camera.map(v=>-v) as Vec3)),
+      faceSun:()=>face(()=>normalize([...currentObserver().sun] as Vec3)),
+      faceMoon:()=>face(()=>{const f=currentObserver();return normalize(celestialFrame(f.date,f.camera as Vec3).moon.slice(0,3) as Vec3);}),
       exposure:()=>exposureMode.value==='manual'?null:Number(compensation.value),
       setExposure:ev=>{compensation.value=String(ev);changeLook();},
       // The top tapes drive the same inputs as Settings, so both stay in step.
@@ -891,7 +898,6 @@ export class OrbitalSky extends HTMLElement {
     lookInputs.forEach(input=>input.addEventListener('input',changeLook));
     exposureMode.addEventListener('change',changeLook);fixedExposure.addEventListener('input',changeLook);
     resetAll.addEventListener('click',restoreAll);
-    moonInput.addEventListener('input',changeMoon);
     viewInputs.forEach(input=>input.addEventListener('input',changeView));
     const contextLost = (event: Event) => {
       event.preventDefault();
@@ -983,7 +989,6 @@ export class OrbitalSky extends HTMLElement {
       cloudsMode.removeEventListener('change',changeClouds);
       resetAll.removeEventListener('click',restoreAll);
       resetValueButtons.forEach(button=>button.removeEventListener('click',restoreValue));
-      moonInput.removeEventListener('input',changeMoon);
       viewInputs.forEach(input=>input.removeEventListener('input',changeView));
       speedInput.removeEventListener('input', changeSpeed);
       orbitInput.removeEventListener('input', seek);

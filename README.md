@@ -69,14 +69,17 @@ These are unedited frames from the demo. Each one is a URL, for example
 ## Explore
 
 Follow the ISS, a polar or a high orbit, or grab Earth and fly freely. Drag
-Earth to fly over it and the sky to look around; scroll or pinch to come
-closer. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly, arrow keys look,
+anywhere to fly over Earth, and with Shift or the middle button to look around;
+the right button circles the point under it, marked by a pin on the ground. A trackpad scroll flies too; the
+mouse wheel or a pinch comes closer. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly, arrow keys look,
 <kbd>F</kbd>/<kbd>R</kbd> come closer or back away, <kbd>Q</kbd>/<kbd>E</kbd>
-roll, <kbd>+</kbd>/<kbd>−</kbd> zoom the lens and <kbd>⌫</kbd> takes it back to
-1×, <kbd>\</kbd> resets the camera and <kbd>Space</kbd> pauses time.
+roll, <kbd>+</kbd>/<kbd>−</kbd> zoom the lens and <kbd>0</kbd> takes it back to
+1×, <kbd>\</kbd> resets the camera, <kbd>1</kbd>–<kbd>4</kbd> choose free flight
+or an orbit and <kbd>Space</kbd> stops time.
 Help lists every gesture for the mouse, trackpad, touchscreen and keyboard you
-have. Settings offer date, time of day, time scale, Moon phase, aurora and
-exposure. Every view can be shared as a URL.
+have. The tapes set the date, time of day, time scale and exposure; Settings
+offer clouds, aurora, exposure mode and the camera's image effects. The Moon's phase follows
+the date. Every view can be shared as a URL.
 
 ## How it is built
 

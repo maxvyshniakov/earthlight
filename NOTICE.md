@@ -55,7 +55,8 @@ ESA; all rights reserved.
 Global elevations: NOAA NCEI ETOPO 2022, ice-surface elevation, resampled and
 quantized for rendering. [Dataset metadata and CC0-1.0 terms](https://www.ncei.noaa.gov/metadata/geoportal/rest/metadata/item/gov.noaa.ngdc.mgg.dem%3Aetopo_2022/html).
 Ocean mask: Natural Earth 1:10m land polygons,
-[public domain](https://www.naturalearthdata.com/about/terms-of-use/).
+[public domain](https://www.naturalearthdata.com/about/terms-of-use/). The HUD's
+small globe uses a 128 × 64 land mask derived from it (`src/scripts/globe-land.ts`).
 
 ## Magnetic model and orbit
 

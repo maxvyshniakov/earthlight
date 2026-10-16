@@ -15,7 +15,7 @@ export async function verifyTouch({run,evaluate,wait,base}){
  const cdp=(method,params)=>send(method,params,sessionId);
  const touch=(type,points)=>cdp('Input.dispatchTouchEvent',{type,touchPoints:points.map(([id,x,y])=>({id,x,y,radiusX:4,radiusY:4,force:1}))});
  const glide=async(from,to,steps=8)=>{for(let i=1;i<=steps;i++){await touch('touchMove',from.map(([id,x,y],j)=>[id,x+(to[j][1]-x)*i/steps,y+(to[j][2]-y)*i/steps]));await run('wait','16');}};
- const read=()=>evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {mode:e.dataset.flightMode,position:e.dataset.cameraPosition,basis:e.dataset.cameraBasis,alt:Number(e.dataset.cameraAltitude),roll:document.querySelector('[data-attitude=roll]').textContent,time:e.querySelector('.sky-time').textContent};})()`);
+ const read=()=>evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {mode:e.dataset.flightMode,position:e.dataset.cameraPosition,basis:e.dataset.cameraBasis,alt:Number(e.dataset.cameraAltitude),roll:(()=>{const r=parseFloat(getComputedStyle(document.querySelector('.hud-attitude .gauge')).getPropertyValue('--roll'));return Math.round(((r%360)+540)%360-180);})(),time:e.querySelector('.sky-time').textContent};})()`);
  try{
   await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
@@ -23,21 +23,21 @@ export async function verifyTouch({run,evaluate,wait,base}){
   await wait("document.querySelector('orbital-sky').dataset.focus==='sharp'");
   const original=await read(),scale=await evaluate('visualViewport.scale');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.orbit-gestures')).touchAction"),'none');
-  // One finger on the sky looks around while the orbit keeps following.
-  await touch('touchStart',[[1,150,300]]);await glide([[1,150,300]],[[1,210,350]]);await touch('touchEnd',[]);await run('wait','300');
-  const looked=await read();assert.notEqual(looked.basis,original.basis);assert.equal(looked.position,original.position);assert.equal(looked.mode,'follow');
-  assert.equal(await evaluate("document.querySelector('.orbit-hud').dataset.modality"),'touch','the gesture hints switch to touch');
-  // Two fingers moving together also look; they never move the camera. They
-  // start right of the exposure and lens tapes, which take a touch for themselves.
+  // Two fingers moving together look; they never move the camera, and the
+  // orbit keeps following. They start right of the exposure and lens tapes,
+  // which take a touch for themselves.
+  const looked=original;
   await touch('touchStart',[[1,140,300],[2,250,300]]);await glide([[1,140,300],[2,250,300]],[[1,175,340],[2,285,340]]);await run('wait','200');
   const turned=await read();assert.notEqual(turned.basis,looked.basis);assert.equal(turned.position,looked.position);assert.equal(turned.mode,'follow');
+  assert.equal(await evaluate("document.querySelector('.orbit-hud').dataset.modality"),'touch','the gesture hints switch to touch');
   // Spreading them zooms in toward their centre, which starts free flight.
   await glide([[1,175,340],[2,285,340]],[[1,145,340],[2,315,340]]);await run('wait','300');
   const pinched=await read();assert.notEqual(pinched.position,turned.position);assert.equal(pinched.mode,'free');
-  // Lifting one finger rebases without a jump, and that finger carries on alone.
+  // Lifting one finger rebases without a jump, and that finger carries on
+  // alone. One finger moves over Earth wherever it is, the sky included.
   await touch('touchEnd',[[2,315,340]]);await run('wait','150');assert.deepEqual(await read(),pinched);
   await glide([[1,145,340]],[[1,185,380]]);await run('wait','200');
-  const single=await read();assert.notEqual(single.basis,pinched.basis);assert.equal(single.position,pinched.position);
+  const single=await read();assert.notEqual(single.position,pinched.position,'one finger moves over Earth');
   await touch('touchCancel',[]);await run('wait','150');assert.deepEqual(await read(),single);
   // Twisting two fingers rolls the horizon in place.
   await touch('touchStart',[[1,140,400],[2,250,400]]);

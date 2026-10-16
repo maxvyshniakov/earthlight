@@ -200,7 +200,8 @@ export class OrbitNavigation {
  flingLimit=2;
  flingCoast=.45;
  private leveling=false;
- private centering=false;
+ /** A world direction the camera is turning to face, read afresh each step. */
+ private facing:(()=>Vec3)|null=null;
  private levelTarget=0;
  private levelLeft=0;
  /** Camera velocity over the last step, Earth radii per second. */
@@ -209,7 +210,7 @@ export class OrbitNavigation {
  get mode(){return this.free?'free':'follow';}
  get moving(){
   return Math.hypot(...this.velocity)>1e-6||this.climb!==0||this.rolling!==0||this.spin[0]!==0||this.spin[1]!==0||this.targetAltitude!==null
-   ||this.zooming!==null||this.flight!==null||this.grip!==null||this.leveling||this.centering||this.transition!==null;
+   ||this.zooming!==null||this.flight!==null||this.grip!==null||this.leveling||this.facing!==null||this.transition!==null;
  }
  read(seconds:number,view:CameraView,now:number):ObserverFrame{
   const target=this.free?observer(new Date(START_DATE.getTime()+seconds*1000),{camera:this.free.position,cameraBasis:this.free.basis}):routeFrame(this.route,seconds,view);
@@ -227,7 +228,7 @@ export class OrbitNavigation {
  }
  stop(){
   this.velocity=[0,0,0];this.motion=[0,0,0];this.coast=.12;this.climb=this.rolling=0;this.spin=[0,0];
-  this.targetAltitude=null;this.zooming=null;this.flight=null;this.leveling=false;this.centering=false;
+  this.targetAltitude=null;this.zooming=null;this.flight=null;this.leveling=false;this.facing=null;
  }
  setAltitude(km:number){if(this.free){this.stop();this.targetAltitude=clamp(km,MIN_ALTITUDE,MAX_ALTITUDE);}}
  private turnRig(about:Vec3,angle:number){
@@ -309,11 +310,40 @@ export class OrbitNavigation {
   this.leveling=true;
   if(now){pose.basis=orthonormal(rollBasis(pose.basis,-left));this.leveling=false;}
  }
- /** Turn to face Earth's centre, over a moment unless `now`. */
- centre(now=false){
+ /** Turn to face a world direction, such as the Sun's, over a moment unless `now`. */
+ face(direction:()=>Vec3,now=false){
   if(!this.free)return;
-  this.flight=null;this.spin=[0,0];this.centering=true;
-  if(now){this.aim(normalize(scale(this.free.position,-1)),0,0);this.centering=false;}
+  this.flight=null;this.spin=[0,0];this.facing=direction;
+  if(now){this.aim(direction(),0,0);this.facing=null;}
+ }
+ /** Turn to face Earth's centre. */
+ centre(now=false){const pose=this.free;if(pose)this.face(()=>normalize(scale(pose.position,-1)),now);}
+ /** Circle the camera about an Earth point, which keeps its place on screen:
+  * `across` turns about the point's vertical, `up` raises the camera over it
+  * (negative lowers it). The camera stays at least 5° above the point's
+  * horizon, short of overhead, and above the lowest altitude. */
+ orbitAbout(anchor:Vec3,across:number,up:number){
+  if(!this.free)return;
+  const pose=this.free,vertical=normalize(anchor);
+  const turned=(about:Vec3,angle:number)=>({position:add(anchor,rotate(add(pose.position,scale(anchor,-1)),about,angle)),basis:orthonormal(turnBasis(pose.basis,about,angle))});
+  if(across){const next=turned(vertical,across);pose.position=next.position;pose.basis=next.basis;}
+  if(up){
+    // Straight overhead the offset gives no axis; the camera's up stands in for
+    // the way back from the point, so lowering brings the horizon in at the top.
+    const offset=add(pose.position,scale(anchor,-1)),across=cross(vertical,offset),overhead=Math.hypot(...across)<1e-6*Math.hypot(...offset);
+    const side=overhead?cross(vertical,scale(axis(pose.basis,3),-1)):across,length=Math.hypot(...side);
+    // A positive turn about vertical × offset lowers the camera toward the
+    // horizon. Limits stop only the way toward them, so a camera low over a far point
+    // can still rise; a step past one is halved until it fits.
+    const height=(position:Vec3)=>dot(normalize(add(position,scale(anchor,-1))),vertical),now=height(pose.position);
+    for(let angle=-up,i=0;length>1e-9&&i<6;i++,angle/=2){
+      const next=turned(scale(side,1/length),angle),h=height(next.position),km=altitude(next.position);
+      // A step must go the way asked: from overhead, where nothing is higher,
+      // any turn would otherwise lower the camera.
+      if((up>0?h>now:h<now)&&(h>now?h<Math.cos(.5*rad)&&km<=MAX_ALTITUDE:h>Math.sin(5*rad)&&km>=MIN_ALTITUDE)){pose.position=next.position;pose.basis=next.basis;break;}
+    }
+  }
+  this.leveling=false;this.facing=null;
  }
  /** Hold an Earth-fixed point under the pointer; the rig follows each frame. */
  grab(anchor:Vec3,x:number,y:number){if(this.free){this.stop();this.grip={anchor,x,y,sx:x,sy:y,rate:[0,0,0]};}}
@@ -394,7 +424,7 @@ export class OrbitNavigation {
   this.spin=this.spin.map(v=>Math.abs(v)<.05?0:v*(1-settle(.3))) as [number,number];
   // A longer lens turns slower, so the sky keeps its pace across the image.
   const look=60*(fast?2.5:1)*PROJECTION/this.focal,yaw=(input.yaw??0)*look+this.spin[0],pitch=(input.pitch??0)*look+this.spin[1];
-  if(input.yaw||input.pitch)this.centering=false;
+  if(input.yaw||input.pitch)this.facing=null;
   if(yaw||pitch)this.turn(yaw*dt,pitch*dt);
   if(this.zooming){
    const zoom=this.zooming,part=Math.abs(zoom.log)<1e-3?zoom.log:zoom.log*settle(.09);
@@ -423,12 +453,12 @@ export class OrbitNavigation {
    const part=Math.abs(roll)<1e-3?roll:roll*settle(.1);
    pose.basis=orthonormal(rollBasis(pose.basis,-part));this.levelLeft=roll-part;if(part===roll)this.leveling=false;
   }
-  if(this.centering){
-   // Tilt toward Earth's centre about the axis square to the view and the
-   // nadir, easing in, and land on it exactly.
-   const forward=axis(pose.basis,6),nadir=normalize(scale(pose.position,-1)),about=cross(forward,nadir),across=Math.hypot(...about);
-   const angle=Math.atan2(across,dot(forward,nadir));
-   if(angle<1e-3){this.aim(nadir,0,0);this.centering=false;}
+  if(this.facing){
+   // Turn toward the direction about the axis square to it and the view,
+   // easing in, and land on it exactly.
+   const forward=axis(pose.basis,6),target=this.facing(),about=cross(forward,target),across=Math.hypot(...about);
+   const angle=Math.atan2(across,dot(forward,target));
+   if(angle<1e-3){this.aim(target,0,0);this.facing=null;}
    else this.orient(turnBasis(pose.basis,across>1e-9?scale(about,1/across):axis(pose.basis,0),angle*settle(.12)));
   }
   const after=[...pose.position,...pose.basis];

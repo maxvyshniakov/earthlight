@@ -443,8 +443,9 @@ try{
  await run('set','viewport','1440','966');
  await run('open',`${base}/?t=900&motion=0`);await wait(settled);
  const viewState=()=>evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {yaw:Number(e.dataset.cameraYaw),pitch:Number(e.dataset.cameraPitch),motion:e.querySelector('.sky-motion').getAttribute('aria-label'),dragging:document.querySelector('.orbit-view').hasAttribute('data-camera-dragging'),url:location.search};})()`);
- await run('mouse','move','600','400');await run('mouse','down','right');
- await run('mouse','move','853','553');await run('mouse','up','right');
+ // The middle button looks, as it pans in design tools.
+ await run('mouse','move','600','400');await run('mouse','down','middle');
+ await run('mouse','move','853','553');await run('mouse','up','middle');
  const dragged=await viewState();
  assert.ok(Math.abs(dragged.yaw+253*180/Math.PI/(966*1.25))<.1);assert.ok(Math.abs(dragged.pitch-153*180/Math.PI/(966*1.25))<.1);
  assert.equal(dragged.motion,'Play');assert.equal(dragged.dragging,false);
@@ -456,9 +457,10 @@ try{
  // A control click must not begin a camera drag, and dragging must not pause playback.
  await run('click','.sky-settings-toggle');
  assert.equal((await viewState()).yaw,dragged.yaw);
- // The settings drawer slides in; click inside it once it has arrived.
+ // The settings drawer slides in; once it has arrived, Space's key on the HUD
+ // starts time (Settings no longer carries a play button on the explorer).
  await wait("document.querySelector('#sky-settings').matches(':popover-open')&&!document.querySelector('#sky-settings').getAnimations().length");
- await run('click','.sky-motion');
+ await run('click','.time-key');
  await run('mouse','move','500','400');await run('mouse','down');await run('mouse','move','550','440');await run('mouse','up');
  assert.equal((await viewState()).motion,'Pause');
  await evaluate("document.querySelector('.sky-motion').click();true");
@@ -471,7 +473,8 @@ try{
  await evaluate("window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',repeat:true,bubbles:true}));true");
  assert.equal((await viewState()).motion,'Pause');
  await run('press','Space');assert.equal((await viewState()).motion,'Play');
- await evaluate("document.querySelector('#sky-settings').showPopover();document.querySelector('[data-view=yaw]').focus();true");
+ // A slider Settings still shows on the explorer; the HUD carries camera direction.
+ await evaluate("document.querySelector('#sky-settings').showPopover();document.querySelector('[data-look=grain]').focus();true");
  await run('press','Space');assert.equal((await viewState()).motion,'Play');
  results.push({spacePlayback:true});console.log('space: toggles playback, ignores repeats and focused sliders');
  const canvasResize=await verifyCanvasResize({run,evaluate,wait,base});results.push({canvasResize});console.log('canvas resize: repaints before presentation',canvasResize);

@@ -7,7 +7,7 @@ export type WheelDevice='mouse'|'trackpad';
 // + and − hold the lens; the keypad's work as the main keys.
 const ALIAS:Record<string,string>={NumpadAdd:'Equal',NumpadSubtract:'Minus'};
 const HELD=['KeyW','KeyA','KeyS','KeyD','KeyR','KeyF','KeyQ','KeyE','Equal','Minus','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
-const COMMANDS:Record<string,FlightCommand>={KeyH:'level',Backslash:'reset-camera',Backspace:'reset-lens',KeyI:'info',Digit0:'free',Digit1:'route-iss',Digit2:'route-polar',Digit3:'route-high'};
+const COMMANDS:Record<string,FlightCommand>={KeyH:'level',Backslash:'reset-camera',Digit0:'reset-lens',KeyI:'info',Digit1:'free',Digit2:'route-iss',Digit3:'route-polar',Digit4:'route-high'};
 type GestureEvent=UIEvent&{scale:number;rotation:number;clientX:number;clientY:number;shiftKey:boolean};
 // Shift-wheel steps the lens by a third of a doubling per notch.
 const LENS_NOTCH=Math.log(2)/3;
@@ -103,8 +103,14 @@ export function createFlightControls(surface:HTMLElement,options:{
     const delta=sideways?event.deltaX:event.deltaY,across=sideways?event.deltaY:event.deltaX;
     if(across!==0||delta===0)return false;
     const legacy=(event as WheelEvent&{wheelDeltaX?:number;wheelDeltaY?:number})[sideways?'wheelDeltaX':'wheelDeltaY'];
-    return Math.abs(delta)%4.000244140625===0||!!legacy&&legacy%120===0&&legacy!==-3*delta;
+    const ticks=Math.abs(delta)/4.000244140625;
+    return Math.abs(ticks-Math.round(ticks))<1e-6||!!legacy&&legacy%120===0&&legacy!==-3*delta;
   };
+  // A wheel that has shown its clicks stays a wheel: macOS turns Shift-wheel
+  // into a sideways scroll whose deltas can lose that signature, and it would
+  // pass for a Shift trackpad scroll, which looks. A plain trackpad scroll
+  // forgets it.
+  let mouseWheel=false;
   const onWheel=(event:WheelEvent)=>{
     if(inControls(event.target)||event.defaultPrevented)return;
     event.preventDefault();
@@ -125,7 +131,12 @@ export function createFlightControls(surface:HTMLElement,options:{
       }
       return;
     }
-    if(!wheel||now-wheel.time>220)wheel={kind:clicky(event)?'zoom':'scroll',time:now};
+    if(!wheel||now-wheel.time>220){
+      const signed=clicky(event),sideways=event.shiftKey&&event.deltaY===0&&event.deltaX!==0;
+      const kind=signed||sideways&&mouseWheel?'zoom':'scroll';
+      if(signed)mouseWheel=true;else if(!event.shiftKey)mouseWheel=false;
+      wheel={kind,time:now};
+    }
     wheel.time=now;
     if(wheel.kind==='zoom'){
       endScroll();options.device('mouse');

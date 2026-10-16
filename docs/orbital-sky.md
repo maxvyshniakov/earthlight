@@ -411,7 +411,7 @@ focus restoration. They are positioned beside the telemetry and constrained to
 the viewport. Home telemetry is part of the hero rather than a fixed overlay.
 
 Since 2026-10-15 the explorer (`/`) has no telemetry block. Time sits top
-centre. On a HUD at least 900 px wide it is Space, named Time, then three tapes
+centre. On a HUD at least 960 px wide it is Space, named Time, then three tapes
 hung 6 px lower so their short ticks share an axis with that name
 along the top edge, plain like the side ones: the time scale, the date and the
 time of day in UTC; there is no play button, since stopped time is simply 0×.
@@ -431,11 +431,15 @@ end labels. Press or drag along a tape, scroll over it or use the arrow keys (a
 hundredth of the time scale, a day, five minutes); a press near a labelled mark
 takes the mark. The tapes drive Settings' Time scale, Date and Time, so both
 stay in step. Narrower, they would run into the camera presets, and the one-line
-clock stays, with its play button. Camera presets (ISS, Polar, High, Free) stack top right above the altitude
-tape without a plate, names left of their keys 1, 2, 3 and 0; the active one's key looks pressed, like a held
+clock stays, with its play button. Camera presets (Free, ISS, Polar, High) stack top left without a
+plate, keys flush with the edge and names to their right, keys 1 to 4; the active one's key looks pressed, like a held
 key, rather than the button filling like a segmented control. The HUD stays visible; it no longer fades when idle. Every HUD element keeps
-12 px from the screen edges. Help, Info and Settings stack in the lower-right corner, set like the presets:
-Help and Info show their keys, ? and i, and Settings a gear. Help opens a
+12 px from the screen edges. Settings, a gear, stands alone top right; Info and,
+under it, Help stack in the lower-right corner, set like the presets with their
+keys i and ?. On a phone the presets and Settings sit below the clock. Settings
+on the explorer leaves out what the HUD carries (camera direction and tilt, date,
+time, time scale, exposure compensation, play); those inputs stay as the HUD's
+state, and the personal site, which has no HUD, keeps them all. Help opens a
 controls panel docked along the bottom, like an editor's shortcut sheet, which
 stays open while you fly; a tab centred on its top edge, a chevron pointing
 down, closes it, as do ? and Escape. It slides up and back in 0.3 s and shrinks
@@ -456,7 +460,7 @@ subset of Inter (`public/fonts`, OFL, weights 400–700) for its arrows and ⇧ 
 inline keys sit on the text baseline. Info and
 Settings are centred dialogs that scroll inside: Info carries a short note on
 what the scene shows and the image credits. Diagnostics (`compare=1`, the MODIS study, `perf=1`) stack in
-the top-left corner. The altitude tape stands alone at the middle of the right
+the top-left corner, under the presets. The altitude tape stands alone at the middle of the right
 edge, without a card and without an axis line: the right ends of its ticks form
 the line. Long ticks sit at 1, 2, 3 and 5 of each decade from the 150 km floor
 to 50K, each labelled with its number only. Short ticks split each gap evenly, so
@@ -480,48 +484,94 @@ Tab still reaches the tapes. Over the lens tape, 44 px
 up, a short exposure compensation tape: −3 to +4 EV, linear, whole stops
 labelled and thirds between, 0.45 of the altitude tape so its ticks fall about
 as close. It drives Settings' Exposure compensation, to a tenth of a stop or a
-whole stop near its mark, and hides under manual exposure. Each tape's keys stand
-20 px off it and carry their names, set like the presets with the name on the
-inner side of the cap: Farther R above the altitude tape and Closer F below it;
-Zoom in + above the lens tape, Zoom out − below it and Reset zoom ⌫ (back to
-1×) under that. + and − replaced Z and X for the lens and no longer move the
-camera closer or farther; R, F and the wheel do. The horizon gauge sits at the
+whole stop near its mark, and hides under manual exposure. Each tape's keys sit
+together under it, 20 px off and on the presets' 24 px pitch, with their names on
+the inner side of the caps: Farther R and Closer F under the altitude tape; Zoom
+in +, Zoom out − and Reset zoom 0 (back to 1×) under the lens tape. + and −
+replaced Z and X for the lens and no longer move the camera closer or farther;
+R, F and the wheel do. 0, − and + sit side by side on the keyboard, so 0 left
+Free, which is now 1, with the orbits on 2 to 4. The horizon gauge sits at the
 bottom centre, plain like the tapes and presets, between Roll left Q and Roll
-right E, each key against the dial and a turning arrow outside (anticlockwise,
+right E, down on the row's bottom edge level with the crosses' bottom keys, each
+key against the dial and a turning arrow outside (anticlockwise,
 clockwise), the gear's size, dim like the names they replace and white under
-the pointer or while held; a click on the dial
-levels or flips, as H does. WASD and the arrows stand along the bottom as
+the pointer or while held. The wings sit on the dial's centre (they used to
+lean 2 units left). WASD and the arrows stand along the bottom as
 crosses at a quarter and three quarters of the width, rows on the presets'
-24 px pitch: a globe icon in the middle of WASD, \\ (reset the camera) in the middle of the
-arrows'. \\ resets the camera: a followed orbit drops its look-around, free
-flight turns to face Earth's centre. Without a keyboard the crosses go and the
+24 px pitch: in the middle of WASD a small Earth, the size of a key, seen from
+straight above the camera with north up, so it turns as you fly and as Earth
+turns under the orbit. Land is filled the colour of the tapes' ticks and the sea
+left clear; only the near hemisphere shows, so it reads as solid. A canvas traces
+each device pixel back to a latitude and longitude, four samples a pixel, in a
+128 × 64 land mask (`src/scripts/globe-land.ts`, 1 KB, built by
+`scripts/build-globe-land.mjs` from the terrain map's Natural Earth water
+channel), and repaints when the camera moves a tenth of a degree. \\ (reset the camera) sits
+in the middle of the arrows'. \\ resets the camera: a followed
+orbit eases its look-around back to ahead, free flight turns to face Earth's
+centre. Without a keyboard the crosses go and the
 roll buttons keep their icons. On a phone the gauge centres in the room the
-corner buttons leave. HDG/PIT/ROL and, below them after a gap, the camera's
-latitude and longitude sit in the lower-left corner; on a phone they stand above
-the gauge row. Only the round dial takes the pointer; the masked sky and ground,
+corner buttons leave. The camera's latitude and longitude sit in the lower-left
+corner; on a phone they stand above the gauge row. Heading, pitch and roll
+readouts (HDG/PIT/ROL) used to sit above them; the gauge shows the view's
+attitude, and from high up the pitch against the local horizontal disagreed
+with its horizon, so they went on 2026-10-16. Only the round dial takes the pointer; the masked sky and ground,
 twice its size, used to catch it far outside. Cards have no borders and no backdrop blur,
 which cost frames over the live canvas and smeared at their edges; keyboard
 focus shows as a fill or glow, never an outline.
 
-The horizon gauge's dial has no outline: a pale grey sky and an orange ground,
+The horizon gauge's dial has no outline: a faint white sky and a brighter white ground,
+radius 16.33 in its 48-unit drawing (8 px narrower than at first, the arc and
+Sun ring keeping their radii),
 parted by 1 px of empty space at the horizon, with a pitch ladder over the whole
-±90° (a rung every 6°, long every 30°) cut out of them the same way. Sky and
-ground stay faint (45 %) until the pointer or focus is on the gauge. The wings,
-the Sun ring and the Earth arc are 1 px at any dial size; the wings are white,
-and the ring and arc match the tapes' ticks, half-white, turning white with the
-fill on hover. Outside the
-dial a ring marks the Sun's direction across the image (in frame it flies
-inside the dial, as far out as the pitch ladder would place it; it no longer
-dims behind the camera, which read as an unexplained grey) and an arc
-marks Earth's: centred on the ground side, reaching where the horizon line meets
-the dial, so it closes once the dial is all ground, and never under 8 px; it
-closes too when Earth fills the frame, all four corners on it, or its whole disk
-is in frame, and shrinks only as Earth leaves the frame (below a tenth of it).
-Capping it by the share of the frame Earth fills opened it while flying away
-from a planet shrinking into view, then closed it again. A frame centre on Earth used to count too, which closed
+±90° (a rung every 6°, long every 30°) cut out of them the same way. The
+ground used to be the accent's orange; it is now monochrome like the rest of
+the HUD, white at the accent's brightness (68 %). Sky and ground stay faint
+(45 %) until the pointer or focus is on the dial itself. The wings,
+the Sun and Moon markers and the Earth arc are 1 px at any dial size. The Sun is
+a ten-pointed star whose rays meet at right angles, outside the arc, the Moon a full crescent
+opening up and to the right with blunt horns, riding on it; both are pictograms that only mark a direction and never turn.
+The star's radius is 4.2 units, flying at 29.3 so it clears the arc with a
+little room; the crescent's is 3.3. Both cut their own
+shape, with 1 px clear round the outline, out of all they cross (the dial's
+fill and ladder, the Earth arc and the wings), so their insides are holes onto
+the scene rather than dark discs, and turn the camera to face them on a click. The gauge is
+64 px (50 px on phones and short screens); the wings are white,
+and the markers and arc match the tapes' ticks, half-white. Each part answers
+the pointer alone, only when the pointer is on it: the dial brightens its fill,
+the arc turns white and 2 px, and the Sun or Moon fills in white. The gauge has four targets, each only where it is drawn: the
+dial levels or flips, as H does; the Earth arc turns the camera to face Earth's
+centre, the Sun and Moon markers to face them, each thickening to 2 px under the
+pointer over a wider invisible target. Following an orbit, the look-around eases
+there (450 ms) and the orbit stays followed; where the orbit cannot look (the
+high orbit sees nothing above its horizon) the camera flies free and turns.
+Outside the
+dial the Sun's and Moon's markers sit at their directions across the image (in
+frame each flies inside the dial, as far out as the pitch ladder would place
+it; they no longer dim behind the camera, which read as an unexplained grey) and an arc
+marks Earth's: centred on the ground side, as long as the share of Earth's
+surface in frame against what looking straight at Earth would show from there,
+and never under 8 px. A sliver at the edge of the frame is a short arc, the
+surface's edge across the middle of the frame about half a ring; it closes
+once Earth fills the frame or its whole disk is in it (all four corners on
+Earth, or the disk's edge all in frame), and stays closed while flying
+straight away. It used to reach where the dial's horizon line meets the dial,
+which, from high up, closed it with Earth a sliver at the edge of the frame;
+capping that by the raw share of the frame Earth fills opened it while flying
+away from a planet shrinking into view, then closed it again. A frame centre on Earth used to count too, which closed
 the ring with half the frame still sky. The arc eases to each new extent, about
 0.3 s, so it closes and opens visibly instead of snapping.
-H, or a click on the gauge, levels a tilted view; on a level one it turns the
+
+Since 2026-10-16 the dial's horizon is the one in the picture: Earth's surface
+edge, which sinks below the local horizontal as the camera climbs (12° at
+150 km, 30° at 1,000 km, 71° at 13,000 km), so the edge across the middle of
+the frame puts the line across the middle of the dial at any height, and the
+ladder counts degrees from it. It used to be the local horizontal, as on an
+aircraft's attitude indicator, which from 1,000 km showed the dial nearly all
+ground with the edge of Earth at the centre of the frame. Once Earth's disk is
+narrower than the dial's reach (±39°, above about 3,800 km), its ground side
+stretches so a view straight down still fills the dial and the line never swings
+about the nadir.
+H, or a click on the dial, levels a tilted view; on a level one it turns the
 view upside down, and back. Long turns run clockwise. Following an orbit, H first clears the look-around
 and then flies free to turn over. The gauge and H measure roll against the local
 vertical right down to the nadir; north up stands in only for an exactly
@@ -539,10 +589,10 @@ There is no tutorial and no hints on the instruments; every key and gesture is
 in the controls panel. Shift and Option show as their
 key-cap symbols (Alt off Apple keyboards). Key caps keep 3 px inner corners all
 round; the 2 px bottom edge gets a taller outer curve. Every single-glyph cap
-is square, 18 px either way (⌫, the widest, without padding). The caps on the
-main screen are buttons too: hold R, F, +, −, Q, E, WASD or the arrows as you
-would the key (Shift still speeds it up); Space pauses or plays, ⌫ takes the
-lens to 1× and \\ resets the camera. A cap that is a button takes a faint fill
+is square, 18 px either way. The caps on the main screen are buttons too: hold
+R, F, +, −, Q, E, WASD or the arrows as you would the key (Shift still speeds
+it up); Space stops or starts time, 0 takes the lens to 1× and \\ resets the
+camera. A cap that is a button takes a faint fill
 under the pointer and lights while held, and focus returns to the scene.
 Nothing else changes on hover. Key caps appear only once a keyboard is likely (a fine pointer) or used;
 the controls panel's lanes follow the same detection, and Safari alone is told
@@ -594,7 +644,41 @@ steps at the end of a momentum swipe. A trackpad scroll keeps the modifiers it
 started with while its events, momentum included, keep arriving: Shift or
 Control pressed as the globe coasts neither looks nor zooms, and the sideways
 deltas macOS sends while Shift is held keep the swipe's axis. A pinch, which
-Chromium reports with Ctrl but without the key, still zooms.
+Chromium reports with Ctrl but without the key, still zooms. A wheel that has
+shown its clicks (deltas in multiples of 4.000244140625 px, or legacy 120s)
+stays a wheel until a plain trackpad scroll: macOS turns Shift-wheel into a
+sideways scroll whose deltas can lose that signature, and it used to pass for a
+Shift trackpad scroll and look instead of zooming the lens. A Shift-wheel before
+any plain wheel click still needs the signature.
+
+Since 2026-10-15 the plain gesture moves over Earth wherever it starts, and
+Shift turns it into the camera's: a left drag, a trackpad scroll or one finger
+holds the Earth point under it, and off the planet, where there is none, turns
+the globe like a scroll. The sky used to turn the camera instead, which read as
+a second meaning for the same drag. The camera turns with a middle drag (as
+it pans in design tools such as Figma), a Shift drag, a Shift scroll or two
+fingers; Shift-wheel and Shift-pinch zoom the lens, the camera's own glass.
+Option/Alt drag or a twist rolls. The right button, which rarely drags
+anything else, circles the Earth point under the pointer, which keeps its place
+on screen. The pointer works round it like a turntable: its angle about the
+point is the camera's turn about the point's vertical, one for one, so a full
+circle of the pointer flies a full circle round the point, and the ground under
+the pointer follows it; moving away from the point raises the camera over it,
+moving in lowers it. Within 16 px of the point the angle is ignored. (Mapping
+across to turn and up to tilt broke down once the pointer went round to the
+point's other side.) The camera stays above 5° of the point's horizon, short of
+overhead and inside 150–50,000 km, and a step goes only the way asked; off the planet it
+circles the horizon point toward the pointer, and straight overhead the
+camera's up sets the tilt. While it circles, a ground pin marks the point: a
+lit spot and a ring lying on the ground round it and a stalk standing up from
+it, all in perspective so they tilt with the land, with ripples spreading over
+the ground as it lands, like rings on water; it keeps its size on screen and
+hides on Earth's far side. A double-click on Earth drops the same pin where the
+flight heads, ripples and all, then lets it fade; on the sky the flat pulse
+stays. The middle button's browser autoscroll is suppressed over the scene. Moving
+over Earth, rolling or circling starts free flight from a followed orbit; only
+looking keeps the orbit. Free flight waits for the first movement, so a click,
+or the first of two fingers landing, leaves the orbit followed.
 
 W/S move along the view, A/D strafe, Q/E move along the camera’s own up axis,
 and Shift multiplies speed by four. Speed grows with altitude. The altitude
@@ -954,13 +1038,12 @@ Reset all and the icon-only Play/Pause control share the footer. Milky Way
 brightness spans 0–200%, centered at its accepted 100% baseline. Camera direction,
 camera tilt, color separation and lens flares use explicit labels without groups.
 
-Moon phase spans a full new–waxing–full–waning–new cycle. The default continues
-to use the selected scene date's computed illumination and limb orientation. Manual phase overrides
-illumination only, in the lunar celestial east plane; position and occultation
-remain unchanged. The same light drives the disk, water reflection and lens
-flare flux. `moon` in the URL preserves the override. Reset all restores the current calendar and automatic
-Moon phase, starting route time, 10× speed, playback, default camera and 100% image
-controls, removing their URL overrides.
+The Moon's phase and limb orientation always follow the scene's date; the same
+light drives the disk, water reflection and lens flare flux. Settings used to
+offer a manual phase that overrode the illumination (kept in the URL as
+`moon`); it went on 2026-10-16, and old links drop the parameter. Reset all
+restores the current calendar, starting route time, 10× speed, playback,
+default camera and 100% image controls, removing their URL overrides.
 
 In page composition, popover headers support pointer-captured mouse/touch dragging, excluding buttons; the explorer's drawers do not move.
 Positions persist while the component is mounted, including close/reopen, and
@@ -973,11 +1056,11 @@ underline without changing ink; the settings button adds a 12% white background.
 
 Slider fills show deviation from the default: effects are centered at 100%,
 time scale at 10x, and camera tilt at zero. Time scale maps the lower half to
-0.25x–10x and the upper half to 10x–120x. Orbit position, camera direction and
-Moon phase have no fill. Centered controls mark their neutral midpoint.
+0.25x–10x and the upper half to 10x–120x. Orbit position and camera direction
+have no fill. Centered controls mark their neutral midpoint.
 Semibold values reveal an individual reset button on hover or keyboard focus,
-with a 120 ms slide; touch devices always show it. Moon reset restores the selected date’s automatic
-phase, orbit reset restores the initial position, and neither changes pause state.
+with a 120 ms slide; touch devices always show it. Orbit reset restores the
+initial position and does not change pause state.
 Both browser range-track implementations share the same fill gradient.
 
 Slider input updates control state immediately but only invalidates the renderer.

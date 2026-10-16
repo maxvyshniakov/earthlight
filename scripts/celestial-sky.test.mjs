@@ -2,7 +2,7 @@ import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Body, Equator, Illumination, MakeTime, MoonPhase, Observer, ObserverVector, RotateVector, Rotation_EQJ_HOR, SiderealTime, Vector } from 'astronomy-engine';
-import { celestialFrame, currentLunarLight, lunarPhaseLight, equatorialFrame, transform, galacticBasis, lunarSamples } from '../src/scripts/celestial-sky.ts';
+import { celestialFrame, currentLunarLight, equatorialFrame, transform, galacticBasis, lunarSamples } from '../src/scripts/celestial-sky.ts';
 import optics from '../src/data/optical-psf.json' with { type:'json' };
 import { issFrame, dot, normalize } from '../src/scripts/iss-orbit.ts';
 import { visibleSourceDisk } from '../src/scripts/lens-reflections.ts';
@@ -94,9 +94,11 @@ test('lunar convolution conserves phase flux and removes Earth-occluded samples'
   assert.equal(flux([0,0,-1],[0,0,-1.07]),0);
 });
 
-test('manual lunar phase spans both crescents and preserves source position and phase flux',()=>{
+test('lunar samples span both crescents and preserve source position and phase flux',()=>{
+  // Sunlight turning through a phase cycle in the plane of the Moon's direction and celestial east (+Y here).
   const moon=[1,0,0,.0046],identity=[0,1,0,0,0,1,1,0,0],camera=[1.07,0,0];
-  const samples=degrees=>lunarSamples(moon,lunarPhaseLight(degrees,moon,[1,0,0,0,1,0,0,0,1]),identity,camera);
+  const sunlight=degrees=>[Math.cos(degrees*Math.PI/180),-Math.sin(degrees*Math.PI/180),0];
+  const samples=degrees=>lunarSamples(moon,sunlight(degrees),identity,camera);
   const flux=degrees=>samples(degrees).filter((_,i)=>i%4===3).reduce((a,b)=>a+b,0);
   assert.equal(flux(0),0);assert.ok(flux(360)<1e-12);
   assert.ok(Math.abs(flux(180)-2/3)<.002);
@@ -104,8 +106,6 @@ test('manual lunar phase spans both crescents and preserves source position and 
   assert.ok(Math.abs(flux(90)-flux(270))<.005);
   assert.notDeepEqual(samples(90).filter((_,i)=>i%4===3),samples(270).filter((_,i)=>i%4===3));
   for(const degrees of [0,45,90,180,270,360]){
-    const light=lunarPhaseLight(degrees,moon,[1,0,0,0,1,0,0,0,1]);
-    assert.ok(Math.abs(Math.hypot(...light)-1)<1e-12);
     assert.deepEqual(samples(degrees).filter((_,i)=>i%4!==3),samples(0).filter((_,i)=>i%4!==3));
   }
 });

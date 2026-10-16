@@ -39,6 +39,15 @@ const months: Record<number, string> = { 0: 'Jan', 90: 'Apr', 181: 'Jul', 273: '
 // Time of day in UTC: every half hour, long and labelled every three hours.
 const halfHours = Array.from({ length: 49 }, (_, i) => i * 30);
 // Pitch ladder: a rung every 6°, long every 30°, over the whole ±90° so it never runs out.
+// Sun and Moon markers, pictograms that only show a direction and never turn:
+// a ten-pointed star whose rays meet at right angles, and a full crescent
+// opening up and to the right, with blunt horns. For square tips the inner radius is 1 / (sin + cos) of
+// half the angle between rays, of the outer.
+const SUN_RAYS = 10, sunInner = 1 / (Math.sin(Math.PI / SUN_RAYS) + Math.cos(Math.PI / SUN_RAYS));
+const sunStar = Array.from({ length: 2 * SUN_RAYS }, (_, i) => { const a = i * Math.PI / SUN_RAYS - Math.PI / 2, r = (i % 2 ? sunInner : 1) * GAUGE.sun; return `${i ? 'L' : 'M'}${(r * Math.cos(a)).toFixed(2)} ${(r * Math.sin(a)).toFixed(2)}`; }).join('') + 'Z';
+// The crescent: a 3.2 disc less a 2.55 disc 1.75 up and to its right, each horn
+// rounded by a curve through where the two circles meet.
+const crescent = 'M2.96 1.22A3.2 3.2 0 1 1 -0.69 -3.12Q-0.15 -3.20 -0.56 -2.83A2.55 2.55 0 0 0 2.69 1.04Q3.12 0.70 2.96 1.22Z';
 const ladder = Array.from({ length: 30 }, (_, i) => (i < 15 ? i + 1 : 14 - i) * 6)
   .map(deg => { const half = deg % 30 ? 2 : 5; return `M${-half} ${(-deg * GAUGE.pitch).toFixed(2)}h${half * 2}`; }).join('');
 // Modifier keys as their key-cap symbols (Inter draws them); Option reads Alt off Apple keyboards.
@@ -56,16 +65,16 @@ const flyIn = `Double-click a point to fly in; ${shift} double-click to back off
 const gauge = (verb: string) => `${verb} the gauge to level or flip.`;
 const groups: Group[] = [
   { name: 'Fly', keys: [[cluster(key('KeyW', 'W'), key('KeyA', 'A'), key('KeyS', 'S'), key('KeyD', 'D')), ''], faster],
-    how: { mouse: 'Drag Earth.', trackpad: 'Drag Earth, or scroll over it.', touch: 'Drag Earth; flick it to coast.' } },
+    how: { mouse: 'Drag anywhere; flick to coast.', trackpad: 'Scroll anywhere, or drag.', touch: 'Drag anywhere; flick to coast.' } },
   { name: 'Look', keys: [[cluster(key('ArrowUp', '↑'), key('ArrowLeft', '←'), key('ArrowDown', '↓'), key('ArrowRight', '→')), ''], [key('Backslash', '\\'), 'Reset camera'], faster],
-    how: { mouse: `Drag the sky; right-drag or ${shift} drag anywhere.`, trackpad: `Scroll over the sky; ${shift} scroll anywhere.`, touch: 'Drag the sky, or two fingers anywhere.' } },
+    how: { mouse: `Middle-drag, or ${shift} drag. Right-drag circles the point under the pointer.`, trackpad: `${shift} scroll, or ${shift} drag.`, touch: 'Two fingers together.' } },
   { name: 'Closer, farther', keys: [[key('KeyF', 'F'), 'Closer'], [key('KeyR', 'R'), 'Farther'], faster],
     how: { mouse: `Wheel. ${flyIn}`, trackpad: `Pinch. ${flyIn}`, touch: 'Pinch, or double-tap and slide. Double-tap to fly in; two-finger tap to back off.' } },
-  { name: 'Lens', keys: [[key('Equal', '+'), 'Zoom in'], [key('Minus', '−'), 'Zoom out'], [key('Backspace', '⌫'), 'Reset zoom'], faster],
+  { name: 'Lens', keys: [[key('Equal', '+'), 'Zoom in'], [key('Minus', '−'), 'Zoom out'], [key('Digit0', '0'), 'Reset zoom'], faster],
     how: { mouse: `${shift} wheel.`, trackpad: `${shift} pinch.` } },
   { name: 'Roll', keys: [[key('KeyQ', 'Q'), 'Roll left'], [key('KeyE', 'E'), 'Roll right'], [key('KeyH', 'H'), 'Level or flip'], faster],
     how: { mouse: `${option} drag around the centre. ${gauge('Click')}`, trackpad: `${option} drag around the centre<span data-only="gesture">, or rotate two fingers</span>. ${gauge('Click')}`, touch: `Twist two fingers. ${gauge('Tap')}` } },
-  { name: 'Orbits', keys: [[key('Digit1', '1'), 'ISS'], [key('Digit2', '2'), 'Polar'], [key('Digit3', '3'), 'High'], [key('Digit0', '0'), 'Free flight']] },
+  { name: 'Orbits', keys: [[key('Digit1', '1'), 'Free flight'], [key('Digit2', '2'), 'ISS'], [key('Digit3', '3'), 'Polar'], [key('Digit4', '4'), 'High']] },
   { name: 'Time', keys: [[key('Space', 'Space'), 'Pause or play']], note: 'Speed, date and time of day are in Settings.' },
 ];
 // One lane per input, so each sits at the same height under every action.
@@ -103,14 +112,13 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   </div>
 
   <nav class="hud-modes hud-list" aria-label="Camera">
-    <button type="button" data-route="iss" aria-pressed="true"><kbd data-key="Digit1">1</kbd>ISS</button>
-    <button type="button" data-route="polar" aria-pressed="false"><kbd data-key="Digit2">2</kbd>Polar</button>
-    <button type="button" data-route="high" aria-pressed="false"><kbd data-key="Digit3">3</kbd>High</button>
-    <button type="button" data-flight-mode="free" aria-pressed="false" title="Fly from here"><kbd data-key="Digit0">0</kbd>Free</button>
+    <button type="button" data-flight-mode="free" aria-pressed="false" title="Fly from here"><kbd data-key="Digit1">1</kbd>Free</button>
+    <button type="button" data-route="iss" aria-pressed="true"><kbd data-key="Digit2">2</kbd>ISS</button>
+    <button type="button" data-route="polar" aria-pressed="false"><kbd data-key="Digit3">3</kbd>Polar</button>
+    <button type="button" data-route="high" aria-pressed="false"><kbd data-key="Digit4">4</kbd>High</button>
   </nav>
 
   <div class="hud-altimeter hud-meter" style={`--longest: ${Math.max(...scale.map(({ km }) => label(km).length))}`}>
-    <button type="button" class="hud-key" data-hold="KeyR" tabindex="-1" title="Farther (R)"><kbd data-key="KeyR">R</kbd><span>Farther</span></button>
     <div id="sky-altitude" class="hud-tape" role="slider" tabindex="0" aria-label="Altitude" aria-orientation="vertical" aria-valuemin={MIN_ALTITUDE} aria-valuemax={MAX_ALTITUDE} aria-valuenow="420" aria-valuetext="420 km">
       <div class="hud-scale" aria-hidden="true">
         {short.map(top => <span class="hud-tick" style={`top:${top.toFixed(3)}%`}></span>)}
@@ -118,6 +126,7 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
       </div>
       <div class="hud-now" aria-hidden="true"><output class="altitude-output">420 km</output></div>
     </div>
+    <button type="button" class="hud-key" data-hold="KeyR" tabindex="-1" title="Farther (R)"><kbd data-key="KeyR">R</kbd><span>Farther</span></button>
     <button type="button" class="hud-key" data-hold="KeyF" tabindex="-1" title="Closer (F)"><kbd data-key="KeyF">F</kbd><span>Closer</span></button>
   </div>
 
@@ -132,7 +141,6 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
       </div>
     </div>
     <div class="hud-zoom hud-meter" style={`--longest: ${Math.max(...lensScale.map(({ zoom }) => `${zoom}×`.length))}`}>
-      <button type="button" class="hud-key" data-hold="Equal" tabindex="-1" title="Zoom in (+)"><kbd data-key="Equal">+</kbd><span>Zoom in</span></button>
       <div id="sky-lens" class="hud-tape" role="slider" tabindex="0" aria-label="Lens" aria-orientation="vertical" aria-valuemin={LENS_MIN} aria-valuemax={LENS_MAX} aria-valuenow="1" aria-valuetext="1×, 30 mm">
         <div class="hud-scale" aria-hidden="true">
           {lensShort.map(top => <span class="hud-tick" style={`top:${top.toFixed(3)}%`}></span>)}
@@ -140,17 +148,13 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
         </div>
         <div class="hud-now" aria-hidden="true"><output class="lens-output">1×</output></div>
       </div>
+      <button type="button" class="hud-key" data-hold="Equal" tabindex="-1" title="Zoom in (+)"><kbd data-key="Equal">+</kbd><span>Zoom in</span></button>
       <button type="button" class="hud-key" data-hold="Minus" tabindex="-1" title="Zoom out (−)"><kbd data-key="Minus">−</kbd><span>Zoom out</span></button>
-      <button type="button" class="hud-key" data-press="Backspace" tabindex="-1" title="Reset zoom (⌫)"><kbd data-key="Backspace">⌫</kbd><span>Reset zoom</span></button>
+      <button type="button" class="hud-key" data-press="Digit0" tabindex="-1" title="Reset zoom (0)"><kbd data-key="Digit0">0</kbd><span>Reset zoom</span></button>
     </div>
   </div>
 
   <div class="hud-readouts">
-    <span class="hud-readout hud-angles">
-      <span>HDG <b data-attitude="heading">000°</b></span>
-      <span>PIT <b data-attitude="pitch">+00°</b></span>
-      <span>ROL <b data-attitude="roll">+00°</b></span>
-    </span>
     <span class="hud-readout hud-position">
       <span>LAT <b data-attitude="latitude">00.0° N</b></span>
       <span>LON <b data-attitude="longitude">000.0° E</b></span>
@@ -160,21 +164,38 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   <div class="hud-dock">
     <div class="hud-attitude">
       <button type="button" class="hud-roll" data-hold="KeyQ" tabindex="-1" aria-label="Roll left" title="Roll left (Q)"><kbd data-key="KeyQ">Q</kbd><svg class="hud-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12A8 8 0 1 0 6.34 6.34" /><path d="M10.34 6.34H6.34V2.34" /></svg></button>
-      <button class="hud-gauge" type="button" aria-label="Level the horizon, or turn the view over" title="Level or flip (H)">
-      <svg class="gauge" viewBox="-24 -24 48 48" width="72" height="72" aria-hidden="true">
+      <div class="hud-gauge">
+      <svg class="gauge" viewBox="-24 -24 48 48" width="64" height="64">
         <defs><mask id="hud-gauge-mask" maskUnits="userSpaceOnUse" x="-24" y="-24" width="48" height="48">
           <circle r={GAUGE.dial} fill="#fff" />
           <g class="gauge-horizon"><line class="gauge-cut" x1="-48" x2="48" y1="0" y2="0" /><path class="gauge-cut" d={ladder} /></g>
+          <path class="gauge-sun-cut" d={sunStar} style={`transform: translate(0px, ${-GAUGE.sunAt}px)`} />
+          <path class="gauge-moon-cut" d={crescent} style={`transform: translate(0px, ${-GAUGE.moonAt}px)`} />
+        </mask>
+        <mask id="hud-gauge-cut-mask" maskUnits="userSpaceOnUse" x="-40" y="-40" width="80" height="80">
+          <rect x="-40" y="-40" width="80" height="80" fill="#fff" />
+          <path class="gauge-sun-cut" d={sunStar} style={`transform: translate(0px, ${-GAUGE.sunAt}px)`} />
+          <path class="gauge-moon-cut" d={crescent} style={`transform: translate(0px, ${-GAUGE.moonAt}px)`} />
         </mask></defs>
-        <g class="gauge-fill" mask="url(#hud-gauge-mask)"><g class="gauge-horizon">
-          <rect class="gauge-sky" x="-48" y="-96" width="96" height="96" />
-          <rect class="gauge-ground" x="-48" y="0" width="96" height="96" />
-        </g></g>
-        <path class="gauge-earth" d="" />
-        <circle class="gauge-sun" r={GAUGE.sun} style={`transform: translate(0px, ${-GAUGE.sunAt}px)`} />
-        <path class="gauge-wings" d="M-13 0h7l2 2.5l2 -2.5l2 2.5l2 -2.5h7" />
+        <g class="gauge-dial" role="button" tabindex="0" aria-label="Level the horizon, or turn the view over"><title>Level or flip (H)</title>
+          <circle class="gauge-hit" r={GAUGE.dial} />
+          <g class="gauge-fill" mask="url(#hud-gauge-mask)"><g class="gauge-horizon">
+            <rect class="gauge-sky" x="-48" y="-96" width="96" height="96" />
+            <rect class="gauge-ground" x="-48" y="0" width="96" height="96" />
+          </g></g>
+          <path class="gauge-wings" mask="url(#hud-gauge-cut-mask)" d="M-13 0h9l2 2.5l2 -2.5l2 2.5l2 -2.5h9" />
+        </g>
+        <g class="gauge-earth" role="button" tabindex="0" aria-label="Face Earth" mask="url(#hud-gauge-cut-mask)"><title>Face Earth</title>
+          <path class="gauge-hit" d="" /><path class="gauge-stroke" d="" />
+        </g>
+        <g class="gauge-sun" role="button" tabindex="0" aria-label="Face the Sun" style={`transform: translate(0px, ${-GAUGE.sunAt}px)`}><title>Face the Sun</title>
+          <circle class="gauge-hit" r={GAUGE.sun + 2.5} /><path class="gauge-stroke" d={sunStar} />
+        </g>
+        <g class="gauge-moon" role="button" tabindex="0" aria-label="Face the Moon" style={`transform: translate(0px, ${-GAUGE.moonAt}px)`}><title>Face the Moon</title>
+          <circle class="gauge-hit" r={GAUGE.moon + 2.5} /><path class="gauge-stroke" d={crescent} />
+        </g>
       </svg>
-      </button>
+      </div>
       <button type="button" class="hud-roll" data-hold="KeyE" tabindex="-1" aria-label="Roll right" title="Roll right (E)"><kbd data-key="KeyE">E</kbd><svg class="hud-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12A8 8 0 1 1 17.66 6.34" /><path d="M13.66 6.34H17.66V2.34" /></svg></button>
     </div>
   </div>
@@ -182,7 +203,7 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   <div class="hud-pad hud-fly" role="group" aria-label="Fly">
     <button type="button" class="hud-key" data-hold="KeyW" tabindex="-1" aria-label="Forward" title="Forward (W)"><kbd data-key="KeyW">W</kbd></button>
     <button type="button" class="hud-key" data-hold="KeyA" tabindex="-1" aria-label="Left" title="Left (A)"><kbd data-key="KeyA">A</kbd></button>
-    <span class="hud-globe" aria-hidden="true"><svg class="hud-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /><path d="M12 4a4.5 8 0 0 0 0 16a4.5 8 0 0 0 0-16" /><path d="M4 12h16" /></svg></span>
+    <span class="hud-globe" aria-hidden="true"><canvas width="18" height="18"></canvas><svg viewBox="-9 -9 18 18" width="18" height="18"><circle class="globe-outline" r="8.5" /></svg></span>
     <button type="button" class="hud-key" data-hold="KeyD" tabindex="-1" aria-label="Right" title="Right (D)"><kbd data-key="KeyD">D</kbd></button>
     <button type="button" class="hud-key" data-hold="KeyS" tabindex="-1" aria-label="Back" title="Back (S)"><kbd data-key="KeyS">S</kbd></button>
   </div>
@@ -196,12 +217,13 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
     </div>
 
   <div class="sky-controls hud-corner hud-list" hidden>
-    <button type="button" popovertarget="flight-help" title="Help (?)"><kbd data-key="Slash">?</kbd>Help</button>
     <button type="button" popovertarget="sky-info" title="Info (i)"><kbd data-key="KeyI">i</kbd>Info</button>
+    <button type="button" popovertarget="flight-help" title="Help (?)"><kbd data-key="Slash">?</kbd>Help</button>
     <button class="sky-settings-toggle" type="button" popovertarget="sky-settings" title="Settings"><svg class="hud-gear" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg>Settings</button>
   </div>
 
   <span class="hud-pulse" aria-hidden="true" hidden></span>
+  <div class="hud-pin" aria-hidden="true" hidden><svg><path class="pin-spot" d="" /><g class="pin-ripples"><path d="" /><path d="" /><path d="" /></g><path class="pin-ring pin-halo" d="" /><path class="pin-ring" d="" /><line class="pin-stalk pin-halo" /><line class="pin-stalk" /><circle class="pin-head" r="2.5" /></svg></div>
   <div class="hud-fpm" aria-hidden="true" hidden><svg viewBox="-18 -12 36 24" width="36" height="24"><g class="fpm-halo"><circle r="5" /><path d="M-16 0h11M5 0h11M0 -5v-6" /></g><circle r="5" /><path d="M-16 0h11M5 0h11M0 -5v-6" /></svg><span class="hud-speed"></span></div>
 </div>
 
@@ -277,7 +299,7 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
      would run into the camera presets, so the one-line clock stays. */
   /* The gap clears the end labels, which stand half out of their tapes. */
   .hud-clock { display: none; align-items: flex-start; gap: 48px; }
-  @container (min-width: 900px) {
+  @container (min-width: 960px) {
     /* As wide as its tapes: centred from the middle, it would otherwise squeeze them. */
     .hud-time { width: max-content; align-items: flex-start; gap: 24px; height: auto; padding: 0; background: none; }
     .hud-time :is(.sky-time, .hud-time-scale, .hud-time-toggle) { display: none; }
@@ -297,7 +319,11 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   /* Camera presets and free flight, top right above the altitude tape: no plate,
      keys flush with the screen edge like R and F, names to their left. */
   .hud-list { display: grid; justify-items: end; }
-  .hud-modes { position: fixed; right: var(--hud-right); top: var(--hud-top); }
+  /* Camera presets top left, mirrored: keys flush with the edge, names to their right. */
+  .hud-modes { position: fixed; left: var(--hud-left); top: var(--hud-top); justify-items: start; }
+  .hud-list.hud-modes button { flex-direction: row; padding: 0 12px 0 0; }
+  /* Settings alone top right; Info, then Help, in the lower-right corner. */
+  .hud-corner .sky-settings-toggle { position: fixed; top: var(--hud-top); right: var(--hud-right); }
   /* Settings, help and info in the lower-right corner, set like the presets; settings has no key, so a gear. */
   .hud-corner { position: fixed; right: var(--hud-right); bottom: var(--hud-bottom); }
   .hud-corner[hidden] { display: none; }
@@ -326,6 +352,8 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   .hud-roll { display: flex; align-items: center; gap: 8px; height: 24px; padding: 0; border: 0; background: none; color: var(--hud-dim); touch-action: none; }
   .hud-roll:is(:hover, :has(kbd[data-pressed])) { color: #fff; }
   .hud-roll[data-hold="KeyQ"] { flex-direction: row-reverse; }
+  /* Down on the row's bottom edge, level with the crosses' bottom keys. */
+  .hud-roll { align-self: flex-end; }
   .hud-icon { flex: 0 0 16px; }
   /* WASD and the arrows as crosses along the bottom, at a quarter and three
      quarters of the width, rows on the presets' 24 px pitch and keys in a row
@@ -338,31 +366,57 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   .hud-pad > :is([data-hold="KeyW"], [data-hold="ArrowUp"]) { grid-area: 1 / 2; }
   .hud-pad > :is([data-hold="KeyA"], [data-hold="ArrowLeft"]) { grid-area: 2 / 1; }
   .hud-pad > :is([data-press="Backslash"], .hud-globe) { grid-area: 2 / 2; }
-  .hud-globe { display: grid; justify-self: center; color: var(--hud-dim); }
+  /* A small Earth the size of a key, as seen from straight above the camera with
+     north up: land filled the colour of the tapes' ticks, sea left clear, and
+     only the near hemisphere, so it reads as solid. It turns as you fly and as
+     Earth turns under the orbit (orbit-hud.ts paints it). */
+  .hud-globe { position: relative; justify-self: center; width: 18px; height: 18px; line-height: 0; }
+  .hud-globe :is(canvas, svg) { position: absolute; inset: 0; width: 18px; height: 18px; overflow: visible; }
+  .globe-outline { fill: none; stroke: var(--hud-dim); stroke-width: 1px; vector-effect: non-scaling-stroke; }
   .hud-pad > :is([data-hold="KeyD"], [data-hold="ArrowRight"]) { grid-area: 2 / 3; }
   .hud-pad > :is([data-hold="KeyS"], [data-hold="ArrowDown"]) { grid-area: 3 / 2; }
   /* Heading, pitch and roll, then latitude and longitude below, in the lower-left corner. */
   .hud-readouts { position: fixed; left: var(--hud-left); bottom: var(--hud-bottom); display: grid; gap: 10px; pointer-events: none; }
-  /* Only the round dial takes the pointer: the masked sky and ground are far larger than it. */
-  .hud-gauge { display: block; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; line-height: 0; }
+  /* Only the drawn parts take the pointer: the masked sky and ground are far larger than the dial. */
+  .hud-gauge { line-height: 0; pointer-events: none; }
   .gauge { pointer-events: none; }
   .gauge { overflow: visible; }
   /* The dial has no outline: a pale grey sky and an orange ground, parted by a
      1 px gap at the horizon. The pitch ladder is cut out of them the same way. */
   .gauge-horizon { transform: rotate(var(--roll, 0deg)) translateY(var(--pitch, 0px)); transition: transform .06s linear; }
+  /* Monochrome like the rest of the HUD: the ground is white as bright as the
+     accent it used to be, the sky fainter. */
   .gauge-sky { fill: rgb(255 255 255 / 26%); }
-  .gauge-ground { fill: var(--hud-accent); }
+  .gauge-ground { fill: rgb(255 255 255 / 68%); }
   /* Sky and ground stay faint until the pointer or focus is on the gauge. */
   .gauge-fill { opacity: .45; }
-  .hud-gauge:is(:hover, :focus-visible) .gauge-fill { opacity: 1; }
+  /* Each part answers the pointer alone: the dial brightens its own fill. */
+  .gauge-dial:is(:hover, :focus-visible) .gauge-fill { opacity: 1; }
   .gauge-cut { fill: none; stroke: #000; stroke-width: 1px; vector-effect: non-scaling-stroke; }
   /* Earth arc, Sun ring and wings: 1 px whatever the dial's size. The arc and
      ring match the tapes' ticks, half-white, until the gauge is hovered. */
-  .gauge-earth, .gauge-sun, .gauge-wings { fill: none; stroke: #fff; stroke-width: 1px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
-  .gauge-earth, .gauge-sun { stroke: rgb(255 255 255 / 50%); }
-  .hud-gauge:is(:hover, :focus-visible) :is(.gauge-earth, .gauge-sun) { stroke: #fff; }
-  .gauge-sun { transition: transform .25s ease-out; }
-  .gauge-sun[hidden] { display: none; }
+  .gauge-stroke, .gauge-wings { fill: none; stroke: #fff; stroke-width: 1px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+  .gauge-stroke { stroke: rgb(255 255 255 / 50%); }
+  /* Three targets, each only where it is drawn: the dial levels or flips, the
+     Earth arc turns the camera to Earth and the Sun ring to the Sun. A thin
+     stroke takes a wider invisible one for the pointer, and thickens to 2 px
+     under it. */
+  .gauge-hit { fill: none; stroke: none; cursor: pointer; }
+  .gauge-dial .gauge-hit, :is(.gauge-sun, .gauge-moon) .gauge-hit { pointer-events: fill; }
+  .gauge-earth .gauge-hit { stroke: transparent; stroke-width: 10px; vector-effect: non-scaling-stroke; pointer-events: stroke; }
+  /* Under the pointer the arc turns white and 2 px; the Sun and Moon fill in. */
+  .gauge-earth:is(:hover, :focus-visible) .gauge-stroke { stroke: #fff; stroke-width: 2px; }
+  :is(.gauge-sun, .gauge-moon):is(:hover, :focus-visible) .gauge-stroke { stroke: #fff; fill: #fff; }
+  .gauge [role="button"]:focus { outline: none; }
+  /* The Sun flies outside the Earth arc and the Moon along it; each cuts its
+     own shape, and a clear gap round it, out of all it crosses: the dial's fill
+     and ladder, the Earth arc and the wings. */
+  .gauge-sun, .gauge-sun-cut, .gauge-moon, .gauge-moon-cut { transition: transform .25s ease-out; }
+  /* The cut is the icon's own shape, so its inside is a hole onto the scene
+     rather than a dark disc, and a 3 px stroke leaves 1 px clear round the
+     outline drawn over it. */
+  :is(.gauge-sun-cut, .gauge-moon-cut) { fill: #000; stroke: #000; stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+  :is(.gauge-sun, .gauge-sun-cut, .gauge-moon, .gauge-moon-cut)[hidden] { display: none; }
   .hud-readout { display: grid; gap: 1px; color: var(--hud-dim); font: 500 9px/12px var(--hud-mono); letter-spacing: .05em; white-space: nowrap; }
   .hud-readout b { font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -392,7 +446,8 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   .hud-meter .hud-key:is(:hover, :has(kbd[data-pressed])) { color: #fff; }
   .hud-altimeter .hud-key { flex-direction: row-reverse; justify-self: end; }
   .hud-zoom .hud-key { justify-self: start; }
-  .hud-zoom [data-press="Backspace"] { margin-top: -14px; }
+  /* Keys under their tape, 20 px off it and on the presets' 24 px pitch. */
+  .hud-meter .hud-key + .hud-key { margin-top: -14px; }
   .hud-tape { --at: 82%; position: relative; width: calc(var(--axis) + 1px); height: calc(var(--tape) * var(--tape-share, 1)); cursor: ns-resize; touch-action: none; }
   /* No axis line: the ticks' right ends draw it. */
   .hud-scale { position: absolute; inset: 0; z-index: 1; }
@@ -420,6 +475,17 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   /* A dark halo drawn under the marker instead of a per-frame filter. */
   .hud-fpm .fpm-halo { stroke: rgb(0 0 0 / 55%); stroke-width: 3.5; }
   .hud-speed { text-shadow: 0 0 3px rgb(0 0 0 / 80%); font: 600 9px/1 var(--hud-mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* The ground pin: where a right-drag circles and where a double-click flies.
+     A lit spot and a ring lie on the ground round the point, a stalk stands up
+     from it, and ripples spread over the ground as it lands, all in perspective
+     so they tilt with the land (orbit-hud.ts draws it). */
+  .hud-pin { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; color: var(--hud-accent); }
+  .hud-pin svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .hud-pin[hidden] { display: none; }
+  .hud-pin :is(path, line) { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .hud-pin .pin-halo { stroke: rgb(0 0 0 / 55%); stroke-width: 3.5; }
+  .hud-pin .pin-spot { fill: rgb(211 167 132 / 24%); stroke: none; }
+  .pin-head { fill: currentColor; stroke: rgb(0 0 0 / 55%); stroke-width: 1; }
   .hud-pulse[hidden] { display: none; }
   .hud-pulse { position: fixed; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--hud-accent); pointer-events: none; animation: hud-pulse .7s ease-out forwards; }
   @keyframes hud-pulse { from { transform: scale(.2); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
@@ -428,8 +494,8 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   @media (max-width: 640px) {
     .hud-time { gap: 8px; padding-right: 8px; }
     /* Below the clock, which spans most of a phone's width. */
-    .hud-modes { top: calc(var(--hud-top) + 44px); }
-    .gauge { width: 56px; height: 56px; }
+    .hud-modes, .hud-corner .sky-settings-toggle { top: calc(var(--hud-top) + 44px); }
+    .gauge { width: 50px; height: 50px; }
     .hud-attitude { gap: 12px; }
     /* Above the gauge row, which needs the width. */
     .hud-readouts { bottom: calc(var(--hud-bottom) + 84px); }
@@ -439,14 +505,14 @@ const lanes = [{ id: 'keys', name: 'Keyboard' }, ...devices];
   }
   /* A short HUD, such as a phone on its side: one compact row. */
   /* Wide enough that the clock leaves the corner free: presets back to the top. */
-  @container (max-height: 480px) and (min-width: 480px) { .hud-modes { top: var(--hud-top); } }
+  @container (max-height: 480px) and (min-width: 480px) { .hud-modes, .hud-corner .sky-settings-toggle { top: var(--hud-top); } }
   @container (max-height: 480px) {
     /* The tapes sit low, level with each other: the right one between the presets
        and the corner buttons. No keys. */
     :is(.hud-meter, .hud-left) { top: auto; bottom: calc(var(--hud-bottom) + 84px); transform: none; }
     .hud-meter .hud-key { display: none; }
     .hud-attitude { gap: 12px; }
-    .gauge { width: 56px; height: 56px; }
+    .gauge { width: 50px; height: 50px; }
     .hud-meter { --tape: clamp(112px, 34cqh, 170px); }
     .hud-tick b[data-crowded], .hud-tick:not(.major) { visibility: hidden; }
   }

@@ -13,7 +13,7 @@ import { stormLights } from './storm-light';
 import { SOLAR_RADIUS } from './solar-light';
 import { CameraFinish } from './camera-finish';
 import { issFrame } from './iss-orbit';
-import { celestialFrame, currentLunarLight, lunarPhaseLight, lunarSamples } from './celestial-sky';
+import { celestialFrame, currentLunarLight, lunarSamples } from './celestial-sky';
 import { CatalogStars } from './catalog-stars';
 import { optics } from './optical-psf';
 import { SurfaceTiles } from './night-tiles';
@@ -31,7 +31,7 @@ import { NOISE_TABLE_SIZE, NOISE_TABLE_UNIT, noiseTableData } from './noise-tabl
 import { TemporalClouds, temporalCloudMain, temporalResolveFragment, temporalCompositeShader, TEMPORAL_FRESH_UNITS, TEMPORAL_HISTORY_UNITS, TEMPORAL_PREVIOUS_UNIT, TEMPORAL_RESOLVED_UNITS } from './cloud-temporal';
 import { vertexSource, fragmentSource, sourceTransmissionFragment, volumeFragment, halfCloudFragment, halfCloudVolumeFragment } from './orbital-shader';
 
-export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number;exposure:number;manualExposure?:number|null;moonPhase?:number|null};
+export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number;exposure:number;manualExposure?:number|null};
 /** Owns the WebGL resources and passes; never reads or mutates page controls. */
 export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasElement,params:URLSearchParams,notify:()=>void,sources:SceneSources={}) {
     const base=sources.assetBaseURL;
@@ -605,7 +605,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const position=scenePosition;
       gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
       gl.uniform4fv(orbitUniforms.moon,sky.moon);
-      const lunarLight=look.moonPhase==null?currentLunarLight(orbit.date,sky.moon,sky.starToFixed):lunarPhaseLight(look.moonPhase,sky.moon,sky.starToFixed);
+      const lunarLight=currentLunarLight(orbit.date,sky.moon,sky.starToFixed);
       const phaseCosine=Math.max(-1,Math.min(1,-sky.moon.slice(0,3).reduce((sum,x,i)=>sum+x*lunarLight[i],0)));
       const phaseAngle=Math.acos(phaseCosine);
       gl.uniform1f(orbitUniforms.lunarIrradiance,(Math.sin(phaseAngle)+(Math.PI-phaseAngle)*phaseCosine)/Math.PI);

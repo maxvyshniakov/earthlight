@@ -44,15 +44,6 @@ export function currentLunarLight(date:Date,moon:number[],starToFixed:number[]):
 }
 
 export const currentLunarPhase = (date:Date) => MoonPhase(date);
-/** User-controlled phase cycle: new -> waxing -> full -> waning -> new.
- * Only the illumination changes; position, angular radius and occultation stay fixed.
- */
-export function lunarPhaseLight(degrees:number,moon:number[],starToFixed:number[]):Vec3 {
-  const direction=unit(moon.slice(0,3) as Vec3);
-  const east=unit(cross(transform(starToFixed,[0,0,1]),direction));
-  const angle=degrees*Math.PI/180;
-  return direction.map((v,i)=>v*Math.cos(angle)-east[i]*Math.sin(angle)) as Vec3;
-}
 
 export const LUNAR_SAMPLE_COUNT=128;
 export function lunarSamples(moon:number[],sun:Vec3,basis:number[],camera:Vec3) {

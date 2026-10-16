@@ -4,8 +4,9 @@ type Point={x:number;y:number};
 const TAP_MS=260,DOUBLE_MS=320,SLOP=10;
 
 /** The scene owns touch gestures; controls outside this element keep native
- * touch behaviour. One finger grabs what it touches, or with `spin` turns the
- * globe like a trackpad scroll, which never runs out at the limb. Two fingers move together
+ * touch behaviour. One finger moves over Earth wherever it starts: it grabs the
+ * point it touches, or with `spin`, and always off the planet, turns the globe
+ * like a trackpad scroll, which never runs out at the limb. Two fingers move together
  * to look, pinch to approach and twist to roll; each starts past a small
  * threshold so a pinch does not also roll. Double-tap flies in,
  * double-tap-and-drag approaches with one thumb, and a two-finger tap flies

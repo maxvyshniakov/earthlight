@@ -3,9 +3,9 @@
 // buffer, so a distant planet need not be as soft as a close horizon.
 export const SHELL=1+120/6371;
 
-/** Fraction of the frame whose camera rays meet the atmosphere shell. */
-export function shellCoverage(camera:ArrayLike<number>,basis:ArrayLike<number>,focal:number,aspect:number,columns=24,rows=24){
- const px=camera[0],py=camera[1],pz=camera[2],c=px*px+py*py+pz*pz-SHELL*SHELL;
+/** Fraction of the frame whose camera rays meet the atmosphere shell, or a sphere of `radius`. */
+export function shellCoverage(camera:ArrayLike<number>,basis:ArrayLike<number>,focal:number,aspect:number,columns=24,rows=24,radius=SHELL){
+ const px=camera[0],py=camera[1],pz=camera[2],c=px*px+py*py+pz*pz-radius*radius;
  if(c<=0)return 1;
  let hits=0;
  for(let j=0;j<rows;j++){

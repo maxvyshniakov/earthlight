@@ -9,13 +9,14 @@ export function draggedCamera(yaw:number,pitch:number,dx:number,dy:number,height
 // Wheels, drags and pinches over these stay theirs; the scene ignores them.
 export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.sky-panel,.sky-dialog,.sky-controls,.scene-comparison,.orbit-hud,.flight-help';
 
-/** Mouse and pen. Left button grabs whatever is under it; right or middle
- * button, or Shift, always looks; Option/Alt twists the image. Orbit page only. */
+/** Mouse and pen. The left button moves over Earth from anywhere; the middle
+ * button, as it pans in design tools, or Shift, looks; Option/Alt twists the
+ * image; the right button circles the point under the pointer. Orbit page only. */
 export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraIntent)=>void){
   let drag:{pointer:number;session:CameraSession;x:number;y:number}|null=null,frame=0;
   let hovering:{x:number;y:number}|null=null;
   const control=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
-  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1||event.button===2?'look':event.button!==0?null:event.altKey?'roll':event.shiftKey?'look':'auto';
+  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1?'look':event.button===2?'orbit':event.button!==0?null:event.altKey?'roll':event.shiftKey?'look':'auto';
   const flush=()=>{cancelAnimationFrame(frame);frame=0;drag?.session.move(drag.x,drag.y);};
   const end=(event?:PointerEvent)=>{
     if(!drag||(event&&event.pointerId!==drag.pointer))return;
@@ -48,12 +49,14 @@ export function createCameraDrag(surface:HTMLElement,camera:CameraController,hov
   const modifier=(event:KeyboardEvent)=>{if((event.key==='Shift'||event.key==='Alt')&&hovering&&!drag)hover(hovering.x,hovering.y,event.altKey?'roll':event.shiftKey?'look':'auto');};
   // A right-button drag must not open the browser menu over the scene.
   const menu=(event:MouseEvent)=>{if(!control(event.target))event.preventDefault();};
+  // The middle button looks; it must not start the browser's autoscroll.
+  const middle=(event:MouseEvent)=>{if(event.button===1&&!control(event.target))event.preventDefault();};
   const double=(event:MouseEvent)=>{if(!control(event.target)&&event.button===0){event.preventDefault();camera.flyTo(event.clientX,event.clientY,event.shiftKey);}};
   const blur=()=>end();
   surface.addEventListener('pointerdown',start);
   surface.addEventListener('pointermove',move);
   surface.addEventListener('pointerleave',leave);
-  surface.addEventListener('contextmenu',menu);
+  surface.addEventListener('contextmenu',menu);surface.addEventListener('mousedown',middle);
   surface.addEventListener('dblclick',double);
   for(const type of ['pointerup','pointercancel','lostpointercapture'])surface.addEventListener(type,end as EventListener);
   window.addEventListener('blur',blur);
@@ -61,7 +64,7 @@ export function createCameraDrag(surface:HTMLElement,camera:CameraController,hov
   return ()=>{
     end();cancelAnimationFrame(frame);
     surface.removeEventListener('pointerdown',start);surface.removeEventListener('pointermove',move);
-    surface.removeEventListener('pointerleave',leave);surface.removeEventListener('contextmenu',menu);surface.removeEventListener('dblclick',double);
+    surface.removeEventListener('pointerleave',leave);surface.removeEventListener('contextmenu',menu);surface.removeEventListener('mousedown',middle);surface.removeEventListener('dblclick',double);
     for(const type of ['pointerup','pointercancel','lostpointercapture'])surface.removeEventListener(type,end as EventListener);
     window.removeEventListener('blur',blur);
     window.removeEventListener('keydown',modifier);window.removeEventListener('keyup',modifier);
