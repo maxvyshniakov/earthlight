@@ -1,6 +1,6 @@
-# Orbital sky
+# The scene
 
-`OrbitalSky.astro` wraps the `<orbital-sky>` custom element. It has two
+`Explorer.astro` wraps the `<earthlight-explorer>` custom element. It has two
 compositions: standalone (the demo page, with flight controls) and page (a
 scroll-driven background behind other content).
 Its renderer is a standalone WebGL shader, with no React,
@@ -11,7 +11,7 @@ worker exports in version 7, which the current Astro build cannot bundle.
 ## Reference
 
 For moving clouds, city illumination, twilight and proposed lightning, see the
-[NASA video reference notes](orbital-video-references.md), including
+[NASA video reference notes](video-references.md), including
 reviewed playback timestamps and the distinction between observations and
 planned renderer changes.
 
@@ -38,11 +38,11 @@ retrieved on 6 October 2026. Its element epoch is
 - Source: https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON
 - GP format: https://celestrak.org/NORAD/documentation/gp-data-formats.php
 - Propagator: https://github.com/shashwatak/satellite-js
-- License: ../public/media/orbit/SATELLITE-JS-LICENSE.txt
+- License: ../public/media/earthlight/SATELLITE-JS-LICENSE.txt
 
-Opening a page without `t` starts at route offset `t=1000`. The calendar starts
+Opening a page without `t` starts at orbit offset `t=1000`. The calendar starts
 at the device’s current date and time; sunrise and moonrise therefore vary with
-the date. Route position and lighting date can be adjusted independently.
+the date. Orbit position and lighting date can be adjusted independently.
 A small captured scene poster covers startup. Lightweight overview maps reveal
 an initially defocused live scene; detailed maps and visible tiles then load in
 the background. Focus settles over 1.3 seconds once detail is available, or after
@@ -403,7 +403,7 @@ All four rows use compact uppercase type at a uniform line spacing. Time and coo
 time, yaw, pitch and paused state. An 8 px arrow appears on hover or keyboard
 focus, separated by one monospace character (1ch). A separate 16 px settings gear
 has a circular 32 px button in the lower-right corner and is always visible
-alongside the telemetry. Touch devices also show the link arrow without hover. The standalone Orbit
+alongside the telemetry. Touch devices also show the link arrow without hover. The standalone explorer
 page has no site header/footer, retains telemetry and credits, and includes a
 Home link. It shares the renderer/assets and disables scroll composition.
 Credits and settings use native auto popovers with Escape, light dismiss and
@@ -599,23 +599,23 @@ the controls panel's lanes follow the same detection, and Safari alone is told
 that a trackpad rotation rolls.
 
 `SceneCalendar` anchors simulation seconds to an independent UTC epoch. A fresh
-page uses now, including links that specify only the old route offset `t`.
+page uses now, including links that specify only the old orbit offset `t`.
 Saved interactions and links include `epoch` (ISO UTC) so the chosen lighting
 survives reload. Date scrubs the selected calendar year, including February 29;
 Time (UTC) scrubs 00:00–23:59. Each preserves the other component. Their reset
 buttons restore today's date or the current time respectively. Both are positional
-tracks with no fill. Time scale advances calendar and route time at the same rate.
+tracks with no fill. Time scale advances calendar and orbit time at the same rate.
 Date changes re-evaluate celestial lighting, solar visibility and lunar phase,
 but do not extrapolate the recorded ISS elements to another season or move the
 camera. Thus ISS remains a replay ground track with selectable lighting, not a
 live station-location prediction. Browser visual fixtures explicitly pin the
 reference epoch; production has no frozen October date.
 
-On `/`, Route selects the propagated ISS replay or an illustrative
+On `/`, the followed orbit is the propagated ISS replay or an illustrative
 circular orbit: Polar orbit (800 km, 90° inclination) or High orbit (20,000 km,
 25° inclination). Model orbit periods follow Kepler's law; they are not replayed
 spacecraft tracks. High orbit starts looking at Earth's center. Page composition
-keeps the ISS route and normal page scrolling.
+keeps the ISS orbit and normal page scrolling.
 
 Free flight detaches at the exact current camera pose. Its orientation is stored
 independently of position: local yaw/pitch gestures can cross either pole without
@@ -691,10 +691,10 @@ retain browser behavior; only the scene consumes them.
 
 Follow orbit returns over 1.2 seconds, interpolating position along a great
 circle and orientation with quaternions. Reduced-motion preferences skip that
-transition. Free-flight position, quaternion orientation and selected route
-are encoded in the URL; invalid coordinates fall back to following the selected route. Reset all
+transition. Free-flight position, quaternion orientation and selected orbit
+are encoded in the URL (`orbit`; links with the former `route` still work); invalid coordinates fall back to following the selected orbit. Reset all
 also restores ISS following. A dismissible, once-per-session hint explains the
-controls. The ground track scrubber appears only while following a route.
+controls. The ground track scrubber appears only while following an orbit.
 
 Settings include pause/resume, orbit scrub, playback speed, Milky Way brightness,
 film-grain intensity, color fringing, and lens reflections. Image controls
@@ -1017,13 +1017,13 @@ agreement with an independent horizon projection, and topocentric Moon/planet
 directions, the Galactic pole/center, lunar phase flux/occultation, and the optical
 LUT energy and boundary, then runs Astro diagnostics and the production build.
 
-`bun run verify:scene http://127.0.0.1:4322 /tmp/orbit-browser-proof`
+`bun run verify:scene http://127.0.0.1:4322 /tmp/earthlight-browser-proof`
 uses an isolated agent-browser session to capture seven orbital positions,
 inject failed asset requests, restore a lost context, and exercise playback.
 Build first when the local server serves `dist`. Browser tooling must already be
 installed; the command does not attach to an existing browser tab.
 
-[Image sources, licenses and modifications](../public/media/orbit/README.md).
+[Image sources, licenses and modifications](../public/media/earthlight/README.md).
 
 
 ### Camera direction controls
@@ -1080,7 +1080,7 @@ The Moon's phase and limb orientation always follow the scene's date; the same
 light drives the disk, water reflection and lens flare flux. Settings used to
 offer a manual phase that overrode the illumination (kept in the URL as
 `moon`); it went on 2026-10-16, and old links drop the parameter. Reset all
-restores the current calendar, starting route time, 10× speed, playback,
+restores the current calendar, starting orbit time, 10× speed, playback,
 default camera and 100% image controls, removing their URL overrides.
 
 In page composition, popover headers support pointer-captured mouse/touch dragging, excluding buttons; the explorer's drawers do not move.
@@ -1131,7 +1131,7 @@ run concurrently. GeoTIFF decompression and mip construction run in a worker;
 GPU uploads use the shared queue in 64-row strips. Requests cancel when the
 view moves away. Failed jobs back off, and offscreen atlas memory is released.
 
-The public source bucket has no browser CORS headers. `/media/orbit/dem90/`
+The public source bucket has no browser CORS headers. `/media/earthlight/dem90/`
 accepts only bounded GLO-90 source coordinates through a fixed-origin proxy.
 `bun run dev` and `bun run preview` provide this route locally. A hosted
 deployment needs the same route; `server/terrain-source.mjs` exports a
@@ -1291,7 +1291,7 @@ with their own scattering efficiency. The city-light fixture checks localization
 source-off zero, aerosol variation and occlusion by an opaque cloud deck.
 
 The 2026-10 city-glow comparison uses NASA's *City Lights of North and South
-America* (8–18 seconds, linked in `orbital-video-references.md`). It separates
+America* (8–18 seconds, linked in `video-references.md`). It separates
 compact ground lights from broader, uneven illumination of clouds. Disabling
 both city haze and cloud uplight in the India view showed that much of our
 outline already belonged to the ground signal. The source is a display-graded
@@ -1372,7 +1372,7 @@ contribution without a source, cloud, or visible cloud segment.
 builds a standalone browser experiment using the production renderer. Its
 build-time shader substitutions are confined to the experiment bundle; neither
 the default scene nor its assets import the experiment. Serve the output with
-`/media/orbit/` proxied to a built Earthlight preview. The output worker must remain next to
+`/media/earthlight/` proxied to a built Earthlight preview. The output worker must remain next to
 `experiment.js`. Use `?dem=base`, `?dem=90`, or `?dem=30`; add
 `&terrainView=clay` to isolate relief and terrain shadows.
 

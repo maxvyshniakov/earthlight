@@ -1,4 +1,4 @@
-// Isolated regional experiment; this does not certify production Orbit or a phone GPU.
+// Isolated regional experiment; this does not certify production Earthlight or a phone GPU.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';

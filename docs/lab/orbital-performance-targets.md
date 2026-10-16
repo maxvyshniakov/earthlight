@@ -126,11 +126,11 @@ The background continues behind transparent content. Decide whether to change
 that behavior only after measuring its cost at the final camera position and
 reviewing the page composition.
 
-`scripts/benchmark-orbit-costs.mjs` performs whole-frame GPU cloud ablation and
+`scripts/benchmark-scene-costs.mjs` performs whole-frame GPU cloud ablation and
 the scroll-position diagnostic in an isolated agent-browser session:
 
 ```sh
-rtk bun scripts/benchmark-orbit-costs.mjs http://127.0.0.1:4347 /tmp/orbit-costs
+rtk bun scripts/benchmark-scene-costs.mjs http://127.0.0.1:4347 /tmp/orbit-costs
 ```
 
 The optional third argument is `clouds` or `scroll` to measure only that part.
@@ -225,7 +225,7 @@ tasks, shader compilation and texture decode/upload separately when diagnosing
 startup. Parallel shader compilation is a responsiveness experiment; it does not
 establish a frame-rate gain or a shorter total compile time.
 
-The [shader startup implementation](../orbital-shader-startup.md) now batches the
+The [shader startup implementation](../shader-startup.md) now batches the
 renderer, catalog, camera finish, exposure, defocus and aurora programs. With KHR,
 program-dependent setup follows completion polling, with cancellation/generation
 handling across context loss or disposal. The extension-absent path remains
@@ -242,7 +242,7 @@ capability fallback. Promote a candidate only after its rendered motion, normal
 cadence and resolution pass on the selected devices. Unavailable physical tests
 stay explicitly open.
 
-The [WebGL2 migration](../orbital-webgl2.md) has a separate image comparison.
+The [WebGL2 migration](../webgl2.md) has a separate image comparison.
 Compact retains WebGL1; selecting half-cloud rendering prefers WebGL2.
 Any newly enabled aurora is a deliberate visual and performance
 change and needs its own measurement. Texture storage experiments and the reasons

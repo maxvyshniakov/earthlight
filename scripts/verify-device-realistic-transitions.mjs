@@ -11,7 +11,7 @@ import {calendarFrame} from '../src/scripts/scene-calendar.ts';
 import {visibleSourceDisk} from '../src/scripts/lens-reflections.ts';
 import {SOLAR_RADIUS} from '../src/scripts/solar-light.ts';
 
-const [base='http://127.0.0.1:4356',out='/tmp/orbit-realistic-transitions']=process.argv.slice(2);
+const [base='http://127.0.0.1:4356',out='/tmp/earthlight-realistic-transitions']=process.argv.slice(2);
 const profiles=(process.env.REALISTIC_PROFILES??'compact,clouds-half').split(',');
 assert.ok(profiles.length<=2&&profiles.every(v=>['compact','clouds-half'].includes(v)));
 assert.ok(process.env.ANDROID_SERIAL,'Set ANDROID_SERIAL to the reserved Pixel');
@@ -26,7 +26,7 @@ const results={started:new Date().toISOString(),conditions:{base,profiles,dawn,o
  controls:'Synthetic DOM KeyboardEvents enter the real flight-controls handlers and RAF camera/lens integration. This is keyboard-path coverage, not a physical finger/touch test.',
  geometry:'Homepage keeps its actual scroll=0 composition. Orbit detaches through the Free HUD control before timing, then holds ArrowDown 0.9s, Z 2s, X 2s. Actual movement and focal length are recorded from submitted shader uniforms.',
  metric:'Final draw submission intervals, not compositor presentation or isolated GPU cost. Intervals belong to the phase containing their end; crossingBoundary marks gaps that began in the preceding phase. Uniform capture records the actual camera/sun/lens used for drawing; dataset labels can lag one frame.',
- transitions:'No timed seek, route, position, pitch-slider or quality assignments. Frame logs distinguish command boundaries, integrated movement and post-input settling.'},runs:[],clientHashes:{}};
+ transitions:'No timed seek, orbit, position, pitch-slider or quality assignments. Frame logs distinguish command boundaries, integrated movement and post-input settling.'},runs:[],clientHashes:{}};
 const save=()=>writeFile(out+'/results.json',JSON.stringify(results,null,2)+'\n');
 
 // Extend the existing final-draw/RAF/canvas logger without touching production.
@@ -34,7 +34,7 @@ function realisticTimeline(){
  const log=window.__sceneTimeline,get=HTMLCanvasElement.prototype.getContext,wrapped=new WeakSet();
  log.targetAllocations=[];
  HTMLCanvasElement.prototype.getContext=function(...args){
-  const g=get.apply(this,args),scene=this.closest('orbital-sky');
+  const g=get.apply(this,args),scene=this.closest('earthlight-explorer');
   if(!g||!scene||!['webgl','webgl2','experimental-webgl'].includes(args[0])||wrapped.has(g))return g;
   wrapped.add(g);
   const names=new WeakMap(),uniforms={},location=g.getUniformLocation;
@@ -123,40 +123,40 @@ try{
  adb('shell','settings','put','global','stay_on_while_plugged_in','3');
  device=await sceneDevice('android',base);
  await device.installInitScript(`(${deviceSceneTimeline.toString()})();(${realisticTimeline.toString()})();`);
- const inspect=()=>device.evaluate(`(()=>{const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),g=c.getContext('webgl2')??c.getContext('webgl'),r=c.getBoundingClientRect();return {data:{...s.dataset},width:c.width,height:c.height,css:{width:r.width,height:r.height},smallHeight:s.querySelector('.sky-viewport')?.clientHeight??innerHeight,dpr:devicePixelRatio,viewport:[innerWidth,innerHeight],error:g.getError(),speed:s.querySelector('.sky-speed input').getAttribute('aria-valuetext'),assets:performance.getEntriesByType('resource').filter(r=>r.name.includes('/_astro/')&&r.name.endsWith('.js')).map(r=>r.name)};})()`);
+ const inspect=()=>device.evaluate(`(()=>{const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),g=c.getContext('webgl2')??c.getContext('webgl'),r=c.getBoundingClientRect();return {data:{...s.dataset},width:c.width,height:c.height,css:{width:r.width,height:r.height},smallHeight:s.querySelector('.explorer-viewport')?.clientHeight??innerHeight,dpr:devicePixelRatio,viewport:[innerWidth,innerHeight],error:g.getError(),speed:s.querySelector('.explorer-speed input').getAttribute('aria-valuetext'),assets:performance.getEntriesByType('resource').filter(r=>r.name.includes('/_astro/')&&r.name.endsWith('.js')).map(r=>r.name)};})()`);
  const settled=async()=>{
   const deadline=Date.now()+120000;
   while(Date.now()<deadline){
-   if(await device.evaluate(`(()=>{const s=document.querySelector('orbital-sky');if(s?.dataset.shaderStartup==='failed')throw Error('Shader startup failed');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0);})()`))return;
+   if(await device.evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');if(s?.dataset.shaderStartup==='failed')throw Error('Shader startup failed');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0);})()`))return;
    await sleep(250);
   }
   throw Error('Prewarm did not settle');
  };
  for(const profile of profiles){
-  for(const kind of ['homepage-dawn','orbit-controls']){
+  for(const kind of ['homepage-dawn','explorer-controls']){
    const config=kind==='homepage-dawn'?dawn:orbit,url=new URL(kind==='homepage-dawn'?'/':'/',base);
    for(const [k,v] of Object.entries({render:profile,quality:'adaptive',motion:0,t:config.t,epoch:config.epoch,aurora:0,'look-grain':1}))url.searchParams.set(k,String(v));
    console.log('PREWARM',profile,kind);
    await device.navigate(url.href);await sleep(400);await settled();
-   await device.evaluate(`(()=>{scrollTo(0,0);if(${kind==='orbit-controls'}){const b=document.querySelector('[data-flight-mode="free"]');if(!b)throw Error('Free camera HUD missing');b.click();}return true;})()`);
+   await device.evaluate(`(()=>{scrollTo(0,0);if(${kind==='explorer-controls'}){const b=document.querySelector('[data-flight-mode="free"]');if(!b)throw Error('Free camera HUD missing');b.click();}return true;})()`);
    await settled();
    const before=await inspect();assert.match(before.speed,/^10 times/);assert.equal(before.data.renderProfile,profile);assert.equal(before.error,0);
    if(profile==='clouds-half')assert.equal(before.data.cloudPass,'half','Do not silently time a fallback as half clouds');
-   for(const asset of before.assets)if(!results.clientHashes[asset]){const response=await fetch(asset);assert.ok(response.ok);results.clientHashes[asset]=createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex');if(asset.includes('OrbitalSky.'))assert.equal(results.clientHashes[asset],process.env.SCENE_EXPECTED_CLIENT_SHA256??'ab8961f8a4ad0d9818e209967e04803ad909d0da481cf0573a5c89c6063be679','Expected scene client SHA-256');}
+   for(const asset of before.assets)if(!results.clientHashes[asset]){const response=await fetch(asset);assert.ok(response.ok);results.clientHashes[asset]=createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex');if(asset.includes('EarthlightExplorer.'))assert.equal(results.clientHashes[asset],process.env.SCENE_EXPECTED_CLIENT_SHA256??'ab8961f8a4ad0d9818e209967e04803ad909d0da481cf0573a5c89c6063be679','Expected scene client SHA-256');}
    if(kind==='homepage-dawn'){
     const limb=1-.78*Math.min(1,before.smallHeight/before.css.height);
     results.homepagePredicted=Array.from({length:7},(_,i)=>{const t=dawn.t+i*100,p=calendarFrame(issFrame(t,limb),new Date(Date.parse(dawn.epoch)+t*1000));return {t,phase:p.phase,...geometry({position:p.camera,basis:p.cameraBasis,sun:p.sun,lens:1},before.css.width/before.css.height)};});
    }
    console.log('TIMING',profile,kind);
    const timeline=await device.evaluate(`(async()=>{
-    const log=window.__sceneTimeline,s=document.querySelector('orbital-sky'),button=s.querySelector('.sky-motion');
+    const log=window.__sceneTimeline,s=document.querySelector('earthlight-explorer'),button=s.querySelector('.explorer-motion');
     const wait=ms=>new Promise(r=>setTimeout(r,ms));
     const phase=(name,type)=>log.phases.push({name,type,time:performance.now(),state:{...s.dataset}});
     const key=(type,code)=>{log.commands.push({time:performance.now(),type,code,source:'synthetic DOM KeyboardEvent'});window.dispatchEvent(new KeyboardEvent(type,{code,key:code.startsWith('Key')?code.slice(3).toLowerCase():code,bubbles:true,cancelable:true}));};
     const hold=async(code,ms)=>{key('keydown',code);try{await wait(ms);}finally{key('keyup',code);}};
     log.start();log.commands=[];log.targetAllocations=[];
     try{
-     phase(${JSON.stringify(kind==='homepage-dawn'?'night-approach':'orbit-baseline')},'baseline');
+     phase(${JSON.stringify(kind==='homepage-dawn'?'night-approach':'explorer-baseline')},'baseline');
      log.commands.push({time:performance.now(),type:'Play',source:'existing DOM button'});
      if(button.getAttribute('aria-label')==='Play')button.click();
      if(${kind==='homepage-dawn'}){

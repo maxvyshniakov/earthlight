@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
  * before returning to the compositor, even between its normal 24 FPS ticks. */
 export async function verifyCanvasResize({run,evaluate,wait,base}){
  await run('open',`${base}/?api=webgl&motion=1&quality=fixed&t=3235.65`);
- await wait("document.querySelector('orbital-sky').dataset.focus==='sharp'");
+ await wait("document.querySelector('earthlight-explorer').dataset.focus==='sharp'");
  await evaluate(`(()=>{
-  const root=document.querySelector('orbital-sky'),canvas=root.querySelector('canvas');
+  const root=document.querySelector('earthlight-explorer'),canvas=root.querySelector('canvas');
   let version=0,painted=0;const result={resizes:0,unpainted:[]};window.__resizeProof=result;
   for(const name of ['width','height']){
    const property=Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,name);
@@ -21,7 +21,7 @@ export async function verifyCanvasResize({run,evaluate,wait,base}){
  })()`);
  await run('set','viewport','1130','730');
  await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');
- await evaluate("document.querySelector('.sky-motion').click();true");
+ await evaluate("document.querySelector('.explorer-motion').click();true");
  await run('set','viewport','1120','720');
  await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');
  const result=await evaluate('window.__resizeProof');

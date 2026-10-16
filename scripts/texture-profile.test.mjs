@@ -22,7 +22,7 @@ test('irradiance lookup keeps the original angular footprint across overviews',(
 });
 
 test('compact galaxy asset has the requested storage size and close broad lighting',async()=>{
-  const root=new URL('../public/media/orbit/',import.meta.url);
+  const root=new URL('../public/media/earthlight/',import.meta.url);
   const source=new URL('milky-way.avif',root).pathname,compact=new URL('mobile/galaxy-2048.avif',root).pathname;
   const info=await sharp(compact).metadata();assert.equal(info.width,2048);assert.equal(info.height,1024);
   // Compare 64 x 32 block means of displayed radiance, pow(texel, 3.3), which

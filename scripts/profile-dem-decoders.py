@@ -27,16 +27,16 @@ else:
     driver = webdriver.Firefox(options=options, service=Service(service_args=["--allow-system-access"], log_output=str(output / "geckodriver.log")))
 driver.set_script_timeout(300)
 try:
-    driver.get(base + "/media/orbit/terrain-packed/v1/benchmark.html")
+    driver.get(base + "/media/earthlight/terrain-packed/v1/benchmark.html")
     # Run the byte loop in the page realm; Firefox WebDriver wrappers make
     # indexed reads of worker-owned arrays prohibitively slow across realms.
     source = """
 const done=result=>window.dispatchEvent(new CustomEvent('dem-benchmark-result',{detail:result}));
 (async()=>{
- const fixture=await(await fetch('/media/orbit/terrain-packed/v1/benchmark.json')).json(),inputs=[];
+ const fixture=await(await fetch('/media/earthlight/terrain-packed/v1/benchmark.json')).json(),inputs=[];
  for(const f of fixture.files){
   const get=async url=>{const r=await fetch(url);if(!r.ok)throw Error('Input unavailable '+url);return r.arrayBuffer();};
-  inputs.push({...f,tiff:await get('/media/orbit/dem90/'+f.name+'.tif'),packed:await get('/media/orbit/terrain-packed/v1/'+f.name+'.dem')});
+  inputs.push({...f,tiff:await get('/media/earthlight/dem90/'+f.name+'.tif'),packed:await get('/media/earthlight/terrain-packed/v1/'+f.name+'.dem')});
  }
  const references=new Map(),rows=[],workers=new Map();
  const one=async(mode,input)=>{

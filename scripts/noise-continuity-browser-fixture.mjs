@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {fragmentSource} from '../src/scripts/orbital-shader.ts';
+import {fragmentSource} from '../src/scripts/scene-shader.ts';
 
 // Exercise the production interpolation on the actual GPU. CPU evaluation and
 // desktop-only screenshots missed the shared-corner jumps on Pixel/Mali.

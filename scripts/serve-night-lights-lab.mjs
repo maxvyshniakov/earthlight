@@ -12,7 +12,7 @@ import {sceneColorShader} from '../src/scripts/scene-color.ts';
 import {SOLAR_IRRADIANCE,SOLAR_RADIUS,SOLAR_RADIANCE,SOLAR_SCATTER_FRACTION} from '../src/scripts/solar-light.ts';
 import {optics,opticalPsfSource} from '../src/scripts/optical-psf.ts';
 const root=path.resolve(import.meta.dirname,'..'),out=path.resolve(process.argv[2]||'/tmp/night-lights-lab'),port=Number(process.argv[3]||4340);
-const source=fs.readFileSync(path.join(root,'src/scripts/orbital-shader.ts'),'utf8');
+const source=fs.readFileSync(path.join(root,'src/scripts/scene-shader.ts'),'utf8');
 let shader=source.match(/const fragmentSource = `([\s\S]*?)`;/)[1]
  .replaceAll('${SOLAR_IRRADIANCE}',String(SOLAR_IRRADIANCE))
  .replaceAll('${SOLAR_RADIUS}',String(SOLAR_RADIUS))
@@ -89,7 +89,7 @@ function renderer(canvas){
 try{
  const renderers=[renderer($('#old')),renderer($('#new'))],bitmaps=new Map();
  const load=async url=>{if(!bitmaps.has(url)){const response=await fetch(url);if(!response.ok)throw Error(url);bitmaps.set(url,await createImageBitmap(await response.blob(),{imageOrientation:'flipY'}));}return bitmaps.get(url);};
- await Promise.all(['earth-day','earth-night','earth-clouds'].map(async(name,i)=>{const img=await load('/media/orbit/'+name+'-8k.avif');renderers.forEach(r=>r.upload(i,img));}));
+ await Promise.all(['earth-day','earth-night','earth-clouds'].map(async(name,i)=>{const img=await load('/media/earthlight/'+name+'-8k.avif');renderers.forEach(r=>r.upload(i,img));}));
  let sequence=0;
  const draw=async()=>{const seq=++sequence,f=await fetch('/frame?t='+$('#time').value).then(r=>r.json());if(seq!==sequence)return;renderers[0].draw(f,false);renderers[1].draw(f,true);$('#timeLabel').textContent=$('#time').value+' s';$('#gainLabel').textContent=$('#gain').value+'×';$('#status').textContent='ISS '+f.latitude.toFixed(2)+'°, '+f.longitude.toFixed(2)+'° · '+f.phase+' · renderer ready';};
  for(const r of manifest.scene)$('#sceneVariant').add(new Option(r.name+' · '+kb(r.bytes),r.file));
@@ -106,7 +106,7 @@ createServer((req,res)=>{
  if(url.pathname==='/lab.js'){res.setHeader('Content-Type','text/javascript');res.end(client);return;}
  if(url.pathname==='/shader.frag'){res.setHeader('Content-Type','text/plain');res.end(shader);return;}
  if(url.pathname==='/frame'){res.setHeader('Content-Type','application/json');const t=Number(url.searchParams.get('t'));res.end(JSON.stringify(issFrame(Number.isFinite(t)?t:180,.22)));return;}
- const base=url.pathname.startsWith('/bench/')?out:path.join(root,'public/media/orbit');
+ const base=url.pathname.startsWith('/bench/')?out:path.join(root,'public/media/earthlight');
  const file=path.join(base,path.basename(url.pathname));
  if(!fs.existsSync(file)||!fs.statSync(file).isFile()){res.statusCode=404;res.end();return;}
  const types={'.json':'application/json','.png':'image/png','.webp':'image/webp','.avif':'image/avif','.jpg':'image/jpeg'};

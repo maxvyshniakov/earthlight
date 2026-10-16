@@ -1,5 +1,5 @@
 // NASA Black Marble 2016, 500 m. Originals live outside the repository.
-// bun scripts/build-night-tiles.mjs /tmp/orbital-reference
+// bun scripts/build-night-tiles.mjs /tmp/earthlight-reference
 import sharp from 'sharp';
 import { mkdir, readFile, writeFile, stat, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -7,8 +7,8 @@ import { createHash } from 'node:crypto';
 
 sharp.concurrency(2);
 sharp.cache(false);
-const sourceDir=process.argv[2] || '/tmp/orbital-reference';
-const output=process.argv[3] || 'public/media/orbit/night-tiles';
+const sourceDir=process.argv[2] || '/tmp/earthlight-reference';
+const output=process.argv[3] || 'public/media/earthlight/night-tiles';
 const size=21600, interior=540, gutter=16, cell=572;
 await mkdir(output,{recursive:true});
 const path=(x,y)=>join(sourceDir,`BlackMarble_2016_${'ABCD'[(x+4)%4]}${y+1}_gray.jpg`);

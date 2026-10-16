@@ -1,13 +1,13 @@
 ---
 import '../styles/global.css';
-interface Props { title: string; description?: string; orbital?: boolean; immersive?: boolean; }
+interface Props { title: string; description?: string; immersive?: boolean; }
 const {title, description = 'Explore Earth, its atmosphere and the night sky.'} = Astro.props;
 const site = Astro.site ?? Astro.url;
 const image = new URL('/og.jpg', site).href;
 const canonical = new URL(Astro.url.pathname, site).href;
 ---
 <!doctype html>
-<html lang="en" class="orbital-page">
+<html lang="en" class="explorer-page">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

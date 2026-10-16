@@ -48,14 +48,14 @@ def restart_browser():
     driver.set_script_timeout(180)
 
 STATE = """
-const s=document.querySelector('orbital-sky'),c=s?.querySelector('canvas');
+const s=document.querySelector('earthlight-explorer'),c=s?.querySelector('canvas');
 const g=c?.getContext('webgl')||c?.getContext('webgl2'),e=g?.getExtension('WEBGL_debug_renderer_info');
 return {state:{...s?.dataset},width:c?.width,height:c?.height,
   viewport:[innerWidth,innerHeight,devicePixelRatio],visibility:document.visibilityState,
   renderer:e&&g.getParameter(e.UNMASKED_RENDERER_WEBGL),extensions:g?.getSupportedExtensions()};
 """
 SETTLED = """
-const s=document.querySelector('orbital-sky');return s&&s.dataset.focus==='sharp'&&
+const s=document.querySelector('earthlight-explorer');return s&&s.dataset.focus==='sharp'&&
 s.dataset.assetPhase==='settled'&&
 (Number(s.dataset.cameraAltitude)>1529||!s.dataset.cloudLighting||s.dataset.cloudLighting!=='texture'||
  (s.dataset.cloudLightingReady==='1'&&s.dataset.cloudLightingProgress==='0'))&&
@@ -65,7 +65,7 @@ s.dataset.assetPhase==='settled'&&
 MEASURE = """
 const done=arguments[arguments.length-1];
 (async()=>{
- const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
+ const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
  const priorErrors=[];for(let i=0;i<16;i++){const e=g.getError();if(!e)break;priorErrors.push(e);}
  const native=g.getExtension('EXT_disjoint_timer_query_webgl2');
  const ext=native?{TIME_ELAPSED_EXT:native.TIME_ELAPSED_EXT,GPU_DISJOINT_EXT:native.GPU_DISJOINT_EXT,
@@ -109,7 +109,7 @@ const done=arguments[arguments.length-1];
     })().catch(reject);
    }
   };
-  s.querySelector('.sky-track input').dispatchEvent(new Event('input'));
+  s.querySelector('.explorer-track input').dispatchEvent(new Event('input'));
  });
  for(const mode of ['whole','passes'])for(let i=0;i<(mode==='whole'?32:16);i++){
   const value=await measure(mode);if(i>=8)samples.push({mode,...value});
@@ -194,7 +194,7 @@ try:
    if expected!="original" and (not state.get("bake") or state["bake"].get("ms") is None):raise RuntimeError("Missing bake timing: "+json.dumps(state))
    measured=driver.execute_async_script(MEASURE)
    if "error" in measured:raise RuntimeError(measured["error"])
-   driver.execute_script("const s=document.createElement('style');s.textContent='orbital-sky > :not(canvas){visibility:hidden!important}';document.head.append(s)")
+   driver.execute_script("const s=document.createElement('style');s.textContent='earthlight-explorer > :not(canvas){visibility:hidden!important}';document.head.append(s)")
    driver.save_screenshot(str(output/(scene+"-"+variant+".png")))
    row={"scene":scene,"variant":variant,"params":params,**state,"measurement":measured}
    results["runs"].append(row)

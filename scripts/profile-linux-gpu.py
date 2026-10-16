@@ -44,14 +44,14 @@ def restart_browser():
     driver.set_script_timeout(180)
 
 STATE = """
-const s=document.querySelector('orbital-sky'),c=s?.querySelector('canvas');
+const s=document.querySelector('earthlight-explorer'),c=s?.querySelector('canvas');
 const g=c?.getContext('webgl')||c?.getContext('webgl2'),e=g?.getExtension('WEBGL_debug_renderer_info');
 return {state:{...s?.dataset},width:c?.width,height:c?.height,
   viewport:[innerWidth,innerHeight,devicePixelRatio],visibility:document.visibilityState,
   renderer:e&&g.getParameter(e.UNMASKED_RENDERER_WEBGL),extensions:g?.getSupportedExtensions()};
 """
 SETTLED = """
-const s=document.querySelector('orbital-sky');return s&&s.dataset.focus==='sharp'&&
+const s=document.querySelector('earthlight-explorer');return s&&s.dataset.focus==='sharp'&&
 s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&
 (!s.dataset.cloudLighting||s.dataset.cloudLighting!=='texture'||
  (s.dataset.cloudLightingReady==='1'&&s.dataset.cloudLightingProgress==='0'))&&
@@ -61,7 +61,7 @@ s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&
 MEASURE = """
 const done=arguments[arguments.length-1];
 (async()=>{
- const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
+ const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
  const priorErrors=[];for(let i=0;i<16;i++){const e=g.getError();if(!e)break;priorErrors.push(e);}
  const native=g.getExtension('EXT_disjoint_timer_query_webgl2');
  const ext=native?{TIME_ELAPSED_EXT:native.TIME_ELAPSED_EXT,GPU_DISJOINT_EXT:native.GPU_DISJOINT_EXT,
@@ -105,7 +105,7 @@ const done=arguments[arguments.length-1];
     })().catch(reject);
    }
   };
-  s.querySelector('.sky-track input').dispatchEvent(new Event('input'));
+  s.querySelector('.explorer-track input').dispatchEvent(new Event('input'));
  });
  for(const mode of ['whole','passes'])for(let i=0;i<24;i++){
   const value=await measure(mode);if(i>=8)samples.push({mode,...value});
@@ -115,7 +115,7 @@ const done=arguments[arguments.length-1];
 """
 CADENCE = """
 const seconds=arguments[0],done=arguments[arguments.length-1];
-const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
+const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
 const draw=g.drawArrays,bind=g.bindFramebuffer,upload=g.texSubImage2D,frames=[],rafs=[],longTasks=[],uploads=[];
 let target=g.getParameter(g.FRAMEBUFFER_BINDING),active=true;
 g.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};

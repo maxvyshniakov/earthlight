@@ -1,4 +1,4 @@
-import {fragmentSource,vertexSource} from './orbital-shader';
+import {fragmentSource,vertexSource} from './scene-shader';
 import {ShaderProgramBatch} from './shader-programs';
 import {shaderLod,textureImage2D} from './webgl-context';
 

@@ -25,8 +25,8 @@ test('DEM regridding preserves slopes, shared half-degree gutters and numeric mi
  }
 });
 test('DEM proxy accepts only the fixed public dataset and handles upstream failures',async()=>{
- for(const path of ['/media/orbit/dem90/N90E000.tif','/media/orbit/dem90/S00W000.tif','/media/orbit/dem90/N41E180.tif','/media/orbit/dem90/https://example.com','/other/N41W114.tif'])assert.equal(terrainSource(path),null);
- const url='http://localhost/media/orbit/dem90/N41W114.tif';
+ for(const path of ['/media/earthlight/dem90/N90E000.tif','/media/earthlight/dem90/S00W000.tif','/media/earthlight/dem90/N41E180.tif','/media/earthlight/dem90/https://example.com','/other/N41W114.tif'])assert.equal(terrainSource(path),null);
+ const url='http://localhost/media/earthlight/dem90/N41W114.tif';
  const response=await terrainResponse(new Request(url),async(u,options)=>{
   assert.match(u,/^https:\/\/copernicus-dem-90m.s3.amazonaws.com\/Copernicus_DSM_COG_30_N41_00_W114_00_DEM\//);
   assert.equal(options.redirect,'manual');return new Response('dem',{headers:{'content-length':'3'}});

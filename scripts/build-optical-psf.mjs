@@ -82,7 +82,7 @@ for(let c=0;c<3;c++){
 }
 for(let i=0;i<size*size;i++)for(let c=0;c<3;c++)bytes[(state*size*size+i)*3+c]=Math.round(Math.max(0,Math.min(1,(Math.log2(cropped[c][i])+24)/26))*255);
 }
-const directory=new URL('../public/media/orbit/',import.meta.url);
+const directory=new URL('../public/media/earthlight/',import.meta.url);
 writeFileSync(new URL('optical-psf.bin',directory),bytes);
 writeFileSync(new URL('../src/data/optical-psf.json',import.meta.url),JSON.stringify({size,states,span,integral},null,2)+'\n');
 console.log({bytes:bytes.length,integral});

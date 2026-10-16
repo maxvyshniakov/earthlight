@@ -5,9 +5,9 @@ import {gunzipSync} from 'node:zlib';
 import {packStars,unpackStars} from '../src/scripts/star-pack.ts';
 
 test('packed star catalog keeps positions, motion and photometry within rendering tolerance',()=>{
- const source=readFileSync(new URL('../public/media/orbit/stars-hyg.bin',import.meta.url));
+ const source=readFileSync(new URL('../public/media/earthlight/stars-hyg.bin',import.meta.url));
  const original=new Float32Array(source.buffer,source.byteOffset,source.byteLength/4);
- const shipped=unpackStars(new Uint8Array(gunzipSync(readFileSync(new URL('../public/media/orbit/stars-hyg-v2.bin',import.meta.url)))));
+ const shipped=unpackStars(new Uint8Array(gunzipSync(readFileSync(new URL('../public/media/earthlight/stars-hyg-v2.bin',import.meta.url)))));
  assert.deepEqual(unpackStars(packStars(original)),shipped,'shipped file matches the packer');
  assert.equal(shipped.length,original.length);
  let direction=0,drift=0,photometry=0;

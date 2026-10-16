@@ -12,7 +12,7 @@ export function visibleSourceDisk(camera: number[], direction: number[], radius:
 
 // A data-driven photographic preset, not a ray trace of a named objective.
 // Aperture matches the rounded six-blade pupil used by build-optical-psf.mjs.
-// References and deliberate approximations are documented in orbital-sky.md.
+// References and deliberate approximations are documented in scene.md.
 // Upper bound on integrated reflected luminance at the default slider. The
 // coating is illustrative, but ghost area can no longer create source energy.
 // A ghost is two reflections; at ~0.5% per multicoated air-glass surface the

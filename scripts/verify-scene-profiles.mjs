@@ -3,13 +3,13 @@ import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4347',out='/tmp/orbit-profile-checks']=process.argv.slice(2);
+const [base='http://127.0.0.1:4347',out='/tmp/earthlight-profile-checks']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const session=`profile-checks-${process.pid}`;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:90000,maxBuffer:8e6})).stdout;
 const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));
-const wait=()=>run('wait','--fn',`document.querySelector('orbital-sky')?.dataset.focus==='sharp'&&document.querySelector('orbital-sky').dataset.exposure==='settled'`);
-const state=()=>evaluate(`(()=>{const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas');return {profile:s.dataset.renderProfile,volume:s.dataset.volumePass,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,scale:s.dataset.renderScale,grain:s.querySelector('[data-look=grain]').value,rate:s.querySelector('.sky-speed input').value,motion:s.querySelector('.sky-motion').getAttribute('aria-label'),width:c.width,height:c.height,api:s.dataset.renderApi,error:(c.getContext('webgl2')??c.getContext('webgl')).getError()}})()`);
+const wait=()=>run('wait','--fn',`document.querySelector('earthlight-explorer')?.dataset.focus==='sharp'&&document.querySelector('earthlight-explorer').dataset.exposure==='settled'`);
+const state=()=>evaluate(`(()=>{const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas');return {profile:s.dataset.renderProfile,volume:s.dataset.volumePass,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,scale:s.dataset.renderScale,grain:s.querySelector('[data-look=grain]').value,rate:s.querySelector('.explorer-speed input').value,motion:s.querySelector('.explorer-motion').getAttribute('aria-label'),width:c.width,height:c.height,api:s.dataset.renderApi,error:(c.getContext('webgl2')??c.getContext('webgl')).getError()}})()`);
 const results={};
 try{
   await run('set','viewport','1440','900');
@@ -19,7 +19,7 @@ try{
   assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#scene-profile optgroup[label="Controls"] option'),o=>o.value)`),['split','lighting']);
   assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#scene-profile option'),o=>o.value)`),['reference','compact','clouds-half','split','lighting']);
   const before=await state();assert.equal(before.profile,'compact');
-  await evaluate(`(()=>{const s=document.querySelector('orbital-sky');for(const [selector,value] of [['[data-look=grain]','.5'],['.sky-speed input','0']]){const i=s.querySelector(selector);i.value=value;i.dispatchEvent(new Event('input'));}return true;})()`);
+  await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');for(const [selector,value] of [['[data-look=grain]','.5'],['.explorer-speed input','0']]){const i=s.querySelector(selector);i.value=value;i.dispatchEvent(new Event('input'));}return true;})()`);
   for(const profile of ['split','lighting','clouds-half','reference','compact']){
     await run('select','#scene-profile',profile);await wait();
     const after=await state();
@@ -31,12 +31,12 @@ try{
   }
   // Count complete camera passes, not RAF callbacks or individual GPU draws.
   results.motion=await evaluate(`(async()=>{
-    const s=document.querySelector('orbital-sky'),gl=s.querySelector('canvas').getContext('webgl');
+    const s=document.querySelector('earthlight-explorer'),gl=s.querySelector('canvas').getContext('webgl');
     const draw=gl.drawArrays,bind=gl.bindFramebuffer;let target=gl.getParameter(gl.FRAMEBUFFER_BINDING),frames=0;
     gl.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};
     gl.drawArrays=function(...a){if(target===null)frames++;return draw.apply(this,a);};
     try{
-      const button=s.querySelector('.sky-motion');button.click();const start=performance.now();
+      const button=s.querySelector('.explorer-motion');button.click();const start=performance.now();
       await new Promise(r=>setTimeout(r,5000));button.click();
       const fps=frames*1000/(performance.now()-start),pausedAt=performance.now(),diagnostics=[];
       const snapshot=()=>({elapsedMs:Math.round(performance.now()-pausedAt),focus:s.dataset.focus,exposure:s.dataset.exposure,assetPhase:s.dataset.assetPhase,
@@ -58,14 +58,14 @@ try{
   assert.ok(results.motion.fps>20&&results.motion.fps<25.5,JSON.stringify(results.motion));assert.equal(results.motion.error,0);assert.equal(results.motion.idleFrames,0);
   console.log('Switching preserves camera, pause, image settings and speed; 24 fps cadence and idle passed',{fps:results.motion.fps,idleFrames:results.motion.idleFrames,settledAfterMs:results.motion.settledAfterMs});
   await evaluate(`(async()=>{const c=document.querySelector('canvas'),gl=c.getContext('webgl'),e=gl.getExtension('WEBGL_lose_context');const lost=new Promise(r=>c.addEventListener('webglcontextlost',r,{once:true}));e.loseContext();await lost;gl.getError();const restored=new Promise(r=>c.addEventListener('webglcontextrestored',r,{once:true}));setTimeout(()=>e.restoreContext(),200);await restored;return true;})()`);
-  await run('wait','--fn',`document.querySelector('orbital-sky').hasAttribute('data-ready')&&document.querySelector('orbital-sky').dataset.assetPhase==='settled'`);
+  await run('wait','--fn',`document.querySelector('earthlight-explorer').hasAttribute('data-ready')&&document.querySelector('earthlight-explorer').dataset.assetPhase==='settled'`);
   await wait();results.restored=await state();assert.equal(results.restored.profile,'compact');assert.equal(results.restored.scale,'1.00');assert.equal(results.restored.error,0);
   await run('set','viewport','390','844');await wait();
   results.mobile=await evaluate(`(()=>{const box=document.querySelector('.scene-comparison').getBoundingClientRect();return {left:box.left,right:box.right,width:innerWidth,scrollWidth:document.documentElement.scrollWidth,profile:document.querySelector('#scene-profile').value};})()`);
   assert.ok(results.mobile.left>=0&&results.mobile.right<=results.mobile.width);assert.equal(results.mobile.scrollWidth,results.mobile.width);
   await run('screenshot',`${out}/mobile.png`);
   await run('open',`${base}/?render=compact&compare=1&motion=0&t=3235.65&epoch=2026-10-06T01:32:27Z`);await wait();
-  results.homeLink=await evaluate(`document.querySelector('.sky-orbit-link').href`);
+  results.homeLink=await evaluate(`document.querySelector('.explorer-link').href`);
   assert.equal(new URL(results.homeLink).searchParams.get('render'),'compact');
   await run('open',`${base}/?motion=0`);await wait();
   assert.equal(await evaluate(`document.querySelector('.scene-comparison').hidden`),true);

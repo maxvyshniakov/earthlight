@@ -9,7 +9,7 @@ The personal site consumes its package. Do not copy source from that consumer.
 Background and explorer share the renderer and photographic defaults; background
 must not install keyboard, wheel, touch or navigation controls.
 
-Large assets are generated under `public/media/orbit` and published as an
+Large assets are generated under `public/media/earthlight` and published as an
 immutable, checksummed manifest to R2. `bun run assets:prepare` creates the
 manifest and compact background fallback for packaging. Never commit large
 source datasets or credentials. Keep provenance and attribution with assets.
@@ -21,4 +21,5 @@ and updates personal-site `dev`, and is finished when both deliveries have a
 final result.
 
 Documentation is maintained here. Dated experiments live under `docs/lab`.
+Name code, markup and URL parameters with the terms in `docs/glossary.md`.
 Keep the README public-facing and free of machine paths or private content.

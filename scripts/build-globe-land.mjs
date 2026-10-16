@@ -5,7 +5,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {decodeTerrain} from '../src/scripts/earth-terrain.ts';
 
-const raw=gunzipSync(readFileSync(new URL('../public/media/orbit/earth-terrain-4096.dem',import.meta.url)));
+const raw=gunzipSync(readFileSync(new URL('../public/media/earthlight/earth-terrain-4096.dem',import.meta.url)));
 const {levels}=decodeTerrain(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength));
 const level=levels.find(l=>l.width===128);
 if(!level)throw Error('No 128-wide terrain level');

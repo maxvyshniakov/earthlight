@@ -183,7 +183,7 @@ unchanged.
 
 On 2026-10-13 the owner accepted the configuration with `viewScale=0.1`
 on the phone; it became the explorer default, each switch keeping a way back
-to the old path (see `docs/orbital-sky.md`).
+to the old path (see `docs/scene.md`).
 
 ## Resolution by view
 

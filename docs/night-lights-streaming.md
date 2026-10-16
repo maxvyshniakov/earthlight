@@ -75,7 +75,7 @@ Download all eight `BlackMarble_2016_{A,B,C,D}{1,2}_gray.jpg` files from NASA's
 maps page into a directory outside the repository, then run:
 
 ```sh
-bun scripts/build-night-tiles.mjs /tmp/orbital-reference
+bun scripts/build-night-tiles.mjs /tmp/earthlight-reference
 bun run verify
 ```
 

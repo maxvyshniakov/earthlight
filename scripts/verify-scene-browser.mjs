@@ -7,7 +7,7 @@ import { galacticLightShader } from '../src/scripts/galactic-light.ts';
 import { surfaceMapShader } from '../src/scripts/surface-map.ts';
 import { airglowLightShader } from '../src/scripts/airglow-light.ts';
 // Uses an isolated agent-browser session; never attaches to the user's tab.
-// bun run verify:scene http://127.0.0.1:4322 /tmp/orbit-browser-proof
+// bun run verify:scene http://127.0.0.1:4322 /tmp/earthlight-browser-proof
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
@@ -33,7 +33,7 @@ import {START_DATE} from '../src/scripts/iss-orbit.ts';
 import {atmosphericLightShader} from '../src/scripts/atmospheric-light.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4322',out='/tmp/orbit-browser-proof']=process.argv.slice(2);
+const [base='http://127.0.0.1:4322',out='/tmp/earthlight-browser-proof']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const session=`scene-proof-${process.pid}`;
 const run=async(...args)=>{
@@ -45,14 +45,14 @@ const run=async(...args)=>{
 };
 const evaluate=async js=>JSON.parse(await run('eval','--base64',Buffer.from(js).toString('base64')));
 const wait=condition=>run('wait','--fn',condition);
-const settled="document.querySelector('orbital-sky').dataset.assetPhase==='settled'&&document.querySelector('orbital-sky').dataset.focus==='sharp'";
+const settled="document.querySelector('earthlight-explorer').dataset.assetPhase==='settled'&&document.querySelector('earthlight-explorer').dataset.focus==='sharp'";
 const results=[];
 const cameraFinishSource=await readFile(new URL('../src/scripts/camera-finish.ts',import.meta.url),'utf8');
 const sensorFixture='precision highp float;uniform float grainAmount;uniform sampler2D poisson;uniform float signal;uniform float iso;'
  +cameraFinishSource.slice(cameraFinishSource.indexOf('float hash(vec2 p)'),cameraFinishSource.indexOf('void main()'))
   .replaceAll('${POISSON_ROWS-1}','1023').replaceAll('${POISSON_ROWS}','1024')
  +'void main(){float v=sensorChannel(signal,iso,gl_FragCoord.xy)*5.;gl_FragColor=vec4(v,v,v,1.);}';
-const sceneShader=await readFile(new URL('../src/scripts/orbital-shader.ts',import.meta.url),'utf8');
+const sceneShader=await readFile(new URL('../src/scripts/scene-shader.ts',import.meta.url),'utf8');
 const highlightFixture=`precision highp float;
 ${cameraFinishSource.slice(cameraFinishSource.indexOf('vec3 cameraHighlights('),cameraFinishSource.indexOf('void main()'))}
 void main(){
@@ -302,12 +302,12 @@ try{
  for(const pose of ['t=900&yaw=79&pitch=-10','t=1200&yaw=100&pitch=-10','t=900&yaw=79&pitch=-10&aurora=0']){
   await run('open',`${base}/?${pose}&motion=0`);await wait(settled);
   assert.equal(await evaluate("document.querySelector('canvas').getContext('webgl').getError()"),0);
-  assert.equal(await evaluate("document.querySelector('orbital-sky').dataset.aurora"),pose.includes('aurora=0')?'off':'volume');
+  assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.aurora"),pose.includes('aurora=0')?'off':'volume');
   await run('screenshot',`${out}/aurora-${pose.replaceAll('&','-').replaceAll('=','_')}.png`);
  }
  for(const time of [0,1000,1338.89,2488.10,2753.09,4156.13,4594.06]){
   await run('open',`${base}/?t=${time}&motion=0&quality=fixed`);await wait(settled);
-  const state=await evaluate(`(()=>{const e=document.querySelector('orbital-sky'),i=e.querySelector('[data-look=grain]');i.value='0';i.dispatchEvent(new Event('input'));const c=e.querySelector('canvas'),gl=c.getContext('webgl');return {time:${time},ready:e.hasAttribute('data-ready'),error:gl.getError(),data:{...e.dataset},canvas:[c.width,c.height]};})()`);
+  const state=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),i=e.querySelector('[data-look=grain]');i.value='0';i.dispatchEvent(new Event('input'));const c=e.querySelector('canvas'),gl=c.getContext('webgl');return {time:${time},ready:e.hasAttribute('data-ready'),error:gl.getError(),data:{...e.dataset},canvas:[c.width,c.height]};})()`);
   assert.equal(state.ready,true);assert.equal(state.error,0);assert.equal(state.data.assetFailures,'0');
   assert.deepEqual([state.data.terrainWork,state.data.terrainRefinement,state.data.cloudSteps],['bounded','pixel','balanced']);
   if(state.data.terrainTiles){const terrain=JSON.parse(state.data.terrainTiles);for(const [field,name] of [['cacheMode','SCENE_TERRAIN_CACHE'],['decoderMode','SCENE_TERRAIN_DECODER'],['sourceMode','SCENE_TERRAIN_SOURCE']])if(process.env[name])assert.equal(terrain[field],process.env[name]);if(process.env.SCENE_TERRAIN_SOURCE==='packed')assert.equal(terrain.packedFallbacks,0);}
@@ -316,21 +316,21 @@ try{
  // The historical renderer remains available for matched comparisons.
  if(process.env.SCENE_TERRAIN_SOURCE==='packed'){
   await run('open',`${base}/?t=3235.65&pitch=-25&motion=0&quality=fixed`);await wait(settled);
-  const terrain=await evaluate(`JSON.parse(document.querySelector('orbital-sky').dataset.terrainTiles)`);
+  const terrain=await evaluate(`JSON.parse(document.querySelector('earthlight-explorer').dataset.terrainTiles)`);
   assert.equal(terrain.sourceMode,'packed');assert.ok(terrain.packedDecodes>0);assert.equal(terrain.packedFallbacks,0);assert.ok(terrain.fineResident>0);
   console.log('prepared terrain: actual packed residents, no TIFF error fallback');
  }
  await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&terrainWork=legacy&terrainRefinement=full&cloudSteps=full`);await wait(settled);
- const legacyWork=await evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {work:[e.dataset.terrainWork,e.dataset.terrainRefinement,e.dataset.cloudSteps],failures:e.dataset.assetFailures,error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
+ const legacyWork=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {work:[e.dataset.terrainWork,e.dataset.terrainRefinement,e.dataset.cloudSteps],failures:e.dataset.assetFailures,error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
  assert.deepEqual(legacyWork.work,['legacy','full','full']);assert.equal(legacyWork.failures,'0');assert.equal(legacyWork.error,0);
  results.push({legacyWork});console.log('ray work: optimized defaults and explicit legacy settings render cleanly');
  // Refine failures must retain preview images and still complete focus.
  for(const failure of ['psf','detail','all']){
   await run('open',`${base}/?t=1338.89&motion=0&quality=fixed`);await wait(settled);
-  await evaluate(`(()=>{const original=fetch.bind(window);window.fetch=(url,o)=>{const u=String(url),fail=${JSON.stringify(failure)};return (u.includes('/media/orbit/')&&(fail==='all'||fail==='psf'&&u.includes('optical-psf')||fail==='detail'&&!u.includes('/preview/')&&!u.includes('stars-hyg')&&!u.includes('optical-psf')))?Promise.resolve(new Response('',{status:503})):original(url,o);};const e=document.querySelector('orbital-sky'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(!['composition','astroCidNouzbqmj'].includes(key))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
-  await wait("document.querySelector('orbital-sky').dataset.assetPhase==='settled'");
-  if(failure!=='all')await wait("document.querySelector('orbital-sky').dataset.focus==='sharp'");
-  const state=await evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {failure:${JSON.stringify(failure)},ready:e.hasAttribute('data-ready'),data:{...e.dataset},fallback:getComputedStyle(e.querySelector('.sky-fallback')).backgroundImage};})()`);
+  await evaluate(`(()=>{const original=fetch.bind(window);window.fetch=(url,o)=>{const u=String(url),fail=${JSON.stringify(failure)};return (u.includes('/media/earthlight/')&&(fail==='all'||fail==='psf'&&u.includes('optical-psf')||fail==='detail'&&!u.includes('/preview/')&&!u.includes('stars-hyg')&&!u.includes('optical-psf')))?Promise.resolve(new Response('',{status:503})):original(url,o);};const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(!['composition','astroCidNouzbqmj'].includes(key))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
+  await wait("document.querySelector('earthlight-explorer').dataset.assetPhase==='settled'");
+  if(failure!=='all')await wait("document.querySelector('earthlight-explorer').dataset.focus==='sharp'");
+  const state=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {failure:${JSON.stringify(failure)},ready:e.hasAttribute('data-ready'),data:{...e.dataset},fallback:getComputedStyle(e.querySelector('.explorer-fallback')).backgroundImage};})()`);
   assert.equal(state.ready,failure!=='all');assert.ok(Number(state.data.assetFailures)>0);
   if(failure==='all')assert.ok(state.fallback.includes('poster.webp'));
   results.push(state);console.log(`failure ${failure}: fallback works`);
@@ -338,7 +338,7 @@ try{
  // Lose the context while decoded inputs and strip uploads are queued.
  await run('open',`${base}/?t=2488.10&motion=0`);
  await evaluate(`(()=>{
-  const old=document.querySelector('orbital-sky'),e=old.cloneNode(true);
+  const old=document.querySelector('earthlight-explorer'),e=old.cloneNode(true);
   for(const key of Object.keys(e.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete e.dataset[key];
   old.replaceWith(e);
   const gl=e.querySelector('canvas').getContext('webgl'),native=gl.texSubImage2D.bind(gl);
@@ -354,65 +354,65 @@ try{
   };
   return true;
  })()`);
- await wait("window.loadingContextLost&&document.querySelector('orbital-sky').hasAttribute('data-terrain-ready')&&"+settled);
+ await wait("window.loadingContextLost&&document.querySelector('earthlight-explorer').hasAttribute('data-terrain-ready')&&"+settled);
  assert.equal(await evaluate("document.querySelector('canvas').getContext('webgl').getError()"),0);
- assert.equal(await evaluate("document.querySelector('orbital-sky').dataset.assetFailures"),'0');
+ assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.assetFailures"),'0');
  results.push({loadingContextRestored:true});console.log('queued uploads: context restoration works');
  await run('set','viewport','390','844');await run('open',`${base}/?t=2488.10&motion=0`);await wait(settled);
- await evaluate(`(()=>{const e=document.querySelector('orbital-sky'),gl=e.querySelector('canvas').getContext('webgl');const ext=gl.getExtension('WEBGL_lose_context');window.restoreScene=()=>ext.restoreContext();ext.loseContext();return true;})()`);
- await wait("!document.querySelector('orbital-sky').hasAttribute('data-ready')");
+ await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),gl=e.querySelector('canvas').getContext('webgl');const ext=gl.getExtension('WEBGL_lose_context');window.restoreScene=()=>ext.restoreContext();ext.loseContext();return true;})()`);
+ await wait("!document.querySelector('earthlight-explorer').hasAttribute('data-ready')");
  await evaluate('window.restoreScene();true');
- await wait("document.querySelector('orbital-sky').hasAttribute('data-terrain-ready')&&document.querySelector('orbital-sky').hasAttribute('data-ready')");
+ await wait("document.querySelector('earthlight-explorer').hasAttribute('data-terrain-ready')&&document.querySelector('earthlight-explorer').hasAttribute('data-ready')");
  const restored=true;
  assert.equal(await evaluate("document.querySelector('canvas').getContext('webgl').getError()"),0);
  await run('screenshot',`${out}/mobile-restored.png`);results.push({mobileContextRestored:restored});
- assert.equal(await evaluate("document.querySelector('orbital-sky').dataset.dayMapWidth"),'2048');
+ assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.dayMapWidth"),'2048');
  // A real viewport resize must still update the targets and camera aspect.
  await run('set','viewport','844','390');
  await wait("document.querySelector('canvas').width>document.querySelector('canvas').height");
  const landscape=await evaluate(`(()=>{const c=document.querySelector('canvas');return {css:[c.clientWidth,c.clientHeight],buffer:[c.width,c.height],error:c.getContext('webgl').getError()};})()`);
  assert.deepEqual(landscape.css,[844,390]);assert.equal(landscape.error,0);
- assert.equal(await evaluate("document.querySelector('orbital-sky').dataset.dayMapWidth"),'2048');
+ assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.dayMapWidth"),'2048');
  // Crossing the render-pixel threshold promotes only the color overview.
  // Shrinking again must not download/downgrade it repeatedly.
  await run('set','viewport','1600','900');
- await wait("document.querySelector('orbital-sky').dataset.dayMapWidth==='4096'");
+ await wait("document.querySelector('earthlight-explorer').dataset.dayMapWidth==='4096'");
  await run('set','viewport','390','844');
  await wait("document.querySelector('canvas').height>document.querySelector('canvas').width");
- assert.equal(await evaluate("document.querySelector('orbital-sky').dataset.dayMapWidth"),'4096');
+ assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.dayMapWidth"),'4096');
  results.push({viewportRotation:landscape});console.log('viewport rotation: targets follow the new aspect');
  // Exercise actual RAF playback, pause and seek without relying on a screenshot.
- const motion=await evaluate(`(()=>{const e=document.querySelector('orbital-sky'),gl=e.querySelector('canvas').getContext('webgl'),native=gl.drawArrays.bind(gl);let frames=0;gl.drawArrays=(...a)=>{if(a[0]===gl.POINTS)frames++;return native(...a);};const button=e.querySelector('.sky-motion'),seek=e.querySelector('.sky-track input');seek.value='45';seek.dispatchEvent(new Event('input'));if(button.getAttribute('aria-label')==='Play')button.click();const start=performance.now();return new Promise(resolve=>setTimeout(()=>{button.click();gl.drawArrays=native;resolve({fps:frames*1000/(performance.now()-start),error:gl.getError(),scale:e.dataset.renderScale});},6000));})()`);
+ const motion=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),gl=e.querySelector('canvas').getContext('webgl'),native=gl.drawArrays.bind(gl);let frames=0;gl.drawArrays=(...a)=>{if(a[0]===gl.POINTS)frames++;return native(...a);};const button=e.querySelector('.explorer-motion'),seek=e.querySelector('.explorer-track input');seek.value='45';seek.dispatchEvent(new Event('input'));if(button.getAttribute('aria-label')==='Play')button.click();const start=performance.now();return new Promise(resolve=>setTimeout(()=>{button.click();gl.drawArrays=native;resolve({fps:frames*1000/(performance.now()-start),error:gl.getError(),scale:e.dataset.renderScale});},6000));})()`);
  assert.equal(motion.error,0);assert.ok(motion.fps>10);results.push(motion);console.log('motion',motion);
  // Exercise the guaranteed WebGL-1 sampler budget, without optional cloud LOD.
  // Without the pin, a missing LOD extension would select WebGL 2 instead.
  await run('open',`${base}/?t=2488.10&motion=0&quality=fixed&api=webgl`);await wait(settled);
- await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,get=p.getParameter,extension=p.getExtension;p.getParameter=function(key){return key===this.MAX_TEXTURE_IMAGE_UNITS?8:key===this.MAX_TEXTURE_SIZE?4096:get.call(this,key);};p.getExtension=function(name){return name==='EXT_shader_texture_lod'?null:extension.call(this,name);};const e=document.querySelector('orbital-sky'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
+ await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,get=p.getParameter,extension=p.getExtension;p.getParameter=function(key){return key===this.MAX_TEXTURE_IMAGE_UNITS?8:key===this.MAX_TEXTURE_SIZE?4096:get.call(this,key);};p.getExtension=function(name){return name==='EXT_shader_texture_lod'?null:extension.call(this,name);};const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
  await wait(settled);
- const basic=await evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {ready:e.hasAttribute('data-ready'),terrain:e.hasAttribute('data-terrain-ready'),error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
+ const basic=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {ready:e.hasAttribute('data-ready'),terrain:e.hasAttribute('data-terrain-ready'),error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
  assert.equal(basic.ready,true);assert.equal(basic.terrain,false);assert.equal(basic.error,0);results.push({basicCapabilities:basic});console.log('basic WebGL capabilities: fallback works');
  // Save-Data must suppress both large overview maps and streamed detail.
  await run('open',`${base}/?t=2488.10&motion=0`);await wait(settled);
- await evaluate(`(()=>{Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true}});performance.clearResourceTimings();window.saveDataStarted=performance.now();const e=document.querySelector('orbital-sky'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
+ await evaluate(`(()=>{Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true}});performance.clearResourceTimings();window.saveDataStarted=performance.now();const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
  await wait(settled);
  // Clearing completed entries does not remove prior in-flight DEM requests.
- const compact=await evaluate(`performance.getEntriesByType('resource').filter(x=>x.startTime>=window.saveDataStarted&&x.name.includes('/media/orbit/')).map(x=>x.name)`);
+ const compact=await evaluate(`performance.getEntriesByType('resource').filter(x=>x.startTime>=window.saveDataStarted&&x.name.includes('/media/earthlight/')).map(x=>x.name)`);
  assert.ok(compact.length>=6);assert.ok(compact.every(x=>x.includes('/preview/')||x.endsWith('stars-hyg-v2.bin')||x.endsWith('optical-psf-v2.bin')));results.push({saveDataRequests:compact.length});
  console.log('save-data: no large maps or tiles');
  // Slow optional detail must not leave the scene permanently defocused.
  await run('open',`${base}/?t=1000&motion=0`);await wait(settled);
- const focus=await evaluate(`(()=>{const original=fetch.bind(window);window.fetch=async(u,o)=>{if(String(u).includes('/media/orbit/')&&!String(u).includes('/preview/')&&!String(u).endsWith('.bin'))await new Promise(r=>setTimeout(r,8000));return original(u,o);};const e=document.querySelector('orbital-sky'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];e.replaceWith(copy);const start=performance.now(),samples=[];return new Promise(resolve=>{const timer=setInterval(()=>{samples.push({at:performance.now()-start,radius:Number(copy.dataset.focusRadius),filter:getComputedStyle(copy.querySelector('canvas')).filter,focus:copy.dataset.focus,assets:copy.dataset.assetPhase});if(copy.dataset.focus==='sharp'||performance.now()-start>10000){clearInterval(timer);resolve(samples);}},100);});})()`);
+ const focus=await evaluate(`(()=>{const original=fetch.bind(window);window.fetch=async(u,o)=>{if(String(u).includes('/media/earthlight/')&&!String(u).includes('/preview/')&&!String(u).endsWith('.bin'))await new Promise(r=>setTimeout(r,8000));return original(u,o);};const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];e.replaceWith(copy);const start=performance.now(),samples=[];return new Promise(resolve=>{const timer=setInterval(()=>{samples.push({at:performance.now()-start,radius:Number(copy.dataset.focusRadius),filter:getComputedStyle(copy.querySelector('canvas')).filter,focus:copy.dataset.focus,assets:copy.dataset.assetPhase});if(copy.dataset.focus==='sharp'||performance.now()-start>10000){clearInterval(timer);resolve(samples);}},100);});})()`);
  assert.ok(focus.some(x=>x.focus==='acquiring'&&x.radius>0&&x.filter==='none'));assert.equal(focus.at(-1).focus,'sharp');assert.notEqual(focus.at(-1).assets,'settled');results.push({slowFocus:focus});console.log('slow detail: focus deadline works');
  // An optical fixture checks the actual GPU kernel, rather than matching shader text:
  // defocusing must spread a point while preserving integrated linear light.
  // A fixed exposure keeps the sharp point's clipping independent of metering.
  for(const byteTarget of [false,true]){
  await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&exposure-mode=manual&exposure-fixed=-0.7`);await wait(settled);
- await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,source=p.shaderSource,get=p.getUniformLocation,set=p.uniform1f,names=new WeakMap();window.fixtureRadius=0;const fetchImage=window.fetch.bind(window);window.fetch=async(u,o)=>{if(String(u).includes('/media/orbit/')&&!String(u).includes('/preview/')&&!String(u).endsWith('.bin'))await new Promise(r=>setTimeout(r,8000));return fetchImage(u,o);};if(${byteTarget}){const ext=p.getExtension;p.getExtension=function(name){return name==='OES_texture_half_float'?null:ext.call(this,name);};}p.shaderSource=function(shader,text){if(text.includes('CameraFinish owns defocus'))text=text.slice(0,text.indexOf('void main()'))+'void main(){vec2 d=abs(gl_FragCoord.xy-resolution*.5);float v=d.x<4.&&d.y<4.?.2:.02;vec3 color=displayToLinear(vec3(v));gl_FragColor=sceneLinear>.5?vec4(color,1.):packSceneRadiance(color);}';return source.call(this,shader,text);};p.getUniformLocation=function(prog,name){const loc=get.call(this,prog,name);if(loc)names.set(loc,name);return loc;};p.uniform1f=function(loc,v){return set.call(this,loc,names.get(loc)==='focusRadius'?window.fixtureRadius:v);};const e=document.querySelector('orbital-sky'),copy=e.cloneNode(true);for(const k of Object.keys(copy.dataset))if(k!=='composition'&&!k.startsWith('astro'))delete copy.dataset[k];e.replaceWith(copy);return true;})()`);
- await wait("document.querySelector('orbital-sky').hasAttribute('data-ready')");
+ await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,source=p.shaderSource,get=p.getUniformLocation,set=p.uniform1f,names=new WeakMap();window.fixtureRadius=0;const fetchImage=window.fetch.bind(window);window.fetch=async(u,o)=>{if(String(u).includes('/media/earthlight/')&&!String(u).includes('/preview/')&&!String(u).endsWith('.bin'))await new Promise(r=>setTimeout(r,8000));return fetchImage(u,o);};if(${byteTarget}){const ext=p.getExtension;p.getExtension=function(name){return name==='OES_texture_half_float'?null:ext.call(this,name);};}p.shaderSource=function(shader,text){if(text.includes('CameraFinish owns defocus'))text=text.slice(0,text.indexOf('void main()'))+'void main(){vec2 d=abs(gl_FragCoord.xy-resolution*.5);float v=d.x<4.&&d.y<4.?.2:.02;vec3 color=displayToLinear(vec3(v));gl_FragColor=sceneLinear>.5?vec4(color,1.):packSceneRadiance(color);}';return source.call(this,shader,text);};p.getUniformLocation=function(prog,name){const loc=get.call(this,prog,name);if(loc)names.set(loc,name);return loc;};p.uniform1f=function(loc,v){return set.call(this,loc,names.get(loc)==='focusRadius'?window.fixtureRadius:v);};const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const k of Object.keys(copy.dataset))if(k!=='composition'&&!k.startsWith('astro'))delete copy.dataset[k];e.replaceWith(copy);return true;})()`);
+ await wait("document.querySelector('earthlight-explorer').hasAttribute('data-ready')");
  await run('wait','1800');
  const optical=await evaluate(`(async()=>{
-  const e=document.querySelector('orbital-sky'),gl=e.querySelector('canvas').getContext('webgl');
+  const e=document.querySelector('earthlight-explorer'),gl=e.querySelector('canvas').getContext('webgl');
   // UI invalidation is asynchronous. Read inside the final camera pass, before
   // the browser clears the non-preserved drawing buffer for presentation.
   const capture=(size,dx,dy)=>new Promise(resolve=>{
@@ -451,7 +451,7 @@ try{
  }
  await run('set','viewport','1440','966');
  await run('open',`${base}/?t=900&motion=0`);await wait(settled);
- const viewState=()=>evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {yaw:Number(e.dataset.cameraYaw),pitch:Number(e.dataset.cameraPitch),motion:e.querySelector('.sky-motion').getAttribute('aria-label'),dragging:document.querySelector('.orbit-view').hasAttribute('data-camera-dragging'),url:location.search};})()`);
+ const viewState=()=>evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {yaw:Number(e.dataset.cameraYaw),pitch:Number(e.dataset.cameraPitch),motion:e.querySelector('.explorer-motion').getAttribute('aria-label'),dragging:document.querySelector('.explorer-view').hasAttribute('data-camera-dragging'),url:location.search};})()`);
  // The middle button looks, as it pans in design tools.
  await run('mouse','move','600','400');await run('mouse','down','middle');
  await run('mouse','move','853','553');await run('mouse','up','middle');
@@ -464,15 +464,15 @@ try{
  await run('reload');await wait(settled);
  assert.equal((await viewState()).yaw,dragged.yaw);
  // A control click must not begin a camera drag, and dragging must not pause playback.
- await run('click','.sky-settings-toggle');
+ await run('click','.explorer-settings-toggle');
  assert.equal((await viewState()).yaw,dragged.yaw);
  // The settings drawer slides in; once it has arrived, Space's key on the HUD
  // starts time (Settings no longer carries a play button on the explorer).
- await wait("document.querySelector('#sky-settings').matches(':popover-open')&&!document.querySelector('#sky-settings').getAnimations().length");
+ await wait("document.querySelector('#explorer-settings').matches(':popover-open')&&!document.querySelector('#explorer-settings').getAnimations().length");
  await run('click','.time-key');
  await run('mouse','move','500','400');await run('mouse','down');await run('mouse','move','550','440');await run('mouse','up');
  assert.equal((await viewState()).motion,'Pause');
- await evaluate("document.querySelector('.sky-motion').click();true");
+ await evaluate("document.querySelector('.explorer-motion').click();true");
  await run('mouse','move','500','400');await run('mouse','down');
  await evaluate("window.dispatchEvent(new Event('blur'));true");
  assert.equal((await viewState()).dragging,false);await run('mouse','up');
@@ -489,12 +489,12 @@ try{
  const pausedLink=new URLSearchParams(await evaluate('location.search'));
  assert.equal(pausedLink.get('motion'),'0');assert.ok(Number.isFinite(Number(pausedLink.get('t'))));
  // A slider Settings still shows on the explorer; the HUD carries camera direction.
- await evaluate("document.querySelector('#sky-settings').showPopover();document.querySelector('[data-look=grain]').focus();true");
+ await evaluate("document.querySelector('#explorer-settings').showPopover();document.querySelector('[data-look=grain]').focus();true");
  await run('press','Space');assert.equal((await viewState()).motion,'Play');
  results.push({spacePlayback:true});console.log('space: toggles playback, ignores repeats and focused sliders');
  const canvasResize=await verifyCanvasResize({run,evaluate,wait,base});results.push({canvasResize});console.log('canvas resize: repaints before presentation',canvasResize);
  const textureBitmap=await verifyTextureBitmap(evaluate);results.push({textureBitmap});console.log('texture crops: exact numeric bytes at atlas edges',textureBitmap);
- const flight=await verifyFlight({run,evaluate,wait,base});results.push({flight});console.log('flight: routes, bounds, pause, URL restoration and input ownership',flight);
+ const flight=await verifyFlight({run,evaluate,wait,base});results.push({flight});console.log('flight: orbits, bounds, pause, URL restoration and input ownership',flight);
  const touch=await verifyTouch({run,evaluate,wait,base});results.push({touch});console.log('touch: look, pan, pinch and native controls',touch);
  const swipes=await verifySwipeRecovery({run,evaluate,wait,base});results.push({swipes});console.log('swipes: bounded uploads and paused recovery',swipes);
  const calendar=await verifyCalendar({run,evaluate,wait,base});results.push({calendar});console.log('calendar: lighting, camera independence, URL restoration and reset',calendar);

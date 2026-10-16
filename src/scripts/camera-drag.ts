@@ -1,4 +1,4 @@
-import type { CameraController, CameraSession, CameraIntent } from './orbit-camera.ts';
+import type { CameraController, CameraSession, CameraIntent } from './camera-controller.ts';
 
 // Degrees per pixel at the image centre, from the lens focal length in
 // viewport heights (1.25 at the wide end), so the sky stays under the pointer.
@@ -7,18 +7,18 @@ export function draggedCamera(yaw:number,pitch:number,dx:number,dy:number,height
   return {yaw:((yaw-dx*degrees+180)%360+360)%360-180,pitch:Math.max(-90,Math.min(90,pitch+dy*degrees))};
 }
 // Wheels, drags and pinches over these stay theirs; the scene ignores them.
-export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.sky-panel,.sky-dialog,.sky-controls,.scene-comparison,.orbit-hud,.flight-help';
+export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.explorer-panel,.explorer-dialog,.explorer-controls,.scene-comparison,.flight-hud,.flight-help';
 
 /** Mouse and pen. The left button moves over Earth from anywhere; the middle
  * button, as it pans in design tools, or Shift, looks; Option/Alt twists the
  * image; the right button circles the point under the pointer. On a trackpad
  * the right button is a two-finger press, which looks instead: browsers report
- * both alike, so `secondaryLooks` says which device was in use. Orbit page only. */
+ * both alike, so `secondaryLooks` says which device was in use. Explorer only. */
 export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraIntent)=>void,secondaryLooks:()=>boolean=()=>false){
   let drag:{pointer:number;session:CameraSession;x:number;y:number}|null=null,frame=0;
   let hovering:{x:number;y:number}|null=null;
   const control=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
-  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1?'look':event.button===2?(secondaryLooks()?'look':'orbit'):event.button!==0?null:event.altKey?'roll':event.shiftKey?'look':'auto';
+  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1?'look':event.button===2?(secondaryLooks()?'look':'circle'):event.button!==0?null:event.altKey?'roll':event.shiftKey?'look':'auto';
   const flush=()=>{cancelAnimationFrame(frame);frame=0;drag?.session.move(drag.x,drag.y);};
   const end=(event?:PointerEvent)=>{
     if(!drag||(event&&event.pointerId!==drag.pointer))return;

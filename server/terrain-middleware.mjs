@@ -2,7 +2,7 @@ import {Readable} from 'node:stream';
 import {terrainResponse} from './terrain-source.mjs';
 
 export async function terrainMiddleware(req,res,next,fetcher=fetch){
-  if(!req.url?.startsWith('/media/orbit/dem90/'))return next();
+  if(!req.url?.startsWith('/media/earthlight/dem90/'))return next();
   const controller=new AbortController();res.on('close',()=>controller.abort());
   const result=await terrainResponse(new Request(new URL(req.url,'http://localhost'),{method:req.method,signal:controller.signal}),fetcher);
   if(res.destroyed){await result.body?.cancel();return;}

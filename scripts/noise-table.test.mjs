@@ -2,7 +2,7 @@ import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {noiseTableData,latticeValue,NOISE_TABLE_SIZE as N} from '../src/scripts/noise-table.ts';
 
-// Float mirror of the shader's latticeHash (orbital-shader.ts).
+// Float mirror of the shader's latticeHash (scene-shader.ts).
 const permute=x=>{const v=(34*x+1)*x;return v-289*Math.floor(v/289);};
 const latticeHash=(x,y)=>{const qx=x-289*Math.floor(x/289),qy=y-289*Math.floor(y/289);return permute(permute(qx)+qy)/289;};
 

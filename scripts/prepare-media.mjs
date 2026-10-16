@@ -9,7 +9,7 @@ const output=join(root,'.media',manifest.version),prefix=`earthlight/${manifest.
 await rm(output,{recursive:true,force:true});
 for(const file of manifest.files){
  if(file.bytes>25*1024*1024)throw Error(`Static Assets file exceeds 25 MiB: ${file.path}`);
- const input=join(root,'public/media/orbit',file.path),bytes=await readFile(input);
+ const input=join(root,'public/media/earthlight',file.path),bytes=await readFile(input);
  if(createHash('sha256').update(bytes).digest('hex')!==file.sha256)throw Error(`Asset changed: ${file.path}; run assets:prepare`);
  const target=join(output,prefix,file.path);await mkdir(dirname(target),{recursive:true});await copyFile(input,target);
 }

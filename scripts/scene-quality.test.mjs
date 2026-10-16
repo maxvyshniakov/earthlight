@@ -132,7 +132,7 @@ test('six consecutive severe stalls bypass the two-window delay',()=>{
  assert.equal(q.scale,.45);
 });
 
-// The same remainder-carrying frame limiter as orbital-sky.ts tick(). A loaded
+// The same remainder-carrying frame limiter as explorer.ts tick(). A loaded
 // GPU is modelled by delayed RAF callbacks on the refresh grid; it is not a
 // hardware performance model. Every callback, including skipped draws, is sent.
 function animation(q){

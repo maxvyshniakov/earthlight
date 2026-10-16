@@ -1,14 +1,14 @@
 import { gstime } from 'satellite.js';
 import { equatorialFrame } from './celestial-sky.ts';
-import { issFrame, EARTH_RADIUS_KM as R, ORBIT_SECONDS, START_DATE, add, scale, dot, cross, normalize, type Vec3, type CameraView } from './iss-orbit.ts';
+import { issFrame, EARTH_RADIUS_KM as R, ISS_PERIOD_SECONDS, START_DATE, add, scale, dot, cross, normalize, type Vec3, type CameraView } from './iss-orbit.ts';
 
-export type Route = 'iss'|'polar'|'high';
+export type Orbit = 'iss'|'polar'|'high';
 export type ObserverFrame = ReturnType<typeof issFrame>;
 export type Pose = {camera:Vec3;cameraBasis:number[]};
 export const MIN_ALTITUDE=150,MAX_ALTITUDE=50_000;
 /** Degrees of roll within which the horizon counts as level, so H turns the view over instead. */
 export const LEVEL_TOLERANCE=1;
-export const ROUTE_LABELS={iss:'ISS orbit replay',polar:'Polar orbit',high:'High orbit'};
+export const ORBIT_LABELS={iss:'ISS orbit replay',polar:'Polar orbit',high:'High orbit'};
 const rad=Math.PI/180;
 const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
 const tangent=(v:Vec3,n:Vec3)=>normalize(add(v,scale(n,-dot(v,n))));
@@ -16,7 +16,7 @@ const axis=(basis:number[],i:number)=>basis.slice(i,i+3) as Vec3;
 export const altitude=(position:Vec3)=>(Math.hypot(...position)-1)*R;
 export const altitudeAt=(position:number)=>MIN_ALTITUDE*(MAX_ALTITUDE/MIN_ALTITUDE)**clamp(position,0,1);
 export const altitudePosition=(km:number)=>clamp(Math.log(km/MIN_ALTITUDE)/Math.log(MAX_ALTITUDE/MIN_ALTITUDE),0,1);
-export const routePeriod=(route:Route)=>route==='iss'?ORBIT_SECONDS:2*Math.PI*Math.sqrt((R+(route==='polar'?800:20_000))**3/398600.4418);
+export const orbitPeriod=(orbit:Orbit)=>orbit==='iss'?ISS_PERIOD_SECONDS:2*Math.PI*Math.sqrt((R+(orbit==='polar'?800:20_000))**3/398600.4418);
 
 function basisAt(position:Vec3,reference:Vec3,view:CameraView,elevation:number,roll=0){
  const up=normalize(position),along=tangent(reference,up),side=normalize(cross(along,up));
@@ -34,15 +34,15 @@ function observer(date:Date,pose:Pose):ObserverFrame{
   shadow:solar<-Math.sqrt(1-1/(distance*distance))?1:0,
   phase:solar>.08?'Day':solar<-.12?'Night':'Twilight'};
 }
-export function routeFrame(route:Route,seconds:number,view:CameraView={yaw:0,pitch:0},limb=.138):ObserverFrame{
- if(route==='iss')return issFrame(seconds,limb,view);
- const date=new Date(START_DATE.getTime()+seconds*1000),angle=seconds/routePeriod(route)*2*Math.PI;
- const inclination=(route==='polar'?90:25)*rad,distance=1+(route==='polar'?800:20_000)/R;
+export function orbitFrame(orbit:Orbit,seconds:number,view:CameraView={yaw:0,pitch:0},limb=.138):ObserverFrame{
+ if(orbit==='iss')return issFrame(seconds,limb,view);
+ const date=new Date(START_DATE.getTime()+seconds*1000),angle=seconds/orbitPeriod(orbit)*2*Math.PI;
+ const inclination=(orbit==='polar'?90:25)*rad,distance=1+(orbit==='polar'?800:20_000)/R;
  const a=angle+.55,node=.7-gstime(date),c=Math.cos(node),s=Math.sin(node);
  const rotate=(v:Vec3):Vec3=>[c*v[0]-s*v[1],s*v[0]+c*v[1],v[2]];
  const camera=scale(rotate([Math.cos(a),Math.sin(a)*Math.cos(inclination),Math.sin(a)*Math.sin(inclination)]),distance);
  const along=rotate([-Math.sin(a),Math.cos(a)*Math.cos(inclination),Math.cos(a)*Math.sin(inclination)]);
- const elevation=route==='high'?-Math.PI/2:-Math.acos(1/distance)+Math.atan((.5-limb)/1.25);
+ const elevation=orbit==='high'?-Math.PI/2:-Math.acos(1/distance)+Math.atan((.5-limb)/1.25);
  return observer(date,{camera,cameraBasis:basisAt(camera,along,view,elevation)});
 }
 
@@ -190,8 +190,8 @@ export function followLens(frame:Pose,view:CameraView,x:number,y:number,from:num
  }
  return {yaw:((view.yaw+yaw/rad+180)%360+360)%360-180,pitch:clamp(view.pitch+(next-pitch)/rad,-90,90)};
 }
-export class OrbitNavigation {
- route:Route='iss';
+export class FlightNavigation {
+ orbit:Orbit='iss';
  free:FreePose|null=null;
  /** Lens focal length in viewport heights; PROJECTION is 1×, and the lens runs from half that to twenty times it. */
  focal=PROJECTION;
@@ -226,7 +226,7 @@ export class OrbitNavigation {
    ||this.zooming!==null||this.flight!==null||this.grip!==null||this.leveling||this.facing!==null||this.homing!==null||this.transition!==null;
  }
  read(seconds:number,view:CameraView,now:number):ObserverFrame{
-  const target=this.free?observer(new Date(START_DATE.getTime()+seconds*1000),{camera:this.free.position,cameraBasis:this.free.basis}):routeFrame(this.route,seconds,view);
+  const target=this.free?observer(new Date(START_DATE.getTime()+seconds*1000),{camera:this.free.position,cameraBasis:this.free.basis}):orbitFrame(this.orbit,seconds,view);
   if(!this.transition)return target;
   const progress=clamp((now-this.transition.start)/1200,0,1);
   if(progress===1){this.transition=null;return target;}
@@ -236,8 +236,8 @@ export class OrbitNavigation {
   this.free={position:[...frame.camera],basis:[...frame.cameraBasis]};
   this.transition=null;this.stop();this.grip=null;
  }
- follow(route:Route,from:Pose,now:number,animate=true){
-  this.route=route;this.free=null;this.stop();this.grip=null;this.transition=animate?{from,start:now}:null;
+ follow(orbit:Orbit,from:Pose,now:number,animate=true){
+  this.orbit=orbit;this.free=null;this.stop();this.grip=null;this.transition=animate?{from,start:now}:null;
  }
  stop(){
   this.velocity=[0,0,0];this.motion=[0,0,0];this.coast=.12;this.climb=this.rolling=0;this.spin=[0,0];
@@ -344,7 +344,7 @@ export class OrbitNavigation {
   * `across` turns about the point's vertical, `up` raises the camera over it
   * (negative lowers it). The camera stays at least 5° above the point's
   * horizon, short of overhead, and above the lowest altitude. */
- orbitAbout(anchor:Vec3,across:number,up:number){
+ circleAbout(anchor:Vec3,across:number,up:number){
   if(!this.free)return;
   const pose=this.free,vertical=normalize(anchor);
   const turned=(about:Vec3,angle:number)=>({position:add(anchor,rotate(add(pose.position,scale(anchor,-1)),about,angle)),basis:orthonormal(turnBasis(pose.basis,about,angle))});
@@ -495,7 +495,7 @@ export class OrbitNavigation {
   return before.some((v,i)=>Math.abs(v-after[i])>1e-12);
  }
  restore(params:URLSearchParams){
-  const route=params.get('route');this.route=route==='polar'||route==='high'?route:'iss';
+  const orbit=params.get('orbit')??params.get('route');this.orbit=orbit==='polar'||orbit==='high'?orbit:'iss';
   const vector=(key:string)=>{const raw=params.get(key)?.split(',');const parts=raw?.map(Number);return parts?.length===3&&raw!.every(x=>x.trim()!=='')&&parts.every(x=>Number.isFinite(x)&&Math.abs(x)<100)?parts as Vec3:null;};
   const position=vector('position');
   if(params.get('flight')!=='free'||!position||Math.hypot(...position)<=1)return;
@@ -518,8 +518,8 @@ export class OrbitNavigation {
  }
 
  write(params:URLSearchParams){
-  for(const key of ['route','flight','position','heading','elevation','roll','orientation'])params.delete(key);
-  if(this.route!=='iss')params.set('route',this.route);
+  for(const key of ['orbit','route','flight','position','heading','elevation','roll','orientation'])params.delete(key);
+  if(this.orbit!=='iss')params.set('orbit',this.orbit);
   if(this.free){
    params.set('flight','free');params.set('position',this.free.position.map(v=>v.toFixed(8)).join(','));
    params.set('orientation',quaternion(this.free.basis).map(v=>v.toFixed(10)).join(','));

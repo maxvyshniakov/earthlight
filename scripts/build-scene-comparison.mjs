@@ -9,7 +9,7 @@ for(const file of ['reference.png',...rows.map(r=>r.file)]){
   for(let i=0;i<data.length;i++)data[i]=Math.round(Math.min(255,Math.pow(data[i]/255,1.5)*Math.pow(.036,1/2.2)*255*3));
   await sharp(data,{raw:{width:720,height:483,channels:3}}).resize(1440,966,{kernel:'nearest'}).png().toFile(path.join(out,'crop-'+file+'.png'));
 }
-const html=`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Orbital sky — сравнение сжатия</title>
+const html=`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Earthlight sky — сравнение сжатия</title>
 <style>body{margin:28px;background:#101214;color:#d9dcdf;font:15px/1.5 system-ui}h1{font-size:24px;font-weight:550}p{max-width:950px;color:#a5adb3}select,button{background:#22272b;color:inherit;border:1px solid #42494f;border-radius:6px;padding:9px;font:inherit}label{display:inline-flex;align-items:center;gap:8px;margin:0 12px 12px 0}.scroll{overflow:auto}.view{position:relative;max-width:1440px;width:100%;line-height:0}.view img{width:100%;display:block}.view .over{position:absolute;inset:0;clip-path:inset(0 50% 0 0)}.rule{position:absolute;top:0;bottom:0;left:50%;width:1px;background:#ddd}input[type=range]{width:min(800px,95vw)}.legend{display:flex;justify-content:space-between;max-width:1440px;margin:8px 0}table{border-collapse:collapse;margin-top:24px}td,th{text-align:left;padding:8px 18px 8px 0;border-bottom:1px solid #333}a{color:#b4cfec}</style>
 <h1>Сжатие Млечного Пути и пороги звёзд</h1>
 <p>Одинаковые кадры, камера, экспозиция и зерно. Слева — выбранный вариант; справа — исходник без потерь или полный каталог. Здесь сохранены кадры эксперимента. Для основной сцены выбран AVIF 50.</p>

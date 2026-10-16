@@ -18,7 +18,7 @@ const W4=4096,H4=2048,W8=8192,H8=4096;
 const probe=spawnSync('ffprobe',['-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','json',source]);
 const info=JSON.parse(probe.stdout).streams[0];
 if(info.width!==width||info.height!==height)throw Error('Expected NASA 16384 by 8192 Galactic EXR');
-const media=new URL('../public/media/orbit/',import.meta.url);
+const media=new URL('../public/media/earthlight/',import.meta.url);
 const staging=new URL('galaxy-tiles.next/',media),target=new URL('galaxy-tiles/',media);
 const rawPath=join(process.env.GALAXY_TMPDIR||tmpdir(),`galaxy-${process.pid}.f32`);
 const decode=spawnSync('ffmpeg',['-y','-v','error','-i',source,'-pix_fmt','gbrpf32le','-f','rawvideo',rawPath],{stdio:'inherit'});

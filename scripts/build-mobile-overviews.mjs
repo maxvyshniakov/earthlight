@@ -1,12 +1,12 @@
 // Build 2K candidates from the original NASA plates, without recompressing AVIF.
-// bun scripts/build-mobile-overviews.mjs /tmp/orbital-reference
+// bun scripts/build-mobile-overviews.mjs /tmp/earthlight-reference
 import sharp from 'sharp';
 import {mkdir,stat} from 'node:fs/promises';
 import {join} from 'node:path';
-const root=process.argv[2]||'/tmp/orbital-reference';
-const out='public/media/orbit/mobile';await mkdir(out,{recursive:true});
+const root=process.argv[2]||'/tmp/earthlight-reference';
+const out='public/media/earthlight/mobile';await mkdir(out,{recursive:true});
 // Rejected night/cloud candidates remain outside the published assets.
-const candidates=process.argv[3]||'/tmp/orbit-mobile-candidates';await mkdir(candidates,{recursive:true});
+const candidates=process.argv[3]||'/tmp/earthlight-mobile-candidates';await mkdir(candidates,{recursive:true});
 sharp.concurrency(2);sharp.cache(false);
 const encode={quality:65,effort:5,chromaSubsampling:'4:4:4',bitdepth:8};
 const day=[];

@@ -1,7 +1,7 @@
 // A single public dataset, not an arbitrary URL proxy. Shared by local Vite
 // and the Worker; the upstream bucket does not expose browser CORS headers.
 export function terrainSource(pathname) {
-  const match=/^\/media\/orbit\/dem90\/([NS])(\d{2})([EW])(\d{3})\.tif$/.exec(pathname);
+  const match=/^\/media\/earthlight\/dem90\/([NS])(\d{2})([EW])(\d{3})\.tif$/.exec(pathname);
   if(!match)return null;
   const [,ns,lat,ew,lon]=match;
   const south=Number(lat)*(ns==='S'?-1:1),west=Number(lon)*(ew==='W'?-1:1);

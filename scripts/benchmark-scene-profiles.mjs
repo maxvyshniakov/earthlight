@@ -1,5 +1,5 @@
 // Hardware GPU queries in an isolated browser; no synchronous GPU waits.
-// bun run benchmark:scene http://127.0.0.1:4347 /tmp/orbit-profiles
+// bun run benchmark:scene http://127.0.0.1:4347 /tmp/earthlight-profiles
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -7,26 +7,26 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import {sceneProfiles} from '../src/scripts/scene-profile.ts';
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4347',out='/tmp/orbit-profiles',only,selected='reference,compact,split,lighting']=process.argv.slice(2);
+const [base='http://127.0.0.1:4347',out='/tmp/earthlight-profiles',only,selected='reference,compact,split,lighting']=process.argv.slice(2);
 const profiles=selected.split(',');
 assert.equal(profiles[0],'reference','Start with reference for matching camera and image checks');
 assert.ok(profiles.every(name=>Object.hasOwn(sceneProfiles,name)),'Unknown render profile');
 await mkdir(out,{recursive:true});
-let sequence=0,session=`orbit-profiles-${process.pid}`;
+let sequence=0,session=`earthlight-profiles-${process.pid}`;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
 const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));
-const cases=[{name:'day',t:3235.65},{name:'night',t:610.87},{name:'horizon',t:3235.65,pitch:5},{name:'clouds',t:3235.65,pitch:-25},{name:'moon',t:1338.89},{name:'high',t:3235.65,route:'high'}].filter(scene=>!only||only==='all'||only.split(',').includes(scene.name));
+const cases=[{name:'day',t:3235.65},{name:'night',t:610.87},{name:'horizon',t:3235.65,pitch:5},{name:'clouds',t:3235.65,pitch:-25},{name:'moon',t:1338.89},{name:'high',t:3235.65,orbit:'high'}].filter(scene=>!only||only==='all'||only.split(',').includes(scene.name));
 assert.ok(cases.length,'Unknown scene name');
 const results=[];
 let browserOpen=false;
 try {
   for(const scene of cases)for(const profile of profiles){
-    session=`orbit-profiles-${process.pid}-${sequence++}`;browserOpen=true;
+    session=`earthlight-profiles-${process.pid}-${sequence++}`;browserOpen=true;
     const url=new URL('/',base);
-    for(const [key,value] of Object.entries({epoch:'2026-10-06T01:32:27Z',t:scene.t,route:scene.route??'iss',pitch:scene.pitch??0,motion:0,quality:'fixed',compare:1,render:profile}))url.searchParams.set(key,String(value));
+    for(const [key,value] of Object.entries({epoch:'2026-10-06T01:32:27Z',t:scene.t,orbit:scene.orbit??'iss',pitch:scene.pitch??0,motion:0,quality:'fixed',compare:1,render:profile}))url.searchParams.set(key,String(value));
     await run('open',url.href);
     await run('set','viewport','1440','900');
-    const settled=`(()=>{const s=document.querySelector('orbital-sky');return s?.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&['dayTiles','nightTiles','cloudTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
+    const settled=`(()=>{const s=document.querySelector('earthlight-explorer');return s?.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&['dayTiles','nightTiles','cloudTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
     // Cold browser runs may finish tile uploads near the CLI's 25 s limit;
     // metering needs another seven seconds after the last upload.
     try{await run('wait','--fn',settled);}catch(error){
@@ -34,7 +34,7 @@ try {
       await run('wait','--fn',settled);
     }
     const result=await evaluate(`(async()=>{
-      const sky=document.querySelector('orbital-sky'),canvas=sky.querySelector('canvas'),gl=canvas.getContext('webgl');
+      const sky=document.querySelector('earthlight-explorer'),canvas=sky.querySelector('canvas'),gl=canvas.getContext('webgl');
       const ext=gl.getExtension('EXT_disjoint_timer_query');
       if(!ext)throw Error('GPU timer queries unavailable; do not substitute CPU submission times');
       const debug=gl.getExtension('WEBGL_debug_renderer_info');

@@ -12,7 +12,7 @@ export async function verifyTerrainHeights(evaluate){
  for(const summit of summitChecks){
   const x=(summit.lon+180)*60-.5,y=(90-summit.lat)*60-.5;
   const tx=Math.floor((x+.5)/540),ty=Math.floor((y+.5)/540),id=ty*40+tx;
-  const {data,info}=await sharp(new URL(`../public/media/orbit/terrain-tiles/${id}.png`,import.meta.url).pathname).raw().toBuffer({resolveWithObject:true});
+  const {data,info}=await sharp(new URL(`../public/media/earthlight/terrain-tiles/${id}.png`,import.meta.url).pathname).raw().toBuffer({resolveWithObject:true});
   const at=(x,y)=>{const i=((y-ty*540+16)*1144+x-tx*540+16)*info.channels;return (data[i]*256+data[i+1])*8;};
   const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;
   const expected=(at(ix,iy)*(1-fx)+at(ix+1,iy)*fx)*(1-fy)+(at(ix,iy+1)*(1-fx)+at(ix+1,iy+1)*fx)*fy;
@@ -48,7 +48,7 @@ void main(){
  gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));gl.useProgram(p);
  const texture=(unit,size)=>{gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,gl.createTexture());gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,size,size,0,gl.RGBA,gl.UNSIGNED_BYTE,null);for(const f of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,f,gl.LINEAR);for(const f of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,f,gl.CLAMP_TO_EDGE);};
  texture(1,1);gl.uniform1i(gl.getUniformLocation(p,'terrainMap'),1);
- texture(0,1716);const image=await createImageBitmap(await (await fetch('/media/orbit/terrain-tiles/${id}.png')).blob(),{colorSpaceConversion:'none',premultiplyAlpha:'none'});
+ texture(0,1716);const image=await createImageBitmap(await (await fetch('/media/earthlight/terrain-tiles/${id}.png')).blob(),{colorSpaceConversion:'none',premultiplyAlpha:'none'});
  gl.texSubImage2D(gl.TEXTURE_2D,0,572,0,gl.RGBA,gl.UNSIGNED_BYTE,image);image.close();
  gl.texSubImage2D(gl.TEXTURE_2D,0,${tx},${ty},1,1,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([1,0,0,255]));
  // This summit fixture samples fully resident terrain, including at tile edges.

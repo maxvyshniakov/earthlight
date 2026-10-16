@@ -1,4 +1,4 @@
-import { attitude, MIN_ALTITUDE, MAX_ALTITUDE, PROJECTION, type ObserverFrame, type Route } from './orbit-navigation.ts';
+import { attitude, MIN_ALTITUDE, MAX_ALTITUDE, PROJECTION, type ObserverFrame, type Orbit } from './flight-navigation.ts';
 import { shellCoverage, SHELL } from './scene-view-scale.ts';
 import { EARTH_RADIUS_KM, add, cross, dot, normalize, scale, type Vec3 } from './iss-orbit.ts';
 import { dayOfYear, daysInYear } from './scene-calendar.ts';
@@ -59,11 +59,11 @@ const arc=(centre:number,half:number)=>{
 // Whole magnifications read as such; in between, one decimal, as a phone camera shows.
 const lensLabel=(zoom:number)=>zoom>=9.95||Math.abs(zoom-Math.round(zoom))<.05?String(Math.round(zoom)):zoom.toFixed(1);
 
-/** Orbit page instruments: a replay clock, camera presets, logarithmic altitude
+/** Explorer instruments: a replay clock, camera presets, logarithmic altitude
  * and lens tapes, a horizon gauge and the controls panel. Help covers only the
  * inputs this device has. Pure presentation; navigation happens through the
  * callbacks. */
-export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;free:()=>void;altitude:(km:number)=>void;current:()=>number;
+export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;free:()=>void;altitude:(km:number)=>void;current:()=>number;
   /** Lens magnification about the image centre, LENS_MIN–LENS_MAX; animated unless told otherwise. */
   lens:(zoom:number,animate?:boolean)=>void;lensZoom:()=>number;
   /** Press or release a held flight key, as the keyboard would. */
@@ -78,9 +78,9 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   setDay:(day:number)=>void;setMinute:(minute:number)=>void;
   /** The time scale, 0 while time stands still; set it (0 stops time), or step it by hundredths of the scale. */
   speed:()=>number;setSpeed:(speed:number)=>void;stepSpeed:(notches:number)=>void}){
-  const hud=root.querySelector<HTMLElement>('.orbit-hud'),help=root.querySelector<HTMLElement>('#flight-help'),info=root.querySelector<HTMLElement>('#sky-info');
+  const hud=root.querySelector<HTMLElement>('.flight-hud'),help=root.querySelector<HTMLElement>('#flight-help'),info=root.querySelector<HTMLElement>('#explorer-info');
   if(!hud||!help||!info)return null;
-  const tape=hud.querySelector<HTMLElement>('#sky-altitude')!,output=hud.querySelector<HTMLOutputElement>('.altitude-output')!;
+  const tape=hud.querySelector<HTMLElement>('#explorer-altitude')!,output=hud.querySelector<HTMLOutputElement>('.altitude-output')!;
   // The dial's fill and the cuts in its mask turn together, from the variables on the dial.
   const gauge=hud.querySelector<HTMLElement>('.hud-attitude')!,horizon=gauge.querySelector<SVGElement>('.gauge')!;
   // The Sun's and Moon's cut-outs in the gauge's masks move with their markers.
@@ -88,8 +88,8 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   const moonMark=gauge.querySelector<SVGGElement>('.gauge-moon')!,moonCuts=[...gauge.querySelectorAll<SVGPathElement>('.gauge-moon-cut')];
   const pulseTemplate=hud.querySelector<HTMLElement>('.hud-pulse')!;
   const fpm=hud.querySelector<HTMLElement>('.hud-fpm')!,speed=fpm.querySelector<HTMLElement>('.hud-speed')!,canvas=root.querySelector('canvas')!;
-  const modeButtons=[...hud.querySelectorAll<HTMLButtonElement>('.hud-modes :is([data-route],[data-flight-mode])')];
-  const lensTape=hud.querySelector<HTMLElement>('#sky-lens')!,lensOutput=hud.querySelector<HTMLOutputElement>('.lens-output')!;
+  const modeButtons=[...hud.querySelectorAll<HTMLButtonElement>('.hud-modes :is([data-orbit],[data-flight-mode])')];
+  const lensTape=hud.querySelector<HTMLElement>('#explorer-lens')!,lensOutput=hud.querySelector<HTMLOutputElement>('.lens-output')!;
   const timers=new Set<number>();
   const later=(fn:()=>void,ms:number)=>{const id=window.setTimeout(()=>{timers.delete(id);fn();},ms);timers.add(id);};
   // Option is a key only on Apple keyboards.
@@ -140,10 +140,10 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   };
   const tapeWheel=(event:WheelEvent)=>{event.preventDefault();o.altitude(clamp(o.current()*Math.exp(event.deltaY*.004),MIN_ALTITUDE,MAX_ALTITUDE));};
   // A pointer click hands focus back to the scene, so Space pauses again.
-  const refocus=(event:Event)=>{if((event as MouseEvent).detail>0)root.closest<HTMLElement>('.orbit-view')?.focus({preventScroll:true});};
+  const refocus=(event:Event)=>{if((event as MouseEvent).detail>0)root.closest<HTMLElement>('.explorer-view')?.focus({preventScroll:true});};
   const mode=(event:Event)=>{
     const button=event.currentTarget as HTMLButtonElement;
-    if(button.dataset.route)o.route(button.dataset.route as Route);else o.free();
+    if(button.dataset.orbit)o.orbit(button.dataset.orbit as Orbit);else o.free();
     refocus(event);
   };
   // The lens tape mirrors the altitude tape. A press eases to its point, a drag
@@ -177,7 +177,7 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
   // Key caps on the screen work as the keys: hold R, F, + or −, the roll keys or
   // the arrows; Space stops or starts time, 0 takes the lens to 1×, \ resets the camera.
   // Focus goes back to the scene, so the keyboard keeps working.
-  const scene=()=>root.closest<HTMLElement>('.orbit-view')?.focus({preventScroll:true});
+  const scene=()=>root.closest<HTMLElement>('.explorer-view')?.focus({preventScroll:true});
   const holdButtons=[...hud.querySelectorAll<HTMLButtonElement>('[data-hold]')];
   const holdDown=(event:PointerEvent)=>{
     if(!event.isPrimary||event.button!==0)return;
@@ -253,7 +253,7 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
     };
   };
   // The date tape spans a common year; a leap year's last day sits at its end.
-  const dayTape=hud.querySelector<HTMLElement>('#sky-day')!,minuteTape=hud.querySelector<HTMLElement>('#sky-minute')!,speedTape=hud.querySelector<HTMLElement>('#sky-speed')!;
+  const dayTape=hud.querySelector<HTMLElement>('#explorer-day')!,minuteTape=hud.querySelector<HTMLElement>('#explorer-minute')!,speedTape=hud.querySelector<HTMLElement>('#explorer-speed')!;
   let today={day:0,days:365,minute:0};
   const clockTapes=[
     sideways(dayTape,f=>o.setDay(Math.min(today.days-1,Math.round(f*365))),n=>o.setDay(clamp(today.day+n,0,today.days-1))),
@@ -372,7 +372,7 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
     const style=getComputedStyle(help),tab=helpTab.offsetHeight;
     const slid=style.transform==='none'?0:new DOMMatrixReadOnly(style.transform).m42;
     const shown=style.display==='none'?0:Math.max(0,help.offsetHeight+tab-slid);
-    root.style.setProperty('--sky-inset-bottom',`${Math.max(0,shown-tab)}px`);
+    root.style.setProperty('--explorer-inset-bottom',`${Math.max(0,shown-tab)}px`);
     root.style.setProperty('--hud-dock-lift',`${Math.min(shown,tab)}px`);
   };
   const dockSize=new ResizeObserver(dockInset);
@@ -412,7 +412,7 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
     get modality(){return modality;},
     toggleHelp(){help.togglePopover();},
     toggleInfo(){info.togglePopover();},
-    frame(frame:ObserverFrame&{focal?:number;sun?:Vec3},free:boolean,route:Route,motion:Vec3){
+    frame(frame:ObserverFrame&{focal?:number;sun?:Vec3},free:boolean,orbit:Orbit,motion:Vec3){
       // Flight path marker: where the camera is heading, and how fast, through the frame's lens.
       const focal=frame.focal??PROJECTION,b=frame.cameraBasis,kms=Math.hypot(...motion)*EARTH_RADIUS_KM,z=dot(motion,b.slice(6,9) as Vec3);
       const r=canvas.getBoundingClientRect();
@@ -487,10 +487,10 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
         mark(frame.sun,GAUGE.sunAt,sunRing,sunCuts,'sun');
         mark(celestialFrame(frame.date,frame.camera as Vec3).moon.slice(0,3) as Vec3,GAUGE.moonAt,moonMark,moonCuts,'moon');
       }
-      const current=free?'free':route;
+      const current=free?'free':orbit;
       if(shown.mode!==current){
         shown.mode=current;
-        for(const button of modeButtons)button.setAttribute('aria-pressed',String(button.dataset.route?!free&&button.dataset.route===route:free));
+        for(const button of modeButtons)button.setAttribute('aria-pressed',String(button.dataset.orbit?!free&&button.dataset.orbit===orbit:free));
       }
     },
     /** Pin the point a right-drag circles, or let it go (null), fading out. */
@@ -526,8 +526,8 @@ export function createOrbitHud(root:HTMLElement,o:{route:(route:Route)=>void;fre
       pressButtons.forEach(button=>button.removeEventListener('click',press));
       window.removeEventListener('pointerdown',touchSeen);
       help.removeEventListener('toggle',helpToggled);window.removeEventListener('keydown',helpEscape);helpGrid.removeEventListener('wheel',helpWheel);
-      dockSize.disconnect();cancelAnimationFrame(dockFrame);cancelAnimationFrame(earth.frame);root.style.removeProperty('--sky-inset-bottom');root.style.removeProperty('--hud-dock-lift');root.removeAttribute('data-controls-open');
+      dockSize.disconnect();cancelAnimationFrame(dockFrame);cancelAnimationFrame(earth.frame);root.style.removeProperty('--explorer-inset-bottom');root.style.removeProperty('--hud-dock-lift');root.removeAttribute('data-controls-open');
     },
   };
 }
-export type OrbitHud=NonNullable<ReturnType<typeof createOrbitHud>>;
+export type FlightHud=NonNullable<ReturnType<typeof createFlightHud>>;

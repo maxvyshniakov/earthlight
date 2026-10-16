@@ -3,7 +3,7 @@
 import sharp from 'sharp';
 import {writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-const {data,info}=await sharp('public/media/orbit/earth-clouds-nasa-4096.avif').removeAlpha().raw().toBuffer({resolveWithObject:true});
+const {data,info}=await sharp('public/media/earthlight/earth-clouds-nasa-4096.avif').removeAlpha().raw().toBuffer({resolveWithObject:true});
 const random=n=>{const x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);};
 const norm=p=>{const l=Math.hypot(...p);return p.map(v=>v/l);};
 const dot=(a,b)=>a.reduce((v,x,i)=>v+x*b[i],0);

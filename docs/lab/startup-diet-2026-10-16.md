@@ -101,7 +101,7 @@ the score; it was left as is.
 - Software-rendered explorer sessions stay expensive by design: the explorer
   is opened deliberately and keeps rendering.
 - `verify:scene` passed up to the calendar fixture. That fixture failed
-  because a parallel edit to `orbital-sky.ts` in this working tree no longer
+  because a parallel edit to `explorer.ts` in this working tree no longer
   sets `data-moon-phase`.
 - New files (`*-v3.dem`, `*-v2.bin`) must be published with the asset
   manifest before deployment. Otherwise the explorer and background would

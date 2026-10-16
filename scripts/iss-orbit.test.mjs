@@ -1,30 +1,30 @@
 import { sceneComposition } from '../src/scripts/scene-viewport.ts';
-import {OrbitNavigation,routeFrame,routePeriod,blendPose,altitude,attitude,cameraRay,screenPoint,earthPoint,followLens,PROJECTION,MIN_ALTITUDE,MAX_ALTITUDE} from '../src/scripts/orbit-navigation.ts';
+import {FlightNavigation,orbitFrame,orbitPeriod,blendPose,altitude,attitude,cameraRay,screenPoint,earthPoint,followLens,PROJECTION,MIN_ALTITUDE,MAX_ALTITUDE} from '../src/scripts/flight-navigation.ts';
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import { OrbitPlayback } from '../src/scripts/orbit-playback.ts';
-import { issFrame, ORBIT_SECONDS, START_DATE, DEFAULT_ORBIT_SECONDS, initialOrbitSeconds, dot, add, scale, normalize } from '../src/scripts/iss-orbit.ts';
+import { SceneClock } from '../src/scripts/scene-clock.ts';
+import { issFrame, ISS_PERIOD_SECONDS, START_DATE, DEFAULT_SCENE_SECONDS, initialSceneSeconds, dot, add, scale, normalize } from '../src/scripts/iss-orbit.ts';
 
 test('orbit presets have distinct heights, periods and polar coverage',()=>{
- assert.equal(routePeriod('iss'),ORBIT_SECONDS);
- assert.ok(routePeriod('high')>routePeriod('polar')*5);
- for(const route of ['polar','high'])for(let i=0;i<20;i++){
-  const f=routeFrame(route,i*routePeriod(route)/20);
-  assert.ok(Math.abs(f.altitude-(route==='polar'?800:20000))<1e-8);
+ assert.equal(orbitPeriod('iss'),ISS_PERIOD_SECONDS);
+ assert.ok(orbitPeriod('high')>orbitPeriod('polar')*5);
+ for(const orbit of ['polar','high'])for(let i=0;i<20;i++){
+  const f=orbitFrame(orbit,i*orbitPeriod(orbit)/20);
+  assert.ok(Math.abs(f.altitude-(orbit==='polar'?800:20000))<1e-8);
   assert.ok(f.cameraBasis.every(Number.isFinite));
  }
- const north=routeFrame('polar',(Math.PI/2-.55)/(2*Math.PI)*routePeriod('polar'));
+ const north=orbitFrame('polar',(Math.PI/2-.55)/(2*Math.PI)*orbitPeriod('polar'));
  assert.ok(north.latitude>89.99);
 });
 
 test('detaching and restoring free flight preserve every camera ray',()=>{
- for(const route of ['iss','polar','high'])for(const view of [{yaw:131,pitch:-18},{yaw:-124,pitch:80},{yaw:0,pitch:0}]){
-  const nav=new OrbitNavigation();nav.route=route;
+ for(const orbit of ['iss','polar','high'])for(const view of [{yaw:131,pitch:-18},{yaw:-124,pitch:80},{yaw:0,pitch:0}]){
+  const nav=new FlightNavigation();nav.orbit=orbit;
   const before=nav.read(2300,view,0);nav.detach(before,view);
   const after=nav.read(2300,view,0);
   for(let i=0;i<9;i++)assert.ok(Math.abs(before.cameraBasis[i]-after.cameraBasis[i])<1e-7);
   assert.deepEqual(after.camera,before.camera);
-  const params=new URLSearchParams();nav.write(params);const restored=new OrbitNavigation();restored.restore(params);
+  const params=new URLSearchParams();nav.write(params);const restored=new FlightNavigation();restored.restore(params);
   const copy=restored.read(2300,view,0);
   for(let i=0;i<9;i++)assert.ok(Math.abs(copy.cameraBasis[i]-after.cameraBasis[i])<1e-7);
   for(let i=0;i<3;i++)assert.ok(Math.abs(copy.camera[i]-after.camera[i])<1e-7);
@@ -35,7 +35,7 @@ const project=(nav,point)=>{const b=nav.free.basis,d=add(point,scale(nav.free.po
 const horizon=nav=>attitude({camera:nav.free.position,cameraBasis:nav.free.basis});
 
 test('free movement respects altitude limits and clears momentum on interruption',()=>{
- const view={yaw:0,pitch:0},nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),view);
+ const view={yaw:0,pitch:0},nav=new FlightNavigation();nav.detach(orbitFrame('high',1000),view);
  for(let i=0;i<300;i++)nav.step(1/24,{climb:-1,fast:true});
  assert.ok(Math.abs(altitude(nav.free.position)-MIN_ALTITUDE)<1e-6);
  for(let i=0;i<350;i++)nav.step(1/24,{climb:1,fast:true});
@@ -47,19 +47,19 @@ test('free movement respects altitude limits and clears momentum on interruption
 });
 
 test('flying a lap keeps the view relative to the horizon, across both poles',()=>{
- for(const route of ['iss','polar']){
-  const nav=new OrbitNavigation();nav.detach(routeFrame(route,1000),{yaw:0,pitch:0});
+ for(const orbit of ['iss','polar']){
+  const nav=new FlightNavigation();nav.detach(orbitFrame(orbit,1000),{yaw:0,pitch:0});
   const start=horizon(nav),height=altitude(nav.free.position);let north=-90,south=90;
   for(let i=0;i<3000;i++){nav.step(.05,{forward:1,fast:true});const lat=Math.asin(normalize(nav.free.position)[2])*180/Math.PI;north=Math.max(north,lat);south=Math.min(south,lat);}
   const end=horizon(nav);
   assert.ok(Math.abs(end.pitch-start.pitch)<1e-6&&Math.abs(end.roll-start.roll)<1e-6,'pitch and roll survive the lap');
   assert.ok(Math.abs(altitude(nav.free.position)-height)<1e-6,'keys never change altitude');
-  if(route==='polar')assert.ok(north>89&&south<-89,'the polar lap crosses both poles');
+  if(orbit==='polar')assert.ok(north>89&&south<-89,'the polar lap crosses both poles');
  }
 });
 
 test('a grabbed Earth point stays under the pointer without rolling the horizon',()=>{
- const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+ const nav=new FlightNavigation();nav.detach(orbitFrame('high',1000),{yaw:0,pitch:0});
  nav.turn(4,-5);nav.roll(.3);
  const start=horizon(nav),hit=earthPoint(nav.free.position,cameraRay(nav.free.basis,.1,-.05));assert.ok(hit.hit);
  nav.grab(hit.point,.1,-.05);
@@ -75,7 +75,7 @@ test('a grabbed Earth point stays under the pointer without rolling the horizon'
 });
 
 test('smoothed dragging spreads a pointer burst over refreshes and lands where released',()=>{
- const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});nav.inputSmoothing=.06;
+ const nav=new FlightNavigation();nav.detach(orbitFrame('high',1000),{yaw:0,pitch:0});nav.inputSmoothing=.06;
  const hit=earthPoint(nav.free.position,cameraRay(nav.free.basis,0,0));assert.ok(hit.hit);
  nav.grab(hit.point,0,0);
  // Two events' worth of motion arrive at once; each refresh moves part of it.
@@ -89,7 +89,7 @@ test('smoothed dragging spreads a pointer burst over refreshes and lands where r
  assert.ok(Math.hypot(px-.1,py)<1e-4,`landed at ${px},${py}`);
 });
 test('looking around never tips a level horizon; a rolled camera looks about its own axes',()=>{
- const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});
+ const nav=new FlightNavigation();nav.detach(orbitFrame('iss',1000),{yaw:0,pitch:0});
  for(let k=0;k<20;k++)for(let i=0;i<64;i++){const a=i/32*Math.PI,b=(i+1)/32*Math.PI;nav.turnBetween(.3*Math.cos(a),.3*Math.sin(a),.3*Math.cos(b),.3*Math.sin(b));}
  assert.ok(Math.abs(horizon(nav).roll)<1e-6,'twenty circles of the pointer leave the horizon level');
  const sky=cameraRay(nav.free.basis,.2,.1);nav.turnBetween(.2,.1,.21,.12);
@@ -109,7 +109,7 @@ test('looking around never tips a level horizon; a rolled camera looks about its
 test('the horizon view levels and looks out along the heading, as an orbit at that height would',()=>{
  // Low, from straight down and rolled: the top of the image becomes the way
  // ahead, and the view matches the followed ISS orbit's limb composition.
- const iss=routeFrame('iss',1000),nav=new OrbitNavigation();nav.detach(iss,{yaw:0,pitch:0});
+ const iss=orbitFrame('iss',1000),nav=new FlightNavigation();nav.detach(iss,{yaw:0,pitch:0});
  const ahead=horizon(nav).heading;
  nav.face(()=>normalize(scale(nav.free.position,-1)),true);nav.roll(.7);
  const up=nav.free.basis.slice(3,6),down=normalize(scale(nav.free.position,-1));
@@ -121,11 +121,11 @@ test('the horizon view levels and looks out along the heading, as an orbit at th
  const dip=Math.acos(1/Math.hypot(...nav.free.position));
  assert.ok(Math.abs(Math.asin(dot(forward,vertical))-(Math.atan(.362/1.25)-dip))<1e-4,'the limb sits where the followed orbit puts it');
  // From the followed view itself, it changes nothing.
- const again=new OrbitNavigation();again.detach(iss,{yaw:0,pitch:0});again.horizon(true);
+ const again=new FlightNavigation();again.detach(iss,{yaw:0,pitch:0});again.horizon(true);
  for(let i=0;i<9;i++)assert.ok(Math.abs(again.free.basis[i]-iss.cameraBasis[i])<1e-6);
  assert.ok(Math.abs(ahead-horizon(again).heading)<1e-6);
  // High, Earth's whole disk fits in the frame, so the view centres it.
- const high=new OrbitNavigation();high.detach(routeFrame('high',1000),{yaw:0,pitch:0});high.turn(0,60);high.horizon(true);
+ const high=new FlightNavigation();high.detach(orbitFrame('high',1000),{yaw:0,pitch:0});high.turn(0,60);high.horizon(true);
  assert.ok(dot(high.free.basis.slice(6,9),normalize(scale(high.free.position,-1)))>1-1e-9,'Earth centred from high orbit');
  // Looking around interrupts the turn.
  nav.face(()=>normalize(scale(nav.free.position,-1)),true);nav.horizon();nav.step(1/60);nav.step(1/60,{yaw:1});
@@ -134,7 +134,7 @@ test('the horizon view levels and looks out along the heading, as an orbit at th
 
 test('a scroll spins the globe about its centre in the swipe direction, without running out',()=>{
  for(const [x,y] of [[.1,.05],[-.2,.1]]){
-  const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+  const nav=new FlightNavigation();nav.detach(orbitFrame('high',1000),{yaw:0,pitch:0});
   const point=earthPoint(nav.free.position,cameraRay(nav.free.basis,x,y)).point;
   nav.spinGlobe(0,.01,x,y);const [ux,uy]=project(nav,point);
   assert.ok(uy>y+.005&&Math.abs(ux-x)<.002,'a swipe up moves the touched surface straight up');
@@ -143,13 +143,13 @@ test('a scroll spins the globe about its centre in the swipe direction, without 
   assert.ok(Math.hypot(...start.map((v,i)=>v-nav.free.position[i]))>4,'past the limb it keeps turning');
  }
  // Over a horizon the same swipe slides the ground toward the horizon.
- const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});
+ const nav=new FlightNavigation();nav.detach(orbitFrame('iss',1000),{yaw:0,pitch:0});
  const ground=earthPoint(nav.free.position,cameraRay(nav.free.basis,0,-.42)).point;
  nav.spinGlobe(0,.02,0,-.42);assert.ok(project(nav,ground)[1]>-.42);
 });
 
 test('a flicked globe spin keeps turning the same way, capped, then coasts to rest',()=>{
- const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+ const nav=new FlightNavigation();nav.detach(orbitFrame('high',1000),{yaw:0,pitch:0});
  const point=earthPoint(nav.free.position,cameraRay(nav.free.basis,.1,.05)).point;
  nav.flingSpin(0,.5,.1,.05);assert.equal(nav.moving,true);
  nav.step(1/60);assert.ok(project(nav,point)[1]>.05,'the coast continues the swipe');
@@ -159,7 +159,7 @@ test('a flicked globe spin keeps turning the same way, capped, then coasts to re
 });
 
 test('zoom keeps the Earth point under the pointer, clips before Earth and never tunnels',()=>{
- const nav=new OrbitNavigation();nav.detach(routeFrame('high',0),{yaw:0,pitch:0});
+ const nav=new FlightNavigation();nav.detach(orbitFrame('high',0),{yaw:0,pitch:0});
  const hit=earthPoint(nav.free.position,cameraRay(nav.free.basis,.05,.03));
  for(let i=0;i<6;i++){nav.zoom(-.3,.05,.03);const [x,y]=project(nav,hit.point);assert.ok(Math.hypot(x-.05,y-.03)<1e-6);}
  const original=normalize(nav.free.position);
@@ -172,7 +172,7 @@ test('zoom keeps the Earth point under the pointer, clips before Earth and never
 
 test('climbing out of the horizon view keeps Earth in frame',()=>{
  for(const input of ['zoom','keys']){
-  const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});
+  const nav=new FlightNavigation();nav.detach(orbitFrame('iss',1000),{yaw:0,pitch:0});
   if(input==='zoom')for(let i=0;i<40;i++)nav.zoom(.3);else for(let i=0;i<300;i++)nav.step(1/24,{climb:1});
   assert.ok(altitude(nav.free.position)>MAX_ALTITUDE-1);
   const [x,y]=project(nav,[0,0,0]);assert.ok(Math.abs(x)<.5&&Math.abs(y)<.5,`Earth centre at ${x},${y}`);
@@ -180,7 +180,7 @@ test('climbing out of the horizon view keeps Earth in frame',()=>{
 });
 
 test('fly-to approaches a point and centres it; the sky is only centred',()=>{
- const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+ const nav=new FlightNavigation();nav.detach(orbitFrame('high',1000),{yaw:0,pitch:0});
  const hit=earthPoint(nav.free.position,cameraRay(nav.free.basis,.15,.05)),distance=Math.hypot(...add(hit.point,scale(nav.free.position,-1)));
  nav.flyTo(.15,.05,-Math.log(2),.5);for(let i=0;i<40;i++)nav.step(1/60);
  const [x,y]=project(nav,hit.point);assert.ok(Math.hypot(x,y)<1e-6);
@@ -191,38 +191,38 @@ test('fly-to approaches a point and centres it; the sky is only centred',()=>{
 });
 
 test('the lens keeps the direction under the pointer and never moves the camera',()=>{
- for(const route of ['iss','high']){
-  const nav=new OrbitNavigation();nav.detach(routeFrame(route,1000),{yaw:0,pitch:0});nav.turn(12,-7);
+ for(const orbit of ['iss','high']){
+  const nav=new FlightNavigation();nav.detach(orbitFrame(orbit,1000),{yaw:0,pitch:0});nav.turn(12,-7);
   const position=[...nav.free.position],start=horizon(nav);
   for(const [focal,x,y] of [[2.5,.3,-.2],[6,-.41,.18],[25,.05,.33],[1.9,-.6,-.4],[PROJECTION,.2,.1]]){
    const ray=cameraRay(nav.free.basis,x,y,nav.focal);nav.setLens(focal,x,y);
    const [px,py]=screenPoint(nav.free.basis,ray,focal);
-   assert.ok(Math.hypot(px-x,py-y)<1e-9,`${route} ray at ${px},${py} for ${x},${y}`);
+   assert.ok(Math.hypot(px-x,py-y)<1e-9,`${orbit} ray at ${px},${py} for ${x},${y}`);
    assert.deepEqual(nav.free.position,position,'zooming never moves the camera');
-   if(route==='iss')assert.ok(Math.abs(horizon(nav).roll-start.roll)<1e-3,'a level horizon stays level');
+   if(orbit==='iss')assert.ok(Math.abs(horizon(nav).roll-start.roll)<1e-3,'a level horizon stays level');
   }
   const basis=[...nav.free.basis];nav.setLens(9,0,0);nav.setLens(1.4);
   assert.deepEqual(nav.free.basis,basis,'zooming about the centre does not turn the camera');
  }
  // Look speed follows the lens: a key turns 60°/s at 1×, 6°/s at 10×.
- const turned=focal=>{const nav=new OrbitNavigation();nav.detach(routeFrame('iss',1000),{yaw:0,pitch:0});nav.focal=focal;
+ const turned=focal=>{const nav=new FlightNavigation();nav.detach(orbitFrame('iss',1000),{yaw:0,pitch:0});nav.focal=focal;
   const forward=nav.free.basis.slice(6,9);nav.step(.05,{yaw:1});return Math.acos(Math.min(1,dot(forward,nav.free.basis.slice(6,9))))*180/Math.PI;};
  assert.ok(Math.abs(turned(PROJECTION)/turned(10*PROJECTION)-10)<1e-6);
  // Hit tests and the spin of the globe use the lens too.
- const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});nav.setLens(4*PROJECTION);
+ const nav=new FlightNavigation();nav.detach(orbitFrame('high',1000),{yaw:0,pitch:0});nav.setLens(4*PROJECTION);
  const point=earthPoint(nav.free.position,cameraRay(nav.free.basis,.1,.05,nav.focal)).point;
  nav.spinGlobe(0,.002,.1,.05);const [ux,uy]=screenPoint(nav.free.basis,add(point,scale(nav.free.position,-1)),nav.focal);
  assert.ok(Math.abs(uy-.052)<2e-4&&Math.abs(ux-.1)<2e-4,`a zoomed swipe keeps pace with the finger: ${ux},${uy}`);
 });
 
 test('following an orbit, the lens re-aims yaw and pitch instead of detaching',()=>{
- const t=2300,frame=(route,view)=>routeFrame(route,t,view);
- for(const [route,view] of [['iss',{yaw:0,pitch:0}],['iss',{yaw:40,pitch:12}],['polar',{yaw:-150,pitch:-20}]]){
+ const t=2300,frame=(orbit,view)=>orbitFrame(orbit,t,view);
+ for(const [orbit,view] of [['iss',{yaw:0,pitch:0}],['iss',{yaw:40,pitch:12}],['polar',{yaw:-150,pitch:-20}]]){
   let current={...view},focal=PROJECTION;
-  const ray=cameraRay(frame(route,current).cameraBasis,.32,-.18,focal);
-  for(const next of [1.6,2.4,4,7.5,5]){current=followLens(frame(route,current),current,.32,-.18,focal,next*PROJECTION);focal=next*PROJECTION;}
-  const [x,y]=screenPoint(frame(route,current).cameraBasis,ray,focal);
-  assert.ok(Math.hypot(x-.32,y+.18)<1e-6,`${route} ${JSON.stringify(view)}: ${x},${y}`);
+  const ray=cameraRay(frame(orbit,current).cameraBasis,.32,-.18,focal);
+  for(const next of [1.6,2.4,4,7.5,5]){current=followLens(frame(orbit,current),current,.32,-.18,focal,next*PROJECTION);focal=next*PROJECTION;}
+  const [x,y]=screenPoint(frame(orbit,current).cameraBasis,ray,focal);
+  assert.ok(Math.hypot(x-.32,y+.18)<1e-6,`${orbit} ${JSON.stringify(view)}: ${x},${y}`);
   assert.ok(Math.abs(current.pitch)<=90&&Math.abs(current.yaw)<=180);
  }
  // Zooming about the centre leaves the view alone.
@@ -238,26 +238,26 @@ test('following an orbit, the lens re-aims yaw and pitch instead of detaching',(
 });
 
 test('free URLs restore the exact pose after moving',()=>{
- const nav=new OrbitNavigation();nav.detach(routeFrame('high',1000),{yaw:0,pitch:0});
+ const nav=new FlightNavigation();nav.detach(orbitFrame('high',1000),{yaw:0,pitch:0});
  nav.turn(35,24);for(let i=0;i<80;i++)nav.step(.04,{forward:.5,right:.5,climb:.5});
  const params=new URLSearchParams();nav.write(params);assert.ok(params.has('orientation'));assert.equal(params.has('heading'),false);
- const restored=new OrbitNavigation();restored.restore(params);
+ const restored=new FlightNavigation();restored.restore(params);
  for(let i=0;i<9;i++)assert.ok(Math.abs(restored.free.basis[i]-nav.free.basis[i])<1e-8);
  for(let i=0;i<3;i++)assert.ok(Math.abs(restored.free.position[i]-nav.free.position[i])<1e-7);
 });
 
 test('legacy Earth-relative links migrate once and malformed orientations are rejected',()=>{
  const params=new URLSearchParams('flight=free&position=0,0,4&heading=1,0,0&elevation=0&yaw=0&pitch=-90');
- const nav=new OrbitNavigation();nav.restore(params);
+ const nav=new FlightNavigation();nav.restore(params);
  assert.ok(dot(nav.read(0,{yaw:0,pitch:-90},0).forward,[0,0,-1])>.999999);
  nav.turn(30,0);assert.ok(Math.abs(dot(nav.read(0,{yaw:0,pitch:-90},0).forward,[0,-1,0])-.5)<1e-9);
  for(const orientation of ['0,0,0,0','NaN,0,0,1','1,2,3','0,,0,1','1e300,0,0,1']){
-  const bad=new OrbitNavigation();bad.restore(new URLSearchParams({flight:'free',position:'0,0,4',orientation}));assert.equal(bad.mode,'follow');
+  const bad=new FlightNavigation();bad.restore(new URLSearchParams({flight:'free',position:'0,0,4',orientation}));assert.equal(bad.mode,'follow');
  }
 });
 
-test('route transitions stay outside Earth and preserve orthogonal camera axes',()=>{
- const from=routeFrame('iss',1000),to=routeFrame('high',10000);
+test('orbit transitions stay outside Earth and preserve orthogonal camera axes',()=>{
+ const from=orbitFrame('iss',1000),to=orbitFrame('high',10000);
  for(let i=0;i<=20;i++){
   const pose=blendPose(from,to,i/20);
   assert.ok(altitude(pose.camera)>=MIN_ALTITUDE);
@@ -269,13 +269,13 @@ test('route transitions stay outside Earth and preserve orthogonal camera axes',
 
 test('malformed free-flight links cannot place the camera inside Earth or at infinity',()=>{
  for(const position of ['NaN,0,0','1e308,1e308,0','0,0,0',',,','2,0']){
-  const nav=new OrbitNavigation();nav.restore(new URLSearchParams({flight:'free',position,heading:'0,1,0',elevation:'0',route:'unknown'}));
-  assert.equal(nav.mode,'follow');assert.equal(nav.route,'iss');
+  const nav=new FlightNavigation();nav.restore(new URLSearchParams({flight:'free',position,heading:'0,1,0',elevation:'0',orbit:'unknown'}));
+  assert.equal(nav.mode,'follow');assert.equal(nav.orbit,'iss');
  }
 });
 
 test('playback keeps exact speed across delayed frames and resumes after repeated seeks',()=>{
-  const clock=new OrbitPlayback(1000,10);
+  const clock=new SceneClock(1000,10);
   clock.setRunning(true,100);
   for(const now of [116,141,208,731,1100])assert.equal(clock.read(now),1000+(now-100)/100);
   clock.setRunning(false,1100);
@@ -290,7 +290,7 @@ test('playback keeps exact speed across delayed frames and resumes after repeate
 });
 
 test('speed changes preserve the current time and suspension never catches up hidden time',()=>{
-  const clock=new OrbitPlayback(1000,10);
+  const clock=new SceneClock(1000,10);
   clock.setRunning(true,0);
   clock.setSpeed(2.5,1000);
   assert.equal(clock.read(1000),1010);
@@ -302,11 +302,11 @@ test('speed changes preserve the current time and suspension never catches up hi
 
 test('page entry starts before moonrise, while explicit frame links retain their timestamp',()=>{
   for(const query of ['', 'still=', 't=', 't=invalid', 't=Infinity', 't=1e100']) {
-    const seconds=initialOrbitSeconds(new URLSearchParams(query));
-    assert.equal(seconds,DEFAULT_ORBIT_SECONDS);
+    const seconds=initialSceneSeconds(new URLSearchParams(query));
+    assert.equal(seconds,DEFAULT_SCENE_SECONDS);
   }
   for(const seconds of [0,2708.46,172800.25,-600]) {
-    const initial=initialOrbitSeconds(new URLSearchParams(`t=${seconds}&still=`));
+    const initial=initialSceneSeconds(new URLSearchParams(`t=${seconds}&still=`));
     assert.equal(initial,seconds);
     assert.equal(issFrame(initial).date.getTime(),START_DATE.getTime()+seconds*1000);
   }
@@ -321,22 +321,22 @@ test('the Moon rises within five seconds of default 10x playback',()=>{
     return Math.asin(dot(normalize(orbit.camera),moon.slice(0,3)))
       +Math.acos(1/Math.hypot(...orbit.camera))+moon[3];
   };
-  assert.ok(upperLimb(DEFAULT_ORBIT_SECONDS)<0);
-  assert.ok(upperLimb(DEFAULT_ORBIT_SECONDS+30)<0);
-  assert.ok(upperLimb(DEFAULT_ORBIT_SECONDS+50)>0);
+  assert.ok(upperLimb(DEFAULT_SCENE_SECONDS)<0);
+  assert.ok(upperLimb(DEFAULT_SCENE_SECONDS+30)<0);
+  assert.ok(upperLimb(DEFAULT_SCENE_SECONDS+50)>0);
 });
 
 test('ISS replay follows a low orbit, inclination and repeating orbital plane',()=>{
   let maxLatitude=0;
-  for(let t=0;t<ORBIT_SECONDS;t+=30){
+  for(let t=0;t<ISS_PERIOD_SECONDS;t+=30){
     const f=issFrame(t);
     assert.ok(f.altitude>400&&f.altitude<450);
     assert.ok([...f.camera,...f.sun,...f.cameraBasis].every(Number.isFinite));
     maxLatitude=Math.max(maxLatitude,Math.abs(f.latitude));
   }
   assert.ok(maxLatitude>51.5&&maxLatitude<52);
-  assert.ok(ORBIT_SECONDS>5500&&ORBIT_SECONDS<5650);
-  const a=issFrame(0),b=issFrame(ORBIT_SECONDS);
+  assert.ok(ISS_PERIOD_SECONDS>5500&&ISS_PERIOD_SECONDS<5650);
+  const a=issFrame(0),b=issFrame(ISS_PERIOD_SECONDS);
   assert.ok(Math.abs(a.latitude-b.latitude)<1);
   // Earth rotates eastward during a revolution, moving the ground track west.
   assert.ok(a.longitude-b.longitude>20&&a.longitude-b.longitude<26);
@@ -359,7 +359,7 @@ test('one shared camera keeps an orthonormal basis and the horizon at both scrol
 
 test('Sun and ground share coordinates, with real eclipse and day/night transitions',()=>{
   const phases=new Set();let eclipse=0,lit=0;
-  for(let t=0;t<ORBIT_SECONDS;t+=15){
+  for(let t=0;t<ISS_PERIOD_SECONDS;t+=15){
     const f=issFrame(t);phases.add(f.phase);
     assert.ok(Math.abs(dot(normalize(f.camera),f.sun)-f.solar)<1e-10);
     assert.ok(Math.abs(Math.hypot(...f.sun)-1)<1e-10);
@@ -416,7 +416,7 @@ test('scroll elevation preserves camera attitude and ISS telemetry while moving 
 });
 
 
-test('calendar starts now and survives a shared URL independently of route time',async()=>{
+test('calendar starts now and survives a shared URL independently of orbit time',async()=>{
  const {SceneCalendar}=await import('../src/scripts/scene-calendar.ts');
  const now=Date.parse('2026-10-08T18:43:27Z'),seconds=1000;
  const clock=new SceneCalendar(new URLSearchParams(),seconds,now);

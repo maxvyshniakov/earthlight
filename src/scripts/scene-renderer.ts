@@ -31,11 +31,11 @@ import { SceneAssets, sceneAssetPlan, type AssetPlan } from './scene-assets';
 import { sceneBufferSize, compactSurfaceOverview } from './scene-viewport';
 import { NOISE_TABLE_SIZE, NOISE_TABLE_UNIT, noiseTableData } from './noise-table';
 import { TemporalClouds, temporalCloudMain, temporalResolveFragment, temporalCompositeShader, TEMPORAL_FRESH_UNITS, TEMPORAL_HISTORY_UNITS, TEMPORAL_PREVIOUS_UNIT, TEMPORAL_RESOLVED_UNITS } from './cloud-temporal';
-import { vertexSource, fragmentSource, sourceTransmissionFragment, volumeFragment, halfCloudFragment, halfCloudVolumeFragment } from './orbital-shader';
+import { vertexSource, fragmentSource, sourceTransmissionFragment, volumeFragment, halfCloudFragment, halfCloudVolumeFragment } from './scene-shader';
 
 export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number;exposure:number;manualExposure?:number|null};
 /** Owns the WebGL resources and passes; never reads or mutates page controls. */
-export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasElement,params:URLSearchParams,notify:()=>void,sources:SceneSources={}) {
+export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasElement,params:URLSearchParams,notify:()=>void,sources:SceneSources={}) {
     const base=sources.assetBaseURL;
     const background=!!sources.background;
     // Opt-in terrain inspection, independent of photographic exposure/effects.
@@ -76,7 +76,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     let assetLoadStarted=false;
     let scenePosition=0;
     let resolution:WebGLUniformLocation|null=null,time:WebGLUniformLocation|null=null;
-    const orbitUniforms:Record<string,WebGLUniformLocation|null>={};
+    const sceneUniforms:Record<string,WebGLUniformLocation|null>={};
     let program: WebGLProgram | null = null;
     let buffer: WebGLBuffer | null = null;
     let textures: WebGLTexture[] = [];
@@ -375,7 +375,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           +(clouds==='balanced'?'#define BALANCED_CLOUDS 1\n':clouds==='off'?'#define CLOUDS_DISABLED 1\n':'')
           +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
-        const skyProgram=batch.add('Orbital scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
+        const skyProgram=batch.add('Scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
         const attenuationProgram=supportsSourceAttenuation?batch.add('Source transmission',vertexSource,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+sourceTransmissionFragment):null;
         const lightingPlan=textureLighting?CloudLightingAtlas.prepare(batch,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')):null;
         const volumePlans=new Map<string,WebGLProgram>();
@@ -389,7 +389,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           const header=cloudPass?'#extension GL_EXT_draw_buffers : require\n#define HALF_CLOUD_PASS 1\n':temporalPass?'#extension GL_EXT_draw_buffers : require\n':'';
           const source=cloudPass?halfCloudFragment:temporalPass?(textureLighting?cloudLightingSource(temporalCloudSource):temporalCloudSource)
             :cloudBuffer&&!fallbackPass?halfCloudVolumeFragment:temporal?temporalComposite:textureLighting?cloudLightingSource(volumeFragment):volumeFragment;
-          volumePlans.set(pass,batch.add(`Orbital ${pass}`,vertexSource,header+cloudHeader+noiseHeader+(supportsSourceAttenuation?'#define CAMERA_PUPIL_STATE 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+source));
+          volumePlans.set(pass,batch.add(`Scene ${pass}`,vertexSource,header+cloudHeader+noiseHeader+(supportsSourceAttenuation?'#define CAMERA_PUPIL_STATE 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+source));
         }
         const catalogPrograms=CatalogStars.prepare(batch),cameraPrograms=CameraFinish.prepare(batch);
         const auroraPrograms=supportsAurora?Aurora.prepare(gl,batch,state.shaderWork==='lean'):undefined;
@@ -409,7 +409,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         scenePosition=gl.getAttribLocation(program,'position');
         resolution = gl.getUniformLocation(program, 'resolution');
         time = gl.getUniformLocation(program, 'time');
-        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','cameraState','stormSources[0]']) orbitUniforms[name] = gl.getUniformLocation(program,name);
+        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','cameraState','stormSources[0]']) sceneUniforms[name] = gl.getUniformLocation(program,name);
         gl.uniform1f(gl.getUniformLocation(program, 'surfaceEnabled'),params.get('surface') === '0' ? 0 : 1);
         gl.uniform2f(gl.getUniformLocation(program,'nightMapResolution'),1,1);
         ['surfaceMap','nightMap','cloudMap'].forEach((name,index) => {
@@ -537,7 +537,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         catalog=new CatalogStars(gl,catalogPrograms);
         const wideGamut=configureSceneColor(gl);
         finish=new CameraFinish(gl,wideGamut,cameraPrograms);
-        if(supportsAurora){aurora=new Aurora(gl,auroraPrograms);orbitUniforms.auroraMap=gl.getUniformLocation(program,'auroraMap');}
+        if(supportsAurora){aurora=new Aurora(gl,auroraPrograms);sceneUniforms.auroraMap=gl.getUniformLocation(program,'auroraMap');}
         state.aurora=supportsAurora?'volume':wantsAurora?'unsupported':'off';
         state.auroraMode=auroraMode(params);
         timer=params.get('quality')==='fixed'?null:new SceneTimer(gl);
@@ -579,7 +579,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           return initialize(started);
         }
         state.shaderStartup='failed';state.shaderCompileMs=(performance.now()-started).toFixed(2);notify();
-        console.warn('Orbital sky uses its static fallback.', error);
+        console.warn('The scene uses its static fallback.', error);
         return false;
       } finally {
         batch.dispose();
@@ -602,7 +602,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         }finally{batch.dispose();}
       }).catch(error=>{if(!controller.signal.aborted){moonBlend=false;console.warn('Resolved Moon unavailable; keeping the sampled disk.',error);}});
     };
-    const render=(orbit:ReturnType<typeof issFrame>&{focal?:number},width:number,height:number,cssHeight:number,sceneTime:number,grainIndex:number,look:SceneLook,focusRadius=0,playbackRate=10,inspection=false)=>{
+    const render=(observer:ReturnType<typeof issFrame>&{focal?:number},width:number,height:number,cssHeight:number,sceneTime:number,grainIndex:number,look:SceneLook,focusRadius=0,playbackRate=10,inspection=false)=>{
       if(disposed||lost||!initialized||!program||!catalog||!finish)return null;
       // Upgrade only after a real viewport expansion, with margin at the tier
       // boundary. Quality changes never trigger repeated downloads/downgrades.
@@ -610,12 +610,12 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         void assets.refine({key:'day',url:assetURL('earth-day-bmng.avif',base)});
       // Loading-only optical work must not lower the settled scene's quality.
       if(focusRadius===0&&!inspection)timer?.begin();
-      const sky = celestialFrame(orbit.date,orbit.camera);
+      const sky = celestialFrame(observer.date,observer.camera);
       // The lens: focal length in viewport heights, 1.25 at 1×; a wide angle goes below it.
-      const focal=orbit.focal??1.25,zoomExcess=focal/1.25-1;
+      const focal=observer.focal??1.25,zoomExcess=focal/1.25-1;
       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,psfTexture);
-      catalog.render(width,height,height/Math.max(1,cssHeight),sky.starToFixed,orbit.cameraBasis,sky.yearsSinceJ2000,finish.exposureTexture,focal);
-      aurora?.render(width,height,orbit.camera,orbit.cameraBasis,orbit.sun,sceneTime,focal);
+      catalog.render(width,height,height/Math.max(1,cssHeight),sky.starToFixed,observer.cameraBasis,sky.yearsSinceJ2000,finish.exposureTexture,focal);
+      aurora?.render(width,height,observer.camera,observer.cameraBasis,observer.sun,sceneTime,focal);
       finish.begin(width,height);
       // Every pass binds what it owns; no reliance on uploads leaving GL state.
       textures.forEach((texture,i)=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,texture);});
@@ -627,73 +627,73 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       // Shared by the bake, source, world and volume passes of this frame.
       if(noiseTexture){gl.activeTexture(gl.TEXTURE0+NOISE_TABLE_UNIT);gl.bindTexture(gl.TEXTURE_2D,noiseTexture);}
       gl.useProgram(program);
-      if(aurora){gl.activeTexture(gl.TEXTURE11);gl.bindTexture(gl.TEXTURE_2D,aurora.texture);gl.uniform1i(orbitUniforms.auroraMap,11);}
+      if(aurora){gl.activeTexture(gl.TEXTURE11);gl.bindTexture(gl.TEXTURE_2D,aurora.texture);gl.uniform1i(sceneUniforms.auroraMap,11);}
       if(supportsSourceAttenuation){
         gl.activeTexture(gl.TEXTURE10);gl.bindTexture(gl.TEXTURE_2D,finish.exposureTexture);
-        gl.uniform1i(orbitUniforms.cameraState,10);
+        gl.uniform1i(sceneUniforms.cameraState,10);
       }
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
       const position=scenePosition;
       gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
-      gl.uniform4fv(orbitUniforms.moon,sky.moon);
-      const lunarLight=currentLunarLight(orbit.date,sky.moon,sky.starToFixed);
+      gl.uniform4fv(sceneUniforms.moon,sky.moon);
+      const lunarLight=currentLunarLight(observer.date,sky.moon,sky.starToFixed);
       const phaseCosine=Math.max(-1,Math.min(1,-sky.moon.slice(0,3).reduce((sum,x,i)=>sum+x*lunarLight[i],0)));
       const phaseAngle=Math.acos(phaseCosine);
-      gl.uniform1f(orbitUniforms.lunarIrradiance,(Math.sin(phaseAngle)+(Math.PI-phaseAngle)*phaseCosine)/Math.PI);
-      const moonSamples=lunarSamples(sky.moon,lunarLight,orbit.cameraBasis,orbit.camera);
-      gl.uniform4fv(orbitUniforms['moonSamples[0]'],moonSamples);
+      gl.uniform1f(sceneUniforms.lunarIrradiance,(Math.sin(phaseAngle)+(Math.PI-phaseAngle)*phaseCosine)/Math.PI);
+      const moonSamples=lunarSamples(sky.moon,lunarLight,observer.cameraBasis,observer.camera);
+      gl.uniform4fv(sceneUniforms['moonSamples[0]'],moonSamples);
       let lunarFlux=0;
       for(let i=3;i<moonSamples.length;i+=4)lunarFlux+=moonSamples[i];
       if(!moonSurface&&moonBlend&&sky.moon[3]*cssHeight*focal>=LUNAR_RESOLVED_FROM
-        &&sky.moon[0]*orbit.cameraBasis[6]+sky.moon[1]*orbit.cameraBasis[7]+sky.moon[2]*orbit.cameraBasis[8]>0)loadMoonSurface();
-      const lunarView=moonSurface?{date:orbit.date,moon:sky.moon,light:lunarLight,starToFixed:sky.starToFixed,cameraBasis:orbit.cameraBasis,camera:orbit.camera,focal,width,height,cssHeight,phaseAngle}:null;
+        &&sky.moon[0]*observer.cameraBasis[6]+sky.moon[1]*observer.cameraBasis[7]+sky.moon[2]*observer.cameraBasis[8]>0)loadMoonSurface();
+      const lunarView=moonSurface?{date:observer.date,moon:sky.moon,light:lunarLight,starToFixed:sky.starToFixed,cameraBasis:observer.cameraBasis,camera:observer.camera,focal,width,height,cssHeight,phaseAngle}:null;
       const lunarResolved=lunarView?moonSurface!.prepare(lunarView):0;
-      gl.uniform1f(orbitUniforms.lunarResolved,lunarResolved);
+      gl.uniform1f(sceneUniforms.lunarResolved,lunarResolved);
       state.moonSurface=moonSurface?`${lunarResolved.toFixed(2)}:${moonSurface.mapWidth}`:'sampled';
       const points=pointReflections.update(
-        sky.starToFixed,orbit.cameraBasis,orbit.camera,sky.yearsSinceJ2000,sky.planets,
+        sky.starToFixed,observer.cameraBasis,observer.camera,sky.yearsSinceJ2000,sky.planets,
         width/height,height,sceneTime,cssHeight,focal);
-      work.observeView(orbit.camera,orbit.cameraBasis,performance.now());
+      work.observeView(observer.camera,observer.cameraBasis,performance.now());
       state.streamingMotion=work.moving?'deferred':'ready';
-      galaxyTiles?.update({...orbit,galacticBasis:sky.galacticBasis},width,height,program);
-      terrainTiles?.update(orbit,width,height,program);
-      gl.uniformMatrix3fv(orbitUniforms.galacticBasis,false,sky.galacticBasis);
-      gl.uniform1f(orbitUniforms.pixelRatio,height/Math.max(1,cssHeight));
-      gl.uniform1f(orbitUniforms.starsLinear,catalog.linear?1:0);
-      gl.uniform4fv(orbitUniforms['planets[0]'],sky.planets);
+      galaxyTiles?.update({...observer,galacticBasis:sky.galacticBasis},width,height,program);
+      terrainTiles?.update(observer,width,height,program);
+      gl.uniformMatrix3fv(sceneUniforms.galacticBasis,false,sky.galacticBasis);
+      gl.uniform1f(sceneUniforms.pixelRatio,height/Math.max(1,cssHeight));
+      gl.uniform1f(sceneUniforms.starsLinear,catalog.linear?1:0);
+      gl.uniform4fv(sceneUniforms['planets[0]'],sky.planets);
       gl.uniform2f(resolution, width, height);
       gl.uniform1f(time, sceneTime);
-      gl.uniform1f(orbitUniforms.zoomExcess,zoomExcess);
-      const storms=params.get('lightning')==='0'?new Float32Array(32):stormLights(sceneTime,playbackRate,orbit.camera,orbit.cameraBasis,width/height,profile.fps,focal);
-      gl.uniform4fv(orbitUniforms['stormSources[0]'],storms);
-      gl.uniform1f(orbitUniforms.galaxyAmount,look.galaxy);
-      gl.uniform3fv(orbitUniforms.cameraPosition,orbit.camera);
-      gl.uniformMatrix3fv(orbitUniforms.cameraBasis,false,orbit.cameraBasis);
-      gl.uniform3fv(orbitUniforms.sunDirection,orbit.sun);
-      gl.uniform1f(orbitUniforms.solarVisibility,visibleSourceDisk(orbit.camera,orbit.sun,SOLAR_RADIUS));
-      if(params.get('surface')!=='0')nightTiles?.update(orbit,width,height,program);
-      if(params.get('surface')!=='0')dayTiles?.update(terrainView?{...orbit,sun:orbit.camera}:orbit,width,height,program);
+      gl.uniform1f(sceneUniforms.zoomExcess,zoomExcess);
+      const storms=params.get('lightning')==='0'?new Float32Array(32):stormLights(sceneTime,playbackRate,observer.camera,observer.cameraBasis,width/height,profile.fps,focal);
+      gl.uniform4fv(sceneUniforms['stormSources[0]'],storms);
+      gl.uniform1f(sceneUniforms.galaxyAmount,look.galaxy);
+      gl.uniform3fv(sceneUniforms.cameraPosition,observer.camera);
+      gl.uniformMatrix3fv(sceneUniforms.cameraBasis,false,observer.cameraBasis);
+      gl.uniform3fv(sceneUniforms.sunDirection,observer.sun);
+      gl.uniform1f(sceneUniforms.solarVisibility,visibleSourceDisk(observer.camera,observer.sun,SOLAR_RADIUS));
+      if(params.get('surface')!=='0')nightTiles?.update(observer,width,height,program);
+      if(params.get('surface')!=='0')dayTiles?.update(terrainView?{...observer,sun:observer.camera}:observer,width,height,program);
       if(params.get('surface')!=='0'&&cloudTiles){
         const angle=sceneTime*.000008,c=Math.cos(angle),s=Math.sin(angle);
         const rotate=(v:number[])=>[c*v[0]+s*v[1],-s*v[0]+c*v[1],v[2]];
-        cloudTiles.update({...orbit,camera:rotate(orbit.camera),cameraBasis:[0,3,6].flatMap(i=>rotate(orbit.cameraBasis.slice(i,i+3)))},width,height,program);
+        cloudTiles.update({...observer,camera:rotate(observer.camera),cameraBasis:[0,3,6].flatMap(i=>rotate(observer.cameraBasis.slice(i,i+3)))},width,height,program);
       }
       if(cloudLighting){
         const stats=cloudTiles?.stats();
-        cloudLighting.update(orbit.camera,orbit.sun,sceneTime,width,height,imageWidths.clouds??1,cloudTiles?.layout(),
+        cloudLighting.update(observer.camera,observer.sun,sceneTime,width,height,imageWidths.clouds??1,cloudTiles?.layout(),
           JSON.stringify([imageWidths.clouds,stats?.revision]),!work.moving&&assets.settled&&(!stats||(stats.pending===0&&stats.fading===0)),state);
         finish.resume();gl.useProgram(program);
         gl.enableVertexAttribArray(scenePosition);gl.vertexAttribPointer(scenePosition,2,gl.FLOAT,false,0,0);
       }
 
 
-      const light = Math.max(0,Math.min(1,(orbit.solar+.25)/.4));
+      const light = Math.max(0,Math.min(1,(observer.solar+.25)/.4));
       const sceneDaylight=light*light*(3-2*light);
       if(sourceTarget&&sourceTexture&&sourceProgram){
         gl.useProgram(sourceProgram);
         gl.uniform2f(sourceUniforms.resolution,width,height);gl.uniform1f(sourceUniforms.time,sceneTime);gl.uniform1f(sourceUniforms.zoomExcess,zoomExcess);
-        gl.uniform3fv(sourceUniforms.cameraPosition,orbit.camera);gl.uniformMatrix3fv(sourceUniforms.cameraBasis,false,orbit.cameraBasis);
-        gl.uniform3fv(sourceUniforms.sunDirection,orbit.sun);gl.uniform4fv(sourceUniforms.moon,sky.moon);
+        gl.uniform3fv(sourceUniforms.cameraPosition,observer.camera);gl.uniformMatrix3fv(sourceUniforms.cameraBasis,false,observer.cameraBasis);
+        gl.uniform3fv(sourceUniforms.sunDirection,observer.sun);gl.uniform4fv(sourceUniforms.moon,sky.moon);
         gl.uniform4fv(sourceUniforms['pointGhosts[0]'],points);gl.uniform1f(sourceUniforms.cloudMapWidth,imageWidths.clouds??1);
         if(cloudTiles)gl.uniform2fv(sourceUniforms.cloudTileLayout,cloudTiles.layout());
         gl.enableVertexAttribArray(sourcePosition);gl.vertexAttribPointer(sourcePosition,2,gl.FLOAT,false,0,0);
@@ -703,7 +703,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       }
       if(supportsSolarTransmission&&sourceTexture){
         gl.activeTexture(gl.TEXTURE12);gl.bindTexture(gl.TEXTURE_2D,sourceTexture);
-        gl.uniform1i(orbitUniforms.solarTransmission,12);
+        gl.uniform1i(sceneUniforms.solarTransmission,12);
       }
       // RGBE stores numerical mantissas and an exponent, not display colors.
       const dither=gl.isEnabled(gl.DITHER);
@@ -721,14 +721,14 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_2D,worldBuffer!.texture);
         gl.uniform2f(uniforms.cloudResolution,Math.ceil(width/2),Math.ceil(height/2));
         gl.uniform2f(uniforms.resolution,width,height);gl.uniform1f(uniforms.time,sceneTime);gl.uniform1f(uniforms.zoomExcess,zoomExcess);
-        gl.uniform3fv(uniforms.cameraPosition,orbit.camera);gl.uniformMatrix3fv(uniforms.cameraBasis,false,orbit.cameraBasis);
-        gl.uniform3fv(uniforms.sunDirection,orbit.sun);gl.uniform4fv(uniforms.moon,sky.moon);
+        gl.uniform3fv(uniforms.cameraPosition,observer.camera);gl.uniformMatrix3fv(uniforms.cameraBasis,false,observer.cameraBasis);
+        gl.uniform3fv(uniforms.sunDirection,observer.sun);gl.uniform4fv(uniforms.moon,sky.moon);
         gl.uniform1f(uniforms.lunarIrradiance,(Math.sin(phaseAngle)+(Math.PI-phaseAngle)*phaseCosine)/Math.PI);
         gl.uniformMatrix3fv(uniforms.galacticBasis,false,sky.galacticBasis);
         gl.uniform1f(uniforms.pixelRatio,height/Math.max(1,cssHeight));
         gl.uniform4fv(uniforms['stormSources[0]'],storms);
         gl.uniform1f(uniforms.galaxyAmount,look.galaxy);
-        gl.uniform1f(uniforms.solarVisibility,visibleSourceDisk(orbit.camera,orbit.sun,SOLAR_RADIUS));
+        gl.uniform1f(uniforms.solarVisibility,visibleSourceDisk(observer.camera,observer.sun,SOLAR_RADIUS));
         gl.uniform1f(uniforms.cloudMapWidth,imageWidths.clouds??1);
         gl.uniform1f(uniforms.galaxyMapWidth,imageWidths.galaxy??1);
         gl.uniform2f(uniforms.nightMapResolution,imageWidths.night??1,(imageWidths.night??2)/2);
@@ -753,7 +753,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         const u=temporalResolveUniforms,before=previousPose;
         gl.uniform2f(u.resolution,width,height);gl.uniform2f(u.freshResolution,freshWidth,freshHeight);
         gl.uniform1f(u.cloudParity,temporal.parity);gl.uniform1f(u.historyValid,temporal.historyValid&&before?1:0);
-        gl.uniform1f(u.zoomExcess,zoomExcess);gl.uniform3fv(u.cameraPosition,orbit.camera);gl.uniformMatrix3fv(u.cameraBasis,false,orbit.cameraBasis);
+        gl.uniform1f(u.zoomExcess,zoomExcess);gl.uniform3fv(u.cameraPosition,observer.camera);gl.uniformMatrix3fv(u.cameraBasis,false,observer.cameraBasis);
         if(before){gl.uniform1f(u.previousFocal,before.focal);gl.uniform3fv(u.previousCamera,before.camera);gl.uniformMatrix3fv(u.previousBasis,false,before.basis);}
         gl.enableVertexAttribArray(temporalResolvePosition);gl.vertexAttribPointer(temporalResolvePosition,2,gl.FLOAT,false,0,0);
         gl.drawArrays(gl.TRIANGLES,0,3);
@@ -790,11 +790,11 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(dither&&!finish.linear)gl.enable(gl.DITHER);
       // Image sliders are relative to the accepted photographic baseline.
       const project=(direction:ArrayLike<number>,energy:number):[number,number,number]=>{
-        const component=(i:number)=>direction[0]*orbit.cameraBasis[i]+direction[1]*orbit.cameraBasis[i+1]+direction[2]*orbit.cameraBasis[i+2];
+        const component=(i:number)=>direction[0]*observer.cameraBasis[i]+direction[1]*observer.cameraBasis[i+1]+direction[2]*observer.cameraBasis[i+2];
         const z=component(6);
         return [focal*component(0)/Math.max(.001,z),focal*component(3)/Math.max(.001,z),z>0?energy:0];
       };
-      const now=performance.now(),pose={camera:Array.from(orbit.camera),basis:Array.from(orbit.cameraBasis),focal,at:now};
+      const now=performance.now(),pose={camera:Array.from(observer.camera),basis:Array.from(observer.cameraBasis),focal,at:now};
       // Blur only between consecutive animated frames; a stale pose would smear a jump.
       const motion=motionShutter>0&&previousPose&&!inspection&&focusRadius===0&&now-previousPose.at<200
         ?{shutter:motionShutter,sky:skyShutter,camera:pose.camera,basis:pose.basis,previousCamera:previousPose.camera,previousBasis:previousPose.basis,previousFocal:previousPose.focal}:null;
@@ -806,7 +806,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         glare:params.get('glare')!=='off',
         fieldReflections:params.get('fieldReflections')!=='off',
         pyramidMeter:params.get('meter')!=='points',
-        sun:project(orbit.sun,visibleSourceDisk(orbit.camera,orbit.sun,SOLAR_RADIUS)),
+        sun:project(observer.sun,visibleSourceDisk(observer.camera,observer.sun,SOLAR_RADIUS)),
         points,pointAmount:look.ghosts,attenuation:sourceTexture,sunReflections:look.ghosts,focal,
       },look.exposure,look.manualExposure);
 

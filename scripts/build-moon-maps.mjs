@@ -1,6 +1,6 @@
 // Build the lazily loaded lunar surface maps from NASA SVS's CGI Moon Kit.
 // bun scripts/build-moon-maps.mjs lroc_color_16bit_srgb_4k.tif ldem_16_uint.tif
-// Source, coordinate convention, encoding and credit: public/media/orbit/README.md.
+// Source, coordinate convention, encoding and credit: public/media/earthlight/README.md.
 //
 // Each tier is one equirectangular WebP, longitude -180..180 east-positive left
 // to right, latitude +90 at the top, 0 degrees at the mean sub-Earth point.
@@ -15,7 +15,7 @@ import sharp from 'sharp';
 const [colorPath,demPath]=process.argv.slice(2);
 if(!colorPath||!demPath)throw Error('Pass lroc_color_16bit_srgb_4k.tif and ldem_16_uint.tif');
 sharp.concurrency(2);
-const output=new URL('../public/media/orbit/moon/',import.meta.url);
+const output=new URL('../public/media/earthlight/moon/',import.meta.url);
 await mkdir(output,{recursive:true});
 
 // The SVS colour map is graded "for aesthetics". Its blue maria are stronger

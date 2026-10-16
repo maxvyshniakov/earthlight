@@ -1,4 +1,4 @@
-import type { CameraController, CameraSession } from './orbit-camera.ts';
+import type { CameraController, CameraSession } from './camera-controller.ts';
 
 type Point={x:number;y:number};
 const TAP_MS=260,DOUBLE_MS=320,SLOP=10;

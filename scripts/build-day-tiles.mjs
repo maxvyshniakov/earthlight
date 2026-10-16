@@ -1,5 +1,5 @@
 // NASA Blue Marble Next Generation, October 2004, 500 m. Originals live outside the repository.
-// bun scripts/build-day-tiles.mjs /tmp/orbital-reference/day
+// bun scripts/build-day-tiles.mjs /tmp/earthlight-reference/day
 import sharp from 'sharp';
 import { mkdir, readFile, writeFile, stat, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -7,8 +7,8 @@ import { createHash } from 'node:crypto';
 
 sharp.concurrency(2);
 sharp.cache(false);
-const sourceDir=process.argv[2] || '/tmp/orbital-reference/day';
-const output=process.argv[3] || 'public/media/orbit/day-tiles';
+const sourceDir=process.argv[2] || '/tmp/earthlight-reference/day';
+const output=process.argv[3] || 'public/media/earthlight/day-tiles';
 const size=21600, interior=540, gutter=16, cell=572;
 await mkdir(output,{recursive:true});
 const path=(x,y)=>join(sourceDir,`world.200410.3x21600x21600.${'ABCD'[(x+4)%4]}${y+1}.jpg`);

@@ -2,7 +2,7 @@
 import {readFileSync,writeFileSync} from 'node:fs';
 import {gunzipSync,gzipSync} from 'node:zlib';
 for(const width of [4096,8192]){
- const input=gunzipSync(readFileSync(`public/media/orbit/earth-terrain-${width}.dem`));
+ const input=gunzipSync(readFileSync(`public/media/earthlight/earth-terrain-${width}.dem`));
  const output=Buffer.alloc(input.length);input.copy(output,0,0,16);output.write('DEM2');
  let w=width,h=width/2,offset=16;
  for(let level=0;level<input.readUInt32LE(12);level++){
@@ -16,6 +16,6 @@ for(const width of [4096,8192]){
   offset+=count*3;w=Math.max(1,w/2);h=Math.max(1,h/2);
  }
  const packed=gzipSync(output,{level:9});
- writeFileSync(`public/media/orbit/earth-terrain-${width}-v2.dem`,packed);
+ writeFileSync(`public/media/earthlight/earth-terrain-${width}-v2.dem`,packed);
  console.log(width,input.length,packed.length);
 }

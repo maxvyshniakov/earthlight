@@ -1,14 +1,14 @@
-import { cameraRay, earthPoint, type OrbitNavigation, type ObserverFrame } from './orbit-navigation.ts';
+import { cameraRay, earthPoint, type FlightNavigation, type ObserverFrame } from './flight-navigation.ts';
 import type { Vec3 } from './iss-orbit.ts';
 
 /** Approach moves the camera; lens zooms the image and never moves it. */
 export type CameraAction='fly'|'look'|'approach'|'lens'|'roll';
-export type CameraIntent='auto'|'look'|'roll'|'orbit';
-export type CameraSession={readonly kind:'fly'|'look'|'roll'|'orbit';move(clientX:number,clientY:number):void;end(fling?:boolean):void};
+export type CameraIntent='auto'|'look'|'roll'|'circle';
+export type CameraSession={readonly kind:'fly'|'look'|'roll'|'circle';move(clientX:number,clientY:number):void;end(fling?:boolean):void};
 export type ScrollSession={readonly kind:'fly'|'look';by(dx:number,dy:number):void};
 type Options={
   canvas:HTMLCanvasElement;
-  navigation:OrbitNavigation;
+  navigation:FlightNavigation;
   frame:()=>ObserverFrame;
   ready:()=>boolean;
   detach:()=>void;
@@ -57,16 +57,16 @@ export function createCameraController(o:Options){
     // starts free flight from that pose; only looking keeps the orbit. It waits
     // for the first movement, so a click, or the first of two fingers, leaves
     // the orbit alone.
-    const hit=kind==='fly'||kind==='orbit'?pick(clientX,clientY):null;
+    const hit=kind==='fly'||kind==='circle'?pick(clientX,clientY):null;
     const spinning=kind==='fly'&&(spin||!hit!.hit);
     let started=false;
     const begin=()=>{
       if(started)return;started=true;
       if(kind!=='look')free();
-      if(kind==='orbit')o.pin(hit!.point);
+      if(kind==='circle')o.pin(hit!.point);
       if(kind==='fly'&&!spinning){const p=screen(clientX,clientY);nav.grab(hit!.point,p.x,p.y);o.request();}
     };
-    if(kind==='orbit'){
+    if(kind==='circle'){
       // The point under the pointer, or off the planet the horizon point toward
       // it. It keeps its place on screen while the camera circles, so the
       // pointer works round it like a turntable: its angle about the point is
@@ -84,7 +84,7 @@ export function createCameraController(o:Options){
           const a0=Math.atan2(last.y-pivot.y,last.x-pivot.x),a1=Math.atan2(y-pivot.y,x-pivot.x);
           const r0=Math.hypot(last.x-pivot.x,last.y-pivot.y),r1=Math.hypot(x-pivot.x,y-pivot.y);
           const across=r0>16&&r1>16?Math.atan2(Math.sin(a1-a0),Math.cos(a1-a0)):0;
-          nav.orbitAbout(anchor,across,(r1-r0)/height()*Math.PI*.5);o.changed();last={x,y};
+          nav.circleAbout(anchor,across,(r1-r0)/height()*Math.PI*.5);o.changed();last={x,y};
         },
         end(){if(started)o.pin(null);}};
     }

@@ -11,7 +11,7 @@ export function deviceSceneTimeline(){
  log.start=()=>{for(const key of ['frames','sizes','scales','raf','visibility','phases'])log[key]=[];log.active=true;log.started=clock();lastRaf=null;visible();return log.started;};
  log.stop=()=>{log.ended=clock();log.active=false;return log.ended;};
  HTMLCanvasElement.prototype.getContext=function(...args){
-  const g=get.apply(this,args),canvas=this,s=canvas.closest('orbital-sky');
+  const g=get.apply(this,args),canvas=this,s=canvas.closest('earthlight-explorer');
   if(!g||!s||!['webgl','webgl2','experimental-webgl'].includes(args[0])||wrapped.has(g))return g;wrapped.add(g);
   for(const axis of ['width','height']){
    const property=Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,axis);

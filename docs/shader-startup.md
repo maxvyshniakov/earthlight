@@ -44,8 +44,8 @@ WebGL and checks poster visibility, blocked resource setup, restoration during
 first compilation, disposal, missing-extension behavior and actual shader errors.
 
 ```sh
-bun scripts/verify-shader-startup.mjs http://127.0.0.1:4347 /tmp/orbit-startup webgl1
-bun scripts/verify-shader-startup.mjs http://127.0.0.1:4347 /tmp/orbit-startup-webgl2 webgl2
+bun scripts/verify-shader-startup.mjs http://127.0.0.1:4347 /tmp/earthlight-startup webgl1
+bun scripts/verify-shader-startup.mjs http://127.0.0.1:4347 /tmp/earthlight-startup-webgl2 webgl2
 ```
 
 Run browser checks against a stable build, sequentially with other GPU work.

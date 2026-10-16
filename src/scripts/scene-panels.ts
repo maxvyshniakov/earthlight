@@ -2,8 +2,8 @@
  * The explorer's dialogs and controls panel place themselves in CSS and are only
  * closed from here. */
 export function createScenePanels(root:HTMLElement,controls:HTMLElement,settingsToggle:HTMLElement){
-    const panels = [...root.querySelectorAll<HTMLElement>('.sky-panel:not(.sky-dialog)')];
-    const placed = [...root.querySelectorAll<HTMLElement>('.sky-dialog, .flight-help')];
+    const panels = [...root.querySelectorAll<HTMLElement>('.explorer-panel:not(.explorer-dialog)')];
+    const placed = [...root.querySelectorAll<HTMLElement>('.explorer-dialog, .flight-help')];
     const panelHeaders=panels.map(panel=>panel.querySelector<HTMLElement>('.panel-header')!);
     const panelPositions=new Map<HTMLElement,{left:number;top:number}>();
     let panelDrag:{panel:HTMLElement;header:HTMLElement;pointer:number;x:number;y:number;left:number;top:number}|null=null;
@@ -19,7 +19,7 @@ export function createScenePanels(root:HTMLElement,controls:HTMLElement,settings
         if(!panel.matches(':popover-open'))continue;
         const saved=panelPositions.get(panel);
         if(saved){panelPositions.set(panel,placePanel(panel,saved.left,saved.top));continue;}
-        const rect=(panel.id==='sky-settings'?settingsToggle:controls).getBoundingClientRect();
+        const rect=(panel.id==='explorer-settings'?settingsToggle:controls).getBoundingClientRect();
         const above=rect.top-panel.offsetHeight-12;
         placePanel(panel,rect.left,above>=16?above:rect.bottom+12);
       }
@@ -32,7 +32,7 @@ export function createScenePanels(root:HTMLElement,controls:HTMLElement,settings
     };
     const startPanelDrag=(event:PointerEvent)=>{
       if(!event.isPrimary||event.button!==0||(event.target as Element).closest('button,a,input'))return;
-      const header=event.currentTarget as HTMLElement,panel=header.closest<HTMLElement>('.sky-panel')!;
+      const header=event.currentTarget as HTMLElement,panel=header.closest<HTMLElement>('.explorer-panel')!;
       const rect=panel.getBoundingClientRect();
       panelDrag={panel,header,pointer:event.pointerId,x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};
       header.setPointerCapture(event.pointerId);panel.dataset.dragging='';event.preventDefault();

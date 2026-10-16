@@ -6,7 +6,7 @@ import {decodeTerrain,terrainShader} from '../src/scripts/earth-terrain.ts';
 // Real ETOPO Himalayan patch, with deliberately opposing low solar angles.
 // Isolates terrain lighting from baked albedo, clouds, haze and auto exposure.
 export async function verifyTerrain(evaluate){
- const raw=gunzipSync(readFileSync(new URL('../public/media/orbit/earth-terrain-4096.dem',import.meta.url)));
+ const raw=gunzipSync(readFileSync(new URL('../public/media/earthlight/earth-terrain-4096.dem',import.meta.url)));
  const {levels}=decodeTerrain(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength));
  const level=levels[0],x=2980,y=1300,size=128,patch=Buffer.alloc(size*size*3);
  for(let row=0;row<size;row++)patch.set(level.data.subarray(((y+row)*4096+x)*3,((y+row)*4096+x+size)*3),row*size*3);

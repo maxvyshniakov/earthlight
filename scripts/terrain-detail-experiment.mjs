@@ -60,12 +60,12 @@ float localTerrainWidth(vec2 uv){return terrainSamplingWidth();}
 #endif
 `;
 const entry=`
-import {createOrbitRenderer} from '${path.resolve('src/scripts/orbit-renderer.ts')}';
-import {OrbitNavigation} from '${path.resolve('src/scripts/orbit-navigation.ts')}';
+import {createSceneRenderer} from '${path.resolve('src/scripts/scene-renderer.ts')}';
+import {FlightNavigation} from '${path.resolve('src/scripts/flight-navigation.ts')}';
 import {calendarFrame,SceneCalendar} from '${path.resolve('src/scripts/scene-calendar.ts')}';
 const p=new URLSearchParams(location.search),variant=p.get('dem')||'base';
 const pose=new URLSearchParams('epoch=2026-05-02T09%3A40%3A55.317Z&t=59104.68&motion=0&flight=free&position=-0.29689179%2C-0.67869731%2C0.71667283&orientation=0.0791660117%2C0.1166140865%2C0.9644032869%2C0.2237413631');
-const nav=new OrbitNavigation();nav.restore(pose);
+const nav=new FlightNavigation();nav.restore(pose);
 const seconds=Number(pose.get('t')),orbit=calendarFrame(nav.read(seconds,{yaw:0,pitch:0},0),new SceneCalendar(pose,seconds).date(seconds));
 const canvas=document.querySelector('canvas');canvas.width=1920;canvas.height=1292;
 const gl=canvas.getContext('webgl',{alpha:false,preserveDrawingBuffer:true});
@@ -80,7 +80,7 @@ if(variant!=='base'){
 }
 globalThis.bindTerrainExperiment=(gl,program)=>{if(!texture)return;gl.activeTexture(gl.TEXTURE15);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(gl.getUniformLocation(program,'experimentMap'),15);gl.uniform4f(gl.getUniformLocation(program,'experimentBounds'),meta.firstLon,meta.firstLat,meta.n,meta.size);gl.uniform1f(gl.getUniformLocation(program,'experimentWidth'),meta.n*360);};
 p.set('quality','fixed');if(variant!=='base')p.set('terrainDetail','0');
-const renderer=createOrbitRenderer(gl,canvas,p,()=>{});renderer.load();
+const renderer=createSceneRenderer(gl,canvas,p,()=>{});renderer.load();
 const look={galaxy:.75,grain:0,chromatic:0,ghosts:0,exposure:0,manualExposure:0};
 window.proof={variant,date:orbit.date.toISOString(),orbit,meta,ready:false,frames:0};
 let settledFrames=0;
@@ -110,7 +110,7 @@ await build({stdin:{contents:entry,resolveDir:process.cwd(),sourcefile:'experime
   s=s.replace('horizontal*terrainSamplingWidth()','horizontal*localTerrainWidth(earthUV(radial))').replace('float width=terrainSamplingWidth();','float width=localTerrainWidth(uv);');
   return {contents:s,loader:'ts'};
  });
- builder.onLoad({filter:/orbit-renderer\.ts$/},async args=>{
+ builder.onLoad({filter:/scene-renderer\.ts$/},async args=>{
   let s=await readFile(args.path,'utf8');
   s=s.replace('cloudHeader+terrainHeader+',"cloudHeader+(params.get('dem')&&params.get('dem')!=='base'?'#define REGIONAL_TERRAIN 1\\n':'')+terrainHeader+");
   s=s.replace('terrainTiles?.update(orbit,width,height,program);','terrainTiles?.update(orbit,width,height,program);globalThis.bindTerrainExperiment?.(gl,program);');

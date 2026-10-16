@@ -11,7 +11,7 @@ import {SOLAR_RESOLVED_PX} from '../src/scripts/solar-disk.ts';
 // Exercise the production eclipse convolution with a known broad PSF so its
 // masked energy and support boundary can be measured without sensor clipping.
 export async function verifyLighting(evaluate){
- const raw=readFileSync(new URL('../src/scripts/orbital-shader.ts',import.meta.url),'utf8');
+ const raw=readFileSync(new URL('../src/scripts/scene-shader.ts',import.meta.url),'utf8');
  const convolution=raw.slice(raw.indexOf('  vec2 solarCenter='),raw.indexOf('  if (skyMask < 1.) {'))
   .replaceAll('${SOLAR_RADIUS}',String(SOLAR_RADIUS))
   .replaceAll('${optics.integral.toFixed(8)}','1.')

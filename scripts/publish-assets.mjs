@@ -43,12 +43,12 @@ async function main(){
  const scratch=join(root,'.asset-upload');await mkdir(scratch,{recursive:true});
  // Validate every source before creating a release, including provenance files.
  for(const file of manifest.files){
-  const bytes=await readFile(join(root,'public/media/orbit',file.path));
+  const bytes=await readFile(join(root,'public/media/earthlight',file.path));
   if(bytes.length!==file.bytes||createHash('sha256').update(bytes).digest('hex')!==file.sha256)throw Error(`Changed asset: ${file.path}`);
  }
  const list=join(scratch,'files.txt'),archive=join(scratch,`${manifest.version}.tar`);
  await writeFile(list,manifest.files.map(file=>file.path).join('\n')+'\n');
- execFileSync('tar',['-cf',archive,'-C',join(root,'public/media/orbit'),'-T',list],{stdio:'pipe',env:{...process.env,COPYFILE_DISABLE:'1'}});
+ execFileSync('tar',['-cf',archive,'-C',join(root,'public/media/earthlight'),'-T',list],{stdio:'pipe',env:{...process.env,COPYFILE_DISABLE:'1'}});
  const size=(await stat(archive)).size;
  if(size>512*1024*1024)throw Error('Release archive exceeds the 512 MiB upload safety budget.');
  // Keep the current release and at most one previous one; ~2 GB fits both.

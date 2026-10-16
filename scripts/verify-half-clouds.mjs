@@ -1,14 +1,14 @@
-// bun scripts/verify-half-clouds.mjs http://127.0.0.1:4347 /tmp/orbit-half-clouds
+// bun scripts/verify-half-clouds.mjs http://127.0.0.1:4347 /tmp/earthlight-half-clouds
 // Image metrics are observations, not an acceptance threshold for this prototype.
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import {ORBIT_SECONDS} from '../src/scripts/iss-orbit.ts';
+import {ISS_PERIOD_SECONDS} from '../src/scripts/iss-orbit.ts';
 
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4347',out='/tmp/orbit-half-clouds']=process.argv.slice(2);
+const [base='http://127.0.0.1:4347',out='/tmp/earthlight-half-clouds']=process.argv.slice(2);
 const session=`half-clouds-${process.pid}`;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:90000,maxBuffer:80e6,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'60000'}})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
@@ -18,11 +18,11 @@ const mark=value=>{
  const now=Date.now();stages.push({stage,elapsedMs:now-lastStageAt});lastStageAt=now;stage=value;
  console.log(`[${new Date(now).toISOString()}] ${value}`);
 };
-const condition=`(()=>{const s=document.querySelector('orbital-sky');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','cloudTiles','nightTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
-const identity=()=>`location.pathname==='/'&&document.querySelector('orbital-sky')?.dataset.renderProfile===${JSON.stringify(expectedProfile)}&&new URL(location.href).searchParams.get('render')===${JSON.stringify(expectedProfile)}&&Date.parse(new URL(location.href).searchParams.get('epoch'))===Date.parse('2026-10-06T01:32:27Z')`;
+const condition=`(()=>{const s=document.querySelector('earthlight-explorer');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','cloudTiles','nightTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
+const identity=()=>`location.pathname==='/'&&document.querySelector('earthlight-explorer')?.dataset.renderProfile===${JSON.stringify(expectedProfile)}&&new URL(location.href).searchParams.get('render')===${JSON.stringify(expectedProfile)}&&Date.parse(new URL(location.href).searchParams.get('epoch'))===Date.parse('2026-10-06T01:32:27Z')`;
 const wait=()=>run('wait','--fn',`(${identity()})&&(${condition})`);
 const state=async()=>{
- const value=await evaluate(`(()=>{const s=document.querySelector('orbital-sky');if(!s)throw Error('Missing scene at '+location.href+' title='+document.title);const c=s.querySelector('canvas'),gl=c.getContext('webgl');return {url:location.href,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,volumePass:s.dataset.volumePass,width:c.width,height:c.height,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,assetFailures:s.dataset.assetFailures,error:gl.getError()};})()`);
+ const value=await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');if(!s)throw Error('Missing scene at '+location.href+' title='+document.title);const c=s.querySelector('canvas'),gl=c.getContext('webgl');return {url:location.href,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,volumePass:s.dataset.volumePass,width:c.width,height:c.height,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,assetFailures:s.dataset.assetFailures,error:gl.getError()};})()`);
  assert.equal(value.profile,expectedProfile);assert.equal(new URL(value.url).searchParams.get('render'),expectedProfile);
  assert.equal(Date.parse(new URL(value.url).searchParams.get('epoch')),Date.parse('2026-10-06T01:32:27Z'));
  return value;
@@ -47,20 +47,20 @@ const open=async(profile,scene)=>{
  assert.equal(await evaluate('location.href'),url.href,'Settled scene must retain the requested initial URL');
 };
 const capture=async(t,count)=>evaluate(`(async()=>{
- const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),input=s.querySelector('.sky-track input');
+ const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),input=s.querySelector('.explorer-track input');
  const gl=c.getContext('webgl'),bind=gl.bindFramebuffer,draw=gl.drawArrays,step=input.step;
  let target=gl.getParameter(gl.FRAMEBUFFER_BINDING),onFrame=null;
  const frames=[],poses=[];
  gl.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};
  gl.drawArrays=function(...args){draw.apply(this,args);if(target===null&&onFrame){const done=onFrame;onFrame=null;done(c.toDataURL('image/png'));}};
- // Manual exposure and paused route time make samples deterministic without
+ // Manual exposure and paused orbit time make samples deterministic without
  // freezing the clock used by scene scheduling and exposure-settle timers.
  input.step='any';
  try{for(let i=0;i<${count};i++){
   const png=await new Promise((resolve,reject)=>{
    const timeout=setTimeout(()=>reject(Error('Cloud capture timeout')),10000);
    onFrame=data=>{clearTimeout(timeout);resolve(data);};
-   input.value=String((${t}+i*10/24)/${ORBIT_SECONDS}*100);input.dispatchEvent(new Event('input'));
+   input.value=String((${t}+i*10/24)/${ISS_PERIOD_SECONDS}*100);input.dispatchEvent(new Event('input'));
   });
   frames.push(png);poses.push(s.dataset.cameraBasis);
  }}finally{gl.bindFramebuffer=bind;gl.drawArrays=draw;input.step=step;}
@@ -118,7 +118,7 @@ try{
  await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');await wait();
  results.lifecycle.resized=await state();checkHalf(results.lifecycle.resized);
  mark('lifecycle context loss/restore');await evaluate(`(async()=>{
-  const c=document.querySelector('orbital-sky canvas'),gl=c.getContext('webgl'),ext=gl.getExtension('WEBGL_lose_context');
+  const c=document.querySelector('earthlight-explorer canvas'),gl=c.getContext('webgl'),ext=gl.getExtension('WEBGL_lose_context');
   if(!ext)throw Error('Context-loss test extension unavailable');
   const lost=new Promise(resolve=>c.addEventListener('webglcontextlost',resolve,{once:true}));ext.loseContext();await lost;gl.getError();
   const restored=new Promise(resolve=>c.addEventListener('webglcontextrestored',resolve,{once:true}));setTimeout(()=>ext.restoreContext(),200);await restored;return true;
@@ -131,7 +131,7 @@ try{
   await open('clouds-half',scenes[2]);
   mark(`fallback ${mode}`);
   await evaluate(`(()=>{
-   const original=document.querySelector('orbital-sky'),copy=original.cloneNode(true),getContext=HTMLCanvasElement.prototype.getContext;
+   const original=document.querySelector('earthlight-explorer'),copy=original.cloneNode(true),getContext=HTMLCanvasElement.prototype.getContext;
    for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];
    window.__halfCloudProbe={mode:${JSON.stringify(mode)},hits:0};
    HTMLCanvasElement.prototype.getContext=function(...args){
@@ -183,7 +183,7 @@ try{
  console.log('Half cloud dimensions, resize, context restore and capability/FBO/shader fallbacks passed. Image metrics require visual review.');
 }catch(error){
  const diagnostics=await Promise.allSettled([
-  evaluate(`({url:location.href,title:document.title,readyState:document.readyState,html:document.documentElement?.outerHTML.slice(0,300),scene:document.querySelector('orbital-sky')?.dataset})`),
+  evaluate(`({url:location.href,title:document.title,readyState:document.readyState,html:document.documentElement?.outerHTML.slice(0,300),scene:document.querySelector('earthlight-explorer')?.dataset})`),
   run('errors'),run('console'),
  ]);
  results.failure={stage,message:error.message,stack:error.stack,diagnostics:diagnostics.map((result,i)=>({source:['document','errors','console'][i],...(result.status==='fulfilled'?{value:result.value}:{error:String(result.reason)})}))};

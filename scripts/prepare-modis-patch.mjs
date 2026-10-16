@@ -2,11 +2,11 @@
 // Never turn the palette retrieval's missing pixels into holes in coverage.
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import sharp from 'sharp';
-const root='public/media/orbit/modis-demo',date='2025-06-01',size=2048;
+const root='public/media/earthlight/modis-demo',date='2025-06-01',size=2048;
 const manifest=JSON.parse(await readFile(root+'/manifest.json','utf8'));
 const record=manifest.dates.find(d=>d.date===date);
 const url=new URL(record.sources.color);url.searchParams.set('WIDTH',String(size));url.searchParams.set('HEIGHT',String(size));
-const cache='/tmp/orbit-modis-cache/'+date+'-color-2048.png';let photo;
+const cache='/tmp/earthlight-modis-cache/'+date+'-color-2048.png';let photo;
 try{photo=await readFile(cache);}catch{const r=await fetch(url);if(!r.ok)throw Error(String(r.status));photo=Buffer.from(await r.arrayBuffer());await writeFile(cache,photo);}
 const rgb=await sharp(photo).ensureAlpha().raw().toBuffer();
 const fields=await Promise.all(['low','middle','high'].map(name=>sharp(`${root}/${date}-${name}.png`).raw().toBuffer()));

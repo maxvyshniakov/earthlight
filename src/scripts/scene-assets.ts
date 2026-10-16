@@ -5,7 +5,7 @@ export type AssetKey=ImageLayer|'stars'|'psf'|'terrain'|'modis';
 export type AssetPlan={key:AssetKey;url:string;preview?:boolean};
 export type AssetUpload=(asset:AssetPlan,blob:Blob)=>Promise<void>;
 
-export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean,saveData=false,compactSurface=false,compactTextures=false,assetBaseURL='/media/orbit/'):AssetPlan[]{
+export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean,saveData=false,compactSurface=false,compactTextures=false,assetBaseURL='/media/earthlight/'):AssetPlan[]{
  saveData ||= maxTexture<4096;
  const root=assetBaseURL.replace(/\/+$/, '')+'/';
  const large=desktop&&!saveData&&maxTexture>=8192;

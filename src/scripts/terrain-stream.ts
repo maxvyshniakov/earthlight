@@ -52,7 +52,7 @@ export class TerrainStream {
  private locations=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
  requests=0;bytes=0;failures=0;decodes=0;
  private gl:WebGLRenderingContext;private mobile:boolean;private notify:()=>void;private work:SceneWork;
- constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/orbit/',private terrainBaseURL='/media/orbit/dem90/',private uploadMode:'strips'|'tile'='strips',private cacheMode:'small'|'working'='working',private decoderMode:'single'|'pool'='single',private sourceMode:'tiff'|'packed'='tiff',private boundMode:'off'|'regional'='off'){
+ constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,work=new SceneWork(),private assetBaseURL='/media/earthlight/',private terrainBaseURL='/media/earthlight/dem90/',private uploadMode:'strips'|'tile'='strips',private cacheMode:'small'|'working'='working',private decoderMode:'single'|'pool'='single',private sourceMode:'tiff'|'packed'='tiff',private boundMode:'off'|'regional'='off'){
   this.gl=gl;this.bound=boundMode==='regional'?new TerrainBound():null;this.mobile=mobile;this.notify=notify;this.work=work;
   this.decoder=new TerrainDecoder(decoderMode);this.packedDecoder=new TerrainDecoder(decoderMode,'packed');
   if(sourceMode==='packed')this.packedManifest=work.network.run(scenePriority.tile,this.abort.signal,async()=>{

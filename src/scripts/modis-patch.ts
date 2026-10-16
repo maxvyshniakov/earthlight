@@ -1,6 +1,6 @@
 // One co-registered ocean patch, opt-in only. The photograph supplies detail;
 // coarse MODIS retrievals control broad vertical/optical differences.
-export const modisOrbitShader=`
+export const modisPatchShader=`
 #ifdef MODIS_PATCH
 uniform sampler2D modisPatch;
 uniform float modisReady;

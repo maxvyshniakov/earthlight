@@ -6,7 +6,7 @@ export const utcDay=(date:Date)=>Date.UTC(date.getUTCFullYear(),date.getUTCMonth
 export const dayOfYear=(date:Date)=>Math.round((utcDay(date)-Date.UTC(date.getUTCFullYear(),0,1))/DAY);
 export const daysInYear=(year:number)=>(Date.UTC(year+1,0,1)-Date.UTC(year,0,1))/DAY;
 
-/** Calendar and route time share a rate, but changing lighting never moves the camera. */
+/** Calendar and orbit time share a rate, but changing lighting never moves the camera. */
 export class SceneCalendar {
   private epoch:number;
   constructor(params:URLSearchParams,seconds:number,now=Date.now()){

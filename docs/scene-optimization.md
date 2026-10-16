@@ -1,4 +1,4 @@
-# Orbital scene optimization — 7 October 2026
+# Scene optimization — 7 October 2026
 
 This pass preserves the accepted image-control baseline and 96 cloud-march
 samples. It changes loading, texture residency and ownership before reducing
@@ -91,11 +91,11 @@ releases GPU resources. Save-Data suppresses full maps **and** detail tiles.
 
 Ownership is explicit:
 
-- `orbital-sky.ts`: input state, replay clock, scrolling and reveal.
+- `explorer.ts`: input state, replay clock, scrolling and reveal.
 - `scene-panels.ts`: popover placement, dragging and event lifecycle.
 - `scene-work.ts`: shared network, decode and upload scheduling.
-- `orbit-renderer.ts`: GPU resources, passes and capability selection.
-- `orbital-shader.ts`: scene shader assembly.
+- `scene-renderer.ts`: GPU resources, passes and capability selection.
+- `scene-shader.ts`: scene shader assembly.
 - `scene-assets.ts`: progressive fetch/cache/restore and focus policy.
 - `night-tiles.ts`: shared bounded day/night/cloud tile residency.
 - `scene-quality.ts`: sparse asynchronous GPU measurements and hysteresis.
@@ -146,8 +146,8 @@ or adaptive scaling does not churn downloads, and upgrade failure retains the
 working overview. The small/large margin prevents boundary oscillation.
 
 Rebuild with `bun scripts/build-mobile-overviews.mjs /path/to/originals`.
-Only the accepted day map is written under `public/media/orbit/mobile/`;
-rejected candidates go to `/tmp/orbit-mobile-candidates` (optional second path).
+Only the accepted day map is written under `public/media/earthlight/mobile/`;
+rejected candidates go to `/tmp/earthlight-mobile-candidates` (optional second path).
 
 The former full 16K cloud map costs 8,393,584 transfer bytes and 170.7 MiB of
 nominal scalar GPU storage with mips. A plain 8K replacement was inspected and
@@ -176,7 +176,7 @@ DEM1 assets remain as regression references; the browser requests DEM2.
 
 ## Codec experiment
 
-`bun scripts/benchmark-scene-maps.mjs /tmp/orbital-reference /tmp/orbit-optimization`
+`bun scripts/benchmark-scene-maps.mjs /tmp/earthlight-reference /tmp/earthlight-optimization`
 reconstructs lossless references from original NASA plates and tests three
 768-square regions of each map. This measures relevant regional detail, not
 whole-image compression ratios. Mean results:
@@ -267,7 +267,7 @@ not hardware presentation timestamps. Texture resolution is unchanged.
 ## Verification and remaining limits
 
 Run `bun run verify` for unit tests, Astro diagnostics and build. Run
-`bun run verify:scene http://127.0.0.1:4322 /tmp/orbit-browser-proof`
+`bun run verify:scene http://127.0.0.1:4322 /tmp/earthlight-browser-proof`
 against the built site for seven scene frames, failed assets, context restore,
 mobile playback after seeking, viewport rotation, Save-Data and delayed-detail focus. The browser
 suite writes screenshots/results to the requested directory and closes its own

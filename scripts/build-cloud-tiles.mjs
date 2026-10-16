@@ -2,8 +2,8 @@
 import sharp from 'sharp';
 import {createHash} from 'node:crypto';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
-const root=process.argv[2]||'/tmp/orbital-reference';
-const out='public/media/orbit/cloud-tiles';await mkdir(out,{recursive:true});
+const root=process.argv[2]||'/tmp/earthlight-reference';
+const out='public/media/earthlight/cloud-tiles';await mkdir(out,{recursive:true});
 sharp.concurrency(2);sharp.cache(false);
 const resume=process.argv.includes('--resume');
 const sourceHashes={};

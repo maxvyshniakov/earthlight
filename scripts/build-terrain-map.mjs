@@ -40,7 +40,7 @@ for(const width of [8192,4096]){
  }
  const header=Buffer.alloc(16);header.write('DEM1');header.writeUInt32LE(width,4);header.writeUInt32LE(height,8);header.writeUInt32LE(levels.length,12);
  const result=gzipSync(Buffer.concat([header,...levels]),{level:9});
- const name=`public/media/orbit/earth-terrain-${width}.dem`;writeFileSync(name,result);
+ const name=`public/media/earthlight/earth-terrain-${width}.dem`;writeFileSync(name,result);
  console.log(name,statSync(name).size);
 }
 console.log('source SHA256',createHash('sha256').update(readFileSync(source)).digest('hex'));

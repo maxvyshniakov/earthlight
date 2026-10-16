@@ -12,8 +12,8 @@ const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(co
 const wait=async condition=>{
   for(let i=0;i<4;i++)try{return await run('wait','--fn',condition);}catch(error){if(i===3||!String(error.stderr).includes('Wait timed out'))throw error;}
 };
-const settled="(()=>{const s=document.querySelector('orbital-sky');return s.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&s.dataset.cloudLightingReady==='1'&&s.dataset.cloudLightingProgress==='0'})()";
-const state=()=>evaluate("(()=>{const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')||c.getContext('webgl');return {api:s.dataset.renderApi,lighting:s.dataset.cloudLighting,ready:s.dataset.cloudLightingReady,generation:Number(s.dataset.cloudLightingGeneration),progress:Number(s.dataset.cloudLightingProgress),bytes:Number(s.dataset.cloudLightingBytes),failures:s.dataset.assetFailures,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,patch:s.dataset.cloudLightingPatch,scale:s.dataset.renderScale,glError:gl.getError()}})()");
+const settled="(()=>{const s=document.querySelector('earthlight-explorer');return s.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&s.dataset.cloudLightingReady==='1'&&s.dataset.cloudLightingProgress==='0'})()";
+const state=()=>evaluate("(()=>{const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')||c.getContext('webgl');return {api:s.dataset.renderApi,lighting:s.dataset.cloudLighting,ready:s.dataset.cloudLightingReady,generation:Number(s.dataset.cloudLightingGeneration),progress:Number(s.dataset.cloudLightingProgress),bytes:Number(s.dataset.cloudLightingBytes),failures:s.dataset.assetFailures,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,patch:s.dataset.cloudLightingPatch,scale:s.dataset.renderScale,glError:gl.getError()}})()");
 const results=[];
 await mkdir(out,{recursive:true});
 try{
@@ -33,9 +33,9 @@ try{
     const query=ext.createQueryEXT();ext.beginQueryEXT(ext.TIME_ELAPSED_EXT,query);draw.apply(this,args);ext.endQueryEXT(ext.TIME_ELAPSED_EXT);window.cloudBakeQueries.push(query);
    };
    window.restoreCloudProbe=()=>{gl.viewport=viewport;gl.drawArrays=draw;};
-   const input=document.querySelector('#sky-time');input.value='1355';input.dispatchEvent(new Event('input'));return true;
+   const input=document.querySelector('#explorer-time');input.value='1355';input.dispatchEvent(new Event('input'));return true;
   })()`);
-  await wait(`Number(document.querySelector('orbital-sky').dataset.cloudLightingGeneration)>${initial.generation}&&${settled}`);
+  await wait(`Number(document.querySelector('earthlight-explorer').dataset.cloudLightingGeneration)>${initial.generation}&&${settled}`);
   const relit=await state();assert.equal(relit.position,initial.position);assert.equal(relit.basis,initial.basis);assert.equal(relit.glError,0);
   await run('screenshot',`${out}/${api}-relit.png`);
   const costs=await evaluate(`(()=>{
@@ -49,11 +49,11 @@ try{
   await evaluate(`(()=>{const gl=window.cloudGL,draw=gl.drawArrays;window.idleDraws=0;gl.drawArrays=function(...args){window.idleDraws++;return draw.apply(this,args);};window.stopIdle=()=>{gl.drawArrays=draw;};return true})()`);
   await run('wait','1200');const idleDraws=await evaluate('window.idleDraws');await evaluate('window.stopIdle();true');assert.equal(idleDraws,0);
   await evaluate("(()=>{window.cloudLost=window.cloudGL.getExtension('WEBGL_lose_context');window.cloudLost.loseContext();return true})()");
-  await wait("!document.querySelector('orbital-sky').hasAttribute('data-ready')");await evaluate('window.cloudLost.restoreContext();true');await wait(settled);
+  await wait("!document.querySelector('earthlight-explorer').hasAttribute('data-ready')");await evaluate('window.cloudLost.restoreContext();true');await wait(settled);
   const restored=await state();assert.equal(restored.glError,0);assert.equal(restored.ready,'1');
-  await evaluate("document.querySelector('.sky-motion').click();true");
+  await evaluate("document.querySelector('.explorer-motion').click();true");
   const moving=[];for(let i=0;i<30;i++){await run('wait','1000');moving.push(await state());if(moving.at(-1).generation>restored.generation)break;}
-  await evaluate("document.querySelector('.sky-motion').click();true");await wait(settled);
+  await evaluate("document.querySelector('.explorer-motion').click();true");await wait(settled);
   await writeFile(`${out}/${api}-playback.json`,JSON.stringify(moving,null,2)+'\n');
   assert.ok(moving.every(s=>s.glError===0&&s.failures==='0'));
   assert.ok(moving.some(s=>s.generation>restored.generation),'playback refreshes the lighting cache');

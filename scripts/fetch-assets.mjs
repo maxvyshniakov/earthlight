@@ -167,7 +167,7 @@ export function isDownloadedAsset(name) {
 export async function fetchAssets() {
   const manifest=JSON.parse(await readFile(join(root,'assets-manifest.json'),'utf8'));
   if(manifest.schema!==1||! /^[a-f0-9]{16}$/.test(manifest.version)||!Array.isArray(manifest.files))throw Error('Invalid asset manifest');
-  const destination=join(root,'public/media/orbit');
+  const destination=join(root,'public/media/earthlight');
   const files=manifest.files.map(file=>{
     if(safeArchivePath(file.path)!==file.path||! /^[a-f0-9]{64}$/.test(file.sha256)||!Number.isSafeInteger(file.bytes)||file.bytes<0)throw Error('Invalid asset entry');
     return file;

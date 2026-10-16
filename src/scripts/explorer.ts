@@ -2,19 +2,19 @@ import {sceneLook} from './scene-defaults';
 import {SceneFrameClock} from './scene-frame-clock';
 import {rememberedScale,rememberScale} from './scene-scale-memory';
 import {ViewScale,shellCoverage,viewScaleFor} from './scene-view-scale';
-import { createCameraDrag, draggedCamera } from './orbit-camera-drag';
-import { createTouchCamera } from './orbit-touch';
+import { createCameraDrag, draggedCamera } from './camera-drag';
+import { createTouchCamera } from './camera-touch';
 import { createFlightControls, type FlightCommand } from './flight-controls';
-import { createCameraController } from './orbit-camera';
-import { createOrbitHud, LENS_MIN, LENS_MAX, speedAt, speedFraction, type OrbitHud } from './orbit-hud';
+import { createCameraController } from './camera-controller';
+import { createFlightHud, LENS_MIN, LENS_MAX, speedAt, speedFraction, type FlightHud } from './flight-hud';
 import { SceneCalendar, calendarFrame, dayOfYear, daysInYear, utcDay } from './scene-calendar';
-import { OrbitNavigation, followLens, routePeriod, PROJECTION, ROUTE_LABELS, type Route, type ObserverFrame, type FlightInput } from './orbit-navigation';
+import { FlightNavigation, followLens, orbitPeriod, PROJECTION, ORBIT_LABELS, type Orbit, type ObserverFrame, type FlightInput } from './flight-navigation';
 import { createScenePanels } from './scene-panels';
 import { EXPOSURE_SETTLE_MS, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV } from './camera-exposure';
-import { OrbitPlayback } from './orbit-playback';
-import { issFrame, ORBIT_SECONDS, initialOrbitSeconds, cross, dot, normalize, type Vec3 } from './iss-orbit';
+import { SceneClock } from './scene-clock';
+import { issFrame, ISS_PERIOD_SECONDS, initialSceneSeconds, cross, dot, normalize, type Vec3 } from './iss-orbit';
 import { celestialFrame, currentLunarPhase } from './celestial-sky';
-import { createOrbitRenderer, type SceneLook } from './orbit-renderer';
+import { createSceneRenderer, type SceneLook } from './scene-renderer';
 import { SceneFocus } from './scene-assets';
 import { sceneBufferSize, sceneComposition, focusRenderScale } from './scene-viewport';
 import { sceneProfile } from './scene-profile';
@@ -22,38 +22,38 @@ import {auroraMode as readAuroraMode,cloudMode as readCloudMode} from './scene-e
 import {isWebGL2,sceneContext} from './webgl-context';
 import {modisStudyURL} from './modis-study-view';
 
-export class OrbitalSky extends HTMLElement {
+export class EarthlightExplorer extends HTMLElement {
   private cleanup?: () => void;
 
   connectedCallback() {
     if (this.cleanup) return;
     const entry=new URL(location.href),studyView=entry.searchParams.get('studyView');
-    if(this.dataset.composition==='orbit'&&['day','low','oblique'].includes(studyView??'')){
+    if(this.dataset.composition==='explorer'&&['day','low','oblique'].includes(studyView??'')){
       const preset=modisStudyURL(location.href,studyView as 'day'|'low'|'oblique',entry.searchParams.get('cloudStudy')==='photo'?'photo':'modis');
       for(const key of ['api','quality'])if(entry.searchParams.has(key))preset.searchParams.set(key,entry.searchParams.get(key)!);
       history.replaceState(history.state,'',preset);
     }
     const canvas = this.querySelector('canvas')!;
-    const viewport = this.querySelector<HTMLElement>('.sky-viewport')!;
-    const motionButtons = [...this.querySelectorAll<HTMLButtonElement>('.sky-motion')];
-    const controls = this.querySelector<HTMLElement>('.sky-controls')!;
-    const settingsToggle = this.querySelector<HTMLButtonElement>('.sky-settings-toggle')!;
-    const orbitLink = this.querySelector<HTMLAnchorElement>('.sky-orbit-link');
-    const speedInput = this.querySelector<HTMLInputElement>('.sky-speed input')!;
-    const speedOutput = this.querySelector<HTMLOutputElement>('.sky-speed output')!;
-    const orbitInput = this.querySelector<HTMLInputElement>('.sky-track input')!;
-    const orbitOutput = this.querySelector<HTMLOutputElement>('.sky-track output')!;
-    const timeStatus = this.querySelector<HTMLTimeElement>('.sky-time')!;
+    const viewport = this.querySelector<HTMLElement>('.explorer-viewport')!;
+    const motionButtons = [...this.querySelectorAll<HTMLButtonElement>('.explorer-motion')];
+    const controls = this.querySelector<HTMLElement>('.explorer-controls')!;
+    const settingsToggle = this.querySelector<HTMLButtonElement>('.explorer-settings-toggle')!;
+    const explorerLink = this.querySelector<HTMLAnchorElement>('.explorer-link');
+    const speedInput = this.querySelector<HTMLInputElement>('.explorer-speed input')!;
+    const speedOutput = this.querySelector<HTMLOutputElement>('.explorer-speed output')!;
+    const orbitInput = this.querySelector<HTMLInputElement>('.explorer-track input')!;
+    const orbitOutput = this.querySelector<HTMLOutputElement>('.explorer-track output')!;
+    const timeStatus = this.querySelector<HTMLTimeElement>('.explorer-time')!;
     // The HUD sets date and time apart by spacing alone; the embedded caption is one line.
-    const dateStatus=timeStatus.querySelector<HTMLElement>('.sky-date'),clockStatus=timeStatus.querySelector<HTMLElement>('.sky-clock');
-    const coordinateStatus = this.querySelector<HTMLElement>('.sky-coordinates');
+    const dateStatus=timeStatus.querySelector<HTMLElement>('.explorer-date'),clockStatus=timeStatus.querySelector<HTMLElement>('.explorer-clock');
+    const coordinateStatus = this.querySelector<HTMLElement>('.explorer-coordinates');
     const timeScaleOutputs = [...this.querySelectorAll<HTMLElement>('[data-time-scale]')];
     const lookInputs = [...this.querySelectorAll<HTMLInputElement>('[data-look]')];
-    const exposureMode=this.querySelector<HTMLSelectElement>('#sky-exposure-mode')!;
-    const auroraMode=this.querySelector<HTMLSelectElement>('#sky-aurora')!;
-    const cloudsMode=this.querySelector<HTMLSelectElement>('#sky-clouds')!;
-    const auroraStatus=this.querySelector<HTMLElement>('#sky-aurora-status')!;
-    const fixedExposure=this.querySelector<HTMLInputElement>('#sky-fixed-exposure')!;
+    const exposureMode=this.querySelector<HTMLSelectElement>('#explorer-exposure-mode')!;
+    const auroraMode=this.querySelector<HTMLSelectElement>('#explorer-aurora')!;
+    const cloudsMode=this.querySelector<HTMLSelectElement>('#explorer-clouds')!;
+    const auroraStatus=this.querySelector<HTMLElement>('#explorer-aurora-status')!;
+    const fixedExposure=this.querySelector<HTMLInputElement>('#explorer-fixed-exposure')!;
     const viewInputs=[...this.querySelectorAll<HTMLInputElement>('[data-view]')];
     const resetAll = this.querySelector<HTMLButtonElement>('.reset-all')!;
     // Slider 100% is the accepted image grade; renderer gains retain its appearance.
@@ -81,11 +81,11 @@ export class OrbitalSky extends HTMLElement {
       if(params.has(key)&&Number.isFinite(value))input.value=String(Math.max(Number(input.min),Math.min(Number(input.max),value)));
     }
     for(const input of lookInputs)look[input.dataset.look as keyof typeof lookBase]=Number(input.value)*lookBase[input.dataset.look as keyof typeof lookBase];
-    const standalone=this.dataset.composition==='orbit';
-    const initialSeconds=initialOrbitSeconds(params);
+    const standalone=this.dataset.composition==='explorer';
+    const initialSeconds=initialSceneSeconds(params);
     const calendar=new SceneCalendar(params,initialSeconds);
     const calendarInputs=[...this.querySelectorAll<HTMLInputElement>('[data-calendar]')];
-    const navigation=new OrbitNavigation();
+    const navigation=new FlightNavigation();
     // Release trackpad scroll over this many milliseconds (`inputSmoothing=0`
     // applies it at once). Touch and mouse drags already arrive once per
     // frame; smoothing them only weakens short flicks, so they keep their own,
@@ -109,7 +109,7 @@ export class OrbitalSky extends HTMLElement {
     if(standalone&&params.has('lens')&&Number.isFinite(restoredLens))navigation.focal=PROJECTION*Math.max(LENS_MIN,Math.min(LENS_MAX,restoredLens));
     let flightControls:ReturnType<typeof createFlightControls>|undefined;
     let keyFlightUntil=0;
-    let hud:OrbitHud|null=null;
+    let hud:FlightHud|null=null;
     let navigationURLTimer=0;
     const cameraView={yaw:0,pitch:0};
     for(const input of viewInputs){
@@ -139,7 +139,7 @@ export class OrbitalSky extends HTMLElement {
       while(perfTicks.length&&perfTicks[0].at<now-3000)perfTicks.shift();
     };
     if(perf)try{new PerformanceObserver(list=>{for(const entry of list.getEntries())longFrames.push({at:entry.startTime+entry.duration,ms:entry.duration});}).observe({type:'long-animation-frame',buffered:false});}catch{/* unsupported */}
-    if(perf){perf.className='sky-perf';(this.querySelector('.sky-service')??this).append(perf);}
+    if(perf){perf.className='explorer-perf';(this.querySelector('.explorer-service')??this).append(perf);}
     let scrollTimer=0;
     let pendingURL:URL|null=null;
     const updateURL=(url:URL)=>{
@@ -159,7 +159,7 @@ export class OrbitalSky extends HTMLElement {
     // 1000×. 0× is stopped time; a link that stops it starts paused at 10×.
     const timeScale=(position:number)=>speedAt(position/1000);
     const restoredSpeed=timeScale(Number(speedInput.value));
-    const playback=new OrbitPlayback(initialSeconds,restoredSpeed||timeScale(Number(speedInput.defaultValue)));
+    const playback=new SceneClock(initialSeconds,restoredSpeed||timeScale(Number(speedInput.defaultValue)));
     let statusTimer=0;
     const replayDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
     let grainIndex = 0;
@@ -193,7 +193,7 @@ export class OrbitalSky extends HTMLElement {
     updateSpeedLabel();
     let lastStatus = -1;
 
-    let renderer:ReturnType<typeof createOrbitRenderer>;
+    let renderer:ReturnType<typeof createSceneRenderer>;
     const focus=new SceneFocus();
     let focusTimer=0;
     let exposureTimer=0,exposureUntil=0;
@@ -237,19 +237,19 @@ export class OrbitalSky extends HTMLElement {
       return {...calendarFrame(pose,calendar.date(seconds)),focal:standalone?navigation.focal:PROJECTION};
     };
     const currentObserver=()=>observerAt(playback.read(performance.now())+composition().offset);
-    const period=()=>standalone?routePeriod(navigation.route):ORBIT_SECONDS;
+    const period=()=>standalone?orbitPeriod(navigation.orbit):ISS_PERIOD_SECONDS;
     const updateNavigationUI=()=>{
       if(!standalone)return;
-      this.dataset.flightMode=navigation.mode;this.dataset.route=navigation.route;
-      const title=this.querySelector('.sky-title');
-      if(title)title.textContent=navigation.free?'Free flight':ROUTE_LABELS[navigation.route];
-      this.querySelector<HTMLElement>('.sky-track')!.hidden=!!navigation.free;
+      this.dataset.flightMode=navigation.mode;this.dataset.orbit=navigation.orbit;
+      const title=this.querySelector('.explorer-title');
+      if(title)title.textContent=navigation.free?'Free flight':ORBIT_LABELS[navigation.orbit];
+      this.querySelector<HTMLElement>('.explorer-track')!.hidden=!!navigation.free;
       for(const input of viewInputs)input.closest<HTMLElement>('.setting')!.hidden=!!navigation.free;
-      orbitInput.setAttribute('aria-label',`Position in ${ROUTE_LABELS[navigation.route]}`);
+      orbitInput.setAttribute('aria-label',`Position in ${ORBIT_LABELS[navigation.orbit]}`);
     };
     updateNavigationUI();
-    const updateOrbitLink = (sceneTime=playback.read(performance.now())+composition().offset) => {
-      if(!orbitLink)return;
+    const updateExplorerLink = (sceneTime=playback.read(performance.now())+composition().offset) => {
+      if(!explorerLink)return;
       const url=new URL(this.dataset.exploreUrl??'/',location.href);
       for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudLighting'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
       url.searchParams.set('t',sceneTime.toFixed(2));
@@ -259,39 +259,39 @@ export class OrbitalSky extends HTMLElement {
       if(cameraView.pitch)url.searchParams.set('pitch',String(cameraView.pitch));
       for(const input of lookInputs)if(input.value!==input.defaultValue)url.searchParams.set(`look-${input.dataset.look}`,input.value);
       if(exposureMode.value==='manual'){url.searchParams.set('exposure-mode','manual');url.searchParams.set('exposure-fixed',fixedExposure.value);}
-      orbitLink.href=url.href;
+      explorerLink.href=url.href;
     };
-    const prepareOrbitLink = () => updateOrbitLink();
+    const prepareExplorerLink = () => updateExplorerLink();
     const updateStatus = (sceneTime:number,frame?:ObserverFrame) => {
-      updateOrbitLink(sceneTime);
+      updateExplorerLink(sceneTime);
       // Align to the UTC second shown to the user, including the epoch fraction.
       const second=Math.floor(calendar.date(sceneTime).getTime()/1000);
       if(lastStatus===second)return;
-      const orbit=frame??observerAt(sceneTime);
+      const observer=frame??observerAt(sceneTime);
       {
         lastStatus = second;
         const duration=period(),orbitPhase=((sceneTime%duration)+duration)%duration;
         orbitInput.value = String(orbitPhase/duration*100);
         paintRange(orbitInput);
-        orbitInput.setAttribute('aria-valuetext',`${Math.floor(orbitPhase/60)} minutes, ${orbit.phase}`);
-        orbitOutput.value = orbit.phase;
-        this.dataset.phase = orbit.phase.toLowerCase();
-        this.dataset.sun=JSON.stringify(orbit.sun);
+        orbitInput.setAttribute('aria-valuetext',`${Math.floor(orbitPhase/60)} minutes, ${observer.phase}`);
+        orbitOutput.value = observer.phase;
+        this.dataset.phase = observer.phase.toLowerCase();
+        this.dataset.sun=JSON.stringify(observer.sun);
         for(const input of calendarInputs){
           const isDate=input.dataset.calendar==='date';
-          const value=isDate?dayOfYear(orbit.date):orbit.date.getUTCHours()*60+orbit.date.getUTCMinutes();
-          if(isDate)input.max=String(daysInYear(orbit.date.getUTCFullYear())-1);
+          const value=isDate?dayOfYear(observer.date):observer.date.getUTCHours()*60+observer.date.getUTCMinutes();
+          if(isDate)input.max=String(daysInYear(observer.date.getUTCFullYear())-1);
           if(document.activeElement!==input)input.value=String(value);
-          const label=isDate?replayDateFormat.format(orbit.date):orbit.date.toISOString().slice(11,16);
+          const label=isDate?replayDateFormat.format(observer.date):observer.date.toISOString().slice(11,16);
           this.querySelector<HTMLOutputElement>(`[data-calendar-output=${input.dataset.calendar}]`)!.value=label;
           input.setAttribute('aria-valuetext',label);
         }
         // The Moon's phase as the renderer lights it, from the scene's date.
-        this.dataset.moonPhase=String(currentLunarPhase(orbit.date));
-        timeStatus.dateTime=orbit.date.toISOString();
-        if(dateStatus&&clockStatus){dateStatus.textContent=replayDateFormat.format(orbit.date);clockStatus.textContent=`${orbit.date.toISOString().slice(11,19)} UTC`;}
-        else timeStatus.textContent=`${replayDateFormat.format(orbit.date)} · ${orbit.date.toISOString().slice(11,19)} UTC`;
-        if(coordinateStatus)coordinateStatus.textContent=`${Math.abs(orbit.latitude).toFixed(1)}° ${orbit.latitude<0?'S':'N'} · ${Math.abs(orbit.longitude).toFixed(1)}° ${orbit.longitude<0?'W':'E'} · ${Math.round(orbit.altitude)} km`;
+        this.dataset.moonPhase=String(currentLunarPhase(observer.date));
+        timeStatus.dateTime=observer.date.toISOString();
+        if(dateStatus&&clockStatus){dateStatus.textContent=replayDateFormat.format(observer.date);clockStatus.textContent=`${observer.date.toISOString().slice(11,19)} UTC`;}
+        else timeStatus.textContent=`${replayDateFormat.format(observer.date)} · ${observer.date.toISOString().slice(11,19)} UTC`;
+        if(coordinateStatus)coordinateStatus.textContent=`${Math.abs(observer.latitude).toFixed(1)}° ${observer.latitude<0?'S':'N'} · ${Math.abs(observer.longitude).toFixed(1)}° ${observer.longitude<0?'W':'E'} · ${Math.round(observer.altitude)} km`;
       }
     };
     const statusTick = () => {
@@ -321,19 +321,19 @@ export class OrbitalSky extends HTMLElement {
       if(!('surfaceReady' in renderer.state)&&!('galaxyReady' in renderer.state))return;
       const view=composition();
       const sceneTime=playback.read(performance.now())+view.offset;
-      const orbit=observerAt(sceneTime);
-      const result=renderer.render(orbit,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,look,focusRadius,speed,inspection);
+      const observer=observerAt(sceneTime);
+      const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,look,focusRadius,speed,inspection);
       if(!result)return;
       const now=performance.now();
       if(standalone){
         // The flight path marker shows where keyboard flight is heading. Dragging or
         // flinging the globe also moves the camera, but there it only drew a stray
         // marker high above Earth.
-        hud?.frame(orbit,!!navigation.free,navigation.route,now<keyFlightUntil?navigation.motion:[0,0,0]);
-        this.dataset.cameraPosition=orbit.camera.map(v=>v.toFixed(8)).join(',');
-        this.dataset.cameraAltitude=orbit.altitude.toFixed(3);
-        this.dataset.cameraBasis=JSON.stringify(orbit.cameraBasis);
-        this.dataset.lens=(orbit.focal/PROJECTION).toFixed(3);
+        hud?.frame(observer,!!navigation.free,navigation.orbit,now<keyFlightUntil?navigation.motion:[0,0,0]);
+        this.dataset.cameraPosition=observer.camera.map(v=>v.toFixed(8)).join(',');
+        this.dataset.cameraAltitude=observer.altitude.toFixed(3);
+        this.dataset.cameraBasis=JSON.stringify(observer.cameraBasis);
+        this.dataset.lens=(observer.focal/PROJECTION).toFixed(3);
       }
       clearTimeout(exposureTimer);
       if(exposureSceneTime!==sceneTime){exposureSceneTime=sceneTime;exposureUntil=now+EXPOSURE_SETTLE_MS;}
@@ -348,7 +348,7 @@ export class OrbitalSky extends HTMLElement {
       if(inspect!==inspection){inspection=inspect;this.dataset.inspection=String(inspect);cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
       Object.assign(this.dataset,result.state);
       if(viewSky!==null&&!inspection){
-        const coverage=shellCoverage(orbit.camera,orbit.cameraBasis,orbit.focal??PROJECTION,canvas.width/Math.max(1,canvas.height));
+        const coverage=shellCoverage(observer.camera,observer.cameraBasis,observer.focal??PROJECTION,canvas.width/Math.max(1,canvas.height));
         this.dataset.viewCoverage=coverage.toFixed(2);
         const target=Math.min(viewScaleFor(coverage,viewSky),Math.max(1,1/qualityScale));
         if(viewScale.update(target,now,frameClock.interacting(now))){cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
@@ -376,7 +376,7 @@ export class OrbitalSky extends HTMLElement {
       if(result.cloud)this.dataset.cloudTiles=JSON.stringify(result.cloud);
       if(result.day)this.dataset.dayTiles=JSON.stringify(result.day);
       if(result.night)this.dataset.nightTiles=JSON.stringify(result.night);
-      if(paused||!this.hasAttribute('data-ready')||standalone)updateStatus(sceneTime,orbit);
+      if(paused||!this.hasAttribute('data-ready')||standalone)updateStatus(sceneTime,observer);
       this.dataset.starsReady='';
       if (!this.hasAttribute('data-ready')) {
         this.dataset.ready = '';
@@ -449,7 +449,7 @@ export class OrbitalSky extends HTMLElement {
         button.setAttribute('aria-label', paused ? 'Play' : 'Pause');
         button.title = paused ? 'Play' : 'Pause';
       }
-      updateOrbitLink();
+      updateExplorerLink();
       if(paused&&!document.hidden&&!lost&&this.hasAttribute('data-ready')&&performance.now()<exposureUntil)draw();
       if (!paused && !document.hidden && !lost && this.hasAttribute('data-ready')) {
         statusTick();
@@ -480,7 +480,7 @@ export class OrbitalSky extends HTMLElement {
       if(paused){draw();lastStatus=-1;updateStatus(playback.read(performance.now())+composition().offset);}
     };
     const playbackKey = (event:KeyboardEvent) => {
-      if(this.dataset.composition!=='orbit'||event.code!=='Space'||event.repeat||event.defaultPrevented
+      if(this.dataset.composition!=='explorer'||event.code!=='Space'||event.repeat||event.defaultPrevented
         ||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
       const target=event.target;
       if(target instanceof Element&&target.closest('input,textarea,select,button,a,[contenteditable]:not([contenteditable="false"]),[role="slider"]'))return;
@@ -534,7 +534,7 @@ export class OrbitalSky extends HTMLElement {
       }
       updateURL(url);
       updateViewLabels();
-      updateOrbitLink();
+      updateExplorerLink();
       if(standalone&&navigation.free)saveNavigation();
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       draw();
@@ -560,9 +560,9 @@ export class OrbitalSky extends HTMLElement {
       updateNavigationUI();
       lastStatus=-1;saveNavigation();
     };
-    const followRoute=(route:Route)=>{
+    const followOrbit=(orbit:Orbit)=>{
       const from=currentObserver();
-      navigation.follow(route,from,performance.now(),!matchMedia('(prefers-reduced-motion: reduce)').matches);
+      navigation.follow(orbit,from,performance.now(),!matchMedia('(prefers-reduced-motion: reduce)').matches);
       cameraView.yaw=0;cameraView.pitch=0;
       viewInputs.forEach(input=>input.value='0');updateViewLabels();updateNavigationUI();
       lastStatus=-1;saveNavigation();flightControls?.request();
@@ -570,7 +570,7 @@ export class OrbitalSky extends HTMLElement {
     };
     const calendarChanged=()=>{
       lastStatus=-1;exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
-      saveNavigation();updateOrbitLink();draw();statusTick();
+      saveNavigation();updateExplorerLink();draw();statusTick();
     };
     const changeCalendar=(event:Event)=>{
       const input=event.currentTarget as HTMLInputElement,seconds=playback.read(performance.now())+composition().offset;
@@ -618,7 +618,7 @@ export class OrbitalSky extends HTMLElement {
       speedInput.value=speedInput.defaultValue;
       speed=timeScale(Number(speedInput.value));
       playback.setSpeed(speed,now);
-      playback.seek(initialOrbitSeconds(new URLSearchParams())-composition().offset,now);
+      playback.seek(initialSceneSeconds(new URLSearchParams())-composition().offset,now);
       paused=false;
       calendar.reset(playback.read(now)+composition().offset);
       lensGoal=null;navigation.follow('iss',currentObserver(),now,false);flightControls?.cancel();navigation.focal=PROJECTION;updateNavigationUI();
@@ -628,7 +628,7 @@ export class OrbitalSky extends HTMLElement {
       lookInputs.forEach(input=>{input.value=input.defaultValue;});
       exposureMode.value="auto";fixedExposure.value=fixedExposure.defaultValue;
       const url=new URL(pendingURL??location.href);
-      for(const key of ['t','yaw','pitch','motion','still','moon','route','flight','position','heading','elevation','roll','orientation','lens','aurora','clouds'])url.searchParams.delete(key);
+      for(const key of ['t','yaw','pitch','motion','still','moon','orbit','route','flight','position','heading','elevation','roll','orientation','lens','aurora','clouds'])url.searchParams.delete(key);
       for(const input of [...lookInputs,speedInput])url.searchParams.delete(input===speedInput?'rate':`look-${input.dataset.look}`);
       updateURL(url);
       updateSpeedLabel();updateViewLabels();
@@ -645,7 +645,7 @@ export class OrbitalSky extends HTMLElement {
         const milliseconds=input.dataset.calendar==='date'?utcDay(now)+(date.getTime()-utcDay(date)):utcDay(date)+(now.getTime()-utcDay(now));
         calendar.set(new Date(milliseconds),seconds);calendarChanged();
       }else if(input===orbitInput){
-        playback.seek(initialOrbitSeconds(new URLSearchParams())-composition().offset,performance.now());
+        playback.seek(initialSceneSeconds(new URLSearchParams())-composition().offset,performance.now());
         const url=new URL(pendingURL??location.href);url.searchParams.delete('t');url.searchParams.delete('still');updateURL(url);
         lastStatus=-1;draw();
       }else{
@@ -654,16 +654,16 @@ export class OrbitalSky extends HTMLElement {
       }
     };
     resetValueButtons.forEach(button=>button.addEventListener('click',restoreValue));
-    try {renderer=createOrbitRenderer(gl,canvas,params,()=>{
+    try {renderer=createSceneRenderer(gl,canvas,params,()=>{
       if(disposed||lost)return;
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       Object.assign(this.dataset,renderer.state);
       if(paused||!this.hasAttribute('data-ready'))draw();
     },{assetBaseURL:this.dataset.assetBase,terrainBaseURL:this.dataset.terrainBase});}
-    catch(error){console.warn('Orbital scene unavailable.',error);return;}
+    catch(error){console.warn('The scene is unavailable.',error);return;}
     // Restoring controls must not turn a fresh visit into a dated replay URL.
     applyLook();
-    const dragSurface=this.dataset.composition==='orbit'?this.closest<HTMLElement>('.orbit-view'):null;
+    const dragSurface=this.dataset.composition==='explorer'?this.closest<HTMLElement>('.explorer-view'):null;
     // Throttled rather than debounced, so a long glide keeps its link current.
     // A device with headroom renders gestures and their coast at up to 60 FPS;
     // the steady clock slows that while frames come late. Loading can cost a
@@ -673,7 +673,7 @@ export class OrbitalSky extends HTMLElement {
     const cameraChanged=()=>{const now=performance.now();frameClock.interact(now,interactionFPS());lastStatus=-1;exposureUntil=now+EXPOSURE_SETTLE_MS;draw();if(!navigationURLTimer)navigationURLTimer=window.setTimeout(()=>{navigationURLTimer=0;saveNavigation();},180);};
     const lookCamera=(view:typeof cameraView)=>{
       for(const input of viewInputs)input.value=String(view[input.dataset.view as keyof typeof view]);
-      Object.assign(cameraView,view);updateViewLabels();updateOrbitLink();cameraChanged();saveNavigation();
+      Object.assign(cameraView,view);updateViewLabels();updateExplorerLink();cameraChanged();saveNavigation();
     };
     const ready=()=>!lost&&this.hasAttribute('data-ready');
     const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -773,7 +773,7 @@ export class OrbitalSky extends HTMLElement {
       // 0 takes the lens back to 1×.
       else if(name==='reset-lens')lensTo(1);
       else if(name==='free'){enterFree();draw();}
-      else followRoute(name.slice(6) as Route);
+      else followOrbit(name.slice(6) as Orbit);
     };
     if(dragSurface)flightControls=createFlightControls(dragSurface,{
       enabled:ready,inputSmoothing,
@@ -804,7 +804,7 @@ export class OrbitalSky extends HTMLElement {
       const kind=intent==='roll'?'roll':intent==='look'?'look':'fly';
       dragSurface.dataset.cursor=kind;
     },()=>hud?.modality==='trackpad'):()=>{};
-    const touchSurface=dragSurface?.querySelector<HTMLElement>('.orbit-gestures');
+    const touchSurface=dragSurface?.querySelector<HTMLElement>('.explorer-gestures');
     const touch=touchSurface?createTouchCamera(touchSurface,camera,()=>hud?.setModality('touch'),touchGain,touchSpin):null;
     const compensation=lookInputs.find(input=>input.dataset.look==='exposure')!;
     const calendarSet=(kind:'date'|'time',value:number)=>{
@@ -812,8 +812,8 @@ export class OrbitalSky extends HTMLElement {
       input.value=String(value);input.dispatchEvent(new Event('input'));
     };
     const speedSet=(position:number)=>{speedInput.value=String(Math.max(0,Math.min(1000,position)));changeSpeed();};
-    hud=standalone?createOrbitHud(this,{
-      route:route=>{if(ready())followRoute(route);},
+    hud=standalone?createFlightHud(this,{
+      orbit:orbit=>{if(ready())followOrbit(orbit);},
       free:()=>{if(ready()){enterFree();draw();}},
       altitude:km=>{if(!ready())return;enterFree();navigation.setAltitude(km);flightControls?.request();},
       current:()=>currentObserver().altitude,
@@ -899,9 +899,9 @@ export class OrbitalSky extends HTMLElement {
     profileSelect.addEventListener('change',changeProfile);
     cloudShapeSelect.addEventListener('change',changeCloudShape);
     calendarInputs.forEach(input=>input.addEventListener('input',changeCalendar));
-    orbitLink?.addEventListener('pointerdown',prepareOrbitLink);
-    orbitLink?.addEventListener('click',prepareOrbitLink);
-    orbitLink?.addEventListener('focus',prepareOrbitLink);
+    explorerLink?.addEventListener('pointerdown',prepareExplorerLink);
+    explorerLink?.addEventListener('click',prepareExplorerLink);
+    explorerLink?.addEventListener('focus',prepareExplorerLink);
     lookInputs.forEach(input=>input.addEventListener('input',changeLook));
     exposureMode.addEventListener('change',changeLook);fixedExposure.addEventListener('input',changeLook);
     resetAll.addEventListener('click',restoreAll);
@@ -935,9 +935,9 @@ export class OrbitalSky extends HTMLElement {
       lost = !restored;
       if (!lost) { resize(); controls.hidden = !controlsInView || !this.hasAttribute('data-ready'); sync(); }
     };
-    const observer = new ResizeObserver(resize);
-    observer.observe(canvas);
-    observer.observe(viewport);
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(canvas);
+    resizeObserver.observe(viewport);
     // The transparent page keeps the sky visible below the introduction;
     // only its controls hide when the introduction leaves the viewport.
     const hero = document.querySelector('.hero');
@@ -978,14 +978,14 @@ export class OrbitalSky extends HTMLElement {
       cancelAnimationFrame(qualityFrame);
       cancelAnimationFrame(drawRequest);
       cancelAnimationFrame(urlUpdateFrame);
-      observer.disconnect();
+      resizeObserver.disconnect();
       visibility.disconnect();
       motionButtons.forEach(button=>button.removeEventListener('click', toggle));
       window.removeEventListener('keydown',playbackKey);
       panelController.close();
-      orbitLink?.removeEventListener('pointerdown',prepareOrbitLink);
-      orbitLink?.removeEventListener('click',prepareOrbitLink);
-      orbitLink?.removeEventListener('focus',prepareOrbitLink);
+      explorerLink?.removeEventListener('pointerdown',prepareExplorerLink);
+      explorerLink?.removeEventListener('click',prepareExplorerLink);
+      explorerLink?.removeEventListener('focus',prepareExplorerLink);
       panelController.dispose();
       profileSelect.removeEventListener('change',changeProfile);
       cloudShapeSelect.removeEventListener('change',changeCloudShape);

@@ -2,7 +2,7 @@ import sharp from 'sharp';
 import { resolve } from 'node:path';
 
 // NASA Black Marble 2016 color composite and Solar System Scope 8K clouds.
-// See public/media/orbit/README.md for source URLs and attribution.
+// See public/media/earthlight/README.md for source URLs and attribution.
 const [nightSource, cloudSource, daySource] = process.argv.slice(2);
 if (!nightSource || !cloudSource || !daySource) throw new Error('Usage: bun scripts/build-earth-maps.mjs BLACK_MARBLE_3KM.jpg CLOUDS_8K.jpg DAY_8K.jpg');
 sharp.concurrency(2);
@@ -32,10 +32,10 @@ for(const width of [4096,8192]) {
   const encode={quality:50,effort:4,chromaSubsampling:'4:4:4',bitdepth:8};
   await sharp(emission,{raw:{width:info.width,height:info.height,channels:1}})
     .resize(width,width/2).avif({...encode,quality:65})
-    .toFile(resolve(`public/media/orbit/earth-night${suffix}.avif`));
+    .toFile(resolve(`public/media/earthlight/earth-night${suffix}.avif`));
   await sharp(cloudSource).resize(width,width/2).greyscale().avif(encode)
-    .toFile(resolve(`public/media/orbit/earth-clouds${suffix}.avif`));
+    .toFile(resolve(`public/media/earthlight/earth-clouds${suffix}.avif`));
   await sharp(daySource).resize(width,width/2).avif(encode)
-    .toFile(resolve(`public/media/orbit/earth-day${suffix}.avif`));
+    .toFile(resolve(`public/media/earthlight/earth-day${suffix}.avif`));
   console.log(`Built ${width} x ${width/2} day, night emission and cloud maps.`);
 }

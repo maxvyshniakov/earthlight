@@ -1,9 +1,9 @@
 // Lossless references reconstructed from the NASA source plates, not AVIFs.
-// bun scripts/benchmark-scene-maps.mjs [/tmp/orbital-reference] [/tmp/orbit-optimization]
+// bun scripts/benchmark-scene-maps.mjs [/tmp/earthlight-reference] [/tmp/earthlight-optimization]
 import sharp from 'sharp';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
-const [root='/tmp/orbital-reference',out='/tmp/orbit-optimization']=process.argv.slice(2);
+const [root='/tmp/earthlight-reference',out='/tmp/earthlight-optimization']=process.argv.slice(2);
 sharp.concurrency(2);sharp.cache(false);await mkdir(out,{recursive:true});
 const rows=[];
 const metrics=(a,b,w,ch)=>{

@@ -10,5 +10,5 @@ for(const line of (await response.text()).split(/\r?\n/)){
  ids.push((89-lat)*360+lon+180);
 }
 if(ids.length<10000)throw Error('Incomplete inventory');
-await writeFile(new URL('../public/media/orbit/terrain-tiles/copernicus.json',import.meta.url),JSON.stringify([...new Set(ids)].sort((a,b)=>a-b))+'\n');
+await writeFile(new URL('../public/media/earthlight/terrain-tiles/copernicus.json',import.meta.url),JSON.stringify([...new Set(ids)].sort((a,b)=>a-b))+'\n');
 console.log(`${ids.length} GLO-90 source tiles`);

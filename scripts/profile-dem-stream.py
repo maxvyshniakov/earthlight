@@ -46,14 +46,14 @@ def restart_browser():
     driver.set_script_timeout(180)
 
 STATE = """
-const s=document.querySelector('orbital-sky'),c=s?.querySelector('canvas');
+const s=document.querySelector('earthlight-explorer'),c=s?.querySelector('canvas');
 const g=c?.getContext('webgl')||c?.getContext('webgl2'),e=g?.getExtension('WEBGL_debug_renderer_info');
 return {state:{...s?.dataset},width:c?.width,height:c?.height,
   viewport:[innerWidth,innerHeight,devicePixelRatio],visibility:document.visibilityState,
   renderer:e&&g.getParameter(e.UNMASKED_RENDERER_WEBGL),extensions:g?.getSupportedExtensions()};
 """
 SETTLED = """
-const s=document.querySelector('orbital-sky');return s&&s.dataset.focus==='sharp'&&
+const s=document.querySelector('earthlight-explorer');return s&&s.dataset.focus==='sharp'&&
 s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&
 Number(JSON.parse(s.dataset.terrainTiles||'{}').fineResident)>0&&
 (!s.dataset.cloudLighting||s.dataset.cloudLighting!=='texture'||
@@ -91,7 +91,7 @@ def navigate(params):
 
 TRACE = """
 const seconds=arguments[0],done=arguments[arguments.length-1];
-const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
+const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),g=c.getContext('webgl')||c.getContext('webgl2');
 const priorErrors=[];for(let i=0;i<16;i++){const e=g.getError();if(!e)break;priorErrors.push(e);}
 const draw=g.drawArrays,bind=g.bindFramebuffer,upload=g.texSubImage2D,activeTexture=g.activeTexture,useProgram=g.useProgram;
 const frames=[],rafs=[],longTasks=[],uploads=[],states=[],draws=[],programs=new Map();
@@ -106,9 +106,9 @@ g.texSubImage2D=function(...a){const t=performance.now();upload.apply(this,a);up
 const tick=t=>{if(active){rafs.push(t-start);requestAnimationFrame(tick);}};requestAnimationFrame(tick);
 let observer;try{observer=new PerformanceObserver(l=>longTasks.push(...l.getEntries().map(e=>({at:e.startTime-start,ms:e.duration}))));observer.observe({entryTypes:['longtask']});}catch{}
 const timer=setInterval(()=>states.push({at:performance.now()-start,terrain:s.dataset.terrainTiles,scale:s.dataset.renderScale,camera:s.dataset.cameraPosition,lighting:{ready:s.dataset.cloudLightingReady,progress:s.dataset.cloudLightingProgress,generation:s.dataset.cloudLightingGeneration,rows:s.dataset.cloudLightingRows,draws:s.dataset.cloudLightingDraws},canvas:[c.width,c.height]}),1000);
-s.querySelector('.sky-motion').click();
+s.querySelector('.explorer-motion').click();
 setTimeout(()=>{
- s.querySelector('.sky-motion').click();active=false;clearInterval(timer);
+ s.querySelector('.explorer-motion').click();active=false;clearInterval(timer);
  g.drawArrays=draw;g.bindFramebuffer=bind;g.texSubImage2D=upload;g.activeTexture=activeTexture;g.useProgram=useProgram;observer?.disconnect();
  window.demTracePrograms=[...programs.keys()];
  done({elapsedMs:performance.now()-start,frames,rafs,longTasks,uploads,states,draws,canvasBefore,canvasAfter:[c.width,c.height],before,after:{...s.dataset},error:g.getError(),priorErrors});

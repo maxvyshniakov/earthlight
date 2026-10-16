@@ -10,10 +10,10 @@ await mkdir(out,{recursive:true});const exec=promisify(execFile),session='modis-
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:120000,maxBuffer:16e6})).stdout;
 const evaluate=async s=>JSON.parse(await run('eval','--base64',Buffer.from(s).toString('base64')));
 const hash=s=>createHash('sha256').update(s).digest('hex');const result={};
-const manifest=JSON.parse(await readFile('public/media/orbit/modis-demo/manifest.json'));
+const manifest=JSON.parse(await readFile('public/media/earthlight/modis-demo/manifest.json'));
 for(const d of manifest.dates){
- const q=await sharp(`public/media/orbit/modis-demo/${d.date}-quality.png`).raw().toBuffer();
- const fields=await Promise.all(['low','middle','high'].map(k=>sharp(`public/media/orbit/modis-demo/${d.date}-${k}.png`).raw().toBuffer()));
+ const q=await sharp(`public/media/earthlight/modis-demo/${d.date}-quality.png`).raw().toBuffer();
+ const fields=await Promise.all(['low','middle','high'].map(k=>sharp(`public/media/earthlight/modis-demo/${d.date}-${k}.png`).raw().toBuffer()));
  let cloudy=0;for(let i=0;i<q.length;i+=4){const count=fields.reduce((n,f)=>n+Number(f[i+3]>0),0);assert.equal(count,q[i]===255?1:0,'No invented coverage in unknown/clear pixels or duplicated layers');cloudy+=count;}
  assert.equal(cloudy,d.cloudPixels);assert.equal(d.cloudPixels+d.clearPixels+d.unknownPixels,manifest.size**2);
 }

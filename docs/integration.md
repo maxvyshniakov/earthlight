@@ -3,7 +3,7 @@
 Earthlight is the only source for scene rendering, photographic defaults,
 camera controls, HUD and scene tests. The personal site embeds
 `earthlight/background`; the explorer uses `earthlight/astro` at its subdomain
-root. Laboratory pages live under `/lab/`. The site has no `/orbit/` route.
+root. Laboratory pages live under `/lab/`.
 
 The background has no controls or navigation listeners. It uses compact
 overviews, disables streamed surface/terrain detail and aurora, caps rendering

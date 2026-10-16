@@ -1,5 +1,5 @@
 /** A monotonic simulation clock. Rendering samples time but never advances it. */
-export class OrbitPlayback {
+export class SceneClock {
   private anchor=0;
   private running=false;
   private seconds:number;

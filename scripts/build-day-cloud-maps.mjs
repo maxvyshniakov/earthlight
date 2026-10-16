@@ -2,9 +2,9 @@
 // Originals are external build inputs; no enlarged detail or generated imagery.
 import sharp from 'sharp';
 import {join} from 'node:path';
-const root=process.argv[2]||'/tmp/orbital-reference';
+const root=process.argv[2]||'/tmp/earthlight-reference';
 sharp.concurrency(2);sharp.cache(false);
-const output='public/media/orbit';
+const output='public/media/earthlight';
 // A 4K overview covers the whole globe; 500 m detail streams separately.
 const plates=[];
 for(let y=0;y<2;y++)for(let x=0;x<4;x++)plates.push({

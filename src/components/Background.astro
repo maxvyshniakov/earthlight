@@ -1,7 +1,7 @@
 ---
 import {assetURL} from '../scripts/asset-location';
 interface Props { assetBaseURL?: string; }
-const {assetBaseURL='/media/orbit/'}=Astro.props;
+const {assetBaseURL='/media/earthlight/'}=Astro.props;
 ---
 <earthlight-background data-asset-base={assetBaseURL} aria-hidden="true">
   <div class="poster" style={{backgroundImage:`url("${assetURL('preview/poster.webp',assetBaseURL)}")`}}></div>

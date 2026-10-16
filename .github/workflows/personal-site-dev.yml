@@ -33,7 +33,7 @@ jobs:
       - name: Cache immutable scene assets
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: earthlight/public/media/orbit
+          path: earthlight/public/media/earthlight
           key: earthlight-assets-${{ runner.os }}-${{ hashFiles('earthlight/assets-manifest.json') }}
 
       - name: Install Earthlight dependencies

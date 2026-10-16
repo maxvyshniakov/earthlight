@@ -4,11 +4,11 @@ import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {decodeTerrain} from '../src/scripts/earth-terrain.ts';
 import sharp from 'sharp';
-const raw=gunzipSync(readFileSync(new URL('../public/media/orbit/earth-terrain-4096.dem',import.meta.url)));
+const raw=gunzipSync(readFileSync(new URL('../public/media/earthlight/earth-terrain-4096.dem',import.meta.url)));
 const buffer=raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
 const terrain=decodeTerrain(buffer);
 test('detail heights have seamless gutters and numeric, carry-safe mipmaps',async()=>{
- const decode=async id=>(await sharp(new URL(`../public/media/orbit/terrain-tiles/${id}.png`,import.meta.url).pathname).raw().toBuffer({resolveWithObject:true}));
+ const decode=async id=>(await sharp(new URL(`../public/media/earthlight/terrain-tiles/${id}.png`,import.meta.url).pathname).raw().toBuffer({resolveWithObject:true}));
  const a=await decode(598),b=await decode(599);
  assert.equal(a.info.width,1144);assert.equal(a.info.height,572);
  const h=(image,x,y)=>{const i=(y*1144+x)*image.info.channels;return (image.data[i]*256+image.data[i+1])*8;};

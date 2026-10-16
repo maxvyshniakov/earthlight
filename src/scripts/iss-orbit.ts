@@ -4,18 +4,18 @@ import elements from '../data/iss-orbit.json' with { type: 'json' };
 
 export type Vec3 = [number,number,number];
 export const EARTH_RADIUS_KM = 6371;
-export const ORBIT_SECONDS = 86400 / elements.MEAN_MOTION;
+export const ISS_PERIOD_SECONDS = 86400 / elements.MEAN_MOTION;
 export const START_DATE = new Date(Date.parse(elements.EPOCH+'Z')+3300_000);
 
 // The Moon clears the limb around t=1043: about 4 seconds into 10x playback.
-export const DEFAULT_ORBIT_SECONDS = 1000;
+export const DEFAULT_SCENE_SECONDS = 1000;
 
 /** Repeatable opening composition; explicit frame links retain their timestamp. */
-export function initialOrbitSeconds(params: URLSearchParams) {
+export function initialSceneSeconds(params: URLSearchParams) {
   const value=params.get('t');
   const seconds=value?.trim() ? Number(value) : NaN;
   if(Number.isFinite(seconds) && Number.isFinite(new Date(START_DATE.getTime()+seconds*1000).getTime())) return seconds;
-  return DEFAULT_ORBIT_SECONDS;
+  return DEFAULT_SCENE_SECONDS;
 }
 
 export const dot = (a:Vec3,b:Vec3) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];

@@ -1,7 +1,7 @@
 // Estimate a 16-byte catalog without changing production data or the loader.
 import fs from 'node:fs';
 import {gzipSync,brotliCompressSync} from 'node:zlib';
-const source=fs.readFileSync(new URL('../public/media/orbit/stars-hyg.bin',import.meta.url));
+const source=fs.readFileSync(new URL('../public/media/earthlight/stars-hyg.bin',import.meta.url));
 const packed=Buffer.alloc(source.length/2),velocityScale=1e-9;
 let maxAngularArcsec=0,maxMagnitudeError=0,maxColorError=0;
 for(let row=0;row<source.length/32;row++){

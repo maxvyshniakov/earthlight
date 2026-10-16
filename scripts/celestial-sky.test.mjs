@@ -150,7 +150,7 @@ test('changing the phase changes lunar light, but never its sampled position or 
 });
 
 test('iris atlas preserves equal spectral energy and zero boundaries at every opening',()=>{
-  const data=readFileSync(new URL('../public/media/orbit/optical-psf.bin',import.meta.url));
+  const data=readFileSync(new URL('../public/media/earthlight/optical-psf.bin',import.meta.url));
   assert.equal(data.length,optics.size**2*optics.states*3);
   for(let state=0;state<optics.states;state++)for(let c=0;c<3;c++){
     let sum=0;
@@ -181,7 +181,7 @@ test('iris atlas preserves equal spectral energy and zero boundaries at every op
 });
 
 test('packed HYG contains real J2000 stars, magnitudes and proper motion',()=>{
-  const file=readFileSync(new URL('../public/media/orbit/stars-hyg.bin',import.meta.url));
+  const file=readFileSync(new URL('../public/media/earthlight/stars-hyg.bin',import.meta.url));
   assert.equal(file.length,15598*32);
   const data=new DataView(file.buffer,file.byteOffset,file.byteLength);
   const stars=Array.from({length:15598},(_,i)=>Array.from({length:8},(_,j)=>data.getFloat32(i*32+j*4,true)));

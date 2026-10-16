@@ -1,6 +1,6 @@
 import {ShaderProgramBatch} from './shader-programs';
 import {textureImage2D} from './webgl-context';
-import {fragmentSource,vertexSource} from './orbital-shader';
+import {fragmentSource,vertexSource} from './scene-shader';
 
 // Four adjacent heights per RGBA texel, eight guttered tiles, 32 heights.
 // Two 2048 x 1024 textures cost 16 MiB, including the unfinished replacement.

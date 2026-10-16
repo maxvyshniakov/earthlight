@@ -83,7 +83,7 @@ the date. Every view can be shared as a URL.
 
 ## How it is built
 
-- `<orbital-sky>` is a framework-free custom element (`src/scripts/`). Astro
+- `<earthlight-explorer>` is a framework-free custom element (`src/scripts/`). Astro
   only hosts the demo page.
 - Startup shows a small poster, then reveals low-resolution overviews. Detail
   tiles for the visible region stream in afterwards. Failed requests fall back
@@ -126,7 +126,7 @@ drives the rendered scene in an isolated agent-browser session.
 The `earthlight/background` Astro component uses the same renderer without
 navigation or controls. It leaves page input alone and keeps a static poster
 when reduced motion is requested. The full explorer lives on the Earthlight
-subdomain; consumers do not need an `/orbit/` page.
+subdomain.
 
 ```astro
 ---
@@ -149,7 +149,7 @@ ETOPO 2022 and Copernicus DEM. Magnetic field: WMM2025 (NOAA NCEI and BGS).
 Orbital elements: CelesTrak. Libraries: satellite.js, Astronomy Engine,
 geotiff.js. NASA, ESA and the other data providers do not endorse this project.
 Full terms and the changes made to each source are in [NOTICE](NOTICE.md) and
-the [data provenance notes](public/media/orbit/README.md).
+the [data provenance notes](public/media/earthlight/README.md).
 
 ## License
 

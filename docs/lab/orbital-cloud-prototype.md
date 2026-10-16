@@ -120,7 +120,7 @@ bun run preview --port 4347 --host 127.0.0.1
 bun scripts/verify-scene-url.mjs http://127.0.0.1:4347
 bun scripts/verify-half-clouds.mjs http://127.0.0.1:4347 /tmp/orbit-half-clouds
 bun scripts/benchmark-candidate-pairs.mjs http://127.0.0.1:4347 /tmp/orbit-half-pairs clouds-half day,night,clouds compact
-bun scripts/benchmark-orbit-costs.mjs http://127.0.0.1:4347 /tmp/orbit-costs
+bun scripts/benchmark-scene-costs.mjs http://127.0.0.1:4347 /tmp/orbit-costs
 ```
 
 The half-cloud check fixes manual exposure and grain, captures five views and an

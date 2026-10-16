@@ -7,7 +7,7 @@ if(!source)throw Error('Pass ETOPO_2022_v1_60s_N90W180_surface.tif');
 const width=21600,height=10800,interior=540,gutter=16,cell=572;
 const meta=await sharp(source,{limitInputPixels:false}).metadata();
 if(meta.width!==width||meta.height!==height)throw Error('Expected 21600 x 10800 ETOPO');
-const root=new URL('../public/media/orbit/terrain-tiles/',import.meta.url);
+const root=new URL('../public/media/earthlight/terrain-tiles/',import.meta.url);
 await mkdir(root,{recursive:true});sharp.concurrency(2);
 const tiles=[];let bytes=0;
 for(let ty=0;ty<20;ty++){

@@ -5,7 +5,7 @@
 import {readFileSync,writeFileSync} from 'node:fs';
 import {gzipSync} from 'node:zlib';
 import {packStars} from '../src/scripts/star-pack.ts';
-const media=new URL('../public/media/orbit/',import.meta.url);
+const media=new URL('../public/media/earthlight/',import.meta.url);
 const stars=readFileSync(new URL('stars-hyg.bin',media));
 const packedStars=gzipSync(packStars(new Float32Array(stars.buffer,stars.byteOffset,stars.byteLength/4)),{level:9});
 writeFileSync(new URL('stars-hyg-v2.bin',media),packedStars);

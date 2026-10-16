@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import {decodeTerrain} from '../src/scripts/earth-terrain.ts';
 import {TerrainBound,boundLevels,boundCode,boundMetres,terrainBoundGrid,tileCellMaxima,patchMaximum,BOUND_COLUMNS,BOUND_ROWS} from '../src/scripts/terrain-bound.ts';
 
-const raw=gunzipSync(readFileSync(new URL('../public/media/orbit/earth-terrain-4096-v2.dem',import.meta.url)));
+const raw=gunzipSync(readFileSync(new URL('../public/media/earthlight/earth-terrain-4096-v2.dem',import.meta.url)));
 const terrain=decodeTerrain(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength));
 const random=(seed=>()=>((seed=Math.imul(seed^seed>>>15,2246822519)+1013904223>>>0)/2**32))(17);
 
@@ -100,7 +100,7 @@ test('one stored texel bounds every cell within the margin of a great-circle tra
 });
 
 test('ETOPO tile cell maxima include filter reach and match the full tile peak',async()=>{
- const {data}=await sharp(new URL('../public/media/orbit/terrain-tiles/598.png',import.meta.url).pathname).ensureAlpha().extract({left:0,top:0,width:572,height:572}).raw().toBuffer({resolveWithObject:true});
+ const {data}=await sharp(new URL('../public/media/earthlight/terrain-tiles/598.png',import.meta.url).pathname).ensureAlpha().extract({left:0,top:0,width:572,height:572}).raw().toBuffer({resolveWithObject:true});
  const maxima=tileCellMaxima(data);
  let peak=0,interior=0;
  for(let y=0;y<572;y++)for(let x=0;x<572;x++){const v=data[(y*572+x)*4]*256+data[(y*572+x)*4+1];peak=Math.max(peak,v);if(x>=16&&x<556&&y>=16&&y<556)interior=Math.max(interior,v);}

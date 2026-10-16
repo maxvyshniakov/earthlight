@@ -6,27 +6,27 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4347',out='/tmp/orbit-costs',mode='all']=process.argv.slice(2);
+const [base='http://127.0.0.1:4347',out='/tmp/earthlight-costs',mode='all']=process.argv.slice(2);
 assert.ok(['all','clouds','scroll'].includes(mode),'Mode must be all, clouds or scroll');
-const session=`orbit-costs-${process.pid}`;
+const session=`earthlight-costs-${process.pid}`;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:90000,maxBuffer:8e6})).stdout;
 const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));
 const evaluateLong=async source=>{
- await evaluate(`(()=>{window.orbitCostTask={done:false};Promise.resolve(${source}).then(value=>window.orbitCostTask={done:true,value},error=>window.orbitCostTask={done:true,error:String(error.stack||error)});return true;})()`);
+ await evaluate(`(()=>{window.sceneCostTask={done:false};Promise.resolve(${source}).then(value=>window.sceneCostTask={done:true,value},error=>window.sceneCostTask={done:true,error:String(error.stack||error)});return true;})()`);
  const deadline=Date.now()+180000;
  while(Date.now()<deadline){
-  const task=await evaluate('window.orbitCostTask');
+  const task=await evaluate('window.sceneCostTask');
   if(task.done){if(task.error)throw Error(task.error);return task.value;}
   await new Promise(resolve=>setTimeout(resolve,500));
  }
  throw Error('GPU diagnostic task timed out');
 };
-const settled=`(()=>{const skies=[...document.querySelectorAll('orbital-sky')];return skies.length>0&&skies.every(s=>s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0))})()`;
+const settled=`(()=>{const skies=[...document.querySelectorAll('earthlight-explorer')];return skies.length>0&&skies.every(s=>s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0))})()`;
 const wait=async stage=>{
  try{
   try{await run('wait','--fn',settled);}catch(error){if(!String(error.stderr).includes('Wait timed out'))throw error;await run('wait','--fn',settled);}
  }catch(error){
-  const state=await evaluate(`(()=>({url:location.href,visibility:document.visibilityState,skies:[...document.querySelectorAll('orbital-sky')].map(s=>({...s.dataset}))}))()`);
+  const state=await evaluate(`(()=>({url:location.href,visibility:document.visibilityState,skies:[...document.querySelectorAll('earthlight-explorer')].map(s=>({...s.dataset}))}))()`);
   await writeFile(`${out}/settlement-failure.json`,JSON.stringify({stage,state},null,2)+'\n');
   throw Error('Settlement failed at '+stage+'; see '+out+'/settlement-failure.json',{cause:error});
  }
@@ -40,14 +40,14 @@ const save=()=>writeFile(`${out}/results.json`,JSON.stringify(results,null,2)+'\
 // Installed only on the test page. Each measurement awaits the GPU query;
 // paused renderers submit no competing animation frames.
 const install=`(()=>{
- window.countOrbitFrames=sky=>{
+ window.countSceneFrames=sky=>{
   const gl=sky.querySelector('canvas').getContext('webgl'),draw=gl.drawArrays,bind=gl.bindFramebuffer;
   const counter={frames:0};let target=gl.getParameter(gl.FRAMEBUFFER_BINDING);
   gl.bindFramebuffer=function(kind,value){target=value;return bind.call(this,kind,value);};
   gl.drawArrays=function(...args){draw.apply(this,args);if(target===null)counter.frames++;};
   return {counter,restore(){gl.drawArrays=draw;gl.bindFramebuffer=bind;}};
  };
- window.measureOrbitFrame=sky=>new Promise((resolve,reject)=>{
+ window.measureSceneFrame=sky=>new Promise((resolve,reject)=>{
   const canvas=sky.querySelector('canvas'),gl=canvas.getContext('webgl'),ext=gl.getExtension('EXT_disjoint_timer_query');
   if(!ext){reject(Error('Hardware GPU timers unavailable'));return;}
   const bind=gl.bindFramebuffer,draw=gl.drawArrays,query=ext.createQueryEXT();
@@ -68,9 +68,9 @@ const install=`(()=>{
    draw.apply(this,args);
    if(target===null){ext.endQueryEXT(ext.TIME_ELAPSED_EXT);ended=true;restore();}
   };
-  sky.querySelector('.sky-track input').dispatchEvent(new Event('input'));
+  sky.querySelector('.explorer-track input').dispatchEvent(new Event('input'));
  });
- window.orbitCostState=sky=>{
+ window.sceneCostState=sky=>{
   const canvas=sky.querySelector('canvas'),gl=canvas.getContext('webgl'),debug=gl.getExtension('WEBGL_debug_renderer_info');
   return {profile:sky.dataset.renderProfile,volumePass:sky.dataset.volumePass,width:canvas.width,height:canvas.height,scale:sky.dataset.renderScale,position:sky.dataset.cameraPosition,basis:sky.dataset.cameraBasis,failures:sky.dataset.assetFailures,error:gl.getError(),userAgent:navigator.userAgent,renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};
  };
@@ -98,7 +98,7 @@ try{
     return original.call(this,shader,source);
    };
    try{
-    const sky=document.querySelector('orbital-sky'),copy=sky.cloneNode(true);
+    const sky=document.querySelector('earthlight-explorer'),copy=sky.cloneNode(true);
     for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];
     copy.style.cssText='position:fixed;inset:0;z-index:20;';sky.parentNode.append(copy);
    }finally{prototype.shaderSource=original;}
@@ -107,23 +107,23 @@ try{
   assert.ok(mutation.replacements>0,'Cloud function must be ablated');
   // Prime slider quantization once, then let metering settle. Repeating this
   // unchanged seek invalidates one frame without extending exposure adaptation.
-  await evaluate(`(()=>{for(const s of document.querySelectorAll('orbital-sky'))s.querySelector('.sky-track input').dispatchEvent(new Event('input'));return true;})()`);
+  await evaluate(`(()=>{for(const s of document.querySelectorAll('earthlight-explorer'))s.querySelector('.explorer-track input').dispatchEvent(new Event('input'));return true;})()`);
   await wait(profile+' primed pair');await evaluate(install);console.log(profile+': primed pair settled');
   const result=await evaluateLong(`(async()=>{
-   const skies=[...document.querySelectorAll('orbital-sky')],pairs=[];
-   const counters=skies.map(countOrbitFrames);
+   const skies=[...document.querySelectorAll('earthlight-explorer')],pairs=[];
+   const counters=skies.map(countSceneFrames);
    try{
     await new Promise(resolve=>setTimeout(resolve,1200));
     if(counters.some(c=>c.counter.frames!==0))throw Error('Unrequested idle frames before sampling');
     for(let i=0;i<40;i++){
      let full,noViewClouds;
-     if(i%2){noViewClouds=await measureOrbitFrame(skies[1]);full=await measureOrbitFrame(skies[0]);}
-     else{full=await measureOrbitFrame(skies[0]);noViewClouds=await measureOrbitFrame(skies[1]);}
+     if(i%2){noViewClouds=await measureSceneFrame(skies[1]);full=await measureSceneFrame(skies[0]);}
+     else{full=await measureSceneFrame(skies[0]);noViewClouds=await measureSceneFrame(skies[1]);}
      if(i>=8)pairs.push({full,noViewClouds,ratio:noViewClouds/full});
     }
     const frameCounts=counters.map(c=>c.counter.frames);
     if(frameCounts.some(n=>n!==40))throw Error('Incidental frames during sampling: '+frameCounts);
-    return {states:skies.map(orbitCostState),pairs,frameCounts,clientAssets:performance.getEntriesByType('resource').filter(x=>x.name.includes('/_astro/')&&x.name.endsWith('.js')).map(x=>x.name)};
+    return {states:skies.map(sceneCostState),pairs,frameCounts,clientAssets:performance.getEntriesByType('resource').filter(x=>x.name.includes('/_astro/')&&x.name.endsWith('.js')).map(x=>x.name)};
    }finally{
     for(const counter of counters)counter.restore();
    }
@@ -140,16 +140,16 @@ try{
   // Measure in both directions to expose clock/scheduling drift.
   for(const fraction of [0,.375,.75,1,1,.75,.375,0]){
    const position=await evaluate(`(()=>{scrollTo(0,innerHeight*${fraction});return {requestedFraction:${fraction},scrollY,viewportHeight:innerHeight,maxScroll:document.documentElement.scrollHeight-innerHeight};})()`);
-   await evaluate(`(()=>{document.querySelector('.sky-track input').dispatchEvent(new Event('input'));return true;})()`);
+   await evaluate(`(()=>{document.querySelector('.explorer-track input').dispatchEvent(new Event('input'));return true;})()`);
    await wait(profile+' scroll '+fraction);
    const result=await evaluateLong(`(async()=>{
-    const sky=document.querySelector('orbital-sky'),samples=[],count=countOrbitFrames(sky);
+    const sky=document.querySelector('earthlight-explorer'),samples=[],count=countSceneFrames(sky);
     try{
      await new Promise(resolve=>setTimeout(resolve,1200));
      if(count.counter.frames!==0)throw Error('Unrequested idle frames at scroll position '+scrollY);
-     for(let i=0;i<42;i++){const ms=await measureOrbitFrame(sky);if(i>=6)samples.push(ms);}
+     for(let i=0;i<42;i++){const ms=await measureSceneFrame(sky);if(i>=6)samples.push(ms);}
      if(count.counter.frames!==42)throw Error('Incidental scroll frames: '+count.counter.frames);
-     return {state:orbitCostState(sky),samples,frameCount:count.counter.frames,scrollY};
+     return {state:sceneCostState(sky),samples,frameCount:count.counter.frames,scrollY};
     }finally{count.restore();}
    })()`);
    assert.equal(result.state.profile,profile);assert.equal(result.state.error,0);assert.equal(result.state.failures,'0');

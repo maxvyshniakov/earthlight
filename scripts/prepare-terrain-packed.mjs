@@ -8,7 +8,7 @@ import {fromArrayBuffer} from 'geotiff';
 import {packTerrainPatch,terrainSourceName} from '../src/scripts/terrain-detail.ts';
 import {packTerrainParent,DEM_PACKED_VERSION} from '../src/scripts/terrain-packed.ts';
 import {terrainSource} from '../server/terrain-source.mjs';
-const {values}=parseArgs({options:{'ids-file':{type:'string'},output:{type:'string',default:'public/media/orbit/terrain-packed/v1'},cache:{type:'string',default:'.media/dem90'}}});
+const {values}=parseArgs({options:{'ids-file':{type:'string'},output:{type:'string',default:'public/media/earthlight/terrain-packed/v1'},cache:{type:'string',default:'.media/dem90'}}});
 if(!values['ids-file'])throw Error('Pass --ids-file with an explicit JSON array of Copernicus parent IDs (0..64799)');
 const ids=JSON.parse(await readFile(values['ids-file'],'utf8'));
 if(!Array.isArray(ids)||!ids.length||ids.some(id=>!Number.isInteger(id)||id<0||id>=64800))throw Error('Invalid parent IDs');
@@ -19,7 +19,7 @@ if(previous&&previous.version!==DEM_PACKED_VERSION)throw Error('Incompatible pac
 const entries=new Map((previous?.files??[]).map(file=>[file.id,file]));
 const atomic=async(path,bytes)=>{const temp=path+'.'+process.pid+'.tmp';await writeFile(temp,bytes);await rename(temp,path);};
 for(const id of [...new Set(ids)].sort((a,b)=>a-b)){
- const name=terrainSourceName(id),source=terrainSource('/media/orbit/dem90/'+name+'.tif'),cached=join(cache,name+'.tif');
+ const name=terrainSourceName(id),source=terrainSource('/media/earthlight/dem90/'+name+'.tif'),cached=join(cache,name+'.tif');
  let bytes;try{bytes=await readFile(cached);}catch(error){
   if(error.code!=='ENOENT')throw error;
   const response=await fetch(source,{signal:AbortSignal.timeout(60000)});if(!response.ok)throw Error(`DEM ${name}: HTTP ${response.status}`);

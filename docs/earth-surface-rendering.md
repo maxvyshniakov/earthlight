@@ -64,7 +64,7 @@ The MODIS study keeps its own input by default. See the
 [full-disc revision](lab/2026-10-11-cloud-balanced.md).
 
 
-Build scripts and official source URLs are in `public/media/orbit/README.md`.
+Build scripts and official source URLs are in `public/media/earthlight/README.md`.
 
 ## Light transport and limits
 

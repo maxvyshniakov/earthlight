@@ -55,11 +55,11 @@ else{
   const date=input('date').value;
   try{const loaded:ImageBitmap[]=[];
    // Sequential decode ensures a partially failed load can release its bitmaps.
-   try{for(const kind of ['low','middle','high','quality']){const suffix=kind!=='quality'&&input('reconstruction').value==='1'?'-reconstructed':'';const r=await fetch(`${root.dataset.assetBase??'/media/orbit/'}modis-demo/${date}-${kind}${suffix}.png`);if(!r.ok)throw Error('HTTP '+r.status);loaded.push(await createImageBitmap(await r.blob(),{imageOrientation:'flipY',premultiplyAlpha:'none',colorSpaceConversion:'none'}));}}
+   try{for(const kind of ['low','middle','high','quality']){const suffix=kind!=='quality'&&input('reconstruction').value==='1'?'-reconstructed':'';const r=await fetch(`${root.dataset.assetBase??'/media/earthlight/'}modis-demo/${date}-${kind}${suffix}.png`);if(!r.ok)throw Error('HTTP '+r.status);loaded.push(await createImageBitmap(await r.blob(),{imageOrientation:'flipY',premultiplyAlpha:'none',colorSpaceConversion:'none'}));}}
    catch(e){loaded.forEach(i=>i.close());throw e;}
    if(token!==generation||disposed){loaded.forEach(i=>i.close());return;}
    images.forEach(i=>i.close());images=loaded;
-   root.querySelector<HTMLImageElement>('#reference')!.src=`${root.dataset.assetBase??'/media/orbit/'}modis-demo/${date}-reference.webp`;
+   root.querySelector<HTMLImageElement>('#reference')!.src=`${root.dataset.assetBase??'/media/earthlight/'}modis-demo/${date}-reference.webp`;
    const d=manifest.dates.find(d=>d.date===date)!;root.querySelector('#coverage')!.textContent=`Облака с парой измерений: ${(d.cloudPixels/manifest.size**2*100).toFixed(1)}%. Ясно по карте доли облачности: ${(d.clearPixels/manifest.size**2*100).toFixed(1)}%. Нет полной пары измерений: ${(d.unknownPixels/manifest.size**2*100).toFixed(1)}%.`;
    delete root.dataset.error;loading=false;if(!lost)upload();
   }catch(e){if(token===generation){root.dataset.error=String(e);status.textContent='Не удалось загрузить карты: '+String(e);}}
@@ -84,5 +84,5 @@ else{
  window.addEventListener('pagehide',e=>{cancelAnimationFrame(raf);raf=0;if(!e.persisted){disposed=true;generation++;resize.disconnect();textures.forEach(t=>gl!.deleteTexture(t));images.forEach(i=>i.close());if(program)gl!.deleteProgram(program);if(buffer)gl!.deleteBuffer(buffer);}});
  window.addEventListener('pageshow',e=>{if(e.persisted){last=0;request();}});
  labels();
- fetch(`${root.dataset.assetBase??'/media/orbit/'}modis-demo/manifest.json`).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();}).then((m:Manifest)=>{if(disposed)return;manifest=m;init();return load();}).catch(e=>{root.dataset.error=String(e);status.textContent=String(e);});
+ fetch(`${root.dataset.assetBase??'/media/earthlight/'}modis-demo/manifest.json`).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();}).then((m:Manifest)=>{if(disposed)return;manifest=m;init();return load();}).catch(e=>{root.dataset.error=String(e);status.textContent=String(e);});
 }

@@ -63,7 +63,7 @@ test('the map tier follows the on-screen size and never enters startup',()=>{
 });
 
 test('the renderer loads the resolved Moon lazily and at the same radius',()=>{
- const renderer=readFileSync(new URL('../src/scripts/orbit-renderer.ts',import.meta.url),'utf8');
+ const renderer=readFileSync(new URL('../src/scripts/scene-renderer.ts',import.meta.url),'utf8');
  assert.ok(!/^import \{[^}]*MoonSurface[^}]*\} from/m.test(renderer),'only a type import is static');
  assert.ok(renderer.includes("import('./moon-surface')"));
  assert.equal(Number(renderer.match(/LUNAR_RESOLVED_FROM=(\d+(?:\.\d+)?)/)[1]),LUNAR_RESOLVED_PX[0]);

@@ -45,18 +45,18 @@ def restart_browser():
     driver.set_script_timeout(180)
 
 STATE = """
-const s=document.querySelector('orbital-sky'),c=s?.querySelector('canvas');
+const s=document.querySelector('earthlight-explorer'),c=s?.querySelector('canvas');
 const g=c?.getContext('webgl')||c?.getContext('webgl2'),e=g?.getExtension('WEBGL_debug_renderer_info');
 return {state:{...s?.dataset},width:c?.width,height:c?.height,
   viewport:[innerWidth,innerHeight,devicePixelRatio],visibility:document.visibilityState,
   renderer:e&&g.getParameter(e.UNMASKED_RENDERER_WEBGL),extensions:g?.getSupportedExtensions()};
 """
 SETTLED = """
-const s=document.querySelector('orbital-sky');return s&&s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0);
+const s=document.querySelector('earthlight-explorer');return s&&s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0);
 """
 TRACE = """
 const done=arguments[arguments.length-1];(async()=>{
-const s=document.querySelector('orbital-sky'),surface=s.closest('.orbit-view'),canvas=s.querySelector('canvas'),gl=canvas.getContext('webgl'),samples=[],uploads=[],long=[];
+const s=document.querySelector('earthlight-explorer'),surface=s.closest('.explorer-view'),canvas=s.querySelector('canvas'),gl=canvas.getContext('webgl'),samples=[],uploads=[],long=[];
 const bind=gl.bindFramebuffer,draw=gl.drawArrays,sub=gl.texSubImage2D,img=gl.texImage2D;let target=null;
 gl.bindFramebuffer=function(k,t){target=t;return bind.call(this,k,t)};
 gl.drawArrays=function(...a){const t=performance.now();const r=draw.apply(this,a);if(target===null)samples.push({t,ms:performance.now()-t,pos:s.dataset.cameraPosition});return r};
@@ -80,7 +80,7 @@ try:
     time.sleep(1)
    state=driver.execute_script(STATE)
    if browser=='chrome' and (not state['renderer'] or any(x in state['renderer'].lower() for x in ['llvmpipe','swiftshader','softpipe'])): raise RuntimeError('Software GPU '+str(state))
-   driver.execute_script("document.querySelector('orbital-sky .sky-motion').click()")
+   driver.execute_script("document.querySelector('earthlight-explorer .explorer-motion').click()")
    print('START',quality,variant,state['renderer'],flush=True)
    trace=driver.execute_async_script(TRACE)
    if trace.get('error'): raise RuntimeError(str(trace['error']))

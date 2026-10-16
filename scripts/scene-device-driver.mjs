@@ -19,7 +19,7 @@ if(browser==='safari-mcp'){
     const result=await call('tools/call',{name,arguments:args});const text=result.content.filter(x=>x.type==='text').map(x=>x.text).join('\n');
     if(result.isError)throw Error(text);try{return JSON.parse(text);}catch{return text;}
   };
-  capabilities=await call('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'orbit-validation',version:'1'}});
+  capabilities=await call('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'earthlight-validation',version:'1'}});
   process.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');
   const {handle}=await tool('create_tab',{url:'about:blank'});
   await tool('set_viewport_size',{width:1440,height:900});

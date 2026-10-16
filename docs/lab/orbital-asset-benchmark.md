@@ -115,15 +115,15 @@ All generated images remain outside public assets. The experiments use sharp
 already installed through Astro; versions are recorded in the JSON.
 
 ```sh
-bun scripts/orbit-asset-benchmark.mjs encode /path/to/milkyway_2020_8k_gal.exr /tmp/orbit-codecs
-bun scripts/orbit-asset-benchmark.mjs encode4k /path/to/milkyway_2020_4k_gal.exr /tmp/orbit-codecs-4k
-bun scripts/orbit-asset-benchmark.mjs serve /tmp/orbit-codecs 4339
+bun scripts/scene-asset-benchmark.mjs encode /path/to/milkyway_2020_8k_gal.exr /tmp/orbit-codecs
+bun scripts/scene-asset-benchmark.mjs encode4k /path/to/milkyway_2020_4k_gal.exr /tmp/orbit-codecs-4k
+bun scripts/scene-asset-benchmark.mjs serve /tmp/orbit-codecs 4339
 # Set agent-browser session sky-codecs to a 1440x966 viewport first.
-bun scripts/capture-orbit-benchmark.mjs stars /tmp/orbit-codecs
-bun scripts/capture-orbit-benchmark.mjs textures /tmp/orbit-codecs
-bun scripts/analyze-orbit-benchmark.mjs /tmp/orbit-codecs
+bun scripts/capture-scene-benchmark.mjs stars /tmp/orbit-codecs
+bun scripts/capture-scene-benchmark.mjs textures /tmp/orbit-codecs
+bun scripts/analyze-scene-benchmark.mjs /tmp/orbit-codecs
 bun scripts/estimate-star-packing.mjs
-bun scripts/build-orbit-comparison.mjs /tmp/orbit-codecs
+bun scripts/build-scene-comparison.mjs /tmp/orbit-codecs
 ```
 
 The server substitutes assets only in its own pages, using query parameters.

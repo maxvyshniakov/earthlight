@@ -1,6 +1,6 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {volumeFragment,fragmentSource} from '../src/scripts/orbital-shader.ts';
+import {volumeFragment,fragmentSource} from '../src/scripts/scene-shader.ts';
 import {temporalCloudMain,temporalResolveFragment,temporalCompositeShader} from '../src/scripts/cloud-temporal.ts';
 
 test('temporal composite replaces the inline cloud integral at stable anchors',()=>{

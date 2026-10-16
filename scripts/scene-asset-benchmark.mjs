@@ -1,6 +1,6 @@
 // Local experiment, never writes production assets.
-// encode /path/to/milkyway_2020_8k_gal.exr /tmp/orbit-codecs
-// serve /tmp/orbit-codecs 4339 (serves dist with per-page texture/star overrides)
+// encode /path/to/milkyway_2020_8k_gal.exr /tmp/earthlight-codecs
+// serve /tmp/earthlight-codecs 4339 (serves dist with per-page texture/star overrides)
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -19,7 +19,7 @@ let variants=[
   ['avif-q65-420.avif','avif',{quality:65,effort:4,chromaSubsampling:'4:2:0',bitdepth:8}],
 ];
 if(mode==='encode4k')variants=variants.filter(([name])=>['webp-q80.webp','avif-q50-444.avif','avif-q65-444.avif'].includes(name));
-const catalog=fs.readFileSync(path.join(root,'public/media/orbit/stars-hyg.bin'));
+const catalog=fs.readFileSync(path.join(root,'public/media/earthlight/stars-hyg.bin'));
 const subset=limit=>Buffer.concat(Array.from({length:catalog.length/32},(_,i)=>catalog.subarray(i*32,i*32+32)).filter(row=>row.readFloatLE(24)<=limit));
 const counts=[7,6.75,6.5,6.25,6,5.5,5].map(limit=>{
   const data=subset(limit);
@@ -71,11 +71,11 @@ if(mode==='encode'||mode==='encode4k'){
   createServer((req,res)=>{
     const url=new URL(req.url,'http://localhost'),ref=new URL(req.headers.referer||'http://localhost');
     let filename;
-    if(url.pathname==='/media/orbit/stars-hyg.bin'&&ref.searchParams.has('cutoff')){
+    if(url.pathname==='/media/earthlight/stars-hyg.bin'&&ref.searchParams.has('cutoff')){
       const data=subset(Number(ref.searchParams.get('cutoff')));res.writeHead(200,{'Content-Type':'application/octet-stream','Cache-Control':'no-store'});res.end(data);return;
     }
     if(url.pathname.startsWith('/bench/'))filename=path.join(out,path.basename(url.pathname));
-    else if(url.pathname.includes('/media/orbit/milky-way')&&ref.searchParams.has('texture'))filename=path.join(out,path.basename(ref.searchParams.get('texture')));
+    else if(url.pathname.includes('/media/earthlight/milky-way')&&ref.searchParams.has('texture'))filename=path.join(out,path.basename(ref.searchParams.get('texture')));
     else filename=path.join(dist,url.pathname.endsWith('/')?url.pathname+'index.html':url.pathname);
     if(!filename.startsWith(dist+path.sep)&&!filename.startsWith(out+path.sep)){res.writeHead(403);res.end();return;}
     if(!fs.existsSync(filename)){res.writeHead(404);res.end();return;}

@@ -41,8 +41,8 @@
   "description": "Earth from low orbit, rendered in real time with raw WebGL",
   "homepage": "https://earthlight.maxvyshniakov.com",
   "exports": {
-    "./astro": "./src/components/OrbitalSky.astro",
-    "./element": "./src/scripts/orbital-sky.ts",
+    "./astro": "./src/components/Explorer.astro",
+    "./element": "./src/scripts/explorer.ts",
     "./terrain": "./server/terrain-source.mjs",
     "./terrain-middleware": "./server/terrain-middleware.mjs",
     "./background": "./src/components/Background.astro",
@@ -55,8 +55,8 @@
     "src/data",
     "server",
     "NOTICE.md",
-    "public/media/orbit/*.txt",
-    "public/media/orbit/README.md",
+    "public/media/earthlight/*.txt",
+    "public/media/earthlight/README.md",
     "assets-manifest.json",
     "assets/background"
   ],

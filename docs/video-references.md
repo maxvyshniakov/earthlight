@@ -4,7 +4,7 @@ The first five videos in [NASA's South America collection](https://eol.jsc.nasa.
 are the selected references for clouds, cities, twilight and lightning.
 These notes distinguish sampled visual evidence from proposed renderer work.
 The renderer remains photographically tuned rather than calibrated photometry.
-The subsequent [storm and twilight implementation](orbital-sky.md#storm-flashes-and-city-twilight)
+The subsequent [storm and twilight implementation](scene.md#storm-flashes-and-city-twilight)
 records which parts of this direction are now implemented and their limits.
 
 ## Reviewed frames
@@ -19,7 +19,7 @@ This is a sampled-frame review, not a measurement of every frame or flash.
 | [From Night to Day to Night Again](https://eol.jsc.nasa.gov/videos/crewearthobservationsvideos/videos/term3_iss_20130103/term3_iss_20130103HD_web.mp4) | 40, 46, 52, 58 s; 110–120 s | Daylit cloud/terrain gives way to a dark foreground and narrow blue limb. Late-night frames can be nearly black. Use for the transition and exposure balance; these samples do not demonstrate neighborhoods switching their lights on. |
 | [From North to South America at Night](https://eol.jsc.nasa.gov/videos/crewearthobservationsvideos/videos/nsamerica_iss_20121216/nsamerica_iss_20121216HD_web.mp4) | 10, 30, 50 s | Separated warm settlements, connecting light patterns and extensive dark gaps. Some city cores saturate. Match their distribution and surrounding darkness, rather than making every source white. |
 | [Storms over Caribbean and South America](https://eol.jsc.nasa.gov/videos/crewearthobservationsvideos/videos/caribbeanstorms_iss_20120629/caribbeanstorms_iss_20120629HD_web.mp4) | 4, 15 s; 25.8–26.3 s sampled every 0.1 s | Several compact cool-white flashes illuminate separate parts of one cloud field. Bright patches change between samples; the whole deck does not brighten uniformly. No resolved zigzag channel is needed to reproduce this distant appearance. |
-| [Stars and the Milky Way over the Atlantic](https://eol.jsc.nasa.gov/videos/crewearthobservationsvideos/videos/milkywaystars_iss_20120624/milkywaystars_iss_20120624HD_web.mp4) | 4, 12, 20 s | Bright, noisy star field and atmospheric limb. Keep this as a separate sky-exposure reference, not a universal brightness target for Earth-facing shots. |
+| [Stars and the Milky Way over the Atlantic](https://eol.jsc.nasa.gov/videos/crewearthobservationsvideos/videos/milkywaystars_iss_20120624/milkywaystars_iss_20120624HD_web.mp4) | 4, 12, 20 s | Bright, noisy star field and atmospheric limb. Keep this as a separate explorer-exposure reference, not a universal brightness target for Earth-facing shots. |
 
 The source sequences are timelapses with different acquisition intervals and
 exposures. Playback seconds are not physical flash durations. Adjacent bright

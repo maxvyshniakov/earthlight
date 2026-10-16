@@ -44,7 +44,7 @@ sheet payload is 1,405,154 bytes. GPU storage and compressed transfer size are
 different quantities.
 
 `cloudBake=low` loads a generated `.rgba.gz` and JSON descriptor from
-`/media/orbit/cloud-prototypes/low-<prototype>.*`. Browser verification confirmed
+`/media/earthlight/cloud-prototypes/low-<prototype>.*`. Browser verification confirmed
 zero runtime bakes and SHA-256-identical GPU bytes after export, compression,
 download, inflation and texture upload. The loader handles both HTTP
 Content-Encoding inflation and static hosts returning the compressed body.

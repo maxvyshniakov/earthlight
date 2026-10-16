@@ -4,8 +4,8 @@
 // texels dims resolved detail.
 import sharp from 'sharp';
 import {stat} from 'node:fs/promises';
-const source=new URL('../public/media/orbit/milky-way.avif',import.meta.url);
-const output=new URL('../public/media/orbit/mobile/galaxy-2048.avif',import.meta.url);
+const source=new URL('../public/media/earthlight/milky-way.avif',import.meta.url);
+const output=new URL('../public/media/earthlight/mobile/galaxy-2048.avif',import.meta.url);
 const {data,info}=await sharp(source.pathname).removeAlpha().raw().toBuffer({resolveWithObject:true});
 if(info.width!==4096||info.height!==2048)throw Error('Expected the 4096 by 2048 overview');
 const pixels=Buffer.alloc(2048*1024*3),radiance=v=>Math.pow(v/255,3.3);

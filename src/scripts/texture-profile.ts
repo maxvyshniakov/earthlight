@@ -4,7 +4,7 @@ export function textureProfile(params: URLSearchParams) {
   return params.get('texture') === 'compact' ? 'compact' : 'reference';
 }
 
-export function galaxyOverview(compact: boolean,base='/media/orbit/') {
+export function galaxyOverview(compact: boolean,base='/media/earthlight/') {
   return base.replace(/\/+$/, '') + '/' + (compact ? 'mobile/galaxy-2048.avif' : 'milky-way.avif');
 }
 

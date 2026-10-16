@@ -12,7 +12,7 @@ export async function verifyCatalog(evaluate){
  const catalog=${catalogModule};
  const c=document.createElement('canvas');c.width=64;c.height=64;const gl=c.getContext('webgl');gl.disable(gl.DITHER);
  const atlas=gl.createTexture();gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,atlas);
- const bytes=new Uint8Array(await (await fetch('/media/orbit/optical-psf.bin')).arrayBuffer());
+ const bytes=new Uint8Array(await (await fetch('/media/earthlight/optical-psf.bin')).arrayBuffer());
  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,256,768,0,gl.RGB,gl.UNSIGNED_BYTE,bytes);
  for(const f of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,f,gl.LINEAR);
  for(const f of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,f,gl.CLAMP_TO_EDGE);

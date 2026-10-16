@@ -75,11 +75,11 @@ ISS orbital elements: [CelesTrak](https://celestrak.org/), snapshot saved
 ## Libraries
 
 - Astronomy Engine, copyright Don Cross, MIT:
-  [license](public/media/orbit/ASTRONOMY-ENGINE-LICENSE.txt).
+  [license](public/media/earthlight/ASTRONOMY-ENGINE-LICENSE.txt).
 - satellite.js, MIT:
-  [license](public/media/orbit/SATELLITE-JS-LICENSE.txt).
+  [license](public/media/earthlight/SATELLITE-JS-LICENSE.txt).
 - GeoTIFF.js, MIT:
-  [license](public/media/orbit/GEOTIFF-LICENSE.txt).
+  [license](public/media/earthlight/GEOTIFF-LICENSE.txt).
 
 Other installed dependencies retain the license notices distributed with them.
 
@@ -91,4 +91,4 @@ from the asset archive; historical rebuild scripts still describe their
 separate CC BY 4.0 provenance.
 
 Detailed source URLs, transformations and formats are recorded in
-[the asset README](public/media/orbit/README.md).
+[the asset README](public/media/earthlight/README.md).

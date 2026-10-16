@@ -45,14 +45,14 @@ def restart_browser():
     driver.set_script_timeout(180)
 
 STATE = """
-const s=document.querySelector('orbital-sky'),c=s?.querySelector('canvas');
+const s=document.querySelector('earthlight-explorer'),c=s?.querySelector('canvas');
 const g=c?.getContext('webgl')||c?.getContext('webgl2'),e=g?.getExtension('WEBGL_debug_renderer_info');
 return {state:{...s?.dataset},width:c?.width,height:c?.height,
   viewport:[innerWidth,innerHeight,devicePixelRatio],visibility:document.visibilityState,
   renderer:e&&g.getParameter(e.UNMASKED_RENDERER_WEBGL),extensions:g?.getSupportedExtensions()};
 """
 SETTLED = """
-const s=document.querySelector('orbital-sky');return s&&s.dataset.focus==='sharp'&&
+const s=document.querySelector('earthlight-explorer');return s&&s.dataset.focus==='sharp'&&
 s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&
 Number(JSON.parse(s.dataset.terrainTiles||'{}').fineResident)>0&&
 (!s.dataset.cloudLighting||s.dataset.cloudLighting!=='texture'||
@@ -89,7 +89,7 @@ def navigate(params):
 REPLAY = """
 const mode=arguments[0],done=arguments[arguments.length-1];
 (async()=>{
- const s=document.querySelector('orbital-sky'),g=s.querySelector('canvas').getContext('webgl');
+ const s=document.querySelector('earthlight-explorer'),g=s.querySelector('canvas').getContext('webgl');
  // Texture unit 15 is reused by cloud lighting AFTER the terrain draw.
  // Capture its terrain binding at the owning draw, not after the frame.
  let texture,layout;const native=g.drawArrays;
@@ -103,7 +103,7 @@ const mode=arguments[0],done=arguments[arguments.length-1];
    }}
    return native.apply(this,args);
   };
-  s.querySelector('.sky-track input').dispatchEvent(new Event('input'));
+  s.querySelector('.explorer-track input').dispatchEvent(new Event('input'));
  });
  const previousUnit=g.getParameter(g.ACTIVE_TEXTURE),previousTarget=g.getParameter(g.FRAMEBUFFER_BINDING);
  g.activeTexture(g.TEXTURE15);const fb=g.createFramebuffer();
@@ -121,7 +121,7 @@ const mode=arguments[0],done=arguments[arguments.length-1];
  const start=performance.now();
  g.bindFramebuffer=function(k,v){target=v;return originalBind.call(this,k,v);};
  g.drawArrays=function(...a){const t=performance.now();originalDraw.apply(this,a);draws.push({at:t-start,ms:performance.now()-t});if(target===null)frames.push(performance.now()-start);};
- const input=s.querySelector('.sky-track input'),drawTimer=setInterval(()=>input.dispatchEvent(new Event('input')),1000/24);
+ const input=s.querySelector('.explorer-track input'),drawTimer=setInterval(()=>input.dispatchEvent(new Event('input')),1000/24);
  const delay=ms=>new Promise(r=>setTimeout(r,ms));
  const upload=(x,y,width,height,data)=>{g.activeTexture(g.TEXTURE15);g.bindTexture(g.TEXTURE_2D,texture);const t=performance.now();g.texSubImage2D(g.TEXTURE_2D,0,x,y,width,height,g.RGBA,g.UNSIGNED_BYTE,data);uploads.push({at:t-start,ms:performance.now()-t,width,height});};
  try{
@@ -138,7 +138,7 @@ results={"browser":browser,"runs":[],"method":"Same paused view; replay identica
 try:
     for mode in os.environ.get("EARTHLIGHT_VARIANTS","none,strips,tile,none").split(","):
         state=navigate({"api":"webgl","render":"compact","quality":"fixed","motion":"0","t":"3235.65","pitch":"-25","epoch":"2026-10-06T01:32:27Z","look-grain":"0","exposure-mode":"manual","exposure-fixed":"0","terrainUpload":"tile"})
-        driver.execute_script("document.querySelector('.sky-track input').dispatchEvent(new Event('input'))")
+        driver.execute_script("document.querySelector('.explorer-track input').dispatchEvent(new Event('input'))")
         started=time.monotonic()
         while not driver.execute_script(SETTLED):
             if time.monotonic()-started>180: raise RuntimeError('Replay priming timeout')

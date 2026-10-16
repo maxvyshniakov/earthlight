@@ -1,6 +1,6 @@
 // Convert NASA SVS's linear EXR background to a small web texture.
 // Requires ffmpeg/ffprobe; accepts NASA's 4k or 8k galactic EXR.
-// Source, coordinate convention, and credit: public/media/orbit/README.md.
+// Source, coordinate convention, and credit: public/media/earthlight/README.md.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -57,7 +57,7 @@ for(let i=0;i<count;i++){
     pixels[i*3+c]=Math.round(255*Math.pow(Math.max(0,Math.min(1,shoulder)),1/2.2));
   }
 }
-const output=new URL(`../public/media/orbit/milky-way${width===8192?'-8k':''}.avif`,import.meta.url);
+const output=new URL(`../public/media/earthlight/milky-way${width===8192?'-8k':''}.avif`,import.meta.url);
 await sharp(pixels,{raw:{width,height,channels:3}})
   .avif({quality:50,effort:4,chromaSubsampling:'4:4:4',bitdepth:8}).toFile(output.pathname);
 console.log({sourceSha256:createHash('sha256').update(readFileSync(source)).digest('hex'),width,height,grade,bytes:statSync(output).size});

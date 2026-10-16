@@ -67,7 +67,7 @@ const views=[
  {id:'milkyWay',url:`t=4467.23&epoch=2026-10-16T07%3A57%3A47.730Z&motion=0&lens=5&flight=free&position=1.10881872%2C-0.60483293%2C1.52370774&orientation=0.4338328567%2C0.2681440705%2C-0.2334190738%2C0.8278909021`,filter:'dark',quantiles:['p50','p90']},
  {id:'emptySky',url:`${E}&position=-0.9055%2C-0.6860%2C0.1789&heading=0.6039%2C-0.7971%2C0&elevation=1.45`,filter:'dark',quantiles:['p50']},
 ];
-const settled="document.querySelector('orbital-sky')?.dataset.assets==='settled'&&document.querySelector('orbital-sky')?.dataset.focus==='sharp'";
+const settled="document.querySelector('earthlight-explorer')?.dataset.assets==='settled'&&document.querySelector('earthlight-explorer')?.dataset.focus==='sharp'";
 await exec('agent-browser',['--session',session,'--init-script',hookPath,'set','viewport','1200','800'],{timeout:60000});
 const measured={};
 try{

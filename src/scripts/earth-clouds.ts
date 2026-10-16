@@ -3,13 +3,13 @@ import {continuousLongitudeShader} from './surface-map.ts';
 // The photograph provides coverage, not measured height/density: the vertical
 // profile and small-scale relief below are a bounded reconstruction.
 import {stormLightShader} from './storm-light.ts';
-import {modisOrbitShader} from './modis-orbit.ts';
+import {modisPatchShader} from './modis-patch.ts';
 export const cloudShader=continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
 uniform float cloudMapWidth;
-${modisOrbitShader}
+${modisPatchShader}
 vec3 cloudCoordinates(vec3 point){
   point.xy=rotate(time*.000008)*point.xy;
   return point;

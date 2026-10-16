@@ -1,16 +1,16 @@
-// Full Orbit A/B/A at fixed camera, light, exposure and pixel budget.
+// Full scene A/B/A at fixed camera, light, exposure and pixel budget.
 import assert from 'node:assert/strict';
 import {modisStudyURL} from '../src/scripts/modis-study-view.ts';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {sceneDevice} from './scene-device-driver.mjs';
-const [base='http://127.0.0.1:4322',out='/tmp/modis-orbit',device='desktop']=process.argv.slice(2);
+const [base='http://127.0.0.1:4322',out='/tmp/modis-patch',device='desktop']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 let evaluate,navigate,close;
 if(device==='android')({evaluate,navigate,close}=await sceneDevice('android',base));
 else{
- const exec=promisify(execFile),session='modis-orbit-'+process.pid;
+ const exec=promisify(execFile),session='modis-patch-'+process.pid;
  const run=async(...a)=>(await exec('rtk',['proxy','agent-browser','--session',session,...a],{timeout:120000,maxBuffer:32e6})).stdout;
  evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
  navigate=url=>run('open',url);close=()=>run('close');await run('set','viewport','1200','800');
@@ -19,7 +19,7 @@ const results=[];
 const wait=async()=>{
  const deadline=Date.now()+120000;
  while(Date.now()<deadline){
-  if(await evaluate(`(()=>{const s=document.querySelector('orbital-sky');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','cloudTiles','nightTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`))return;
+  if(await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','cloudTiles','nightTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`))return;
   await new Promise(r=>setTimeout(r,500));
  }throw Error('Scene did not settle');
 };
@@ -31,7 +31,7 @@ try{
    const u=modisStudyURL(base,scene.name,variant==='modis'?'modis':'photo');u.searchParams.set('api','webgl');u.searchParams.set('quality','fixed');
    await navigate(u.href);await wait();
    const frame=await evaluate(`(async()=>{
-    const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),gl=c.getContext('webgl');
+    const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),gl=c.getContext('webgl');
     const ext=gl.getExtension('EXT_disjoint_timer_query'),debug=gl.getExtension('WEBGL_debug_renderer_info');
     const bind=gl.bindFramebuffer,draw=gl.drawArrays;let target=gl.getParameter(gl.FRAMEBUFFER_BINDING),pending=null,query=null,started=false;
     gl.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};
@@ -56,11 +56,11 @@ try{
    await writeFile(out+'/'+scene.name+'-'+variant+'.png',Buffer.from(frame.png.split(',')[1],'base64'));delete frame.png;
    const gpu=frame.samples.map(s=>s.gpuMs).filter(x=>x!==null).sort((a,b)=>a-b);frame.medianGpuMs=gpu.length?(gpu[3]+gpu[4])/2:null;
    if(device==='android')frame.cadence=await evaluate(`(async()=>{
-    const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),gl=c.getContext('webgl'),bind=gl.bindFramebuffer,draw=gl.drawArrays;
+    const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),gl=c.getContext('webgl'),bind=gl.bindFramebuffer,draw=gl.drawArrays;
     let target=gl.getParameter(gl.FRAMEBUFFER_BINDING);const frames=[],start=performance.now();
     gl.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};
     gl.drawArrays=function(...a){draw.apply(this,a);if(target===null&&performance.now()-start>2000)frames.push({t:performance.now(),width:c.width,height:c.height});};
-    try{s.querySelector('.sky-motion').click();await new Promise(r=>setTimeout(r,8000));s.querySelector('.sky-motion').click();}
+    try{s.querySelector('.explorer-motion').click();await new Promise(r=>setTimeout(r,8000));s.querySelector('.explorer-motion').click();}
     finally{gl.bindFramebuffer=bind;gl.drawArrays=draw;}
     const intervals=frames.slice(1).map((f,i)=>f.t-frames[i].t),sorted=[...intervals].sort((a,b)=>a-b);
     return {fps:intervals.length*1000/intervals.reduce((a,b)=>a+b,0),p90Ms:sorted[Math.floor(sorted.length*.9)],frames:frames.length,sizes:[...new Set(frames.map(f=>f.width+'x'+f.height))],scope:'Animation cadence without readback; fixed quality, two second warmup, six second sample. Not a thermal endurance test.'};

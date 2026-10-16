@@ -4,31 +4,31 @@ import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4347',out='/tmp/orbit-pairs',selected='compact,split,lighting',views='day,night,clouds',baseline='reference']=process.argv.slice(2);
+const [base='http://127.0.0.1:4347',out='/tmp/earthlight-pairs',selected='compact,split,lighting',views='day,night,clouds',baseline='reference']=process.argv.slice(2);
 let sequence=0,session,opened=false;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 // Keep long GPU sampling outside a single browser-command timeout.
 const evaluateTask=async code=>{
- await evaluate(`(()=>{window.orbitPairTask={done:false};Promise.resolve(${code}).then(value=>window.orbitPairTask={done:true,value},error=>window.orbitPairTask={done:true,error:String(error.stack??error)});return true;})()`);
+ await evaluate(`(()=>{window.scenePairTask={done:false};Promise.resolve(${code}).then(value=>window.scenePairTask={done:true,value},error=>window.scenePairTask={done:true,error:String(error.stack??error)});return true;})()`);
  const deadline=Date.now()+180000;
  while(Date.now()<deadline){
-  const task=await evaluate('window.orbitPairTask');
+  const task=await evaluate('window.scenePairTask');
   if(task.done){if(task.error)throw Error(task.error);return task.value;}
   await new Promise(resolve=>setTimeout(resolve,500));
  }
  throw Error('Paired GPU sampling timed out');
 };
-const settled=`[...document.querySelectorAll('orbital-sky')].every(s=>s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0))`;
+const settled=`[...document.querySelectorAll('earthlight-explorer')].every(s=>s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0))`;
 const wait=async()=>{try{await run('wait','--fn',settled);}catch(e){if(!String(e.stderr).includes('Wait timed out'))throw e;await run('wait','--fn',settled);}};
 await mkdir(out,{recursive:true});const results=[];
 try{
  for(const scene of [{name:'day',t:3235.65,pitch:0},{name:'night',t:610.87,pitch:0},{name:'clouds',t:3235.65,pitch:-25}].filter(s=>views.split(',').includes(s.name)))for(const candidate of selected.split(',')){
-  session=`orbit-pairs-${process.pid}-${sequence++}`;opened=true;
+  session=`earthlight-pairs-${process.pid}-${sequence++}`;opened=true;
   await run('open',`${base}/?api=webgl&render=${encodeURIComponent(baseline)}&motion=0&quality=fixed&t=${scene.t}&pitch=${scene.pitch}&epoch=2026-10-06T01:32:27Z`);
   await run('set','viewport','1440','900');await wait();
   await evaluate(`(()=>{
-   const original=document.querySelector('orbital-sky'),copy=original.cloneNode(true);
+   const original=document.querySelector('earthlight-explorer'),copy=original.cloneNode(true);
    const url=new URL(location.href);url.searchParams.set('render',${JSON.stringify(candidate)});history.replaceState(null,'',url);
    for(const k of Object.keys(copy.dataset))if(k!=='composition'&&!k.startsWith('astro'))delete copy.dataset[k];
    copy.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:20;';
@@ -36,9 +36,9 @@ try{
   })()`);await wait();
   // A look input restarts exposure settling and submits background frames even
   // while paused. Prime an unchanged seek, settle it, then use that to invalidate.
-  await evaluate(`(()=>{for(const s of document.querySelectorAll('orbital-sky'))s.querySelector('.sky-track input').dispatchEvent(new Event('input'));return true;})()`);await wait();
+  await evaluate(`(()=>{for(const s of document.querySelectorAll('earthlight-explorer'))s.querySelector('.explorer-track input').dispatchEvent(new Event('input'));return true;})()`);await wait();
   const result=await evaluateTask(`(async()=>{
-   const skies=[...document.querySelectorAll('orbital-sky')],pairs=[];
+   const skies=[...document.querySelectorAll('earthlight-explorer')],pairs=[];
    const states=skies.map(s=>({profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,width:s.querySelector('canvas').width,height:s.querySelector('canvas').height,failures:s.dataset.assetFailures}));
    const monitors=skies.map(s=>{
     const gl=s.querySelector('canvas').getContext('webgl'),bind=gl.bindFramebuffer,draw=gl.drawArrays;
@@ -54,7 +54,7 @@ try{
     gl.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};
     gl.drawArrays=function(...a){if(!query){query=ext.createQueryEXT();ext.beginQueryEXT(ext.TIME_ELAPSED_EXT,query);}draw.apply(this,a);if(!ended&&target===null){ext.endQueryEXT(ext.TIME_ELAPSED_EXT);ended=true;}};
     try{
-     s.querySelector('.sky-track input').dispatchEvent(new Event('input'));
+     s.querySelector('.explorer-track input').dispatchEvent(new Event('input'));
      const deadline=performance.now()+10000;
      while((!ended||!ext.getQueryObjectEXT(query,ext.QUERY_RESULT_AVAILABLE_EXT))&&performance.now()<deadline)await new Promise(r=>setTimeout(r,4));
      if(!ended||!ext.getQueryObjectEXT(query,ext.QUERY_RESULT_AVAILABLE_EXT))throw Error('Frame timer timeout');

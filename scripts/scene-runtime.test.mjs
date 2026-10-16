@@ -1,6 +1,6 @@
 import {SceneFrameClock} from '../src/scripts/scene-frame-clock.ts';
 import {PointReflections} from '../src/scripts/point-reflections.ts';
-import {draggedCamera} from '../src/scripts/orbit-camera-drag.ts';
+import {draggedCamera} from '../src/scripts/camera-drag.ts';
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -33,7 +33,7 @@ test('compact is the default and malformed render links retain it',()=>{
  for(const name of ['balanced','eco'])assert.equal(sceneProfile(new URLSearchParams({render:name})).name,'compact');
 });
 test('storm regions select sparse dense cloud complexes, with neighbouring cells',async()=>{
- const {data,info}=await sharp('public/media/orbit/earth-clouds-nasa-4096.avif').removeAlpha().raw().toBuffer({resolveWithObject:true});
+ const {data,info}=await sharp('public/media/earthlight/earth-clouds-nasa-4096.avif').removeAlpha().raw().toBuffer({resolveWithObject:true});
  assert.equal(stormRegions.length,64);
  for(const group of stormRegions){
   assert.ok(group.length>=3&&group.length<=5);
@@ -152,7 +152,7 @@ test('compact surface tier follows actual capped render pixels and requires fine
 
 test('terrain predictor preserves every elevation, coast mask and mip byte',()=>{
  for(const width of [4096,8192]){
-  const read=suffix=>{const b=gunzipSync(readFileSync(new URL(`../public/media/orbit/earth-terrain-${width}${suffix}.dem`,import.meta.url)));return decodeTerrain(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
+  const read=suffix=>{const b=gunzipSync(readFileSync(new URL(`../public/media/earthlight/earth-terrain-${width}${suffix}.dem`,import.meta.url)));return decodeTerrain(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
   const old=read(''),next=read('-v2');
   assert.equal(next.levels.length,old.levels.length);
   old.levels.forEach((level,i)=>assert.deepEqual(next.levels[i].data,level.data));
@@ -160,7 +160,7 @@ test('terrain predictor preserves every elevation, coast mask and mip byte',()=>
 });
 test('sparse terrain keeps the coast mask and mips, and repeats level-1 heights at level 0',()=>{
  for(const width of [4096,8192]){
-  const read=suffix=>{const b=gunzipSync(readFileSync(new URL(`../public/media/orbit/earth-terrain-${width}${suffix}.dem`,import.meta.url)));return decodeTerrain(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
+  const read=suffix=>{const b=gunzipSync(readFileSync(new URL(`../public/media/earthlight/earth-terrain-${width}${suffix}.dem`,import.meta.url)));return decodeTerrain(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
   const full=read('-v2'),sparse=read('-v3'),half=width/2,a=full.levels[0].data,b=sparse.levels[0].data,c=sparse.levels[1].data;
   full.levels.slice(1).forEach((level,i)=>assert.deepEqual(sparse.levels[i+1].data,level.data));
   for(let y=0;y<width/2;y+=7)for(let x=0;x<width;x+=5){

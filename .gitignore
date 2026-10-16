@@ -4,11 +4,11 @@ dist/
 .wrangler/
 *.tgz
 earthlight-assets-*.tar
-public/media/orbit/**
-!public/media/orbit/**/
-!public/media/orbit/**/*.md
-!public/media/orbit/**/*.txt
-!public/media/orbit/preview/**
+public/media/earthlight/**
+!public/media/earthlight/**/
+!public/media/earthlight/**/*.md
+!public/media/earthlight/**/*.txt
+!public/media/earthlight/preview/**
 
 assets/background/
 .packages/

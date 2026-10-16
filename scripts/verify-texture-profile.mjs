@@ -1,4 +1,4 @@
-// bun scripts/verify-texture-profile.mjs http://127.0.0.1:4347 /tmp/orbit-textures
+// bun scripts/verify-texture-profile.mjs http://127.0.0.1:4347 /tmp/earthlight-textures
 // Optional TEXTURE_API=webgl2. Image metrics report trade-offs, not acceptance.
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4347',out='/tmp/orbit-textures']=process.argv.slice(2);
+const [base='http://127.0.0.1:4347',out='/tmp/earthlight-textures']=process.argv.slice(2);
 const api=process.env.TEXTURE_API??'webgl';
 assert.ok(['webgl','webgl2'].includes(api));
 const session=`texture-proof-${process.pid}`;
@@ -15,21 +15,21 @@ const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session'
   timeout:120000,maxBuffer:40e6,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'90000'},
 })).stdout;
 const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));
-const settled=`(()=>{const s=document.querySelector('orbital-sky');return s?.hasAttribute('data-ready')&&s.dataset.shaderStartup==='ready'&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
+const settled=`(()=>{const s=document.querySelector('earthlight-explorer');return s?.hasAttribute('data-ready')&&s.dataset.shaderStartup==='ready'&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
 const wait=expected=>run('wait','--fn',`(${expected?`location.href===${JSON.stringify(expected)}`:'true'})&&(${settled})`);
 const inspect=()=>evaluate(`(()=>{
- const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')??c.getContext('webgl');
- const resources=performance.getEntriesByType('resource').filter(r=>r.name.includes('/media/orbit/')).map(r=>({path:new URL(r.name).pathname,encodedBytes:r.encodedBodySize,transferBytes:r.transferSize}));
+ const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')??c.getContext('webgl');
+ const resources=performance.getEntriesByType('resource').filter(r=>r.name.includes('/media/earthlight/')).map(r=>({path:new URL(r.name).pathname,encodedBytes:r.encodedBodySize,transferBytes:r.transferSize}));
  return {url:location.href,api:s.dataset.renderApi,profile:s.dataset.renderProfile,textureProfile:s.dataset.textureProfile,galaxyMapWidth:Number(s.dataset.galaxyMapWidth),width:c.width,height:c.height,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,failures:s.dataset.assetFailures,galaxyTiles:s.dataset.galaxyTiles?JSON.parse(s.dataset.galaxyTiles):null,error:gl.getError(),resources};
 })()`);
 const capture=()=>evaluate(`new Promise((resolve,reject)=>{
- const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')??c.getContext('webgl');
+ const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')??c.getContext('webgl');
  const bind=gl.bindFramebuffer,draw=gl.drawArrays;let target=gl.getParameter(gl.FRAMEBUFFER_BINDING);
  const restore=()=>{gl.bindFramebuffer=bind;gl.drawArrays=draw;};
  const timeout=setTimeout(()=>{restore();reject(Error('Texture capture timeout'));},15000);
  gl.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};
  gl.drawArrays=function(...args){draw.apply(this,args);if(target===null){clearTimeout(timeout);const png=c.toDataURL('image/png');restore();resolve(png);}};
- s.querySelector('.sky-track input').dispatchEvent(new Event('input'));
+ s.querySelector('.explorer-track input').dispatchEvent(new Event('input'));
 })`);
 const save=async name=>{
  const png=Buffer.from((await capture()).split(',')[1],'base64');
@@ -63,8 +63,8 @@ try{
    const state=await inspect();assert.equal(state.url,url.href);assert.equal(state.api,api);assert.equal(state.profile,'compact');assert.equal(state.textureProfile,texture);assert.equal(state.error,0);assert.equal(state.failures,'0');
    assert.equal(state.galaxyMapWidth,texture==='compact'?2048:4096);
    const requested=state.resources.map(r=>r.path);
-   assert.ok(requested.includes(texture==='compact'?'/media/orbit/mobile/galaxy-2048.avif':'/media/orbit/milky-way.avif'));
-   assert.ok(!requested.includes(texture==='compact'?'/media/orbit/milky-way.avif':'/media/orbit/mobile/galaxy-2048.avif'),'Only the requested overview may download');
+   assert.ok(requested.includes(texture==='compact'?'/media/earthlight/mobile/galaxy-2048.avif':'/media/earthlight/milky-way.avif'));
+   assert.ok(!requested.includes(texture==='compact'?'/media/earthlight/milky-way.avif':'/media/earthlight/mobile/galaxy-2048.avif'),'Only the requested overview may download');
    const pixels=await save(`${scene.name}-${texture}`);
    captures.push({state:{...await inspect(),requestedURL:url.href},pixels});
   }
@@ -82,7 +82,7 @@ try{
  await evaluate(`(()=>{
   const fetch=window.fetch.bind(window);window.__textureFallback={hits:0};
   window.fetch=(input,options)=>{const url=input instanceof Request?input.url:String(input);if(url.includes('/mobile/galaxy-2048.avif')){window.__textureFallback.hits++;return Promise.resolve(new Response('',{status:503}));}return fetch(input,options);};
-  const original=document.querySelector('orbital-sky'),copy=original.cloneNode(true);
+  const original=document.querySelector('earthlight-explorer'),copy=original.cloneNode(true);
   for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];
   original.replaceWith(copy);return true;
  })()`);
@@ -91,7 +91,7 @@ try{
  assert.equal(probe.hits,1);assert.equal(failed.textureProfile,'compact');assert.equal(failed.galaxyMapWidth,1024);assert.equal(failed.failures,'1');assert.equal(failed.error,0);
  await save('fallback-preview');
  await evaluate(`(async()=>{
-  const c=document.querySelector('orbital-sky canvas'),gl=c.getContext('webgl2')??c.getContext('webgl'),ext=gl.getExtension('WEBGL_lose_context');
+  const c=document.querySelector('earthlight-explorer canvas'),gl=c.getContext('webgl2')??c.getContext('webgl'),ext=gl.getExtension('WEBGL_lose_context');
   if(!ext)throw Error('Context-loss extension unavailable');
   const lost=new Promise(resolve=>c.addEventListener('webglcontextlost',resolve,{once:true}));ext.loseContext();await lost;gl.getError();
   const restored=new Promise(resolve=>c.addEventListener('webglcontextrestored',resolve,{once:true}));setTimeout(()=>ext.restoreContext(),200);await restored;return true;

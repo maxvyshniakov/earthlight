@@ -5,21 +5,21 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4347',out='/tmp/orbit-webgl2']=process.argv.slice(2);
+const [base='http://127.0.0.1:4347',out='/tmp/earthlight-webgl2']=process.argv.slice(2);
 const session=`webgl2-proof-${process.pid}`;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:40e6,timeout:120000,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'90000'}})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
-const settled=`(()=>{const s=document.querySelector('orbital-sky');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
+const settled=`(()=>{const s=document.querySelector('earthlight-explorer');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
 const results={launchArgs:process.env.AGENT_BROWSER_ARGS??'',comparisons:[],lifecycle:{}};
-const inspect=()=>evaluate(`(()=>{const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')??c.getContext('webgl');return{api:s.dataset.renderApi,version:gl.getParameter(gl.VERSION),error:gl.getError(),width:c.width,height:c.height,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,failures:s.dataset.assetFailures,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis};})()`);
+const inspect=()=>evaluate(`(()=>{const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')??c.getContext('webgl');return{api:s.dataset.renderApi,version:gl.getParameter(gl.VERSION),error:gl.getError(),width:c.width,height:c.height,profile:s.dataset.renderProfile,cloudPass:s.dataset.cloudPass,cloudBuffer:s.dataset.cloudBuffer,failures:s.dataset.assetFailures,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis};})()`);
 const capture=()=>evaluate(`new Promise((resolve,reject)=>{
- const s=document.querySelector('orbital-sky'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')??c.getContext('webgl');
+ const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),gl=c.getContext('webgl2')??c.getContext('webgl');
  const bind=gl.bindFramebuffer,draw=gl.drawArrays;let target=gl.getParameter(gl.FRAMEBUFFER_BINDING);
  const restore=()=>{gl.bindFramebuffer=bind;gl.drawArrays=draw;};
  const timeout=setTimeout(()=>{restore();reject(Error('Capture timed out'));},15000);
  gl.bindFramebuffer=function(k,v){target=v;return bind.call(this,k,v);};
  gl.drawArrays=function(...args){draw.apply(this,args);if(target===null){clearTimeout(timeout);const png=c.toDataURL('image/png');restore();resolve(png);}};
- s.querySelector('.sky-track input').dispatchEvent(new Event('input'));
+ s.querySelector('.explorer-track input').dispatchEvent(new Event('input'));
 })`);
 await mkdir(out,{recursive:true});
 try{
@@ -47,12 +47,12 @@ try{
  }
  await run('set','viewport','801','601');await evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))');await run('wait','--fn',settled);
  results.lifecycle.resize=await inspect();assert.equal(results.lifecycle.resize.cloudBuffer,'401x301');
- await evaluate(`(async()=>{const c=document.querySelector('orbital-sky canvas'),gl=c.getContext('webgl2'),ext=gl.getExtension('WEBGL_lose_context');const lost=new Promise(r=>c.addEventListener('webglcontextlost',r,{once:true}));ext.loseContext();await lost;gl.getError();const restored=new Promise(r=>c.addEventListener('webglcontextrestored',r,{once:true}));setTimeout(()=>ext.restoreContext(),200);await restored;return true;})()`);
+ await evaluate(`(async()=>{const c=document.querySelector('earthlight-explorer canvas'),gl=c.getContext('webgl2'),ext=gl.getExtension('WEBGL_lose_context');const lost=new Promise(r=>c.addEventListener('webglcontextlost',r,{once:true}));ext.loseContext();await lost;gl.getError();const restored=new Promise(r=>c.addEventListener('webglcontextrestored',r,{once:true}));setTimeout(()=>ext.restoreContext(),200);await restored;return true;})()`);
  await run('wait','--fn',settled);results.lifecycle.restored=await inspect();assert.equal(results.lifecycle.restored.api,'webgl2');assert.equal(results.lifecycle.restored.cloudPass,'half');assert.equal(results.lifecycle.restored.error,0);
  await writeFile(`${out}/results.json`,JSON.stringify(results,null,2)+'\n');
 }catch(error){
  await writeFile(`${out}/failure.txt`,String(error.stack??error));
- try{await writeFile(`${out}/failure-state.json`,JSON.stringify(await evaluate(`({url:location.href,state:{...document.querySelector('orbital-sky')?.dataset}})`),null,2));}catch{}
+ try{await writeFile(`${out}/failure-state.json`,JSON.stringify(await evaluate(`({url:location.href,state:{...document.querySelector('earthlight-explorer')?.dataset}})`),null,2));}catch{}
  try{await writeFile(`${out}/browser-errors.txt`,await run('errors'));await writeFile(`${out}/browser-console.txt`,await run('console'));}catch{}
  throw error;
 }finally{await run('close');}

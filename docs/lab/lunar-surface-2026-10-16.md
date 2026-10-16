@@ -33,7 +33,7 @@ DPR 1, 20× DPR 2.
   axis tilt follow. Lighting uses the existing `lunarLight` vector
   (`currentLunarLight`), so the phase follows the date.
 - **Surface.** LROC WAC colour and LOLA height from the NASA SVS CGI Moon Kit
-  (provenance in `public/media/orbit/README.md`). The shading uses McEwen's
+  (provenance in `public/media/earthlight/README.md`). The shading uses McEwen's
   lunar-Lambert law: no limb darkening at full Moon, more Lambertian at large
   phase. Relief comes from height gradients over at least one screen pixel.
   Near the terminator (sun elevation below 17°), a 16-step horizon march along

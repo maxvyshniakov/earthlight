@@ -6,7 +6,7 @@ import {isSelectedPath,sanitizeImportedText} from './extraction-manifest.mjs';
 test('terrain proxy refuses redirects without following them in edge runtimes',async()=>{
   for(const status of [301,302,303,307,308]){
     let calls=0,cancelled=false;
-    const response=await terrainResponse(new Request('https://earthlight.test/media/orbit/dem90/N41W114.tif'),async(url,options)=>{
+    const response=await terrainResponse(new Request('https://earthlight.test/media/earthlight/dem90/N41W114.tif'),async(url,options)=>{
       calls++;
       assert.equal(options.redirect,'manual','edge runtimes support manual and follow, but reject error');
       assert.equal(new URL(url).hostname,'copernicus-dem-90m.s3.amazonaws.com');

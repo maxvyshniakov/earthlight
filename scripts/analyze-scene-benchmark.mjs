@@ -13,7 +13,7 @@ const compare=(a,b,width,height)=>{
   }
   return {mae:sum/(count*3),rmse:Math.sqrt(sum2/(count*3)),max,percentOver1:over1/count*100,percentOver3:over3/count*100,percentOver8:over8/count*100};
 };
-const binary=fs.readFileSync(new URL('../public/media/orbit/stars-hyg.bin',import.meta.url));
+const binary=fs.readFileSync(new URL('../public/media/earthlight/stars-hyg.bin',import.meta.url));
 const stars=Array.from({length:binary.length/32},(_,i)=>Array.from({length:8},(_,j)=>binary.readFloatLE(i*32+j*4)));
 const starRows=[];
 for(const time of [610.87,1244.05,3433.69]){

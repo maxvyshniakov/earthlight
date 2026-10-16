@@ -11,7 +11,7 @@ const decoded=spawnSync('ffmpeg',['-v','error','-i',source,'-pix_fmt','gbrpf32le
 if(decoded.status!==0||decoded.stdout.length!==count*12)throw new Error('Expected NASA 8K RGB float EXR');
 const map=decoded.stdout;
 const rotation=Rotation_EQJ_GAL().rot;
-const file=readFileSync(new URL('../public/media/orbit/stars-hyg.bin',import.meta.url));
+const file=readFileSync(new URL('../public/media/earthlight/stars-hyg.bin',import.meta.url));
 const stars=Array.from({length:file.length/32},(_,i)=>Array.from({length:8},(_,j)=>file.readFloatLE(i*32+j*4)));
 const sample=(x,y)=>{
   const i=Math.max(0,Math.min(height-1,y))*width+(x%width+width)%width;

@@ -1,7 +1,7 @@
 // Reproducible research assets from quantized NASA GIBS maps, not raw Level-2.
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import sharp from 'sharp';
-const out='public/media/orbit/modis-demo',cache='/tmp/orbit-modis-cache';
+const out='public/media/earthlight/modis-demo',cache='/tmp/earthlight-modis-cache';
 await mkdir(out,{recursive:true});await mkdir(cache,{recursive:true});
 const bbox=[-91,-32,-79,-20],size=1024,dates=['2025-06-01','2025-06-02','2025-06-03'];
 async function download(url,file){try{return await readFile(file);}catch{}

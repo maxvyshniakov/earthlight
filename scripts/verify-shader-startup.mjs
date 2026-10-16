@@ -10,12 +10,12 @@ const session=`shader-startup-${process.pid}`;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:90000,maxBuffer:8e6,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'60000'}})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 const wait=condition=>run('wait','--fn',condition);
-const settled="document.querySelector('orbital-sky')?.dataset.shaderStartup==='ready'&&document.querySelector('orbital-sky').dataset.focus==='sharp'&&document.querySelector('orbital-sky').dataset.assetPhase==='settled'";
+const settled="document.querySelector('earthlight-explorer')?.dataset.shaderStartup==='ready'&&document.querySelector('earthlight-explorer').dataset.focus==='sharp'&&document.querySelector('earthlight-explorer').dataset.assetPhase==='settled'";
 const url=new URL('/?motion=0&t=3235.65&epoch=2026-10-06T01:32:27Z',base);url.searchParams.set('api',api);
 const open=async()=>{await run('open',url.href);await wait(settled);};
-const read=()=>evaluate(`(()=>{const s=document.querySelector('orbital-sky'),c=s?.querySelector('canvas'),gl=window.__startupGL;return {state:s?{...s.dataset}:null,ready:s?.hasAttribute('data-ready'),canvasOpacity:c?getComputedStyle(c).opacity:null,fallbackOpacity:s?getComputedStyle(s.querySelector('.sky-fallback')).opacity:null,error:gl?.getError(),probe:window.__startupProbe};})()`);
+const read=()=>evaluate(`(()=>{const s=document.querySelector('earthlight-explorer'),c=s?.querySelector('canvas'),gl=window.__startupGL;return {state:s?{...s.dataset}:null,ready:s?.hasAttribute('data-ready'),canvasOpacity:c?getComputedStyle(c).opacity:null,fallbackOpacity:s?getComputedStyle(s.querySelector('.explorer-fallback')).opacity:null,error:gl?.getError(),probe:window.__startupProbe};})()`);
 const clone=mode=>evaluate(`(()=>{
- const previous=document.querySelector('orbital-sky'),copy=previous.cloneNode(true),getContext=HTMLCanvasElement.prototype.getContext;
+ const previous=document.querySelector('earthlight-explorer'),copy=previous.cloneNode(true),getContext=HTMLCanvasElement.prototype.getContext;
  for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];
  const probe=window.__startupProbe={mode:${JSON.stringify(mode)},gate:${JSON.stringify(mode)}!=='hold',events:[],polls:0,blockingQueries:0,shaderQueries:0,premature:[],injected:0,fetches:0};
  const fetch=window.fetch.bind(window);window.fetch=(...args)=>{probe.fetches++;return fetch(...args);};
@@ -92,19 +92,19 @@ try{
   const gl=window.__startupGL,c=gl.canvas,ext=gl.getExtension('WEBGL_lose_context');
   const lost=new Promise(resolve=>c.addEventListener('webglcontextlost',resolve,{once:true}));ext.loseContext();await lost;gl.getError();
   window.__startupProbe.mode='failure';window.__startupProbe.injected=0;
-  const restored=new Promise(resolve=>c.addEventListener('webglcontextrestored',()=>resolve(document.querySelector('orbital-sky').dataset.shaderStartup),{once:true}));
+  const restored=new Promise(resolve=>c.addEventListener('webglcontextrestored',()=>resolve(document.querySelector('earthlight-explorer').dataset.shaderStartup),{once:true}));
   setTimeout(()=>ext.restoreContext(),200);return await restored;
  })()`);
  assert.equal(restoringStatus,'compiling');
- await wait("document.querySelector('orbital-sky')?.dataset.shaderStartup==='failed'&&getComputedStyle(document.querySelector('orbital-sky canvas')).opacity==='0'");
+ await wait("document.querySelector('earthlight-explorer')?.dataset.shaderStartup==='failed'&&getComputedStyle(document.querySelector('earthlight-explorer canvas')).opacity==='0'");
  results.restoreFailed=await read();assert.equal(results.restoreFailed.ready,false);assert.equal(results.restoreFailed.fallbackOpacity,'1');assert.equal(results.restoreFailed.error,0);
 
  console.log(`${api}: dispose during compilation`);await open();await clone('hold');await wait('window.__startupProbe.polls>0');
- const removed=await evaluate(`(()=>{document.querySelector('orbital-sky').remove();return window.__startupProbe.polls;})()`);
+ const removed=await evaluate(`(()=>{document.querySelector('earthlight-explorer').remove();return window.__startupProbe.polls;})()`);
  await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');
  results.disposed=await read();assert.equal(results.disposed.probe.polls,removed);assert.deepEqual(results.disposed.probe.premature,[]);
 
- console.log(`${api}: compile failure poster`);await open();await clone('failure');await wait("document.querySelector('orbital-sky')?.dataset.shaderStartup==='failed'");
+ console.log(`${api}: compile failure poster`);await open();await clone('failure');await wait("document.querySelector('earthlight-explorer')?.dataset.shaderStartup==='failed'");
  results.failed=await read();assert.equal(results.failed.ready,false);assert.equal(results.failed.canvasOpacity,'0');assert.equal(results.failed.fallbackOpacity,'1');
  assert.equal(results.failed.probe.injected,1);assert.ok(results.failed.probe.shaderQueries>0);assert.equal(results.failed.error,0);
  console.log('Shader batches, pending poster, extension fallback, cancellation, restore and failure fallback passed.');

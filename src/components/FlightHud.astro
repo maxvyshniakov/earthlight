@@ -1,7 +1,7 @@
 ---
-import { MIN_ALTITUDE, MAX_ALTITUDE } from '../scripts/orbit-navigation';
-import { GAUGE, LENS_MIN, LENS_MAX, EV_MIN, EV_MAX, SPEED_MAX, speedFraction } from '../scripts/orbit-hud';
-import SkyCredits from './SkyCredits.astro';
+import { MIN_ALTITUDE, MAX_ALTITUDE } from '../scripts/flight-navigation';
+import { GAUGE, LENS_MIN, LENS_MAX, EV_MIN, EV_MAX, SPEED_MAX, speedFraction } from '../scripts/flight-hud';
+import SceneCredits from './SceneCredits.astro';
 // Altitude tape positions are logarithmic, matching how the camera climbs.
 const position = (km: number) => (1 - Math.log(km / MIN_ALTITUDE) / Math.log(MAX_ALTITUDE / MIN_ALTITUDE)) * 100;
 // Long ticks at 1, 2, 3 and 5 of each decade, each labelled with its number.
@@ -75,28 +75,28 @@ const groups: Group[] = [
   { name: 'Time', keys: [[[key('Space', 'Space'), 'Pause or play']]] },
 ];
 ---
-<div class="orbit-hud" data-modality="mouse">
+<div class="flight-hud" data-modality="mouse">
   <div class="hud-time" role="group" aria-label="Time">
-    <button class="sky-motion hud-time-toggle" type="button" aria-label="Pause" title="Pause"><svg class="motion-play" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" data-hidden><path d="m5 3 8 5-8 5z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg><svg class="motion-pause" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 3v10M11 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></button>
-    <time class="sky-time"><span class="sky-date">—</span><span class="sky-clock">—</span></time>
+    <button class="explorer-motion hud-time-toggle" type="button" aria-label="Pause" title="Pause"><svg class="motion-play" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" data-hidden><path d="m5 3 8 5-8 5z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg><svg class="motion-pause" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 3v10M11 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></button>
+    <time class="explorer-time"><span class="explorer-date">—</span><span class="explorer-clock">—</span></time>
     <span class="hud-time-scale" data-time-scale title="Time scale; change it in Settings">10×</span>
     <span class="time-hint" aria-hidden="true"><button type="button" class="time-key" data-press="Space" tabindex="-1" title="Stop or start time (Space)"><kbd data-key="Space">Space</kbd></button><span>Time</span></span>
     <div class="hud-clock">
-      <div id="sky-speed" class="hud-tape hud-htape" style="--span: clamp(140px, 13cqw, 160px)" role="slider" tabindex="0" aria-label="Time scale" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax={SPEED_MAX} aria-valuenow="10">
+      <div id="explorer-speed" class="hud-tape hud-htape" style="--span: clamp(140px, 13cqw, 160px)" role="slider" tabindex="0" aria-label="Time scale" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax={SPEED_MAX} aria-valuenow="10">
         <div class="hud-scale" aria-hidden="true">
           {speedTicks.map(at => <span class="hud-tick" style={`left:${(at * 100).toFixed(3)}%`}></span>)}
           {speedMarks.map(speed => <span class="hud-tick major" data-at={speedFraction(speed)} style={`left:${(speedFraction(speed) * 100).toFixed(3)}%`}><b>{speed}×</b></span>)}
         </div>
         <div class="hud-now" aria-hidden="true"><output data-time-scale>10×</output></div>
       </div>
-      <div id="sky-day" class="hud-tape hud-htape" style="--span: clamp(150px, 16cqw, 210px)" role="slider" tabindex="0" aria-label="Date" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="365" aria-valuenow="0">
+      <div id="explorer-day" class="hud-tape hud-htape" style="--span: clamp(150px, 16cqw, 210px)" role="slider" tabindex="0" aria-label="Date" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="365" aria-valuenow="0">
         <div class="hud-scale" aria-hidden="true">
           {dayTicks.map(day => <span class="hud-tick" style={`left:${(day / 365 * 100).toFixed(3)}%`}></span>)}
           {monthStarts.map(day => <span class="hud-tick major" data-at={months[day] && day < 365 ? day / 365 : undefined} style={`left:${(day / 365 * 100).toFixed(3)}%`}>{months[day] && <b>{months[day]}</b>}</span>)}
         </div>
         <div class="hud-now" aria-hidden="true"><output>—</output></div>
       </div>
-      <div id="sky-minute" class="hud-tape hud-htape" style="--span: clamp(190px, 23cqw, 288px)" role="slider" tabindex="0" aria-label="Time of day in UTC" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="1439" aria-valuenow="0">
+      <div id="explorer-minute" class="hud-tape hud-htape" style="--span: clamp(190px, 23cqw, 288px)" role="slider" tabindex="0" aria-label="Time of day in UTC" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="1439" aria-valuenow="0">
         <div class="hud-scale" aria-hidden="true">
           {halfHours.filter(minute => minute % 180).map(minute => <span class="hud-tick" style={`left:${(minute / 1440 * 100).toFixed(3)}%`}></span>)}
           {halfHours.filter(minute => !(minute % 180)).map(minute => <span class="hud-tick major" data-at={minute / 1440} style={`left:${(minute / 1440 * 100).toFixed(3)}%`}><b>{String(minute / 60).padStart(2, '0')}</b></span>)}
@@ -109,11 +109,11 @@ const groups: Group[] = [
   <div class="hud-altimeter hud-meter" style={`--longest: ${Math.max(...scale.map(({ km }) => label(km).length))}`}>
     <nav class="hud-modes hud-list" aria-label="Camera">
       <button type="button" data-flight-mode="free" aria-pressed="false" title="Fly from here"><kbd data-key="Digit1">1</kbd>Free</button>
-      <button type="button" data-route="iss" aria-pressed="true"><kbd data-key="Digit2">2</kbd>ISS</button>
-      <button type="button" data-route="polar" aria-pressed="false"><kbd data-key="Digit3">3</kbd>Polar</button>
-      <button type="button" data-route="high" aria-pressed="false"><kbd data-key="Digit4">4</kbd>High</button>
+      <button type="button" data-orbit="iss" aria-pressed="true"><kbd data-key="Digit2">2</kbd>ISS</button>
+      <button type="button" data-orbit="polar" aria-pressed="false"><kbd data-key="Digit3">3</kbd>Polar</button>
+      <button type="button" data-orbit="high" aria-pressed="false"><kbd data-key="Digit4">4</kbd>High</button>
     </nav>
-    <div id="sky-altitude" class="hud-tape" role="slider" tabindex="0" aria-label="Altitude" aria-orientation="vertical" aria-valuemin={MIN_ALTITUDE} aria-valuemax={MAX_ALTITUDE} aria-valuenow="420" aria-valuetext="420 km">
+    <div id="explorer-altitude" class="hud-tape" role="slider" tabindex="0" aria-label="Altitude" aria-orientation="vertical" aria-valuemin={MIN_ALTITUDE} aria-valuemax={MAX_ALTITUDE} aria-valuenow="420" aria-valuetext="420 km">
       <div class="hud-scale" aria-hidden="true">
         {short.map(top => <span class="hud-tick" style={`top:${top.toFixed(3)}%`}></span>)}
         {scale.map(({ km }) => <span class="hud-tick major" style={`top:${position(km).toFixed(3)}%`}><b data-crowded={[200, 3000, 30000].includes(km) ? '' : undefined}>{label(km)}</b></span>)}
@@ -126,7 +126,7 @@ const groups: Group[] = [
 
   <div class="hud-left">
     <div class="hud-ev hud-meter" style={`--longest: ${Math.max(...evStops.map(ev => evLabel(ev).length))}`}>
-      <div id="sky-ev" class="hud-tape" role="slider" tabindex="0" aria-label="Exposure compensation" aria-orientation="vertical" aria-valuemin={EV_MIN} aria-valuemax={EV_MAX} aria-valuenow="0" aria-valuetext="0.0 EV">
+      <div id="explorer-ev" class="hud-tape" role="slider" tabindex="0" aria-label="Exposure compensation" aria-orientation="vertical" aria-valuemin={EV_MIN} aria-valuemax={EV_MAX} aria-valuenow="0" aria-valuetext="0.0 EV">
         <div class="hud-scale" aria-hidden="true">
           {evThirds.map(ev => <span class="hud-tick" style={`top:${evPosition(ev).toFixed(3)}%`}></span>)}
           {evStops.map(ev => <span class="hud-tick major" data-mark={ev} style={`top:${evPosition(ev).toFixed(3)}%`}><b>{evLabel(ev)}</b></span>)}
@@ -135,7 +135,7 @@ const groups: Group[] = [
       </div>
     </div>
     <div class="hud-zoom hud-meter" style={`--longest: ${Math.max(...lensScale.map(({ zoom }) => `${zoom}×`.length))}`}>
-      <div id="sky-lens" class="hud-tape" role="slider" tabindex="0" aria-label="Lens" aria-orientation="vertical" aria-valuemin={LENS_MIN} aria-valuemax={LENS_MAX} aria-valuenow="1" aria-valuetext="1×, 30 mm">
+      <div id="explorer-lens" class="hud-tape" role="slider" tabindex="0" aria-label="Lens" aria-orientation="vertical" aria-valuemin={LENS_MIN} aria-valuemax={LENS_MAX} aria-valuenow="1" aria-valuetext="1×, 30 mm">
         <div class="hud-scale" aria-hidden="true">
           {lensShort.map(top => <span class="hud-tick" style={`top:${top.toFixed(3)}%`}></span>)}
           {lensScale.map(({ zoom }) => <span class="hud-tick major" data-mark={zoom} style={`top:${lensPosition(zoom).toFixed(3)}%`}><b>{zoom}×</b></span>)}
@@ -203,10 +203,10 @@ const groups: Group[] = [
       <button type="button" class="hud-key" data-hold="ArrowDown" tabindex="-1" aria-label="Look down" title="Look down (↓)"><kbd data-key="ArrowDown">↓</kbd></button>
     </div>
 
-  <div class="sky-controls hud-corner hud-list" hidden>
-    <button class="hud-info" type="button" popovertarget="sky-info" title="Info (i)"><kbd data-key="KeyI">i</kbd>Info</button>
+  <div class="explorer-controls hud-corner hud-list" hidden>
+    <button class="hud-info" type="button" popovertarget="explorer-info" title="Info (i)"><kbd data-key="KeyI">i</kbd>Info</button>
     <button type="button" popovertarget="flight-help" title="Help (? or F1)"><kbd data-key="Slash">?</kbd>Help</button>
-    <button class="sky-settings-toggle" type="button" popovertarget="sky-settings" title="Settings" aria-label="Settings"><span class="hud-cap"><svg class="hud-gear" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg></span></button>
+    <button class="explorer-settings-toggle" type="button" popovertarget="explorer-settings" title="Settings" aria-label="Settings"><span class="hud-cap"><svg class="hud-gear" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg></span></button>
   </div>
 
   <span class="hud-pulse" aria-hidden="true" hidden></span>
@@ -228,13 +228,13 @@ const groups: Group[] = [
   </div>
 </div>
 
-<div id="sky-info" class="sky-info sky-dialog" popover="auto" role="dialog" aria-labelledby="sky-info-heading">
-  <header class="dialog-header"><h2 id="sky-info-heading">Info</h2>
-    <button class="dialog-close" type="button" popovertarget="sky-info" popovertargetaction="hide" aria-label="Close info"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></header>
+<div id="explorer-info" class="explorer-info explorer-dialog" popover="auto" role="dialog" aria-labelledby="explorer-info-heading">
+  <header class="dialog-header"><h2 id="explorer-info-heading">Info</h2>
+    <button class="dialog-close" type="button" popovertarget="explorer-info" popovertargetaction="hide" aria-label="Close info"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button></header>
   <p class="help-lede">Earth, its atmosphere and the night sky, rendered in real time from a replayed ISS orbit, two model orbits or free flight. Lighting follows the date and time you pick; clouds and terrain come from satellite maps, not live weather.</p>
   <section class="info-credits" aria-labelledby="info-credits-heading">
     <h3 id="info-credits-heading">Image credits</h3>
-    <SkyCredits />
+    <SceneCredits />
   </section>
 </div>
 
@@ -242,24 +242,24 @@ const groups: Group[] = [
   /* The HUD box ends above the docked controls panel; contain: layout makes it
      the containing block of its fixed parts, so they all move up with it, and as
      a size container its height (cqh) sizes the tape instead of the screen's. */
-  .orbit-hud { --hud-glass: rgb(8 10 14 / 62%); --hud-dim: rgb(255 255 255 / 58%); --hud-accent: #d3a784; --hud-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; --hud-top: max(12px, env(safe-area-inset-top)); --hud-left: max(12px, env(safe-area-inset-left)); --hud-right: max(12px, env(safe-area-inset-right)); --hud-bottom: max(12px, env(safe-area-inset-bottom)); position: fixed; inset: 0 0 var(--sky-inset-bottom, 0px); contain: layout; container-type: size; z-index: 4; pointer-events: none; color: #fff; font: 11px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: opacity .5s ease; }
-  :global(orbital-sky:not([data-ready])) .orbit-hud { opacity: 0; }
+  .flight-hud { --hud-glass: rgb(8 10 14 / 62%); --hud-dim: rgb(255 255 255 / 58%); --hud-accent: #d3a784; --hud-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; --hud-top: max(12px, env(safe-area-inset-top)); --hud-left: max(12px, env(safe-area-inset-left)); --hud-right: max(12px, env(safe-area-inset-right)); --hud-bottom: max(12px, env(safe-area-inset-bottom)); position: fixed; inset: 0 0 var(--explorer-inset-bottom, 0px); contain: layout; container-type: size; z-index: 4; pointer-events: none; color: #fff; font: 11px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: opacity .5s ease; }
+  :global(earthlight-explorer:not([data-ready])) .flight-hud { opacity: 0; }
   .hud-time, .hud-list, .hud-attitude, .hud-meter, .hud-pad { pointer-events: auto; }
-  .orbit-hud { user-select: none; -webkit-user-select: none; }
+  .flight-hud { user-select: none; -webkit-user-select: none; }
   /* Hint text arrives as HTML, so its keys are styled globally within the HUD. */
   /* Key caps and the controls panel use a subset of Inter (public/fonts, OFL): its arrows and ⇧ ⌥ suit keys. */
   @font-face { font-family: 'Inter Subset'; src: url('/fonts/inter-subset.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
   /* Keys: inner corners all 3 px; the 2 px bottom edge gets a taller outer curve to match. */
   /* Single-glyph keys are square, 18 px either way; the widest, ⇧ and W, fit with their padding. */
-  .orbit-hud :global(kbd), .flight-help :global(kbd) { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; box-sizing: border-box; border: 1px solid rgb(255 255 255 / 30%); border-bottom-width: 2px; border-radius: 4px 4px 4px 4px / 4px 4px 5px 5px; color: #fff; font: 500 10px/1 'Inter Subset', -apple-system, BlinkMacSystemFont, sans-serif; text-transform: none; letter-spacing: 0; vertical-align: baseline; transition: background-color .08s, color .08s, transform .08s, border-color .08s; }
+  .flight-hud :global(kbd), .flight-help :global(kbd) { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; box-sizing: border-box; border: 1px solid rgb(255 255 255 / 30%); border-bottom-width: 2px; border-radius: 4px 4px 4px 4px / 4px 4px 5px 5px; color: #fff; font: 500 10px/1 'Inter Subset', -apple-system, BlinkMacSystemFont, sans-serif; text-transform: none; letter-spacing: 0; vertical-align: baseline; transition: background-color .08s, color .08s, transform .08s, border-color .08s; }
   /* ⌫ is wider than the rest; without padding it stays square too. */
-  .orbit-hud :global(kbd[data-key="Backspace"]), .flight-help :global(kbd[data-key="Backspace"]) { padding: 0; }
+  .flight-hud :global(kbd[data-key="Backspace"]), .flight-help :global(kbd[data-key="Backspace"]) { padding: 0; }
   /* A key that is a button takes a faint fill under the pointer. */
-  .orbit-hud button:not([aria-pressed="true"]):hover :global(kbd:not([data-pressed])) { background: rgb(255 255 255 / 16%); }
+  .flight-hud button:not([aria-pressed="true"]):hover :global(kbd:not([data-pressed])) { background: rgb(255 255 255 / 16%); }
   /* A held key, and the active camera preset, look pressed. */
-  .orbit-hud :global(kbd[data-pressed]), .hud-list [aria-pressed="true"] kbd { background: #fff; border-color: #fff; color: #000; transform: translateY(1px); }
+  .flight-hud :global(kbd[data-pressed]), .hud-list [aria-pressed="true"] kbd { background: #fff; border-color: #fff; color: #000; transform: translateY(1px); }
   /* Without a keyboard, key caps mean nothing. */
-  .orbit-hud:not([data-keyboard]) :is(.hud-key, .hud-pad), .orbit-hud:not([data-keyboard]) .time-hint, .orbit-hud:not([data-keyboard]) :is(.hud-list, .hud-roll) kbd { display: none; }
+  .flight-hud:not([data-keyboard]) :is(.hud-key, .hud-pad), .flight-hud:not([data-keyboard]) .time-hint, .flight-hud:not([data-keyboard]) :is(.hud-list, .hud-roll) kbd { display: none; }
   /* Plain translucent fills; a backdrop blur over the live canvas costs frames and leaves artefacts. */
   button { font: inherit; color: inherit; cursor: pointer; }
   /* Focus shows as a fill, never a frame. */
@@ -269,7 +269,7 @@ const groups: Group[] = [
   .hud-time { position: fixed; top: var(--hud-top); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; height: 24px; padding: 0; box-sizing: border-box; font: 500 10px/1 var(--hud-mono); color: #fff; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
   /* Play and pause sit in a key cap's frame, like the Settings gear, and never shrink. */
   .hud-time-toggle { flex: none; padding: 0; background: none; color: #fff; }
-  .sky-time { display: flex; gap: 14px; }
+  .explorer-time { display: flex; gap: 14px; }
   .hud-time-toggle svg[data-hidden] { display: none; }
   /* Never squeezed: the cap keeps its word inside its frame at any width. */
   .time-hint { flex: none; display: flex; align-items: center; gap: 5px; color: var(--hud-dim); font-weight: 500; white-space: nowrap; }
@@ -289,7 +289,7 @@ const groups: Group[] = [
   @container (min-width: 820px) {
     /* As wide as its tapes: centred from the middle, it would otherwise squeeze them. */
     .hud-time { width: max-content; align-items: flex-start; gap: 24px; height: auto; padding: 0; background: none; }
-    .hud-time :is(.sky-time, .hud-time-scale, .hud-time-toggle) { display: none; }
+    .hud-time :is(.explorer-time, .hud-time-scale, .hud-time-toggle) { display: none; }
     /* Space sits at the top; the tapes hang 6 px lower, so their short ticks
        share an axis with its name. */
     .time-hint { align-self: flex-start; }
@@ -309,9 +309,9 @@ const groups: Group[] = [
   /* The presets head the altitude tape: keys flush with the edge, names to their left. */
   .hud-modes { justify-self: end; }
   /* Settings alone top right, a gear in a key cap's frame; Info, then Help, in the lower-right corner. */
-  .hud-corner .sky-settings-toggle { position: fixed; top: var(--hud-top); right: var(--hud-right); padding: 0; }
+  .hud-corner .explorer-settings-toggle { position: fixed; top: var(--hud-top); right: var(--hud-right); padding: 0; }
   .hud-cap, .hud-time-toggle { display: grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1px solid rgb(255 255 255 / 30%); border-bottom-width: 2px; border-radius: 5px 5px 5px 5px / 5px 5px 6px 6px; transition: background-color .08s; }
-  :is(.sky-settings-toggle:is(:hover, :focus-visible) .hud-cap, .hud-time-toggle:is(:hover, :focus-visible)) { background: rgb(255 255 255 / 16%); }
+  :is(.explorer-settings-toggle:is(:hover, :focus-visible) .hud-cap, .hud-time-toggle:is(:hover, :focus-visible)) { background: rgb(255 255 255 / 16%); }
   /* Info alone in the lower-left corner, mirrored: key at the edge, name inside. */
   .hud-corner .hud-info { position: fixed; left: var(--hud-left); bottom: var(--hud-bottom); flex-direction: row; padding: 0 12px 0 0; }
   /* Settings, help and info in the lower-right corner, set like the presets; settings has no key, so a gear. */
@@ -326,7 +326,7 @@ const groups: Group[] = [
   .hud-list button:has(kbd[data-pressed]) { color: #fff; }
 
   /* The horizon gauge sits at the bottom centre, between its roll buttons and the look keys. */
-  /* --hud-dock-lift keeps it clear of the controls panel's tab (orbit-hud.ts). */
+  /* --hud-dock-lift keeps it clear of the controls panel's tab (flight-hud.ts). */
   .hud-dock { position: fixed; left: var(--hud-left); right: var(--hud-right); bottom: calc(var(--hud-bottom) + var(--hud-dock-lift, 0px)); display: flex; justify-content: center; align-items: flex-end; gap: 8px; pointer-events: none; }
 
 
@@ -359,7 +359,7 @@ const groups: Group[] = [
   /* A small Earth the size of a key, as seen from straight above the camera with
      north up: land filled the colour of the tapes' ticks, sea left clear, and
      only the near hemisphere, so it reads as solid. It turns as you fly and as
-     Earth turns under the orbit (orbit-hud.ts paints it). */
+     Earth turns under the orbit (flight-hud.ts paints it). */
   .hud-globe { position: relative; justify-self: center; width: 18px; height: 18px; line-height: 0; }
   .hud-globe :is(canvas, svg) { position: absolute; inset: 0; width: 18px; height: 18px; overflow: visible; }
   .globe-outline { fill: none; stroke: var(--hud-dim); stroke-width: 1px; vector-effect: non-scaling-stroke; }
@@ -465,7 +465,7 @@ const groups: Group[] = [
   /* The ground pin: where a right-drag circles and where a double-click flies.
      A lit spot and a ring lie on the ground round the point, a stalk stands up
      from it, and ripples spread over the ground as it lands, all in perspective
-     so they tilt with the land (orbit-hud.ts draws it). */
+     so they tilt with the land (flight-hud.ts draws it). */
   .hud-pin { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; color: var(--hud-accent); }
   .hud-pin svg { display: block; width: 100%; height: 100%; overflow: visible; }
   .hud-pin[hidden] { display: none; }
@@ -480,7 +480,7 @@ const groups: Group[] = [
   /* Phones: compact instruments. */
   @media (max-width: 640px) {
     .hud-time { gap: 10px; }
-    .sky-time { gap: 10px; }
+    .explorer-time { gap: 10px; }
     .gauge { width: 50px; height: 50px; }
     .hud-attitude { gap: 12px; }
     /* Centred in the room the corner buttons leave. */
@@ -489,11 +489,11 @@ const groups: Group[] = [
   }
   /* The clock row shares the top edge with the gear until it would reach it:
      with Space and its name below 420 px, without them below 330 px. */
-  @container (max-width: 420px) { .orbit-hud[data-keyboard] .hud-corner .sky-settings-toggle { top: calc(var(--hud-top) + 36px); } }
-  @container (max-width: 330px) { .hud-corner .sky-settings-toggle { top: calc(var(--hud-top) + 36px); } }
+  @container (max-width: 420px) { .flight-hud[data-keyboard] .hud-corner .explorer-settings-toggle { top: calc(var(--hud-top) + 36px); } }
+  @container (max-width: 330px) { .hud-corner .explorer-settings-toggle { top: calc(var(--hud-top) + 36px); } }
   /* A short HUD, such as a phone on its side: one compact row. */
   /* Wide enough that the clock leaves the corner free: Settings back to the top. */
-  @container (max-height: 480px) and (min-width: 480px) { .hud-corner .sky-settings-toggle { top: var(--hud-top); } }
+  @container (max-height: 480px) and (min-width: 480px) { .hud-corner .explorer-settings-toggle { top: var(--hud-top); } }
   @container (max-height: 480px) {
     /* The tapes sit low, level with each other: the right one, under its
        presets, above the corner buttons. No keys. */
@@ -504,14 +504,14 @@ const groups: Group[] = [
     .hud-meter { --tape: clamp(112px, 34cqh, 170px); }
     .hud-tick b[data-crowded], .hud-tick:not(.major) { visibility: hidden; }
   }
-  @media (prefers-reduced-motion: reduce) { .orbit-hud, .orbit-hud *, .hud-pulse { transition: none !important; animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { .flight-hud, .flight-hud *, .hud-pulse { transition: none !important; animation: none !important; } }
 
-  /* orbital-sky passes pointer-events: none down; the panel takes them back. */
+  /* earthlight-explorer passes pointer-events: none down; the panel takes them back. */
   /* Controls: a panel docked along the bottom, like an editor's shortcut sheet. It
      stays open while you fly. Per action: its keys, if there is a keyboard, then
      then pointer and touch paragraphs, as the device has them. */
   /* It slides up from the bottom edge and back, tab and all; the scene follows its
-     edge (orbit-hud.ts). The grid scrolls, so the tab can stand out above it. */
+     edge (flight-hud.ts). The grid scrolls, so the tab can stand out above it. */
   .flight-help { --help-size: 10.5px; --help-tab: 18px; box-sizing: border-box; position: fixed; inset: auto 0 0 0; display: flex; flex-direction: column; width: 100%; max-width: none; height: auto; max-height: 50vh; max-height: 50dvh; margin: 0; padding: 0; overflow: visible; border: 0; border-top: 1px solid rgb(255 255 255 / 9%); background: rgb(12 14 18); color: #fff; color-scheme: dark; font: 500 var(--help-size)/1.6 'Inter Subset', -apple-system, BlinkMacSystemFont, sans-serif; pointer-events: auto; transform: translateY(calc(100% + var(--help-tab))); transition: transform .3s cubic-bezier(.2, .7, .2, 1), display .3s allow-discrete, overlay .3s allow-discrete; }
   .flight-help:popover-open { transform: none; }
   @starting-style { .flight-help:popover-open { transform: translateY(calc(100% + var(--help-tab))); } }
