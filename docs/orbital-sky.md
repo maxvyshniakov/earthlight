@@ -722,19 +722,27 @@ filtering, so HDR light survives until sensor processing in both paths.
 The Color fringing baseline is half its previous strength: the former 50% is
 now labeled 100%. Separation still falls to zero at the optical center.
 
-The camera meters 1024 scene samples on the GPU with a gentle center weight.
+The camera meters every texel of a 37 × 25-texel level of the glare pyramid
+(the finest no larger than 64 × 64), each a box average of its 32–64 px
+square, with a gentle center weight. RGBE scenes, which have no pyramid, and
+`meter=points` use 1024 point samples of the scene instead.
 A 24-bin log-luminance histogram spans -16 to +8 stops of scene radiance.
 It trims the lowest 10% and highest 2% by weighted area, then uses the retained
 log mean to target 0.055 linear radiance. Within-bin log sums avoid rounding
 uniform scenes to a stop boundary. A coverage-weighted strongest-channel
 measurement protects extended coloured highlights; isolated stars may clip.
-Both targets are limited to the automatic range before coverage blends them
-(full weight from 2.5% of samples, none below 0.6%): blended unbounded, a
-black sky's +15 EV outweighed any smaller bright subject. See
-[the zoom metering lab note](lab/auto-exposure-zoom-2026-10-16.md).
+The pyramid's alpha marks subjects: blocks about 1/70 of the frame height
+that are mostly lit. A star never fills one, so a lit region counts from
+0.005% of the frame and fully from 0.025%, and a 40 px Moon is metered
+wherever it falls; its radiance is the cell's light over its subject share.
+Point samples cannot tell a star's core from a subject and need 0.6–2.5% of
+samples. Both targets are limited to the automatic range before coverage
+blends them: blended unbounded, a black sky's +15 EV outweighed any smaller
+bright subject. See [the zoom metering lab note](lab/auto-exposure-zoom-2026-10-16.md)
+and [the pyramid metering lab note](lab/pyramid-metering-2026-10-16.md).
 An analytic disk-area measurement catches the Sun between taps, including
 occultation and atmospheric transmission. The meter does not receive Earth
-position or object labels. All automatic views use one -1.5 to +4.1 EV range; manual exposure retains -5.5 to +4.1 EV.
+position or object labels. All automatic views use one -3.0 to +5.1 EV range; manual exposure retains -5.5 to +5.1 EV.
 Two one-pixel RGBA8 targets store EV at 16-bit precision; no GPU readback or
 additional render pass is needed. Adaptation uses real elapsed time, with a
 1.25 s time constant when brightening and 0.4 s when darkening. Darkening waits
@@ -761,7 +769,7 @@ The virtual 24 fps camera holds a 180-degree shutter (1/48 s). Of the metered
 correction above +0.5 EV, 60% opens the aperture and 40% increases ISO. This moves
 smoothly from f/4, ISO 400 to approximately f/3.18, ISO 543; the optical throughput
 times ISO gain exactly preserves the accepted total exposure. Beyond +1.6 EV
-the aperture stays at f/3.18 and ISO continues to approximately 3074 at +4.1 EV. It is a chosen
+the aperture stays at f/3.18 and ISO continues to approximately 6150 at +5.1 EV. It is a chosen
 video exposure program, not a claim about every camera's auto mode. Below the day
 baseline, two thirds of the correction closes the iris and one third lowers
 ISO, reaching f/16 and ISO 100 at −5.5 EV. The shutter remains 1/48 s.
@@ -1243,8 +1251,11 @@ previous gamma-2.2 encode followed by an sRGB decode lifted a 0.00001 signal
 about 41 times before exposure, flattening nightglow's limb-to-ground contrast
 and making the diffuse Milky Way too prominent. Output gamut conversion now
 only changes primaries; the display transfer is applied once, after exposure.
-The single automatic ceiling is +4.1 EV for every view. The automatic floor is
--1.5 EV, raised four stops from -5.5 EV to retain more exposure in bright scenes. There is no exposure
+The single automatic ceiling is +5.1 EV for every view (ISO about 6150): an
+empty sky shows one stop more stars and grain than at the former +4.1. The
+automatic floor is -3.0 EV (f/9, ISO 178), raised 2.5 stops from -5.5 EV so
+Earth beside the Sun stays visible; at the former -1.5 EV the Sun was a broad
+clipped halo. There is no exposure
 bonus for Earth coverage. Diffuse Galactic light and point sources also no
 longer receive observer-daylight dimming factors: source radiance remains
 independent of the camera, while occultation and extinction still apply.
@@ -1255,7 +1266,7 @@ and adaptation at 30 and 120 Hz.
 Your view offers Auto and Manual exposure. Auto starts with zero compensation;
 its -3 to +4 EV compensation slider applies before the sensor and highlight
 curve, outside the meter feedback loop. Manual sets a fixed camera gain from
--5.5 to +4.1 EV and bypasses automatic adaptation and compensation. These are
+-5.5 to +5.1 EV and bypasses automatic adaptation and compensation. These are
 relative scene gain stops, not calibrated photographic EV100. Auto compensation
 is preserved as `look-exposure`, manual mode as `exposure-mode=manual` and its
 setting as `exposure-fixed`. Reset all returns to Auto with zero compensation.

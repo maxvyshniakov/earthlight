@@ -1,0 +1,343 @@
+{
+ "date": "2026-10-16",
+ "method": "metered EV read from the meter 1x1 state by a page init script; agent-browser 1200x800 DPR1, paused, 9 s settle; meter=points selects the previous point-sample meter",
+ "zoomSeries": {
+  "pyramidNewRange": [
+   {
+    "subject": "nadir",
+    "lens": 1,
+    "ev": -0.74
+   },
+   {
+    "subject": "nadir",
+    "lens": 2,
+    "ev": -0.67
+   },
+   {
+    "subject": "nadir",
+    "lens": 5,
+    "ev": -0.71
+   },
+   {
+    "subject": "nadir",
+    "lens": 10,
+    "ev": -0.93
+   },
+   {
+    "subject": "nadir",
+    "lens": 20,
+    "ev": -0.72
+   },
+   {
+    "subject": "moon",
+    "lens": 1,
+    "ev": 0.23
+   },
+   {
+    "subject": "moon",
+    "lens": 2,
+    "ev": 0.97
+   },
+   {
+    "subject": "moon",
+    "lens": 5,
+    "ev": -2.99
+   },
+   {
+    "subject": "moon",
+    "lens": 10,
+    "ev": -3
+   },
+   {
+    "subject": "moon",
+    "lens": 20,
+    "ev": -3
+   },
+   {
+    "subject": "sun",
+    "lens": 1,
+    "ev": -3
+   },
+   {
+    "subject": "sun",
+    "lens": 2,
+    "ev": -3
+   },
+   {
+    "subject": "sun",
+    "lens": 5,
+    "ev": -3
+   },
+   {
+    "subject": "sun",
+    "lens": 14.617,
+    "ev": -3
+   },
+   {
+    "subject": "earth",
+    "lens": 0.758,
+    "ev": 0.29
+   },
+   {
+    "subject": "earth",
+    "lens": 1.5,
+    "ev": 0.23
+   },
+   {
+    "subject": "earth",
+    "lens": 3,
+    "ev": 0.19
+   },
+   {
+    "subject": "earth",
+    "lens": 6,
+    "ev": -0.33
+   }
+  ],
+  "pyramidOldRange": [
+   {
+    "subject": "nadir",
+    "lens": 1,
+    "ev": -0.72
+   },
+   {
+    "subject": "nadir",
+    "lens": 2,
+    "ev": -0.65
+   },
+   {
+    "subject": "nadir",
+    "lens": 5,
+    "ev": -0.7
+   },
+   {
+    "subject": "nadir",
+    "lens": 10,
+    "ev": -0.92
+   },
+   {
+    "subject": "nadir",
+    "lens": 20,
+    "ev": -0.71
+   },
+   {
+    "subject": "moon",
+    "lens": 1,
+    "ev": 0.23
+   },
+   {
+    "subject": "moon",
+    "lens": 2,
+    "ev": 0.97
+   },
+   {
+    "subject": "moon",
+    "lens": 5,
+    "ev": -1.5
+   },
+   {
+    "subject": "moon",
+    "lens": 10,
+    "ev": -1.5
+   },
+   {
+    "subject": "moon",
+    "lens": 20,
+    "ev": -1.5
+   },
+   {
+    "subject": "sun",
+    "lens": 1,
+    "ev": -1.5
+   },
+   {
+    "subject": "sun",
+    "lens": 2,
+    "ev": -1.5
+   },
+   {
+    "subject": "sun",
+    "lens": 5,
+    "ev": -1.5
+   },
+   {
+    "subject": "sun",
+    "lens": 14.617,
+    "ev": -1.5
+   },
+   {
+    "subject": "earth",
+    "lens": 0.758,
+    "ev": 0.29
+   },
+   {
+    "subject": "earth",
+    "lens": 1.5,
+    "ev": 0.23
+   },
+   {
+    "subject": "earth",
+    "lens": 3,
+    "ev": 0.19
+   },
+   {
+    "subject": "earth",
+    "lens": 6,
+    "ev": 1.63
+   }
+  ],
+  "pointsOldRange": [
+   {
+    "subject": "nadir",
+    "lens": 1,
+    "ev": -0.66
+   },
+   {
+    "subject": "nadir",
+    "lens": 2,
+    "ev": -0.62
+   },
+   {
+    "subject": "nadir",
+    "lens": 5,
+    "ev": -0.67
+   },
+   {
+    "subject": "nadir",
+    "lens": 10,
+    "ev": -0.9
+   },
+   {
+    "subject": "nadir",
+    "lens": 20,
+    "ev": -0.7
+   },
+   {
+    "subject": "moon",
+    "lens": 1,
+    "ev": 0.15
+   },
+   {
+    "subject": "moon",
+    "lens": 2,
+    "ev": 0.43
+   },
+   {
+    "subject": "moon",
+    "lens": 5,
+    "ev": 4.1
+   },
+   {
+    "subject": "moon",
+    "lens": 10,
+    "ev": 4.1
+   },
+   {
+    "subject": "moon",
+    "lens": 20,
+    "ev": 3.77
+   },
+   {
+    "subject": "sun",
+    "lens": 1,
+    "ev": -1.5
+   },
+   {
+    "subject": "sun",
+    "lens": 2,
+    "ev": -1.5
+   },
+   {
+    "subject": "sun",
+    "lens": 5,
+    "ev": -1.5
+   },
+   {
+    "subject": "sun",
+    "lens": 14.617,
+    "ev": -1.5
+   },
+   {
+    "subject": "earth",
+    "lens": 0.758,
+    "ev": 3.07
+   },
+   {
+    "subject": "earth",
+    "lens": 1.5,
+    "ev": 0.06
+   },
+   {
+    "subject": "earth",
+    "lens": 3,
+    "ev": 0.1
+   },
+   {
+    "subject": "earth",
+    "lens": 6,
+    "ev": 4.1
+   }
+  ]
+ },
+ "sceneRadiance": {
+  "moon20": {
+   "p10": 0.0474,
+   "p50": 2.55,
+   "p90": 10.3,
+   "p99": 14,
+   "litShare": 0.00986
+  },
+  "moon5": {
+   "p50": 0.23,
+   "p90": 6.65
+  },
+  "nadirEarth": {
+   "p10": 0.0618,
+   "p50": 0.0934,
+   "p90": 0.2,
+   "p99": 0.411
+  }
+ },
+ "fixture": {
+  "stars": 5.1,
+  "moonAtFourOffsets": [
+   1.009,
+   1.099,
+   1.079,
+   1.001
+  ],
+  "moonPointSamples": [
+   5.1,
+   5.1
+  ],
+  "uniformPyramid": -0.862,
+  "uniformPoints": -0.862,
+  "range": "final [-3.0,+5.1], ramp 0.005-0.025%"
+ },
+ "timingMs": {
+  "method": "EXT_disjoint_timer_query_webgl2, Apple GPU, median of 40",
+  "size1200x800": {
+   "build": 0.217,
+   "meterPoints": 1.01,
+   "meterPyramid": 0.695
+  },
+  "size2400x1600": {
+   "build": 0.341,
+   "meterPoints": 1.052,
+   "meterPyramid": 0.647
+  }
+ },
+ "rangeEnds": {
+  "before": {
+   "sunriseAutoEV": -1.5,
+   "skyAutoEV": 4.1
+  },
+  "after": {
+   "sunriseAutoEV": -3,
+   "skyAutoEV": 5.1
+  },
+  "sunriseMeterRequest": "about -4.2",
+  "skyMedianRadiance": 0.00000122,
+  "skyMeterRequest": "about +14.7"
+ }
+}

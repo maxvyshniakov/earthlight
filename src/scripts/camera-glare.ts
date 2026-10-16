@@ -17,6 +17,24 @@ const MAX_LEVELS=GLARE_MAX_LEVELS;
  * this: the 4×4 boxes (1.25 texel² per step) plus the bilinear tent. */
 export const FIELD_LEVEL_SPREAD=.76;
 
+/** Radiance at which a meter block counts as lit (smoothstep), shared with
+ * the exposure meter's point samples. Scene units: sunlit cloud ~0.5. */
+export const METER_LIT=[.025,.10] as const;
+/** Level whose blocks define a metering subject: about 1/70 of the frame
+ * height including the chain's spread (12 px at 800). The lit half of a
+ * 40 px Moon fills several; a star fills none. */
+export function subjectLevel(height:number,levels:number){
+  return Math.max(2,Math.min(levels-1,Math.round(Math.log2(height/200))));
+}
+/** Largest side of the level the meter reads texel by texel. */
+export const METER_MAX_SIDE=64;
+/** Finest level the meter can read whole: 37 × 25 for 3:2 frames. */
+export function meterLevel(width:number,height:number,levels:number){
+  let k=subjectLevel(height,levels)+1;
+  while(k<levels&&Math.max(width>>k,height>>k)>METER_MAX_SIDE)k++;
+  return Math.min(k,levels);
+}
+
 /** Pyramid levels 1..n until the short side would fall below two texels. */
 export function glareLevels(width:number,height:number){
   let levels=0;
@@ -48,21 +66,33 @@ export function glareWeights(height:number,levels:number,focal=1.25){
 const vertexSource='attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}';
 // Each tap is a bilinear read at a texel corner, so four taps average a 4×4
 // block. The first pass caps the Sun's footprint; its veil is analytic.
+// Alpha carries what the meter needs to tell a subject from a star. Level 1
+// marks lit pixels, finer levels average that into the lit share of a block,
+// the subject level keeps blocks more than half lit, and coarser levels
+// average those into the share of area in subjects. A star never fills a
+// subject block however bright it is; a Moon a few blocks wide does.
 const downSource=`
 precision highp float;
 uniform sampler2D source;
 uniform vec2 sourceSize;
 uniform vec2 targetSize;
 uniform vec4 solarMask;
-vec3 tap(vec2 uv){
-  vec3 c=texture2D(source,uv).rgb;
+uniform float alphaMode;
+vec4 tap(vec2 uv){
+  vec4 c=texture2D(source,uv);
   if(solarMask.w>.5&&length((uv-.5)*vec2(sourceSize.x/sourceSize.y,1.)-solarMask.xy)<solarMask.z)
-    c=min(c,vec3(${GLARE_SOLAR_CAP.toFixed(1)}));
-  return max(c,vec3(0.));
+    c.rgb=min(c.rgb,vec3(${GLARE_SOLAR_CAP.toFixed(1)}));
+  return vec4(max(c.rgb,vec3(0.)),c.a);
 }
+float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b)));}
 void main(){
   vec2 uv=gl_FragCoord.xy/targetSize,d=1./sourceSize;
-  gl_FragColor=vec4(.25*(tap(uv-d)+tap(uv+d)+tap(uv+vec2(d.x,-d.y))+tap(uv+vec2(-d.x,d.y))),1.);
+  vec4 a=tap(uv-d),b=tap(uv+d),c=tap(uv+vec2(d.x,-d.y)),e=tap(uv+vec2(-d.x,d.y));
+  vec4 block=.25*(a+b+c+e);
+  float alpha=block.a;
+  if(alphaMode>1.5)alpha=smoothstep(.3,.9,block.a);
+  else if(alphaMode>.5)alpha=.25*(lit(a.rgb)+lit(b.rgb)+lit(c.rgb)+lit(e.rgb));
+  gl_FragColor=vec4(block.rgb,alpha);
 }`;
 // Accumulate from the coarsest level: a 3×3 tent upsample of the coarser sum
 // plus this level's weighted image.
@@ -96,6 +126,9 @@ type Level={texture:WebGLTexture;target:WebGLFramebuffer;width:number;height:num
  * scene through one sampler: level 1 on the left, the rest stacked beside it.
  * rects holds each level's origin and size in atlas UV, level 1 first. */
 export type GlareField={texture:WebGLTexture;rects:Float32Array;levels:number;width:number;height:number};
+/** The level the exposure meter reads: rgb is area-mean radiance, alpha the
+ * share of area in subjects (blocks mostly lit). rect is in atlas UV. */
+export type MeterField={texture:WebGLTexture;rect:[number,number,number,number];width:number;height:number;atlasWidth:number;atlasHeight:number};
 
 /** Veiling glare of the whole frame: L ⊛ V, V normalized, from a half-float image pyramid.
  * Costs a quarter-resolution pass and a few smaller ones; it needs filtered
@@ -115,6 +148,7 @@ export class CameraGlare {
   private width=0;private height=0;
   private weights:number[]=[];
   private focal=NaN;
+  private built=false;
   private uniforms:Record<string,WebGLUniformLocation|null>={};
   constructor(private gl:WebGLRenderingContext,private pixelType:number,prepared?:ReturnType<typeof CameraGlare.prepare>){
     try{
@@ -123,7 +157,7 @@ export class CameraGlare {
       this.copy=prepared?prepared.batch.take(prepared.copy):link(gl,copySource);
       this.buffer=gl.createBuffer();if(!this.buffer)throw Error('Cannot allocate glare pass');
       gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-      for(const name of ['source','sourceSize','targetSize','solarMask'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down,name);
+      for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down,name);
       for(const name of ['coarse','detail','coarseSize','targetSize','coarseScale','detailWeight'])this.uniforms[`up.${name}`]=gl.getUniformLocation(this.up,name);
       for(const name of ['source','rect'])this.uniforms[`copy.${name}`]=gl.getUniformLocation(this.copy,name);
     }catch(error){this.dispose();throw error;}
@@ -132,11 +166,17 @@ export class CameraGlare {
    * too small for a pyramid. solarMask: Sun centre (frame units), footprint
    * radius, and 1 when the Sun is visible. focal: frame-height focal length. */
   render(image:WebGLTexture,width:number,height:number,solarMask:[number,number,number,number],focal=1.25){
+    return this.build(image,width,height,solarMask)?this.scatter(focal):null;
+  }
+  /** Downsamples the scene into its levels and atlas; false when the frame
+   * is too small for a pyramid. Exposure reads these before anything else. */
+  build(image:WebGLTexture,width:number,height:number,solarMask:[number,number,number,number]){
     const gl=this.gl;
     if(width!==this.width||height!==this.height)this.allocate(width,height);
     const levels=this.images.length;
-    if(focal!==this.focal){this.focal=focal;this.weights=glareWeights(height,levels,focal);}
-    if(levels<2)return null;
+    this.built=false;
+    if(levels<2)return false;
+    const subject=subjectLevel(height,levels);
     gl.useProgram(this.down);
     gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);
     const position=gl.getAttribLocation(this.down!,'position');
@@ -149,6 +189,7 @@ export class CameraGlare {
       gl.uniform2f(this.uniforms['down.sourceSize'],sourceWidth,sourceHeight);
       gl.uniform2f(this.uniforms['down.targetSize'],level.width,level.height);
       gl.uniform4fv(this.uniforms['down.solarMask'],k===0?solarMask:[0,0,0,0]);
+      gl.uniform1f(this.uniforms['down.alphaMode'],k===0?1:k+1===subject?2:0);
       gl.drawArrays(gl.TRIANGLES,0,3);
       source=level.texture;sourceWidth=level.width;sourceHeight=level.height;
     }
@@ -164,7 +205,16 @@ export class CameraGlare {
       gl.uniform4fv(this.uniforms['copy.rect'],rect);
       gl.drawArrays(gl.TRIANGLES,0,3);
     }
+    this.built=true;
+    return true;
+  }
+  /** Accumulates the glare image from the levels of the last build. */
+  scatter(focal=1.25){
+    const gl=this.gl,levels=this.images.length;
+    if(!this.built)return null;
+    if(focal!==this.focal){this.focal=focal;this.weights=glareWeights(this.height,levels,focal);}
     gl.useProgram(this.up);
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);
     const upPosition=gl.getAttribLocation(this.up!,'position');
     gl.enableVertexAttribArray(upPosition);gl.vertexAttribPointer(upPosition,2,gl.FLOAT,false,0,0);
     gl.uniform1i(this.uniforms['up.coarse'],4);gl.uniform1i(this.uniforms['up.detail'],5);
@@ -181,10 +231,16 @@ export class CameraGlare {
     }
     return this.sums[0].texture;
   }
-  /** The levels of the last render, for reading the scene at any spread. */
+  /** The levels of the last build, for reading the scene at any spread. */
   get field():GlareField|null{
     const atlas=this.atlas;
-    return atlas&&this.images.length>=2?{texture:atlas.texture,rects:this.rects,levels:this.images.length,width:atlas.width,height:atlas.height}:null;
+    return atlas&&this.built?{texture:atlas.texture,rects:this.rects,levels:this.images.length,width:atlas.width,height:atlas.height}:null;
+  }
+  get meter():MeterField|null{
+    const atlas=this.atlas;
+    if(!atlas||!this.built)return null;
+    const k=meterLevel(this.width,this.height,this.images.length)-1,level=this.images[k],r=this.rects;
+    return {texture:atlas.texture,rect:[r[k*4],r[k*4+1],r[k*4+2],r[k*4+3]],width:level.width,height:level.height,atlasWidth:atlas.width,atlasHeight:atlas.height};
   }
   private allocate(width:number,height:number){
     const gl=this.gl;
@@ -220,7 +276,7 @@ export class CameraGlare {
   }
   private release(){
     for(const level of [...this.images,...this.sums,...(this.atlas?[this.atlas]:[])]){this.gl.deleteTexture(level.texture);this.gl.deleteFramebuffer(level.target);}
-    this.images=[];this.sums=[];this.atlas=null;this.atlasRects=[];this.width=0;this.height=0;
+    this.images=[];this.sums=[];this.atlas=null;this.atlasRects=[];this.width=0;this.height=0;this.built=false;
   }
   dispose(){
     this.release();

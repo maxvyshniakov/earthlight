@@ -3,6 +3,7 @@ import { sceneColorShader } from './scene-color';
 
 import { AUTO_EXPOSURE_MIN_EV, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, cameraModelShader } from './camera-model';
 import { SOLAR_IRRADIANCE, SOLAR_RADIUS } from './solar-light';
+import { METER_LIT, METER_MAX_SIDE, type MeterField } from './camera-glare';
 export { EXPOSURE_MIN_EV, EXPOSURE_MAX_EV };
 export const EXPOSURE_SETTLE_MS=7000;
 
@@ -23,20 +24,38 @@ uniform float automatic;
 uniform sampler2D sourceAttenuation;
 uniform float hasAttenuation;
 uniform float zoomExcess;
+uniform sampler2D meterField;
+uniform vec4 meterRect;
+uniform vec2 meterSize;
+uniform float useField;
 #define FOCAL (1.25*(1.+zoomExcess))
 ${sceneColorShader}
 ${cameraModelShader}
 void main(){
   vec3 weights=displayP3>.5?vec3(.2289746,.6917385,.0792869):vec3(.2126,.7152,.0722);
-  float total=0.,emission=0.,emissionWeight=0.,coverage=0.;
+  float total=0.,emission=0.,emissionWeight=0.,coverage=0.,count=0.;
+  // Point samples on a 32 x 32 grid, or every texel of the pyramid level once.
+  vec2 grid=useField>.5?meterSize:vec2(32.);
   // A log-luminance histogram, entirely on the GPU. Bin sums retain the
   // measured luminance within each stop rather than rounding to bin centres.
   float mass[24];float logs[24];
   for(int bin=0;bin<24;bin++){mass[bin]=0.;logs[bin]=0.;}
-  for(int y=0;y<32;y++)for(int x=0;x<32;x++){
-    vec2 uv=(vec2(float(x),float(y))+.5)/32.;
-    vec4 pixel=texture2D(scene,uv);
-    vec3 c=sceneLinear>.5?pixel.rgb:unpackSceneRadiance(pixel);
+  for(int y=0;y<${METER_MAX_SIDE};y++)for(int x=0;x<${METER_MAX_SIDE};x++){
+    if(float(x)>=grid.x||float(y)>=grid.y)continue;
+    vec2 uv=(vec2(float(x),float(y))+.5)/grid;
+    count+=1.;
+    vec3 c;float peak,lit;
+    if(useField>.5){
+      // One area-averaged pyramid texel per tap: every pixel counts, wherever
+      // a subject falls. Alpha is the share of the cell in subjects, which
+      // hold nearly all of its light on a dark sky.
+      vec4 cell=texture2D(meterField,meterRect.xy+uv*meterRect.zw);
+      c=cell.rgb;lit=cell.a;peak=max(c.r,max(c.g,c.b))/max(lit,.05);
+    }else{
+      vec4 pixel=texture2D(scene,uv);
+      c=sceneLinear>.5?pixel.rgb:unpackSceneRadiance(pixel);
+      peak=max(c.r,max(c.g,c.b));lit=smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},peak);
+    }
     float w=1.+exp(-dot(uv-.5,uv-.5)*8.);
     float luminance=dot(c,weights);
     float logL=clamp(log2(max(luminance,exp2(-16.))),-16.,7.999);
@@ -48,10 +67,11 @@ void main(){
     total+=w;
     // Highlight-weighted metering uses pixel energy, never object identity.
     // Sparse points may clip; extended bright regions retain their colour.
-    float peak=max(c.r,max(c.g,c.b));
-    float lit=smoothstep(.025,.10,peak);
     float boundedPeak=min(peak,2.);
-    emission+=boundedPeak*boundedPeak*lit;emissionWeight+=boundedPeak*lit;coverage+=lit;
+    // A cell's subject radiance is light over share; trust cells mostly
+    // inside a subject more than its edges, where both are small.
+    float trust=useField>.5?lit*lit:lit;
+    emission+=boundedPeak*boundedPeak*trust;emissionWeight+=boundedPeak*trust;coverage+=lit;
   }
   // Account for the finite solar disk even when it falls between meter taps.
   // The meter contribution is independent of the artistic reflection slider.
@@ -71,22 +91,25 @@ void main(){
   // Blend within the metering range. A black sky asks for about +15 EV; mixed
   // before clamping, it outweighed any bright subject under 2.5% of the frame,
   // so a small Earth or a zoomed Moon was metered as empty sky.
-  float target=clamp(log2(.055/max(measured+sunMean*.45,.00001)),${AUTO_EXPOSURE_MIN_EV},${EXPOSURE_MAX_EV});
-  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),.00001)),${AUTO_EXPOSURE_MIN_EV},${EXPOSURE_MAX_EV});
-  target=mix(target,min(target,emissionTarget),smoothstep(.006,.025,coverage/1024.));
+  float target=clamp(log2(.055/max(measured+sunMean*.45,.00001)),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
+  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),.00001)),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
+  // Point samples catch stars, so a subject needs 0.6-2.5% of them. Pyramid
+  // subjects already exclude stars: a lit region counts from 0.005% of the
+  // frame and fully from 0.025%, about two subject blocks.
+  target=mix(target,min(target,emissionTarget),useField>.5?smoothstep(.00005,.00025,coverage/count):smoothstep(.006,.025,coverage/count));
   vec4 state=texture2D(previous,vec2(.5));
   float old=decodeCameraEV(state.rg);
   // EV is logarithmic; brighten more slowly than the response to daylight.
   float tau=target>old?1.25:.4;
   // Require a sustained darkening request before reacting to a flash.
   // B stores the previous target; A stores up to 0.25 s of its persistence.
-  float previousTarget=mix(${EXPOSURE_MIN_EV},${EXPOSURE_MAX_EV},state.b);
+  float previousTarget=mix(${EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)},state.b);
   float age=abs(target-previousTarget)>.5?0.:min(.25,state.a*.25+elapsed);
   float responseTime=target<old?min(elapsed,max(0.,age-.12)):elapsed;
   float ev=initialized<.5?target:mix(old,target,1.-exp(-responseTime/tau));
-  if(automatic<.5)ev=clamp(manualEV,${EXPOSURE_MIN_EV},${EXPOSURE_MAX_EV});
-  float encodedEV=floor(clamp((ev-(${EXPOSURE_MIN_EV}))/${EXPOSURE_MAX_EV-EXPOSURE_MIN_EV},0.,1.)*65535.+.5);
-  gl_FragColor=vec4(floor(encodedEV/256.)/255.,mod(encodedEV,256.)/255.,(target-(${EXPOSURE_MIN_EV}))/${EXPOSURE_MAX_EV-EXPOSURE_MIN_EV},age/.25);
+  if(automatic<.5)ev=clamp(manualEV,${EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
+  float encodedEV=floor(clamp((ev-(${EXPOSURE_MIN_EV.toFixed(1)}))/${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)},0.,1.)*65535.+.5);
+  gl_FragColor=vec4(floor(encodedEV/256.)/255.,mod(encodedEV,256.)/255.,(target-(${EXPOSURE_MIN_EV.toFixed(1)}))/${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)},age/.25);
 }`;
 
 export class CameraExposure {
@@ -117,7 +140,7 @@ export class CameraExposure {
         if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program)??'Exposure link failed');
       }
       this.position=gl.getAttribLocation(program,'p');
-      for(const name of ['scene','previous','sceneLinear','displayP3','elapsed','initialized','sunMeter','aspect','manualEV','automatic','sourceAttenuation','hasAttenuation','zoomExcess'])this.uniforms[name]=gl.getUniformLocation(program,name);
+      for(const name of ['scene','previous','sceneLinear','displayP3','elapsed','initialized','sunMeter','aspect','manualEV','automatic','sourceAttenuation','hasAttenuation','zoomExcess','meterField','meterRect','meterSize','useField'])this.uniforms[name]=gl.getUniformLocation(program,name);
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
       for(let i=0;i<2;i++){
         const texture=gl.createTexture(),framebuffer=gl.createFramebuffer();
@@ -132,13 +155,18 @@ export class CameraExposure {
     }catch(error){this.dispose();throw error;}
     finally{shaders.forEach(shader=>gl.deleteShader(shader));gl.bindFramebuffer(gl.FRAMEBUFFER,null);}
   }
-  update(scene:WebGLTexture,linear:boolean,p3:boolean,now:number,sun:[number,number,number]=[0,0,0],aspect=1,attenuation:WebGLTexture|null=null,manualEV:number|null=null,focal=1.25){
+  /** field: the glare pyramid's meter level; without it (RGBE scenes) the
+   * meter point-samples the scene. */
+  update(scene:WebGLTexture,linear:boolean,p3:boolean,now:number,sun:[number,number,number]=[0,0,0],aspect=1,attenuation:WebGLTexture|null=null,manualEV:number|null=null,focal=1.25,field:MeterField|null=null){
     const gl=this.gl,next=1-this.index;
     gl.bindFramebuffer(gl.FRAMEBUFFER,this.targets[next].framebuffer);gl.viewport(0,0,1,1);gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,scene);
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.targets[this.index].texture);
     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,attenuation??scene);
     gl.uniform1i(this.uniforms.sourceAttenuation,2);
+    gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,field?.texture??scene);
+    gl.uniform1i(this.uniforms.meterField,3);gl.uniform1f(this.uniforms.useField,field?1:0);
+    if(field){gl.uniform4fv(this.uniforms.meterRect,field.rect);gl.uniform2f(this.uniforms.meterSize,field.width,field.height);}
     gl.uniform1f(this.uniforms.hasAttenuation,attenuation?1:0);
     gl.uniform1f(this.uniforms.automatic,manualEV===null?1:0);gl.uniform1f(this.uniforms.manualEV,manualEV??0);gl.uniform3fv(this.uniforms.sunMeter,sun);gl.uniform1f(this.uniforms.aspect,aspect);gl.uniform1f(this.uniforms.zoomExcess,focal/1.25-1);
     gl.uniform1i(this.uniforms.scene,0);gl.uniform1i(this.uniforms.previous,1);

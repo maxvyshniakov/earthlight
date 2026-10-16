@@ -773,6 +773,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         moonRadius:sky.moon[3],
         glare:params.get('glare')!=='off',
         fieldReflections:params.get('fieldReflections')!=='off',
+        pyramidMeter:params.get('meter')!=='points',
         sun:project(orbit.sun,visibleSourceDisk(orbit.camera,orbit.sun,SOLAR_RADIUS)),
         points,pointAmount:look.ghosts,attenuation:sourceTexture,sunReflections:look.ghosts,focal,
       },look.exposure,look.manualExposure);

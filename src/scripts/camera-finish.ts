@@ -12,7 +12,7 @@ import { cameraModelShader } from './camera-model';
 export const CAMERA_EXPOSURE_EV=0;
 /** Camera poses of this and the previous submitted frame, for shutter blur. */
 export type ShutterMotion={shutter:number;sky:boolean;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
-export type LensFrame={moon:[number,number,number];moonRadius?:number;glare?:boolean;fieldReflections?:boolean;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
+export type LensFrame={moon:[number,number,number];moonRadius?:number;glare?:boolean;fieldReflections?:boolean;pyramidMeter?:boolean;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
 const fragmentSource = `
 precision highp float;
 precision highp sampler2D;
@@ -322,15 +322,18 @@ export class CameraFinish {
   }
   render(pixelRatio:number,grainFrame:number,grainAmount:number,chromaticAmount:number,focusRadius:number,lens:LensFrame,exposureCompensation=0,manualExposure:number|null=null){
     const gl=this.gl;
-    const exposure=this.exposure!.update(this.texture!,this.linear,this.displayP3,performance.now(),lens.sun,this.width/this.height,lens.attenuation,manualExposure,lens.focal);
-    const image=this.defocus!.render(this.texture!,exposure,this.width,this.height,pixelRatio,focusRadius);
     const focal=lens.focal??1.25,sun=lens.sun;
     const glareMask:[number,number,number,number]=[sun[0],sun[1],SOLAR_RADIUS*focal+SOLAR_PSF_REACH*pixelRatio/this.height,sun[2]>0?1:0];
-    // One pyramid serves glare and the reflections of the whole frame.
+    // One pyramid of the focused scene serves the meter, glare and the
+    // reflections of the whole frame, so it is built first. Loading defocus
+    // blurs the picture only; glare is far broader than that blur.
+    const built=this.glare?.build(this.texture!,this.width,this.height,glareMask)??false;
+    const meter=built&&lens.pyramidMeter!==false?this.glare!.meter:null;
+    const exposure=this.exposure!.update(this.texture!,this.linear,this.displayP3,performance.now(),lens.sun,this.width/this.height,lens.attenuation,manualExposure,lens.focal,meter);
+    const image=this.defocus!.render(this.texture!,exposure,this.width,this.height,pixelRatio,focusRadius);
     const slider=lens.sunReflections??1,t=Math.max(0,Math.min(1,(slider-1)/.25)),fieldWeight=t*t*(3-2*t);
     const wantsGlare=lens.glare!==false,wantsField=lens.fieldReflections!==false&&fieldWeight>0;
-    const scattered=wantsGlare||wantsField?this.glare?.render(image,this.width,this.height,glareMask,focal)??null:null;
-    const glare=wantsGlare?scattered:null,field=scattered&&wantsField?this.glare!.field:null;
+    const glare=built&&wantsGlare?this.glare!.scatter(focal):null,field=built&&wantsField?this.glare!.field:null;
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,this.width,this.height);gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,exposure);
     gl.uniform1i(this.uniforms.exposureState,2);

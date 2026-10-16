@@ -10,7 +10,7 @@ import { createOrbitHud, LENS_MIN, LENS_MAX, speedAt, speedFraction, type OrbitH
 import { SceneCalendar, calendarFrame, dayOfYear, daysInYear, utcDay } from './scene-calendar';
 import { OrbitNavigation, followLens, routePeriod, PROJECTION, ROUTE_LABELS, type Route, type ObserverFrame, type FlightInput } from './orbit-navigation';
 import { createScenePanels } from './scene-panels';
-import { EXPOSURE_SETTLE_MS } from './camera-exposure';
+import { EXPOSURE_SETTLE_MS, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV } from './camera-exposure';
 import { OrbitPlayback } from './orbit-playback';
 import { issFrame, ORBIT_SECONDS, initialOrbitSeconds, cross, dot, normalize, type Vec3 } from './iss-orbit';
 import { celestialFrame, currentLunarPhase } from './celestial-sky';
@@ -72,7 +72,7 @@ export class OrbitalSky extends HTMLElement {
     cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis'].includes(params.get('cloudStudy')??'');
     exposureMode.value=params.get('exposure-mode')==='manual'?'manual':'auto';
     const restoredFixed=Number(params.get('exposure-fixed'));
-    if(Number.isFinite(restoredFixed))fixedExposure.value=String(Math.max(-5.5,Math.min(4.1,restoredFixed)));
+    if(Number.isFinite(restoredFixed))fixedExposure.value=String(Math.max(EXPOSURE_MIN_EV,Math.min(EXPOSURE_MAX_EV,restoredFixed)));
     const profile=sceneProfile(params);
     this.dataset.renderProfile=profile.name;
     for(const input of [...lookInputs,speedInput]){

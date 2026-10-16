@@ -56,5 +56,52 @@ export async function verifyExposure(evaluate){
   assert.equal(sample.held,sample.sameTime);
  }
  assert.ok(Math.abs(exposure.low.rise[0]-exposure.high.rise[0])<.002);
+ exposure.pyramid=await verifyPyramidMeter(evaluate,exposureModule);
  return exposure;
+}
+
+// The pyramid meter on float scenes of 1200 x 800: stars must not count, a
+// half-lit Moon of 40 px (5x zoom) must, wherever it falls, and a uniform
+// frame must meter as with point samples.
+async function verifyPyramidMeter(evaluate,exposureModule){
+ const glareModule=await browserModule('camera-glare');
+ const result=await evaluate(`(()=>{
+  const exposure=${exposureModule},glareExports=${glareModule};
+  const w=1200,h=800,canvas=document.createElement('canvas'),gl=canvas.getContext('webgl2');
+  if(!gl?.getExtension('EXT_color_buffer_float'))throw Error('Float metering unavailable');
+  const scene=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,scene);
+  for(const f of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,f,gl.LINEAR);
+  for(const a of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,a,gl.CLAMP_TO_EDGE);
+  const glare=new glareExports.CameraGlare(gl,gl.HALF_FLOAT);
+  const read=()=>{const v=new Uint8Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,v);return (v[0]*256+v[1])/65535*${cameraModel.EXPOSURE_MAX_EV-cameraModel.EXPOSURE_MIN_EV}+(${cameraModel.EXPOSURE_MIN_EV});};
+  const meter=(paint,pyramid=true)=>{
+   const data=new Float32Array(w*h*4);
+   for(let y=0;y<h;y++)for(let x=0;x<w;x++){const v=paint(x+.5,y+.5);data.set([v,v,v,1],(y*w+x)*4);}
+   gl.bindTexture(gl.TEXTURE_2D,scene);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,w,h,0,gl.RGBA,gl.FLOAT,data);
+   glare.build(scene,w,h,[0,0,0,0]);
+   const m=new exposure.CameraExposure(gl);m.update(scene,true,false,0,[0,0,0],w/h,null,null,1.25,pyramid?glare.meter:null);
+   const ev=read();m.dispose();return ev;
+  };
+  const sky=1e-4;
+  const stars=(x,y)=>[[200,160],[840,600],[666,300]].some(([sx,sy])=>Math.abs(x-sx)<1.5&&Math.abs(y-sy)<1.5)?50:sky;
+  // A Moon of radius 20 px lit on its right half, radiance 0.08 like the scene's.
+  const moon=(cx,cy)=>(x,y)=>Math.hypot(x-cx,y-cy)<20&&x>cx?.08:sky;
+  const uniform=()=>.1;
+  const out={
+   stars:meter(stars),
+   // Sub-block steps across the pyramid's subject blocks (12 px).
+   moon:[[0,0],[3.4,1.7],[6.8,3.4],[10.2,5.1]].map(([dx,dy])=>meter(moon(600+dx,400+dy))),
+   moonPoints:[[0,0],[6.8,3.4]].map(([dx,dy])=>meter(moon(600+dx,400+dy),false)),
+   uniform:meter(uniform),uniformPoints:meter(uniform,false),
+  };
+  const error=gl.getError();glare.dispose();gl.getExtension('WEBGL_lose_context').loseContext();
+  return {...out,error};
+ })()`);
+ assert.equal(result.error,0);
+ assert.ok(result.stars>cameraModel.EXPOSURE_MAX_EV-.2,`three bright stars must not darken the sky (${result.stars})`);
+ assert.ok(Math.max(...result.moon)<2,`a half-lit Moon of 0.07% of the frame is a subject (${result.moon})`);
+ assert.ok(Math.min(...result.moonPoints)>cameraModel.EXPOSURE_MAX_EV-.2,'point samples miss the same Moon');
+ assert.ok(Math.max(...result.moon)-Math.min(...result.moon)<.25,`moving the Moon across blocks changes exposure by under 0.25 EV (${result.moon})`);
+ assert.ok(Math.abs(result.uniform-result.uniformPoints)<.1,'a uniform frame meters as with point samples');
+ return result;
 }

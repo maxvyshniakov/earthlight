@@ -1,9 +1,9 @@
 // A virtual 24 fps camera, not a calibration of a named lens or sensor.
 // Shutter stays at 180 degrees (1/48 s), so adaptation cannot invent motion blur.
 export const EXPOSURE_MIN_EV=-5.5;
-export const EXPOSURE_MAX_EV=4.1;
+export const EXPOSURE_MAX_EV=5.1;
 // Keep the full manual/storage range; automatic metering has a brighter floor.
-export const AUTO_EXPOSURE_MIN_EV=-1.5;
+export const AUTO_EXPOSURE_MIN_EV=-3;
 export const CAMERA_SHUTTER_SECONDS=1/48;
 export function cameraProgram(ev:number){
   const correction=Math.max(-6,Math.min(EXPOSURE_MAX_EV-.5,ev-.5));
