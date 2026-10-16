@@ -1,0 +1,156 @@
+{
+ "sceneCandela": 60590.90909090909,
+ "measured": {
+  "earthDay": {
+   "p50": 0.07685002441406251,
+   "p99": 0.401644677734375,
+   "share": 1
+  },
+  "moon": {
+   "p50": 1.776709765625,
+   "p90": 9.6130015625,
+   "share": 0.011175
+  },
+  "cityNight": {
+   "p90": 0.04759262084960937,
+   "p99": 0.19073603515624998,
+   "share": 1
+  },
+  "aurora": {
+   "p50": 0.0021525156021118164,
+   "p99": 0.024142476558685302,
+   "share": 0.008084375
+  },
+  "airglowLimb": {
+   "p99": 0.0011490291595458984,
+   "share": 1
+  },
+  "milkyWay": {
+   "p50": 0.000857596206665039,
+   "p90": 0.0014704374313354491,
+   "share": 0.9982697916666666
+  },
+  "emptySky": {
+   "p50": 0.000001220703125,
+   "share": 0.9998875
+  },
+  "stars": {
+   "ratioToSun": 0.0000015200158306044284
+  },
+  "sunDisk": {
+   "radiance": 32386.715208895355
+  }
+ },
+ "rows": [
+  {
+   "id": "sunDisk",
+   "label": "Solar disk, mean",
+   "scene": 32386.715208895355,
+   "physical": [
+    30532.633158289573,
+    33833.45836459115
+   ],
+   "factor": 1.007654331780879,
+   "within": true
+  },
+  {
+   "id": "cloud",
+   "label": "Sunlit cloud tops (p99, Sun overhead)",
+   "scene": 0.401644677734375,
+   "physical": [
+    0.41260315078769694,
+    0.660165041260315
+   ],
+   "factor": 0.7695724022587945,
+   "within": false
+  },
+  {
+   "id": "ground",
+   "label": "Sunlit Earth, typical (p50)",
+   "scene": 0.07685002441406251,
+   "physical": [
+    0.033008252063015754,
+    0.2145536384096024
+   ],
+   "factor": 0.9131976903586476,
+   "within": true
+  },
+  {
+   "id": "moon",
+   "label": "Lunar surface, lit part (p50)",
+   "scene": 1.776709765625,
+   "physical": [
+    0.006601650412603151,
+    0.012378094523630909
+   ],
+   "factor": 196.54560217542144,
+   "within": false
+  },
+  {
+   "id": "city",
+   "label": "City lights, bright core (p99)",
+   "scene": 0.19073603515624998,
+   "physical": [
+    0.00000825206301575394,
+    0.00026406601650412606
+   ],
+   "factor": 4085.9704905954904,
+   "within": false
+  },
+  {
+   "id": "aurora",
+   "label": "Aurora, bright (p99)",
+   "scene": 0.024142476558685302,
+   "physical": [
+    3.1357839459864967e-7,
+    0.0000031357839459864967
+   ],
+   "factor": 24346.45230593258,
+   "within": false
+  },
+  {
+   "id": "airglow",
+   "label": "Airglow at the limb (p99)",
+   "scene": 0.0011490291595458984,
+   "physical": [
+    4.951237809452363e-8,
+    1.1552888222055515e-7
+   ],
+   "factor": 15192.486929453786,
+   "within": false
+  },
+  {
+   "id": "milkyWay",
+   "label": "Milky Way, bright (p90)",
+   "scene": 0.0014704374313354491,
+   "physical": [
+    1.650412603150788e-8,
+    3.300825206301576e-8
+   ],
+   "factor": 62999.77817806499,
+   "within": false
+  },
+  {
+   "id": "sky",
+   "label": "Dark sky above the airglow (p50)",
+   "scene": 0.000001220703125,
+   "physical": [
+    8.25206301575394e-10,
+    4.951237809452363e-9
+   ],
+   "factor": 603.9095472171624,
+   "within": false
+  },
+  {
+   "id": "star",
+   "label": "Magnitude-0 star, flux / Sun",
+   "scene": 0.0000015200158306044284,
+   "physical": [
+    1.85e-11,
+    2e-11
+   ],
+   "factor": 79021.86022026095,
+   "within": false
+  }
+ ]
+}
