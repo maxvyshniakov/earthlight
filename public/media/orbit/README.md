@@ -139,33 +139,43 @@ Hipparcos/Tycho stars, which the scene renders from HYG instead.
 - Projection: 4096 × 2048 or 8192 × 4096 plate carrée, galactic coordinates. Longitude zero
   at the center, longitude increases leftward, north at the top. This is the
   galactic file corrected by NASA on 4 January 2021.
-- Conversion: normalize EXR flux per pixel to the 4K pixel area (8K RGB × 4),
-  then grade in linear RGB: luminance black point 0.0015, soft shadow toe
-  0.012, brightness anchor 0.12, saturation 1.2. A source-luminance guide blurred
-  by 0.7 degrees selects extended galactic structure with a smooth 0.004–0.020
-  threshold. This suppresses faint background speckles before baking in the
-  former 500% exposure (texture gain 5^(2/3), matching shader contrast 1.5).
-  Highlights roll off above 0.65 instead of clipping abruptly. Clamp to
-  [0, 1], gamma encode with exponent 1/2.2,
-  AVIF quality 50, effort 4, 8-bit, 4:4:4 sampling via sharp 0.35.5; no resizing
-  or invented structure. Output is 569,480 bytes for 4K and 2,797,831 bytes for
-  8K. The shader applies display contrast/exposure separately.
-  The 8K version uses the higher-resolution source, not an enlarged 4K image.
-- Rebuild (requires ffmpeg/ffprobe):
-  `bun scripts/build-milky-way.mjs /path/to/milkyway_2020_4k_gal.exr`
-  or `bun scripts/build-milky-way.mjs /path/to/milkyway_2020_8k_gal.exr`.
-- Streamed detail: `galaxy-tiles/` contains 346 AVIF tiles (21,634,563 bytes),
-  cut from the 16384 × 8192 Galactic EXR, not upscaled. Each tile has a 512-pixel
-  interior and 16-pixel gutters; the manifest omits empty regions. Source RGB
-  is multiplied by 16 for the same 4K pixel-area normalization and grade above.
-  Wrapped longitude and neighbouring source rows preserve the blurred guide
-  across tile boundaries. A Laplacian detail residual (32-source-pixel blur)
-  retains the overview's broad brightness and colour while adding 16K detail;
-  this avoids resolution-dependent brightness shifts from the nonlinear grade.
-  AVIF quality 65, effort 2, 4:4:4. Only visible tiles
-  are fetched into a bounded atlas; the 4K image remains the overview.
-  Rebuild: `bun scripts/build-galaxy-tiles.mjs /path/to/milkyway_2020_16k_gal.exr`.
-  Decoding uses a temporary disk-backed float image, removed after conversion.
+- Grade: flux normalized to the 4K pixel area, then graded in linear RGB:
+  luminance black point 0.0015, soft shadow toe 0.012, brightness anchor 0.12,
+  saturation 1.2. A source-luminance guide blurred by 0.7 degrees selects
+  extended galactic structure with a smooth 0.004–0.020 threshold. This
+  suppresses faint background speckles before baking in the former 500%
+  exposure (texture gain 5^(2/3), matching shader contrast 1.5). Highlights
+  roll off above 0.65 instead of clipping abruptly. Texels store displayed
+  radiance R as R^(1/3.3); the shader decodes pow(texel, 3.3).
+- Pyramid (since October 2026): `bun scripts/build-galaxy-tiles.mjs
+  /path/to/milkyway_2020_16k_gal.exr` builds `milky-way.avif` (4096 × 2048,
+  482,827 bytes), `milky-way-8k.avif` (2,259,084 bytes) and `galaxy-tiles/`
+  (411 tiles, 26,909,001 bytes) from the 16K file alone. The grade is applied
+  to the 16K flux averaged to 4K, where it was tuned. Its result is a local
+  linear gain (radiance per unit flux), interpolated onto the 16K flux, so
+  resolved detail keeps its true contrast. Every 4K and 8K texel is then the
+  box average of that one 16K radiance field. Applied per 16K pixel instead,
+  the toe erases faint light that the 4K grade keeps.
+- Tiles: 512-pixel interiors with 16-pixel true-neighbor gutters, wrapped in
+  longitude. Each file is 1088 × 544: level 0 on the left, and 272, 136, 68
+  and 34 pixel box-averaged mip levels side by side at the top right, in atlas
+  layout. The runtime uploads these levels as they are; manifest version 2
+  (`mipmaps: "packed"`). Level 2 coincides with the 4K overview texels. Only
+  tiles that are entirely black are omitted; the overview is black there too.
+- Encoding: AVIF 4:4:4 via sharp 0.35.5, quality 50 and effort 4 for the
+  overviews, quality 65 and effort 2 for tiles. Lossy coding smooths encoded
+  texels, which pow(texel, 3.3) turns into lost radiance: plain q50 dims 10%
+  of 16-texel blocks by half. Each image is therefore encoded up to four
+  times. Before each new encode, the input is scaled by the locally lost
+  radiance (5-pixel smoothing, damped). The build keeps the encode with the
+  smallest mean log error over 8 × 8 blocks: 0.075 (4K) and 0.082 (8K), and
+  a median of 0.061 for tiles.
+- Earlier versions graded the NASA 4K/8K files directly
+  (`scripts/build-milky-way.mjs`) and matched tile detail to them in encoded
+  values. In displayed radiance, those tiles were 0.4–2.6 times as bright as
+  the overview they replaced.
+  See `docs/lab/galaxy-pyramid-2026-10-15.md`.
+- Decoding uses a temporary disk-backed float image, removed after conversion.
 
 ## Terrain and ocean mask
 
@@ -238,9 +248,10 @@ measurements, runtime budgets, limitations and reproduction commands.
 
 
 `mobile/galaxy-2048.avif` is the optional `texture=compact` overview derived from
-`milky-way.avif` with `scripts/prepare-galaxy-overview.mjs`. It keeps the existing
-source attribution and grading; it reduces global diffuse-sky detail and nominal
-texture storage. Catalog stars and streamed galaxy tiles are unchanged.
+`milky-way.avif` with `scripts/prepare-galaxy-overview.mjs`: 2 × 2 averages of
+displayed radiance, AVIF quality 80. It keeps the existing source attribution
+and grading; it reduces global diffuse-sky detail and nominal texture storage.
+Catalog stars and streamed galaxy tiles are unchanged.
 
 `modis-demo/` contains an isolated regional research dataset for
 `/orbit/modis-demo/`, not production Orbit textures. Source: NASA GIBS Aqua MODIS

@@ -25,10 +25,15 @@ test('compact galaxy asset has the requested storage size and close broad lighti
   const root=new URL('../public/media/orbit/',import.meta.url);
   const source=new URL('milky-way.avif',root).pathname,compact=new URL('mobile/galaxy-2048.avif',root).pathname;
   const info=await sharp(compact).metadata();assert.equal(info.width,2048);assert.equal(info.height,1024);
-  const pixels=path=>sharp(path).removeAlpha().resize(64,32,{kernel:'lanczos3'}).raw().toBuffer();
-  const a=await pixels(source),b=await pixels(compact);
-  let max=0;for(let i=0;i<a.length;i++)max=Math.max(max,Math.abs(a[i]-b[i]));
-  assert.ok(max<=2,`broad lighting footprint byte error ${max}`);
+  // Compare 64 x 32 block means of displayed radiance, pow(texel, 3.3), which
+  // is what diffuse lighting integrates; resizing encoded bytes dims detail.
+  const blocks=async path=>{const {data,info}=await sharp(path).removeAlpha().raw().toBuffer({resolveWithObject:true});
+    const out=new Float64Array(64*32*3),size=info.width/64;
+    for(let y=0;y<info.height;y++)for(let x=0;x<info.width;x++)for(let c=0;c<3;c++)out[(Math.floor(y/size)*64+Math.floor(x/size))*3+c]+=(data[(y*info.width+x)*3+c]/255)**3.3/size**2;
+    return out;};
+  const a=await blocks(source),b=await blocks(compact);
+  let max=0;for(let i=0;i<a.length;i++)if(a[i]>1e-3)max=Math.max(max,Math.abs(Math.log(b[i]/a[i])));
+  assert.ok(max<=Math.log(1.05),`broad lighting radiance error ${(Math.exp(max)-1)*100}%`);
 });
 
 test('comparison menu keeps current profiles and archived links fall back to Compact',()=>{

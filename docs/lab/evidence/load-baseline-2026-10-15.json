@@ -1,0 +1,254 @@
+{
+ "tool": "lighthouse 12.6.1, Chrome stable headless=new with SwiftShader, simulated throttling",
+ "date": "2026-10-15",
+ "runs": {
+  "prod-mobile": {
+   "url": "https://maxvyshniakov.com/",
+   "score": 99,
+   "fcpMs": 1701,
+   "lcpMs": 1863,
+   "tbtMs": 0,
+   "cls": 0,
+   "speedIndexMs": 1701,
+   "bytes": 144556,
+   "scriptEvaluationMs": 28,
+   "largest": [
+    {
+     "url": "https://maxvyshniakov.com/media/cases/earthlight/wallpaper.webp",
+     "bytes": 131184,
+     "priority": "Low"
+    }
+   ]
+  },
+  "prod-desktop": {
+   "url": "https://maxvyshniakov.com/",
+   "score": 100,
+   "fcpMs": 257,
+   "lcpMs": 257,
+   "tbtMs": 0,
+   "cls": 0,
+   "speedIndexMs": 257,
+   "bytes": 144535,
+   "scriptEvaluationMs": 5,
+   "largest": [
+    {
+     "url": "https://maxvyshniakov.com/media/cases/earthlight/wallpaper.webp",
+     "bytes": 131176,
+     "priority": "High"
+    }
+   ]
+  },
+  "site-mobile": {
+   "url": "http://local/",
+   "score": 60,
+   "fcpMs": 2257,
+   "lcpMs": 3382,
+   "tbtMs": 2886,
+   "cls": 0,
+   "speedIndexMs": 2597,
+   "bytes": 3411025,
+   "scriptEvaluationMs": 4519,
+   "largest": [
+    {
+     "url": "assets/earth-clouds-nasa-4096.avif",
+     "bytes": 793396,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/optical-psf.bin",
+     "bytes": 590387,
+     "priority": "High"
+    },
+    {
+     "url": "assets/stars-hyg.bin",
+     "bytes": 499719,
+     "priority": "High"
+    },
+    {
+     "url": "/media/cases/earthlight/cover.webp",
+     "bytes": 315631,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/mobile/galaxy-2048.avif",
+     "bytes": 308156,
+     "priority": "Low"
+    },
+    {
+     "url": "/media/cases/straylight/editor-siri-remote.webp",
+     "bytes": 182187,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/mobile/day-2048.avif",
+     "bytes": 122932,
+     "priority": "Low"
+    },
+    {
+     "url": "/_astro/Background.astro_astro_type_script_index_0_lang.CICVolKV.js",
+     "bytes": 121821,
+     "priority": "High"
+    }
+   ]
+  },
+  "site-desktop": {
+   "url": "http://local/",
+   "score": 100,
+   "fcpMs": 484,
+   "lcpMs": 644,
+   "tbtMs": 0,
+   "cls": 0.002,
+   "speedIndexMs": 497,
+   "bytes": 3411295,
+   "scriptEvaluationMs": 249,
+   "largest": [
+    {
+     "url": "assets/earth-clouds-nasa-4096.avif",
+     "bytes": 793376,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/optical-psf.bin",
+     "bytes": 590794,
+     "priority": "High"
+    },
+    {
+     "url": "assets/stars-hyg.bin",
+     "bytes": 500008,
+     "priority": "High"
+    },
+    {
+     "url": "/media/cases/earthlight/cover.webp",
+     "bytes": 315631,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/mobile/galaxy-2048.avif",
+     "bytes": 308218,
+     "priority": "Low"
+    },
+    {
+     "url": "/media/cases/straylight/editor-siri-remote.webp",
+     "bytes": 182187,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/mobile/day-2048.avif",
+     "bytes": 122953,
+     "priority": "Low"
+    },
+    {
+     "url": "/_astro/Background.astro_astro_type_script_index_0_lang.CICVolKV.js",
+     "bytes": 121821,
+     "priority": "High"
+    }
+   ]
+  },
+  "explorer-mobile": {
+   "url": "http://local/",
+   "score": 44,
+   "fcpMs": 1805,
+   "lcpMs": 8091,
+   "tbtMs": 2166,
+   "cls": 0,
+   "speedIndexMs": 3952,
+   "bytes": 6722942,
+   "scriptEvaluationMs": 5934,
+   "largest": [
+    {
+     "url": "assets/earth-terrain-4096-v2.dem",
+     "bytes": 2541016,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/earth-clouds-nasa-4096.avif",
+     "bytes": 793380,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/optical-psf.bin",
+     "bytes": 590427,
+     "priority": "High"
+    },
+    {
+     "url": "assets/milky-way.avif",
+     "bytes": 570015,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/stars-hyg.bin",
+     "bytes": 499736,
+     "priority": "High"
+    },
+    {
+     "url": "assets/terrain-tiles/542.png",
+     "bytes": 304316,
+     "priority": "High"
+    },
+    {
+     "url": "assets/terrain-tiles/543.png",
+     "bytes": 163853,
+     "priority": "High"
+    },
+    {
+     "url": "/_astro/OrbitalSky.astro_astro_type_script_index_0_lang.D2MtZaQY.js",
+     "bytes": 145578,
+     "priority": "High"
+    }
+   ]
+  },
+  "explorer-desktop": {
+   "url": "http://local/",
+   "score": 70,
+   "fcpMs": 405,
+   "lcpMs": 1582,
+   "tbtMs": 540,
+   "cls": 0,
+   "speedIndexMs": 1394,
+   "bytes": 14697636,
+   "scriptEvaluationMs": 1815,
+   "largest": [
+    {
+     "url": "assets/earth-terrain-8192-v2.dem",
+     "bytes": 8428333,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/earth-clouds-nasa-4096.avif",
+     "bytes": 793387,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/optical-psf.bin",
+     "bytes": 590414,
+     "priority": "High"
+    },
+    {
+     "url": "assets/milky-way.avif",
+     "bytes": 570029,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/stars-hyg.bin",
+     "bytes": 499689,
+     "priority": "High"
+    },
+    {
+     "url": "assets/earth-day-bmng.avif",
+     "bytes": 405966,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/earth-night-8k.avif",
+     "bytes": 335246,
+     "priority": "Low"
+    },
+    {
+     "url": "assets/terrain-tiles/542.png",
+     "bytes": 304313,
+     "priority": "High"
+    }
+   ]
+  }
+ }
+}

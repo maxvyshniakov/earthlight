@@ -67,9 +67,9 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
   globalThis.window=globalThis;
   globalThis.document={hidden:false};
   globalThis.OffscreenCanvas=class{constructor(width,height){this.width=width;this.height=height;}getContext(){return {drawImage(){}};}transferToImageBitmap(){return {width:this.width,height:this.height,close(){closes++;}};}};
-  globalThis.createImageBitmap=async(...args)=>{const options=args.at(-1);return {width:args.length>2?args[3]:options.resizeWidth||cell*(layer==='terrain'?2:1),height:args.length>2?args[4]:options.resizeHeight||cell,close(){closes++;}};};
+  globalThis.__resized=false;globalThis.createImageBitmap=async(...args)=>{const options=args.at(-1);if(options?.resizeWidth)globalThis.__resized=true;return {width:args.length>2?args[3]:options.resizeWidth||cell*(layer==='terrain'||layer==='galaxy'?2:1),height:args.length>2?args[4]:options.resizeHeight||cell,close(){closes++;}};};
   globalThis.fetch=async(url,options)=>{
-    if(url.endsWith('manifest.json'))return {ok:true,json:async()=>({version:1,interior:cell-32,gutter:16,columns,rows,tiles:ids})};
+    if(url.endsWith('manifest.json'))return {ok:true,json:async()=>({version:layer==='galaxy'?2:1,...(layer==='galaxy'?{mipmaps:'packed'}:{}),interior:cell-32,gutter:16,columns,rows,tiles:ids})};
     return new Promise((resolve,reject)=>{
       requests.push({url,resolve:()=>resolve({ok:true,blob:async()=>new Blob(['image'])}),signal:options.signal});
       options.signal.addEventListener('abort',()=>reject(new Error('aborted')),{once:true});
@@ -104,7 +104,8 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
     }
     assert.equal(atlas.stats().resident,atlas.stats().wanted);
     assert.ok(atlas.stats().resident<=capacity);
-    assert.equal(closes,atlas.stats().resident*(layer==='terrain'?3:5));
+    assert.equal(closes,atlas.stats().resident*(layer==='terrain'||layer==='galaxy'?3:5));
+    if(layer==='galaxy')assert.ok(!globalThis.__resized,'galaxy mipmaps are uploaded as built, never resized');
     assert.equal(atlas.stats().fading,atlas.stats().resident,'new images are still fading after network completion');
     const previousRevision=atlas.stats().revision;
     now+=1000;

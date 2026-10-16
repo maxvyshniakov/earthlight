@@ -1,0 +1,27 @@
+{
+ "date": "2026-10-15",
+ "source": {"file": "milkyway_2020_16k_gal.exr", "sha256": "ee023f03e99466b3829117c15a001269ba32a3fecb6012d0b2d41f201c955351"},
+ "metric": "displayed radiance pow(texel/255, 3.3), tile area mean / 4K overview mean over the same area, percentiles p10 p25 p50 p75 p90 over tiles",
+ "before": {
+  "tiles": 346, "tileBytes": 21634563, "overviewBytes": 569480, "mipmaps": "runtime createImageBitmap resize of encoded texels",
+  "level0": [0.43, 0.54, 1.58, 2.22, 2.64], "level1": [0.43, 0.52, 1.04, 1.18, 1.25], "level2": [0.43, 0.51, 0.81, 0.98, 1.00]
+ },
+ "after": {
+  "tiles": 411, "tileBytes": 26909001, "overviewBytes": 482827, "overview8kBytes": 2259084, "compactBytes": 302545, "mipmaps": "prepacked box averages of radiance",
+  "level0": [0.970, 0.996, 1.000, 1.009, 1.046], "level1": [0.953, 0.994, 1.000, 1.004, 1.036], "level2": [0.940, 0.991, 1.000, 1.005, 1.023],
+  "encodeMeanLogError8x8": {"overview4k": 0.0751, "overview8k": 0.0817, "tilesMedian": 0.061}
+ },
+ "overviewAvifBias": {
+  "metric": "16x16 block radiance after AVIF / before, p10 p50 p90, 4K overview",
+  "plain": {"q50": [0.460, 0.892, 0.988], "q65": [0.681, 0.961, 0.998], "q80": [0.875, 0.989, 1.003], "q90": [0.976, 1.000, 1.016]},
+  "plainBytesKB": {"q50": 431, "q65": 924, "q80": 1555, "q90": 2208},
+  "compensatedQ50": {"iterations": [[0.460, 0.892, 0.988], [0.798, 0.970, 1.010], [0.901, 0.993, 1.050], [0.928, 1.000, 1.076]], "bytesKB": 472}
+ },
+ "newVersusOldOverview": {"blockRadianceP10P25P50P75P90": [0.908, 0.971, 1.006, 1.059, 1.179], "wholeSky": 0.987},
+ "render": {
+  "method": "headless Chrome (ANGLE/Metal, Apple M2 Max), 1280x800, galaxy tiles on vs galaxyDetail=0, sRGB-decoded luminance blurred 10 px, frame mean and p10 p50 p90 of on/off",
+  "lens1Plus4EV": {"before": [1.007, 0.984, 1.013, 1.068], "after": [0.996, 0.972, 0.995, 1.011]},
+  "lens3Plus2EV": {"before": [1.056, 1.005, 1.082, 1.204], "after": [0.968, 0.924, 0.961, 0.989]},
+  "lens3AssetCheck": "the nine tiles in view match the overview within 0.2% at asset level"
+ }
+}

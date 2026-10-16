@@ -196,6 +196,7 @@ export class SurfaceTiles {
   private unit:number;
   private dimensions:ReturnType<typeof dimensions>;
   private allocated=false;
+  private prepacked:boolean;
   private lastNeeded=0;
   private tableDirty=true;
   private revision=0;
@@ -205,7 +206,7 @@ export class SurfaceTiles {
 
   constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork(),private assetBaseURL='/media/orbit/'){
     this.work=work;
-    this.gl=gl;this.notify=notify;this.layer=layer;this.dimensions=dimensions(layer);this.unit=layer==='terrain'?15:layer==='galaxy'?14:layer==='night'?7:layer==='day'?6:9;this.format=layer==='day'||layer==='galaxy'||layer==='terrain'?gl.RGBA:gl.LUMINANCE;
+    this.gl=gl;this.notify=notify;this.layer=layer;this.dimensions=dimensions(layer);this.prepacked=layer==='terrain'||layer==='galaxy';this.unit=layer==='terrain'?15:layer==='galaxy'?14:layer==='night'?7:layer==='day'?6:9;this.format=layer==='day'||layer==='galaxy'||layer==='terrain'?gl.RGBA:gl.LUMINANCE;
     const {columns,rows,cell,interior}=this.dimensions;
     this.pages=new Uint8Array(columns*rows*2);this.colorPages=new Uint8Array(columns*rows*8);
     this.columns=Math.min((layer==='galaxy'||layer==='terrain')?(mobile?4:6):mobile&&layer!=='night'?6:8,Math.floor(gl.getParameter(gl.MAX_TEXTURE_SIZE)/cell));
@@ -222,7 +223,8 @@ export class SurfaceTiles {
       if(!response.ok)throw new Error('Surface tile manifest unavailable');
       return response.json();
     }).then(data=>{
-      if(data.version!==1||data.interior!==interior||data.gutter!==16||data.columns!==columns||data.rows!==rows||!Array.isArray(data.tiles)
+      // Galaxy tiles carry box mipmaps averaged in displayed radiance (version 2).
+      if(data.version!==(this.layer==='galaxy'?2:1)||(this.layer==='galaxy'&&data.mipmaps!=='packed')||data.interior!==interior||data.gutter!==16||data.columns!==columns||data.rows!==rows||!Array.isArray(data.tiles)
         ||!data.tiles.every((id:unknown)=>typeof id==='number'&&Number.isInteger(id)&&id>=0&&id<columns*rows))throw new Error('Invalid night tile manifest');
       if(this.disposed)return;
       this.available=new Set(data.tiles);this.lastSelection=-Infinity;this.notify();
@@ -310,7 +312,7 @@ export class SurfaceTiles {
         const image=await createImageBitmap(blob,{colorSpaceConversion:'none',premultiplyAlpha:'none'});
         try{
           if(this.disposed||controller.signal.aborted||!this.wanted.includes(id))return;
-          if(image.width!==cell*(this.layer==='terrain'?2:1)||image.height!==cell)throw new Error('Invalid night tile dimensions');
+          if(image.width!==cell*(this.prepacked?2:1)||image.height!==cell)throw new Error('Invalid night tile dimensions');
           let slot=0;
           const occupied=new Set([...this.resident.values()].map(v=>v.slot));
           for(let i=1;i<this.columns*this.columns-1;i+=2)if(!occupied.has(i)){slot=i;break;}
@@ -320,8 +322,9 @@ export class SurfaceTiles {
             slot=stale[1].slot;this.resident.delete(stale[0]);this.tableDirty=true;
           }
           this.resident.set(id,{slot,loaded:Infinity,used:performance.now()});
-          if(this.layer==='terrain'){
-            // Lossless prepacked numeric mipmaps: never resize packed heights.
+          if(this.prepacked){
+            // Prepacked mipmaps: never resize packed heights, and never average
+            // gamma-encoded galaxy texels, which shifts their displayed radiance.
             for(let half=0;half<2;half++){
               const square=await cropTextureBitmap(image,half*cell,0,cell,cell);
               try{await this.work.upload(scenePriority.tile,controller.signal,()=>{
