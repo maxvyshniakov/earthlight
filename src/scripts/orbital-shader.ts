@@ -60,6 +60,8 @@ uniform sampler2D milkyWayMap;
 uniform sampler2D auroraMap;
 #endif
 uniform vec4 moonSamples[${LUNAR_SAMPLE_COUNT}];
+// Share of the Moon drawn by MoonSurface's resolved pass instead of this sampled disk.
+uniform float lunarResolved;
 ${opticalPsfSource}
 ${nightTileShader}
 ${dayTileShader}
@@ -276,14 +278,14 @@ void main() {
   float lunarSupport=46.+43.*lunarField*lunarField;
   // Convolve a resolved illuminated lunar disk with the SAME lens PSF as stars.
   // Its brightness is accumulated in linear light before sensor clipping.
-  if(dot(moon.xyz,cameraBasis[2])>0. && length((p-lunarCenter)*cssHeight)<radiusPixels+lunarSupport) {
+  if(lunarResolved<1. && dot(moon.xyz,cameraBasis[2])>0. && length((p-lunarCenter)*cssHeight)<radiusPixels+lunarSupport) {
     vec3 lunarLight=vec3(0.);
     for(int i=0;i<${LUNAR_SAMPLE_COUNT};i++) {
       vec2 delta=(p-screenPosition(moonSamples[i].xyz))*cssHeight;
       lunarLight+=lensPsf(delta,lunarCenter)*moonSamples[i].w;
     }
     float area=3.141592654*radiusPixels*radiusPixels;
-    color+=lunarLight*area/${optics.integral.toFixed(8)}*18.;
+    color+=lunarLight*area/${optics.integral.toFixed(8)}*18.*(1.-lunarResolved);
   }
   // Legacy composition encoding, decoded before the linear HDR output.
   color=pow(max(color,vec3(0.)),vec3(1./2.2));

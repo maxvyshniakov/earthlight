@@ -16,6 +16,7 @@ import { issFrame } from './iss-orbit';
 import { celestialFrame, currentLunarLight, lunarSamples } from './celestial-sky';
 import { CatalogStars } from './catalog-stars';
 import { decodeStarCatalog } from './star-pack';
+import type { MoonSurface } from './moon-surface';
 import { optics } from './optical-psf';
 import { SurfaceTiles } from './night-tiles';
 import { TerrainStream } from './terrain-stream';
@@ -80,6 +81,13 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     let buffer: WebGLBuffer | null = null;
     let textures: WebGLTexture[] = [];
     let catalog:CatalogStars|null=null;
+    // Resolved lunar disk with a lazily loaded surface map; `moonSurface=off`
+    // keeps the sampled disk at every size. Explorer only, never background:
+    // its module, shader and map load the first time a resolved Moon is in view.
+    let moonSurface:MoonSurface|null=null,moonLoad:AbortController|null=null,moonBlend=false;
+    const wantsMoonSurface=!background&&!terrainView&&params.get('moonSurface')!=='off';
+    // CSS-pixel radius where the resolved disk begins (LUNAR_RESOLVED_PX[0]).
+    const LUNAR_RESOLVED_FROM=5;
     let finish:CameraFinish|null=null;
     let aurora:Aurora|null=null;
     const wantsAurora=auroraEnabled(params,matchMedia('(hover: none) and (pointer: coarse)').matches);
@@ -178,6 +186,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       finish=null;
       catalog?.dispose();
       catalog=null;
+      moonLoad?.abort();moonLoad=null;moonSurface?.dispose();moonSurface=null;
       textures.forEach(texture => gl.deleteTexture(texture));
       textures = [];
       if (buffer) gl.deleteBuffer(buffer);
@@ -400,7 +409,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         scenePosition=gl.getAttribLocation(program,'position');
         resolution = gl.getUniformLocation(program, 'resolution');
         time = gl.getUniformLocation(program, 'time');
-        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','cameraState','stormSources[0]']) orbitUniforms[name] = gl.getUniformLocation(program,name);
+        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','cameraState','stormSources[0]']) orbitUniforms[name] = gl.getUniformLocation(program,name);
         gl.uniform1f(gl.getUniformLocation(program, 'surfaceEnabled'),params.get('surface') === '0' ? 0 : 1);
         gl.uniform2f(gl.getUniformLocation(program,'nightMapResolution'),1,1);
         ['surfaceMap','nightMap','cloudMap'].forEach((name,index) => {
@@ -495,6 +504,8 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
               gl.uniform1i(gl.getUniformLocation(temporalResolveProgram,name),unit);
           }
           worldBuffer=new WorldBuffer(gl,compactWorld);gl.useProgram(program);
+          // Additive blending into the world buffer; Float32 targets need EXT_float_blend.
+          moonBlend=wantsMoonSurface&&(compactWorld||!!gl.getExtension('EXT_float_blend'));
         }
         state.volumePass=separateVolume?'separate':'inline';
         state.cloudLighting='raymarch';
@@ -577,6 +588,20 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
 
 
 
+    const loadMoonSurface=()=>{
+      if(moonLoad||moonSurface||!moonBlend)return;
+      const controller=new AbortController(),current=generation;moonLoad=controller;
+      import('./moon-surface').then(async({MoonSurface})=>{
+        const batch=new ShaderProgramBatch(gl);
+        try{
+          const plan=MoonSurface.prepare(batch,supportsSourceAttenuation,shaderLod(gl));
+          await batch.wait(controller.signal);
+          if(controller.signal.aborted||disposed||lost||current!==generation)return;
+          moonSurface=new MoonSurface(gl,batch.take(plan),work,base,notify,supportsSourceAttenuation?10:null);
+          notify();
+        }finally{batch.dispose();}
+      }).catch(error=>{if(!controller.signal.aborted){moonBlend=false;console.warn('Resolved Moon unavailable; keeping the sampled disk.',error);}});
+    };
     const render=(orbit:ReturnType<typeof issFrame>&{focal?:number},width:number,height:number,cssHeight:number,sceneTime:number,grainIndex:number,look:SceneLook,focusRadius=0,playbackRate=10,inspection=false)=>{
       if(disposed||lost||!initialized||!program||!catalog||!finish)return null;
       // Upgrade only after a real viewport expansion, with margin at the tier
@@ -619,6 +644,12 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       gl.uniform4fv(orbitUniforms['moonSamples[0]'],moonSamples);
       let lunarFlux=0;
       for(let i=3;i<moonSamples.length;i+=4)lunarFlux+=moonSamples[i];
+      if(!moonSurface&&moonBlend&&sky.moon[3]*cssHeight*focal>=LUNAR_RESOLVED_FROM
+        &&sky.moon[0]*orbit.cameraBasis[6]+sky.moon[1]*orbit.cameraBasis[7]+sky.moon[2]*orbit.cameraBasis[8]>0)loadMoonSurface();
+      const lunarView=moonSurface?{date:orbit.date,moon:sky.moon,light:lunarLight,starToFixed:sky.starToFixed,cameraBasis:orbit.cameraBasis,camera:orbit.camera,focal,width,height,cssHeight,phaseAngle}:null;
+      const lunarResolved=lunarView?moonSurface!.prepare(lunarView):0;
+      gl.uniform1f(orbitUniforms.lunarResolved,lunarResolved);
+      state.moonSurface=moonSurface?`${lunarResolved.toFixed(2)}:${moonSurface.mapWidth}`:'sampled';
       const points=pointReflections.update(
         sky.starToFixed,orbit.cameraBasis,orbit.camera,sky.yearsSinceJ2000,sky.planets,
         width/height,height,sceneTime,cssHeight,focal);
@@ -681,6 +712,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(worldBuffer)worldBuffer.begin(width,height);
       oceanField?.bind(program);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if(lunarView&&lunarResolved>0){moonSurface!.draw(lunarView,zoomExcess);gl.useProgram(program);}
       // Shared state for every screen-sized volume program in this frame.
       const linearScene=finish.linear;
       const drawVolumePass=(passProgram:WebGLProgram,uniforms:Record<string,WebGLUniformLocation|null>,passPosition:number)=>{
