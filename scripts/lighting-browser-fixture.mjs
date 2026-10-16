@@ -6,6 +6,7 @@ import {lunarLightShader} from '../src/scripts/earth-light.ts';
 import {atmosphericLightShader} from '../src/scripts/atmospheric-light.ts';
 import {visibleSourceDisk} from '../src/scripts/lens-reflections.ts';
 import {SOLAR_RADIUS,SOLAR_RADIANCE,SOLAR_SCATTER_FRACTION} from '../src/scripts/solar-light.ts';
+import {SOLAR_RESOLVED_PX} from '../src/scripts/solar-disk.ts';
 
 // Exercise the production eclipse convolution with a known broad PSF so its
 // masked energy and support boundary can be measured without sensor clipping.
@@ -14,6 +15,8 @@ export async function verifyLighting(evaluate){
  const convolution=raw.slice(raw.indexOf('  vec2 solarCenter='),raw.indexOf('  if (skyMask < 1.) {'))
   .replaceAll('${SOLAR_RADIUS}',String(SOLAR_RADIUS))
   .replaceAll('${optics.integral.toFixed(8)}','1.')
+  .replaceAll('${SOLAR_RESOLVED_PX[0].toFixed(1)}',SOLAR_RESOLVED_PX[0].toFixed(1))
+  .replaceAll('${SOLAR_RESOLVED_PX[1].toFixed(1)}',SOLAR_RESOLVED_PX[1].toFixed(1))
   .replaceAll('${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)}',String(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)));
  const solar=`precision highp float;
  #define FOCAL 1.25
@@ -21,7 +24,13 @@ export async function verifyLighting(evaluate){
  const vec3 cameraPosition=vec3(0.,0.,2.);
  vec2 screenPosition(vec3 d){return 1.25*vec2(dot(d,cameraBasis[0]),dot(d,cameraBasis[1]))/dot(d,cameraBasis[2]);}
  vec3 lensPsf(vec2 delta,vec2 center){return vec3(.000001);}
- void main(){float cssHeight=512.;vec2 p=vec2((gl_FragCoord.x-160.)/512.,0.);
+ // This 3 px Sun stays on the sampled path; the resolved disk and its rays
+ // have their own fixture (solar-disk-browser-fixture.mjs).
+ vec4 solarCameraState(){return vec4(4.,1.,1.,0.);}
+ vec3 solarRayShare(float opening){return vec3(0.);}
+ vec3 solarRays(vec2 delta,float radius,vec4 camera){return vec3(0.);}
+ vec3 resolvedSolarDisk(vec2 delta,float radius,float limb,vec4 camera){return vec3(0.);}
+ void main(){float cssHeight=512.;vec2 p=vec2((gl_FragCoord.x-160.)/512.,0.);vec3 earthRay=vec3(0.,0.,1.);
  ${convolution}
  gl_FragColor=vec4(solarDisk,1.);}`;
  const lunar=`precision highp float;

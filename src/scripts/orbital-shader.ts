@@ -9,6 +9,7 @@ import { AURORA_RADIANCE_RANGE } from './aurora';
 import { SOLAR_IRRADIANCE, SOLAR_RADIUS, SOLAR_RADIANCE, SOLAR_SCATTER_FRACTION } from './solar-light';
 import { LUNAR_SAMPLE_COUNT } from './celestial-sky';
 import { optics, opticalPsfSource } from './optical-psf';
+import { SOLAR_RESOLVED_PX, solarDiskShader } from './solar-disk';
 import { nightTileShader, dayTileShader, cloudTileShader } from './night-tiles';
 import { cloudShader } from './earth-clouds';
 import { terrainShader } from './earth-terrain';
@@ -63,6 +64,7 @@ uniform vec4 moonSamples[${LUNAR_SAMPLE_COUNT}];
 // Share of the Moon drawn by MoonSurface's resolved pass instead of this sampled disk.
 uniform float lunarResolved;
 ${opticalPsfSource}
+${solarDiskShader}
 ${nightTileShader}
 ${dayTileShader}
 ${cloudTileShader}
@@ -294,31 +296,50 @@ void main() {
   float solarPixels=${SOLAR_RADIUS}*cssHeight*FOCAL;
   vec2 solarDelta=(p-solarCenter)*cssHeight;
   vec3 solarDisk=vec3(0.);
-  if(solarVisibility>0. && dot(sunDirection,cameraBasis[2])>0. && length(solarDelta)<solarPixels+130.){
-    float weightSum=0.;
-    // Uniform area samples of the finite disk, convolved with the same optical
-    // response as other sources. Peak clipping belongs to the sensor later.
-    for(int i=0;i<24;i++){
-      float angle=float(i)*2.39996323;
-      vec2 offset=vec2(cos(angle),sin(angle))*sqrt((float(i)+.5)/24.)*solarPixels;
-      // Occlude each piece of the source BEFORE spreading its light through
-      // the lens. A small footprint makes partial eclipses continuous.
-      vec3 sourceRay=normalize(cameraBasis*vec3(solarCenter+offset/cssHeight,FOCAL));
-      float earthAngle=asin(clamp(dot(normalize(cameraPosition),sourceRay),-1.,1.))
-        +acos(1./length(cameraPosition));
-      float sampleRadius=${SOLAR_RADIUS}/sqrt(24.);
-      float visible=smoothstep(-sampleRadius,sampleRadius,earthAngle);
-      solarDisk+=lensPsf(solarDelta-offset,solarCenter)*visible;
-      weightSum+=visible;
+  if(solarVisibility>0. && dot(sunDirection,cameraBasis[2])>0.){
+    vec4 solarCamera=solarCameraState();
+    // Below ~5 CSS px the disk is 24 PSF-convolved samples; from ~9 px it is
+    // resolved analytically, where the samples would show as separate beads.
+    float solarResolved=smoothstep(${SOLAR_RESOLVED_PX[0].toFixed(1)},${SOLAR_RESOLVED_PX[1].toFixed(1)},solarPixels);
+    vec3 solarCore=vec3(0.);
+    if(length(solarDelta)<solarPixels+130.){
+      vec3 sampled=vec3(0.);
+      if(solarResolved<1.){
+        float weightSum=0.;
+        // Uniform area samples of the finite disk, convolved with the same optical
+        // response as other sources. Peak clipping belongs to the sensor later.
+        for(int i=0;i<24;i++){
+          float angle=float(i)*2.39996323;
+          vec2 offset=vec2(cos(angle),sin(angle))*sqrt((float(i)+.5)/24.)*solarPixels;
+          // Occlude each piece of the source BEFORE spreading its light through
+          // the lens. A small footprint makes partial eclipses continuous.
+          vec3 sourceRay=normalize(cameraBasis*vec3(solarCenter+offset/cssHeight,FOCAL));
+          float earthAngle=asin(clamp(dot(normalize(cameraPosition),sourceRay),-1.,1.))
+            +acos(1./length(cameraPosition));
+          float sampleRadius=${SOLAR_RADIUS}/sqrt(24.);
+          float visible=smoothstep(-sampleRadius,sampleRadius,earthAngle);
+          sampled+=lensPsf(solarDelta-offset,solarCenter)*visible;
+          weightSum+=visible;
+        }
+        // Match the analytic visible area; sampling only determines the shape.
+        sampled*=solarVisibility/max(.000001,weightSum)
+          *3.14159265*solarPixels*solarPixels/${optics.integral.toFixed(8)};
+      }
+      vec3 resolved=vec3(0.);
+      if(solarResolved>0.){
+        // Earth's limb is a second edge across the disk, in CSS px above it.
+        float limbAngle=asin(clamp(dot(normalize(cameraPosition),earthRay),-1.,1.))+acos(1./length(cameraPosition));
+        resolved=resolvedSolarDisk(solarDelta,solarPixels,limbAngle*FOCAL*cssHeight,solarCamera);
+      }
+      solarCore=mix(sampled,resolved,solarResolved)*(1.-smoothstep(solarPixels+95.,solarPixels+130.,length(solarDelta)));
     }
-    // Match the analytic visible area; sampling only determines the shape.
+    // The LUT's rays end ~10 px from each source point; beyond, they are
+    // analytic and reach across the frame. Their flux leaves the disk.
+    solarDisk=solarCore*(1.-solarRayShare(solarCamera.w))+solarRays(solarDelta,solarPixels,solarCamera)*solarVisibility;
     #ifdef SOLAR_TRANSMISSION
     solarDisk*=texture2D(solarTransmission,vec2(.3,.5)).rgb;
     #endif
-    solarDisk*=solarVisibility/max(.000001,weightSum)
-      *(1.-smoothstep(solarPixels+95.,solarPixels+130.,length(solarDelta)))
-      *3.14159265*solarPixels*solarPixels/${optics.integral.toFixed(8)}
-      *${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)};
+    solarDisk*=${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)};
   }
 
   if (skyMask < 1.) {

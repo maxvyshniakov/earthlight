@@ -1042,8 +1042,13 @@ reset removes them. Camera changes also restart paused exposure settling.
 
 The solar angular radius is 0.00465 radians. Scene-relative irradiance 2.2
 determines disk radiance through E / (pi radius²), rather than an unrelated
-low display brightness. Twenty-four disk samples convolve the shared lens PSF;
-the work is restricted to the source neighborhood. A normalized two-scale
+low display brightness. Below about 5 CSS px of radius, twenty-four disk samples
+convolve the shared lens PSF; the work is restricted to the source neighborhood.
+From about 9 px the disk is analytic and limb-darkened, with the PSF's own edge
+response and Earth's limb as a second edge, so a zoomed Sun stays round.
+Diffraction rays beyond the PSF table's window are analytic bands along the
+blade normals, C/r² per line, measured from the pupil FFT and carrying 1.5%
+of the flux with a closed iris. See [the solar disk lab note](lab/solar-disk-2026-10-16.md). A normalized two-scale
 Moffat veil redirects 1.5% of incident solar energy into broad optical scatter
 after atmospheric compositing. It remains when the ghost slider is zero. The
 kernel is angular: scatter at the window and front element precedes focusing,
