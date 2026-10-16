@@ -11,6 +11,7 @@ import { LUNAR_SAMPLE_COUNT } from './celestial-sky';
 import { optics, opticalPsfSource } from './optical-psf';
 import { SOLAR_RESOLVED_PX, solarDiskShader } from './solar-disk';
 import { nightTileShader, dayTileShader, cloudTileShader } from './night-tiles';
+import { dayPyramidShader } from './day-pyramid';
 import { cloudShader } from './earth-clouds';
 import { terrainShader } from './earth-terrain';
 import { sceneColorShader } from './scene-color';
@@ -67,6 +68,7 @@ ${opticalPsfSource}
 ${solarDiskShader}
 ${nightTileShader}
 ${dayTileShader}
+${dayPyramidShader}
 ${cloudTileShader}
 ${sceneColorShader}
 
@@ -236,7 +238,7 @@ void main() {
     float footprint=groundDistance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay))*max(.02,length(geo.xy)));
     vec3 material=vec3(.55);
 #if TERRAIN_VIEW != 1
-    material=detailedDay(mapUV,footprint,surfaceAlbedo(mapUV));
+    material=pyramidDay(mapUV,footprint,detailedDay(mapUV,footprint,surfaceAlbedo(mapUV)));
 #endif
 #if TERRAIN_VIEW != 3
     float direct=max(0.,dot(normal,light))*smoothstep(-.005,.005,dot(geo,light));
@@ -357,7 +359,7 @@ void main() {
     // Equirectangular texels narrow with latitude. Without this factor the
     // polar cap selects unresolved tile detail in wedges meeting at the pole.
     float footprint=distance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay))*max(.02,length(geo.xy)));
-    vec3 albedo=detailedDay(mapUV,footprint,surfaceAlbedo(mapUV));
+    vec3 albedo=pyramidDay(mapUV,footprint,detailedDay(mapUV,footprint,surfaceAlbedo(mapUV)));
     vec3 surface=vec3(0.);
     float lamp=detailedNight(mapUV,footprint,cityEmission(mapUV));
     float groundShadow=direct>0.?cloudShadowAlong(surfacePoint+sunDirection*.00003,sunDirection)*terrainSunVisibility(surfacePoint):1.;

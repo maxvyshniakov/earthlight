@@ -13,6 +13,8 @@ async function walk(dir,prefix=''){
   // Regional prepared DEM fixtures are opt-in experiments, not release assets.
   // Publish a complete versioned dataset separately before including them.
   if(name==='terrain-packed')continue;
+  // The Sentinel-2 day pyramid is a one-region lab build (docs/lab/day-pyramid-2026-10-17.md).
+  if(name==='day-pyramid')continue;
   if(entry.isDirectory())files.push(...await walk(join(dir,entry.name),name+'/'));
   else if(entry.isFile()&&!excluded.has(name)&&!name.split('/').some(part=>part.startsWith('.')))files.push(name);
  }

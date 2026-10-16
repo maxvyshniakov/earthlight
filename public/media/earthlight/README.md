@@ -61,6 +61,18 @@ Sources and credits:
 - Cloud plates: `https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud.{W,E}.2001210.21600x21600.png`
 - NASA media usage: https://www.nasa.gov/nasa-brand-center/images-and-media/
 
+- `day-pyramid/` (lab, local only, never released): five levels below
+  `day-tiles/` for 30.375–31.5° E, 29.25–30.375° N (Cairo and Giza), 341 tiles,
+  5.04 MiB. Sentinel-2 detail with BMNG's colour as a smooth per-channel gain;
+  `manifest.json` lists the source files, their ETags and the mosaic checksum.
+  Source: ESA WorldCover 10m 2021 v200 Sentinel-2 median L2A RGBNIR composite,
+  CC BY 4.0, `https://registry.opendata.aws/esa-worldcover-vito-composites`,
+  https://doi.org/10.5281/zenodo.7254221. Attribution: "ESA WorldCover project
+  2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA
+  WorldCover consortium". Build with `scripts/fetch-sentinel-mosaic.mjs` and
+  `scripts/build-day-pyramid.mjs`; see `docs/lab/day-pyramid-2026-10-17.md`.
+  `assets:prepare` skips this directory.
+
 Build: `bun scripts/build-day-tiles.mjs /path/to/day` and
 `bun scripts/build-day-cloud-maps.mjs /path/to/orbital-reference` (with `day/`
 and `clouds/` subdirectories). Originals remain outside the repository.
