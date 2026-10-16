@@ -21,6 +21,7 @@ import {verifyTerrain} from './terrain-browser-fixture.mjs';
 import {verifyWeather} from './weather-browser-fixture.mjs';
 import {verifyTerrainHeights} from './terrain-height-browser-fixture.mjs';
 import {verifyLensEnergy} from './lens-energy-browser-fixture.mjs';
+import {verifyGlare} from './glare-browser-fixture.mjs';
 import {verifyCatalog} from './catalog-browser-fixture.mjs';
 import {verifyFlight} from './flight-browser-fixture.mjs';
 import {verifyTouch} from './touch-browser-fixture.mjs';
@@ -161,6 +162,7 @@ try{
  const summitHeights=await verifyTerrainHeights(evaluate);results.push({summitHeights});console.log('summit heights: packed atlas and actual ray intersections',summitHeights);
  const terrain=await verifyTerrain(evaluate);results.push({terrain});console.log('terrain: real slopes and mountain shadows respond to sunlight',terrain);
  const lensEnergy=await verifyLensEnergy(evaluate);results.push({lensEnergy});console.log('lens: integrated reflection energy remains bounded',lensEnergy);
+ const glare=await verifyGlare(evaluate);results.push({glare:{energy:glare.point.energy,ratios:glare.ratios}});console.log('glare: pyramid integrates to one and follows the Moffat veil',glare.point.energy,glare.ratios);
  const catalog=await verifyCatalog(evaluate);results.push({catalog});console.log('catalog: compact cores retain flux during subpixel movement',catalog);
  const optical=await evaluate(`(()=>{
   function render(source,w,h,ev){

@@ -1026,7 +1026,15 @@ determines disk radiance through E / (pi radius²), rather than an unrelated
 low display brightness. Twenty-four disk samples convolve the shared lens PSF;
 the work is restricted to the source neighborhood. A normalized two-scale
 Moffat veil redirects 1.5% of incident solar energy into broad optical scatter
-after atmospheric compositing. It remains when the ghost slider is zero.
+after atmospheric compositing. It remains when the ghost slider is zero. The
+kernel is angular: scatter at the window and front element precedes focusing,
+so the halo grows with focal length at constant surface brightness. The rest
+of the frame scatters with the same kernel and fraction through a half-float
+image pyramid whose level weights decompose the Moffat into Gaussians; the
+Sun's footprint is capped out of it. Glare moves light, L + η(L ⊛ V − L), so
+sunlit limbs, the Moon and planets get halos at no energy cost. RGBE scene
+buffers keep only the solar veil. `glare=off` disables the frame glare for
+comparison. See [the veiling glare lab note](lab/veiling-glare-2026-10-16.md).
 Solar disk, veil and ghost paths all receive the shared camera response; UI
 and the portrait do not. The sensor has four times baseline-white full-well
 headroom before ISO amplification, retaining white at the new ISO 100 endpoint.

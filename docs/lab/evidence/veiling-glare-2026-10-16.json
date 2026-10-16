@@ -1,0 +1,164 @@
+{
+ "date": "2026-10-16",
+ "method": "agent-browser 1200x800 DPR1, look-grain=0, motion=0, 9 s exposure settle; glare on vs glare=off; lift = 9x9 box-filtered luminance difference in 8-bit output levels; darkSkyLift over pixels darker than 16 with glare off; levels/clipped over the whole frame, stage1 = after lens reflection calibration",
+ "fixture": {
+  "integral": 0.9976,
+  "profileRatio": {
+   "4": 1.1,
+   "8": 0.923,
+   "16": 0.979,
+   "32": 0.977,
+   "64": 1.001,
+   "128": 1.015,
+   "200": 1.099
+  },
+  "solarCapped": 0.016,
+  "unmasked": 0.9975,
+  "zoom4Integral": 0.9891,
+  "zoom4WidthRatio": 1.052
+ },
+ "timingMs": {
+  "method": "CameraGlare.render alone, EXT_disjoint_timer_query_webgl2, Apple GPU, 50 samples after 10 warm-up, other tabs rendering",
+  "median": {
+   "1200x800": 0.376,
+   "2400x1600": 0.503,
+   "2880x1800": 0.507
+  }
+ },
+ "lift": {
+  "moon20": {
+   "darkSkyLift": 17.31,
+   "p99": 43.9,
+   "max": 48,
+   "min": 0,
+   "raisedShare": 97,
+   "loweredShare": 0
+  },
+  "sun15": {
+   "darkSkyLift": 0,
+   "p99": 0.3,
+   "max": 0.6,
+   "min": 0,
+   "raisedShare": 0,
+   "loweredShare": 0
+  },
+  "sun1": {
+   "darkSkyLift": 0.02,
+   "p99": 0.4,
+   "max": 1.1,
+   "min": -0.2,
+   "raisedShare": 0,
+   "loweredShare": 0
+  },
+  "crescent": {
+   "darkSkyLift": 0.91,
+   "p99": 21.6,
+   "max": 94.2,
+   "min": -1.1,
+   "raisedShare": 12.1,
+   "loweredShare": 0
+  },
+  "earthMoon": {
+   "darkSkyLift": 0.39,
+   "p99": 7.2,
+   "max": 18.3,
+   "min": -3.8,
+   "raisedShare": 4.3,
+   "loweredShare": 0
+  },
+  "wide": {
+   "darkSkyLift": 1.51,
+   "p99": 26.8,
+   "max": 64.1,
+   "min": -0.5,
+   "raisedShare": 14.1,
+   "loweredShare": 0
+  }
+ },
+ "levels": {
+  "moon20": {
+   "stage1": {
+    "meanLevel": 33.4,
+    "clipped": 7332
+   },
+   "veilOnly": {
+    "meanLevel": 33.4,
+    "clipped": 7332
+   },
+   "glare": {
+    "meanLevel": 43.5,
+    "clipped": 7334
+   }
+  },
+  "sun15": {
+   "stage1": {
+    "meanLevel": 22.1,
+    "clipped": 25722
+   },
+   "veilOnly": {
+    "meanLevel": 179.2,
+    "clipped": 277082
+   },
+   "glare": {
+    "meanLevel": 179.3,
+    "clipped": 277469
+   }
+  },
+  "sun1": {
+   "stage1": {
+    "meanLevel": 6,
+    "clipped": 1882
+   },
+   "veilOnly": {
+    "meanLevel": 6,
+    "clipped": 1882
+   },
+   "glare": {
+    "meanLevel": 6.1,
+    "clipped": 1891
+   }
+  },
+  "crescent": {
+   "stage1": {
+    "meanLevel": 21.5,
+    "clipped": 10789
+   },
+   "veilOnly": {
+    "meanLevel": 21.5,
+    "clipped": 10788
+   },
+   "glare": {
+    "meanLevel": 22.8,
+    "clipped": 10807
+   }
+  },
+  "earthMoon": {
+   "stage1": {
+    "meanLevel": 9.1,
+    "clipped": 6146
+   },
+   "veilOnly": {
+    "meanLevel": 9.1,
+    "clipped": 6024
+   },
+   "glare": {
+    "meanLevel": 9.5,
+    "clipped": 5943
+   }
+  },
+  "wide": {
+   "stage1": {
+    "meanLevel": 6.9,
+    "clipped": 14493
+   },
+   "veilOnly": {
+    "meanLevel": 6.9,
+    "clipped": 14493
+   },
+   "glare": {
+    "meanLevel": 8.4,
+    "clipped": 14530
+   }
+  }
+ }
+}

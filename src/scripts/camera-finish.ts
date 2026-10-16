@@ -2,7 +2,8 @@ import {halfFloatTarget,textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
 import { sceneImageShader } from './scene-image';
 import { CameraDefocus } from './camera-defocus';
-import { SOLAR_IRRADIANCE, SOLAR_RADIUS, SOLAR_SCATTER_FRACTION } from './solar-light';
+import { CameraGlare, GLARE_SOLAR_CAP, SOLAR_PSF_REACH } from './camera-glare';
+import { SOLAR_IRRADIANCE, SOLAR_RADIUS, SOLAR_SCATTER_FRACTION, VEIL_COMPONENTS } from './solar-light';
 import { lensReflectionShader } from './lens-reflections';
 import { sceneColorShader } from './scene-color';
 import { poissonQuantiles, POISSON_COLUMNS, POISSON_ROWS } from './sensor-noise';
@@ -11,7 +12,7 @@ import { cameraModelShader } from './camera-model';
 export const CAMERA_EXPOSURE_EV=0;
 /** Camera poses of this and the previous submitted frame, for shutter blur. */
 export type ShutterMotion={shutter:number;sky:boolean;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
-export type LensFrame={moon:[number,number,number];moonRadius?:number;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
+export type LensFrame={moon:[number,number,number];moonRadius?:number;glare?:boolean;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
 const fragmentSource = `
 precision highp float;
 precision highp sampler2D;
@@ -33,6 +34,9 @@ uniform float sunReflectionAmount;
 uniform vec4 pointGhosts[3];
 uniform float pointGhostAmount;
 uniform sampler2D sourceAttenuation;
+uniform sampler2D glare;
+uniform float glareAmount;
+uniform vec4 glareMask;
 uniform float hasAttenuation;
 uniform float zoomExcess;
 uniform float motionShutter;
@@ -80,17 +84,23 @@ vec3 reflectionsAt(vec2 p,float aspect){
   return lensToOutputLinear(result);
 }
 // Smooth forward scatter is separate from the colored reflection ghosts.
-// Kernels integrate to one in angular coordinates; their energy comes from
-// the same solar irradiance as the disk. Do not clip the halo to Earth's limb.
+// Kernels integrate to one over solid angle: scatter at the window and front
+// element happens before the lens focuses, so the halo grows with focal
+// length at constant surface brightness. Do not clip it to Earth's limb.
 vec3 solarVeil(vec2 p){
   if(sunGhost.z<=0.)return vec3(0.);
-  vec2 delta=(p-sunGhost.xy)/1.25;
+  vec2 delta=(p-sunGhost.xy)/FOCAL;
   float r2=dot(delta,delta);
-  float narrow=1./(3.14159265*.000225)*pow(1.+r2/.000225,-2.);
-  float broad=1./(3.14159265*.0064)*pow(1.+r2/.0064,-2.);
+  float kernel=${VEIL_COMPONENTS.map(({share,scale})=>`${share}/(3.14159265*${(scale*scale).toFixed(8)})*pow(1.+r2/${(scale*scale).toFixed(8)},-2.)`).join('+')};
   float acceptance=1.-smoothstep(.8,1.4,length(sunGhost.xy)/1.25);
   return sceneToOutputLinear(vec3(1.,.97,.92))*sourceEnergy(.3)*sunGhost.z
-    *${SOLAR_IRRADIANCE*SOLAR_SCATTER_FRACTION}*(.8*narrow+.2*broad)*acceptance;
+    *${SOLAR_IRRADIANCE*SOLAR_SCATTER_FRACTION}*kernel*acceptance;
+}
+// The rest of the frame scatters with the same kernel (CameraGlare). Glare
+// moves light: what the pyramid spreads out is taken from where it was.
+vec3 glareSource(vec3 c,vec2 p){
+  if(glareMask.w>.5&&length(p-glareMask.xy)<glareMask.z)c=min(c,vec3(${GLARE_SOLAR_CAP.toFixed(1)}));
+  return max(c,vec3(0.));
 }
 ${sceneImageShader}
 // Defined with the sensor model below, which is also tested on its own.
@@ -209,6 +219,7 @@ void main() {
   vec3 linear=shutterImage(uv,shift,p,aspect);
   // Ghost paths have their own conjugates; focus changes their size/softness
   // in apertureGhost instead of convolving them with the scene's pupil.
+  if(glareAmount>.5)linear+=${SOLAR_SCATTER_FRACTION}*(texture2D(glare,uv).rgb-glareSource(linear,p));
   linear+=reflectionsAt(p,aspect)+solarVeil(p);
   // Aperture changes collected light; ISO amplifies the sampled sensor signal.
   // Their product exactly retains the previously accepted metered exposure.
@@ -229,7 +240,7 @@ void main() {
 
 /** Optical channel separation precedes sensor noise; page content never enters this pass. */
 export class CameraFinish {
-  static prepare(batch:ShaderProgramBatch){return {batch,program:batch.add('Camera finish','attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',fragmentSource),exposure:CameraExposure.prepare(batch),defocus:CameraDefocus.prepare(batch)};}
+  static prepare(batch:ShaderProgramBatch){return {batch,program:batch.add('Camera finish','attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',fragmentSource),exposure:CameraExposure.prepare(batch),defocus:CameraDefocus.prepare(batch),glare:CameraGlare.prepare(batch)};}
 
   get exposureTexture(){return this.exposure!.texture;}
   get linear(){return this.pixelType!==this.gl.UNSIGNED_BYTE;}
@@ -245,6 +256,7 @@ export class CameraFinish {
   private position=0;
   private exposure:CameraExposure|null=null;
   private defocus:CameraDefocus|null=null;
+  private glare:CameraGlare|null=null;
   constructor(private gl:WebGLRenderingContext,private displayP3=false,prepared?:ReturnType<typeof CameraFinish.prepare>){
     this.pixelType=halfFloatTarget(gl,true)??gl.UNSIGNED_BYTE;
     const shaders:WebGLShader[]=[];
@@ -275,9 +287,14 @@ export class CameraFinish {
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
       this.position=gl.getAttribLocation(this.program,'position');
-      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal','glare','glareAmount','glareMask'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
       this.exposure=new CameraExposure(gl,prepared?.exposure);
       this.defocus=new CameraDefocus(gl,this.pixelType,prepared?.defocus);
+      // RGBE scene values cannot be filtered, so the fallback keeps only the
+      // analytic solar veil. Prepared programs are taken either way.
+      const glare=prepared?.glare;
+      if(this.linear)this.glare=new CameraGlare(gl,this.pixelType,glare);
+      else if(glare){gl.deleteProgram(glare.batch.take(glare.down));gl.deleteProgram(glare.batch.take(glare.up));}
     } catch(error){this.dispose();throw error;}
     finally {shaders.forEach(shader=>gl.deleteShader(shader));}
   }
@@ -297,6 +314,9 @@ export class CameraFinish {
     const gl=this.gl;
     const exposure=this.exposure!.update(this.texture!,this.linear,this.displayP3,performance.now(),lens.sun,this.width/this.height,lens.attenuation,manualExposure,lens.focal);
     const image=this.defocus!.render(this.texture!,exposure,this.width,this.height,pixelRatio,focusRadius);
+    const focal=lens.focal??1.25,sun=lens.sun;
+    const glareMask:[number,number,number,number]=[sun[0],sun[1],SOLAR_RADIUS*focal+SOLAR_PSF_REACH*pixelRatio/this.height,sun[2]>0?1:0];
+    const glare=lens.glare===false?null:this.glare?.render(image,this.width,this.height,glareMask,focal)??null;
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,this.width,this.height);gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,exposure);
     gl.uniform1i(this.uniforms.exposureState,2);
@@ -328,6 +348,9 @@ export class CameraFinish {
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,lens.attenuation??this.noiseTexture);
     gl.uniform1i(this.uniforms.sourceAttenuation,1);
     gl.uniform1f(this.uniforms.hasAttenuation,lens.attenuation?1:0);
+    gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,glare??this.noiseTexture);
+    gl.uniform1i(this.uniforms.glare,5);gl.uniform1f(this.uniforms.glareAmount,glare?1:0);
+    gl.uniform4fv(this.uniforms.glareMask,glareMask);
     const motion=lens.motion;
     gl.uniform1f(this.uniforms.motionShutter,motion?motion.shutter:0);
     if(motion){
@@ -346,6 +369,7 @@ export class CameraFinish {
     const gl=this.gl;
     this.exposure?.dispose();this.exposure=null;
     this.defocus?.dispose();this.defocus=null;
+    this.glare?.dispose();this.glare=null;
     if(this.program)gl.deleteProgram(this.program);
     if(this.texture)gl.deleteTexture(this.texture);
     if(this.framebuffer)gl.deleteFramebuffer(this.framebuffer);
