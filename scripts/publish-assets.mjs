@@ -28,20 +28,17 @@ async function main(){
   if(JSON.stringify(published.manifest)!==JSON.stringify(manifest))throw Error('Refusing to overwrite an immutable release');
   console.log(`Release ${manifest.version} already exists; no upload.`);return;
  }
- const buckets=(await api(`/accounts/${account}/r2/buckets`)).buckets;
- if(buckets.length>20)throw Error('Too many buckets for the bounded free-usage audit.');
- let total=0,monthly=0;
+ // Budgets cover this release bucket only. Other buckets (e.g. homelab
+ // backups) belong to other tools and are neither listed nor enforced here.
+ let total=0,monthly=0,continuationToken,pages=0;
  const month=new Date().toISOString().slice(0,7);
- for(const {name} of buckets){
-  const storage=new S3Client({...credentials,bucket:name});let continuationToken,pages=0;
-  do{
-   if(++pages>20)throw Error('Storage audit exceeded its request budget.');
-   const page=await storage.list({maxKeys:1000,...(continuationToken?{continuationToken}:{})});
-   for(const object of page.contents??[]){total+=Number(object.size);if(new Date(object.lastModified).toISOString().startsWith(month))monthly++;}
-   if(page.isTruncated&&!page.nextContinuationToken)throw Error('Incomplete storage listing');
-   continuationToken=page.isTruncated?page.nextContinuationToken:undefined;
-  }while(continuationToken);
- }
+ do{
+  if(++pages>20)throw Error('Storage audit exceeded its request budget.');
+  const page=await client.list({maxKeys:1000,...(continuationToken?{continuationToken}:{})});
+  for(const object of page.contents??[]){total+=Number(object.size);if(new Date(object.lastModified).toISOString().startsWith(month))monthly++;}
+  if(page.isTruncated&&!page.nextContinuationToken)throw Error('Incomplete storage listing');
+  continuationToken=page.isTruncated?page.nextContinuationToken:undefined;
+ }while(continuationToken);
  if(monthly+2>100)throw Error('Monthly release-write safety budget reached. Review R2 usage before uploading.');
  const scratch=join(root,'.asset-upload');await mkdir(scratch,{recursive:true});
  // Validate every source before creating a release, including provenance files.
@@ -54,9 +51,10 @@ async function main(){
  execFileSync('tar',['-cf',archive,'-C',join(root,'public/media/orbit'),'-T',list],{stdio:'pipe',env:{...process.env,COPYFILE_DISABLE:'1'}});
  const size=(await stat(archive)).size;
  if(size>512*1024*1024)throw Error('Release archive exceeds the 512 MiB upload safety budget.');
- if(total+size+5_000_000>8_000_000_000)throw Error('R2 account storage would exceed the 8 GB safety budget. No files uploaded.');
+ // Keep the current release and at most one previous one; ~2 GB fits both.
+ if(total+size+5_000_000>2_000_000_000)throw Error(`Bucket ${bucket} would exceed its 2 GB safety budget; delete releases no consumer references. No files uploaded.`);
  const archiveSHA256=createHash('sha256').update(await readFile(archive)).digest('hex');
- console.log(`Uploading private release: ${Math.ceil(size/1e6)} MB; projected account storage ${Math.ceil((total+size)/1e6)} MB.`);
+ console.log(`Uploading private release: ${Math.ceil(size/1e6)} MB; projected ${bucket} storage ${Math.ceil((total+size)/1e6)} MB.`);
  await client.write(`${prefix}/assets.tar`,Bun.file(archive),{type:'application/x-tar'});
  const uploaded=await client.stat(`${prefix}/assets.tar`);
  if(uploaded.size!==size)throw Error('Uploaded archive size mismatch');

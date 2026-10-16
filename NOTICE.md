@@ -36,6 +36,10 @@ Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio,
 Ernie Wright, [Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851/).
 Gaia DR2: ESA/Gaia/DPAC. Maps are converted, graded and tiled.
 
+Moon: NASA's Scientific Visualization Studio, [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/)
+(Ernie Wright, Noah Petro), from LRO LROC WAC colour (Arizona State University)
+and LRO LOLA elevation. Maps are resampled, desaturated and encoded.
+
 See [NASA media usage guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/)
 and [SVS usage terms](https://svs.gsfc.nasa.gov/help/). NASA, ESA and the named
 contributors do not endorse Earthlight. Previews and the rendered poster

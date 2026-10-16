@@ -177,6 +177,51 @@ Hipparcos/Tycho stars, which the scene renders from HYG instead.
   See `docs/lab/galaxy-pyramid-2026-10-15.md`.
 - Decoding uses a temporary disk-backed float image, removed after conversion.
 
+## Moon surface
+
+`moon/moon-{1024,2048,4096}.webp` are equirectangular lunar maps derived from
+NASA SVS's **CGI Moon Kit**. The explorer loads one only while a resolved Moon
+(at least 5 CSS px in radius) is on screen. The tier is the smallest giving one
+texel per device pixel at the disk centre: 1K at 20× on DPR 1, 2K at 20× on
+DPR 2 in an 800 px tall view, and 4K only on very tall high-DPR views. These
+maps never join the startup plan or the background package.
+
+- Credit: NASA's Scientific Visualization Studio (Ernie Wright, USRA; Noah
+  Petro, NASA/GSFC). Colour: LRO LROC WAC colour mosaic, Arizona State
+  University. Elevation: LRO LOLA.
+- Collection: https://svs.gsfc.nasa.gov/4720/
+- Colour source: https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_16bit_srgb_4k.tif
+  (2025 version, 4096 × 2048, 16-bit sRGB). SHA-256
+  `9731fa8af425b6c2f88f277ecca82bf8c603f3743894f64ed7b25c5bfefa22ff`.
+- Elevation source: https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_16_uint.tif
+  (5760 × 2880, unsigned half-metres offset by +10 km). SHA-256
+  `45a2b32d56e81ed30db07fead8abc842b249b6511219d9ca2c53f81bc2dc5d62`.
+- Usage terms: https://svs.gsfc.nasa.gov/help/ and
+  https://www.nasa.gov/nasa-brand-center/images-and-media/
+- Projection: longitude −180°…180°, east-positive, left to right; latitude +90°
+  at the top; 0° at the mean sub-Earth point. Checked against Mare Crisium
+  (+59°, +17°) and Tycho (−11°, −43°). The renderer orients it with
+  astronomy-engine's IAU rotation model (`RotationAxis(Body.Moon)`), whose
+  sub-Earth point matches `Libration()` to within 0.03°.
+- RGB: the colour map decoded to linear light, chroma reduced to 40%,
+  area-averaged to each tier, then stored with a pure 2.2 gamma. WebP quality
+  86, lossy. SVS describes the map as "optimized for aesthetics, not science"
+  and its maria are bluer than the Moon looks to a camera; the chroma reduction
+  is our photographic choice. The renderer divides by the global mean colour,
+  so the average lunar colour stays neutral.
+- Alpha: LOLA height, area-averaged in kilometres, 8-bit linear over
+  −9…+11 km (78 m steps), stored losslessly (`alphaQuality` 100, verified
+  byte for byte by the build). Decode with `premultiplyAlpha: 'none'`.
+- `moon/moon.json`: tiers, height range, mean linear colour, a 128 × 64
+  relative-luminance table for the renderer's flux normalization, and the
+  source hashes.
+- Polar latitudes beyond ±70° come from SVS's lower-resolution fill, as
+  described on the collection page.
+
+Rebuild (about 2.5 minutes): `bun scripts/build-moon-maps.mjs
+lroc_color_16bit_srgb_4k.tif ldem_16_uint.tif`. Keep the sources outside the
+repository. Rendering and measurements: `docs/lab/lunar-surface-2026-10-16.md`.
+
 ## Terrain and ocean mask
 
 Copernicus GLO-90 supplies nearby 90 m relief through the fixed-origin

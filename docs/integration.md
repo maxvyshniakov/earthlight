@@ -60,11 +60,17 @@ uses Workers Static Assets at
 `https://media.maxvyshniakov.com/earthlight/<version>/`, with immutable caching
 and public read CORS. There is no R2 binding in the media Workers.
 
-Cloudflare does not provide a hard R2 spending cap. The uploader checks all
-visible buckets before adding data and refuses projected storage above 8 GB,
-archives above 512 MiB, or 100 objects created during the current month. These
-are publishing safeguards, not account-wide billing limits; writes made with
-other tools are outside their control. Static visitor requests are free and
+Cloudflare does not provide a hard R2 spending cap. The uploader checks the
+`media` bucket before adding data and refuses projected storage there above
+2 GB, archives above 512 MiB, or 100 objects created in it during the current
+month. Other buckets in the account, such as homelab backups, belong to other
+tools and are neither listed nor counted. These are publishing safeguards, not
+account-wide billing limits.
+
+Keep the current release and at most one previous one. Once no consumer
+references a version (the explorer deployment and personal-site `dev` and
+production packages), delete its `earthlight/releases/<version>/` objects,
+its `earthlight-assets-<version>` Worker and its route. Static visitor requests are free and
 unlimited. `media:prepare` rejects more than 19,000 files or any file above
 25 MiB, below the Workers Free file-count limit.
 
