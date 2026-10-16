@@ -319,7 +319,7 @@ try{
  // Refine failures must retain preview images and still complete focus.
  for(const failure of ['psf','detail','all']){
   await run('open',`${base}/?t=1338.89&motion=0&quality=fixed`);await wait(settled);
-  await evaluate(`(()=>{const original=fetch.bind(window);window.fetch=(url,o)=>{const u=String(url),fail=${JSON.stringify(failure)};return (u.includes('/media/orbit/')&&(fail==='all'||fail==='psf'&&u.includes('optical-psf.bin')||fail==='detail'&&!u.includes('/preview/')&&!u.includes('stars-hyg.bin')&&!u.includes('optical-psf.bin')))?Promise.resolve(new Response('',{status:503})):original(url,o);};const e=document.querySelector('orbital-sky'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(!['composition','astroCidNouzbqmj'].includes(key))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
+  await evaluate(`(()=>{const original=fetch.bind(window);window.fetch=(url,o)=>{const u=String(url),fail=${JSON.stringify(failure)};return (u.includes('/media/orbit/')&&(fail==='all'||fail==='psf'&&u.includes('optical-psf')||fail==='detail'&&!u.includes('/preview/')&&!u.includes('stars-hyg')&&!u.includes('optical-psf')))?Promise.resolve(new Response('',{status:503})):original(url,o);};const e=document.querySelector('orbital-sky'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(!['composition','astroCidNouzbqmj'].includes(key))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
   await wait("document.querySelector('orbital-sky').dataset.assetPhase==='settled'");
   if(failure!=='all')await wait("document.querySelector('orbital-sky').dataset.focus==='sharp'");
   const state=await evaluate(`(()=>{const e=document.querySelector('orbital-sky');return {failure:${JSON.stringify(failure)},ready:e.hasAttribute('data-ready'),data:{...e.dataset},fallback:getComputedStyle(e.querySelector('.sky-fallback')).backgroundImage};})()`);
@@ -389,7 +389,7 @@ try{
  await wait(settled);
  // Clearing completed entries does not remove prior in-flight DEM requests.
  const compact=await evaluate(`performance.getEntriesByType('resource').filter(x=>x.startTime>=window.saveDataStarted&&x.name.includes('/media/orbit/')).map(x=>x.name)`);
- assert.ok(compact.length>=6);assert.ok(compact.every(x=>x.includes('/preview/')||x.endsWith('stars-hyg.bin')||x.endsWith('optical-psf.bin')));results.push({saveDataRequests:compact.length});
+ assert.ok(compact.length>=6);assert.ok(compact.every(x=>x.includes('/preview/')||x.endsWith('stars-hyg-v2.bin')||x.endsWith('optical-psf-v2.bin')));results.push({saveDataRequests:compact.length});
  console.log('save-data: no large maps or tiles');
  // Slow optional detail must not leave the scene permanently defocused.
  await run('open',`${base}/?t=1000&motion=0`);await wait(settled);

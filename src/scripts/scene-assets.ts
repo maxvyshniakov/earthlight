@@ -11,8 +11,10 @@ export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean
  const large=desktop&&!saveData&&maxTexture>=8192;
  return [
   ...(['day','night','clouds','galaxy'] as ImageLayer[]).map(key=>({key,url:`${root}preview/${key}.webp`,preview:true})),
-  {key:'psf',url:root+'optical-psf.bin',preview:true},
-  {key:'stars',url:root+'stars-hyg.bin',preview:true},
+  // Gzipped transfer copies (scripts/pack-startup-assets.mjs): 590 -> 84 KB
+  // and 499 -> 231 KB; both decode to the original bytes and float layout.
+  {key:'psf',url:root+'optical-psf-v2.bin',preview:true},
+  {key:'stars',url:root+'stars-hyg-v2.bin',preview:true},
   ...(saveData?[]:[
    {key:'galaxy' as const,url:galaxyOverview(compactTextures,assetBaseURL)},
    {key:'day' as const,url:root+(compactSurface?'mobile/day-2048.avif':'earth-day-bmng.avif')},

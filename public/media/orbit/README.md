@@ -242,6 +242,23 @@ it automatically before the renderer's explicit DecompressionStream.
   planes with row-wise horizontal prediction before gzip. Rebuild with
   `bun scripts/repack-terrain.mjs`; tests compare every decoded byte with DEM1.
   Heights, coast mask, and geographic alignment are unchanged.
+- `earth-terrain-{4096,8192}-v3.dem` (DEM3, 1,108,060 and 3,385,488 bytes): the
+  DEM2 bytes with empty level-0 height planes; `bun scripts/sparse-terrain.mjs`
+  derives them from the published DEM2 files. The decoder repeats level-1
+  heights into level 0, so maxima taken from level 0 still bound every mip.
+  The coastline mask and all mip levels are byte-identical to DEM2. The
+  explorer uses DEM3 only with terrain streaming, whose 1.85 km and 92 m tiles
+  replace global heights wherever level 0 would resolve. Paired renders
+  (coast glint, fjords, Himalaya, high orbit, narrow viewport) differ in at
+  most 0.0001% of pixels.
+- `stars-hyg-v2.bin` (230,911 bytes) and `optical-psf-v2.bin` (84,259 bytes):
+  gzipped transfer copies of `stars-hyg.bin` and `optical-psf.bin`, made by
+  `bun scripts/pack-startup-assets.mjs`. The PSF decompresses to identical
+  bytes. The catalog uses the STR1 column format of `src/scripts/star-pack.ts`:
+  24-bit longitude and latitude (under 0.1 arcsec), velocities as half floats
+  of value × 2^20, and magnitude and colour index in thousandths. It unpacks
+  to the same eight-float layout; `scripts/star-pack.test.mjs` bounds the
+  errors.
 
 See [the optimization report](../../../docs/scene-optimization.md) for codec
 measurements, runtime budgets, limitations and reproduction commands.

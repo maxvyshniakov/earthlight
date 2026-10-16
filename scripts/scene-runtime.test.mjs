@@ -158,6 +158,17 @@ test('terrain predictor preserves every elevation, coast mask and mip byte',()=>
   old.levels.forEach((level,i)=>assert.deepEqual(next.levels[i].data,level.data));
  }
 });
+test('sparse terrain keeps the coast mask and mips, and repeats level-1 heights at level 0',()=>{
+ for(const width of [4096,8192]){
+  const read=suffix=>{const b=gunzipSync(readFileSync(new URL(`../public/media/orbit/earth-terrain-${width}${suffix}.dem`,import.meta.url)));return decodeTerrain(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
+  const full=read('-v2'),sparse=read('-v3'),half=width/2,a=full.levels[0].data,b=sparse.levels[0].data,c=sparse.levels[1].data;
+  full.levels.slice(1).forEach((level,i)=>assert.deepEqual(sparse.levels[i+1].data,level.data));
+  for(let y=0;y<width/2;y+=7)for(let x=0;x<width;x+=5){
+   const i=(y*width+x)*3,j=((y>>1)*half+(x>>1))*3;
+   assert.equal(b[i+2],a[i+2],'coast mask');assert.equal(b[i],c[j]);assert.equal(b[i+1],c[j+1]);
+  }
+ }
+});
 test('sensor quantiles preserve dark shot-noise mean and variance without an iterative shader',()=>{
  const values=poissonQuantiles();
  for(const expected of [0,.01,.1,1,4,8,15.9]){

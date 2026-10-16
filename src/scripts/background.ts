@@ -17,7 +17,7 @@ export class EarthlightBackground extends HTMLElement {
     const reduced=matchMedia('(prefers-reduced-motion: reduce)');
     let renderer:ReturnType<typeof createOrbitRenderer>|undefined;
     let gl:WebGLRenderingContext|null=null;
-    let disposed=false,visible=false,lost=false,frame=0,lastAnimationDraw=0,grain=0;
+    let disposed=false,visible=false,lost=false,unavailable=false,frame=0,lastAnimationDraw=0,grain=0;
     let scale=.75,focusRadius=6,cssHeight=1;
     const params=new URLSearchParams({texture:'compact',aurora:'0'});
     const seconds=initialOrbitSeconds(new URLSearchParams());
@@ -78,8 +78,11 @@ export class EarthlightBackground extends HTMLElement {
       playback.setRunning(active()&&this.hasAttribute('data-ready'),performance.now());
       if(!active())return;
       if(!renderer){
-        gl=sceneContext(canvas,params,{alpha:false,antialias:false,depth:false,powerPreference:'low-power'});
-        if(!gl)return;
+        if(unavailable)return;
+        // A decorative scene never runs on software GL (VMs, blocklisted GPUs,
+        // headless audits): it would spend seconds of CPU per frame. The poster stays.
+        gl=sceneContext(canvas,params,{alpha:false,antialias:false,depth:false,powerPreference:'low-power',failIfMajorPerformanceCaveat:true});
+        if(!gl){unavailable=true;this.dataset.renderApi='unavailable';return;}
         this.dataset.renderApi=isWebGL2(gl)?'webgl2':'webgl';
         renderer=createOrbitRenderer(gl,canvas,params,()=>{
           if(!disposed&&renderer)Object.assign(this.dataset,renderer.state);

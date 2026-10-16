@@ -15,6 +15,7 @@ import { CameraFinish } from './camera-finish';
 import { issFrame } from './iss-orbit';
 import { celestialFrame, currentLunarLight, lunarSamples } from './celestial-sky';
 import { CatalogStars } from './catalog-stars';
+import { decodeStarCatalog } from './star-pack';
 import { optics } from './optical-psf';
 import { SurfaceTiles } from './night-tiles';
 import { TerrainStream } from './terrain-stream';
@@ -208,13 +209,13 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           return;
         }
         if(asset.key==='stars'){
-          const data=new Float32Array(await blob.arrayBuffer());
+          const data=asset.url.endsWith('-v2.bin')?await decodeStarCatalog(blob):new Float32Array(await blob.arrayBuffer());
           if(!data.length||data.length%8||!data.every(Number.isFinite))throw Error('Invalid star catalog');
           if(disposed||lost||current!==generation)return;
           await submit(()=>{starData=data;pointReflections.upload(data);catalog?.upload(data);state.starsReady='';});return;
         }
         if(asset.key==='psf'){
-          const data=new Uint8Array(await blob.arrayBuffer());
+          const data=new Uint8Array(await new Response(asset.url.endsWith('-v2.bin')?blob.stream().pipeThrough(new DecompressionStream('gzip')):blob).arrayBuffer());
           if(data.length!==optics.size*optics.size*optics.states*3)throw Error('Invalid optical PSF');
           if(disposed||lost||current!==generation)return;
           await submit(()=>{psfData=data;uploadPsf();});return;
@@ -296,8 +297,7 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           gl.useProgram(program);gl.activeTexture(gl.TEXTURE0+unit);
           gl.bindTexture(gl.TEXTURE_2D,unit===5?galaxyTexture:textures[unit]);
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
-          const anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
-          if(anisotropy&&unit!==5)gl.texParameterf(gl.TEXTURE_2D,anisotropy.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(8,gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+          if(maxAnisotropy&&unit!==5)gl.texParameterf(gl.TEXTURE_2D,TEXTURE_MAX_ANISOTROPY_EXT,maxAnisotropy);
           if(unit===1)gl.uniform2f(gl.getUniformLocation(program,'nightMapResolution'),image.width,image.height);
           if(unit===2)gl.uniform1f(gl.getUniformLocation(program,'cloudMapWidth'),image.width);
           if(unit===5){gl.uniform1f(gl.getUniformLocation(program,'galaxyMapWidth'),image.width);state.galaxyMapWidth=String(image.width);}
@@ -308,12 +308,18 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         }finally{image.close();}
       });}catch(error){if(!signal.aborted)throw error;}
     };
+    const TEXTURE_MAX_ANISOTROPY_EXT=0x84FE;let maxAnisotropy=0;
     const uploadPsf=()=>{
       if(!psfTexture||!psfData||gl.isContextLost())return;
       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,psfTexture);
       textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGB,optics.size,optics.size*optics.states,0,gl.RGB,gl.UNSIGNED_BYTE,psfData);
     };
     const initialize = async(started=performance.now()):Promise<boolean> => {
+      // Query once, while the GPU queue is still empty. Asked after each map
+      // upload, getParameter waited for that upload's mipmaps: seconds of
+      // blocked main thread under software GL (Lighthouse, SwiftShader).
+      const anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
+      maxAnisotropy=anisotropy?Math.min(8,gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)):0;
       const current=generation,controller=new AbortController();
       startupAbort=controller;
       const batch=new ShaderProgramBatch(gl);
@@ -777,6 +783,11 @@ export function createOrbitRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     const plan=sceneAssetPlan(!background&&canvas.clientWidth>=1000,gl.getParameter(gl.MAX_TEXTURE_SIZE),supportsTerrain&&params.get('terrain')!=='0',saveData,background||compactSurface,background||textureProfile(params)==='compact',base);
     if(modisStudy)plan.push({key:'modis',url:assetURL('modis-demo/orbit-patch.png',base),preview:true});
     if(supportsCloudTiles)for(const asset of plan)if(asset.key==='clouds'&&!asset.preview)asset.url=assetURL('earth-clouds-nasa-4096.avif',base);
+    // Streamed 1.85 km and 92 m tiles replace global heights wherever a pixel
+    // spans less than ~59 km. DEM3 keeps the full-resolution coastline mask
+    // and every mip, but rebuilds level-0 heights from level 1: 8.4 -> 3.4 MB.
+    // terrainMap=v2 keeps the previous file for comparisons.
+    if(supportsTerrainTiles&&params.get('terrainMap')!=='v2')for(const asset of plan)if(asset.key==='terrain')asset.url=asset.url.replace(/-v2\.dem$/,'-v3.dem');
     const assets=new SceneAssets(plan,upload,()=>{if(assets.previewSettled)releasePreviewNetwork();state.assetPhase=assets.settled?'settled':assets.previewSettled?'detail':'preview';state.assetFailures=String(assets.failures.length);notify();},work);
     const start=(restoring=false)=>{
       if(disposed||lost)return Promise.resolve(false);

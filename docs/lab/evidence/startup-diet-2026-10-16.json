@@ -1,0 +1,284 @@
+{
+ "date": "2026-10-16",
+ "tool": "lighthouse 12.6.1, simulated throttling; medians of 2 runs",
+ "setup": "before = personal-site with vendored Earthlight 7563f27 and Explorer built from HEAD; after = working tree. Both served locally; assets from local servers (before: published files with the previous galaxy pyramid; after: current files).",
+ "hardwareGL": {
+  "explorer desktop": {
+   "before": {
+    "runs": 2,
+    "score": 85,
+    "lcpMs": 2328,
+    "tbtMs": 11,
+    "bytes": 15089913,
+    "assetBytes": 14909792,
+    "scores": [
+     88,
+     85
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 90,
+    "lcpMs": 2089,
+    "tbtMs": 0,
+    "bytes": 9473717,
+    "assetBytes": 9286072,
+    "scores": [
+     90,
+     90
+    ]
+   }
+  },
+  "explorer gpu": {
+   "before": {
+    "runs": 2,
+    "score": 64,
+    "lcpMs": 15766,
+    "tbtMs": 139,
+    "bytes": 7387008,
+    "assetBytes": 7206887,
+    "scores": [
+     64,
+     72
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 71,
+    "lcpMs": 16820,
+    "tbtMs": 154,
+    "bytes": 5149833,
+    "assetBytes": 4962188,
+    "scores": [
+     72,
+     71
+    ]
+   }
+  },
+  "explorer mobile": {
+   "before": {
+    "runs": 2,
+    "score": 69,
+    "lcpMs": 20732,
+    "tbtMs": 130,
+    "bytes": 7387008,
+    "assetBytes": 7206887,
+    "scores": [
+     73,
+     69
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 49,
+    "lcpMs": 11573,
+    "tbtMs": 156,
+    "bytes": 5149833,
+    "assetBytes": 4962188,
+    "scores": [
+     49,
+     72
+    ]
+   }
+  },
+  "site desktop": {
+   "before": {
+    "runs": 2,
+    "score": 94,
+    "lcpMs": 646,
+    "tbtMs": 5,
+    "bytes": 3407744,
+    "assetBytes": 2548094,
+    "scores": [
+     94,
+     100
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 100,
+    "lcpMs": 662,
+    "tbtMs": 0,
+    "bytes": 2633265,
+    "assetBytes": 1769969,
+    "scores": [
+     100,
+     100
+    ]
+   }
+  },
+  "site gpu": {
+   "before": {
+    "runs": 2,
+    "score": 87,
+    "lcpMs": 3303,
+    "tbtMs": 67,
+    "bytes": 3407744,
+    "assetBytes": 2548094,
+    "scores": [
+     89,
+     87
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 89,
+    "lcpMs": 3303,
+    "tbtMs": 81,
+    "bytes": 2633265,
+    "assetBytes": 1769969,
+    "scores": [
+     89,
+     89
+    ]
+   }
+  },
+  "site mobile": {
+   "before": {
+    "runs": 2,
+    "score": 89,
+    "lcpMs": 3303,
+    "tbtMs": 78,
+    "bytes": 3407744,
+    "assetBytes": 2548094,
+    "scores": [
+     89,
+     89
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 87,
+    "lcpMs": 3305,
+    "tbtMs": 101,
+    "bytes": 2633265,
+    "assetBytes": 1769969,
+    "scores": [
+     89,
+     87
+    ]
+   }
+  }
+ },
+ "explicitSwiftShader": {
+  "explorer mobile": {
+   "before": {
+    "runs": 2,
+    "score": 34,
+    "lcpMs": 12765,
+    "tbtMs": 47182,
+    "bytes": 8216103,
+    "assetBytes": 8035982,
+    "scores": [
+     34,
+     34
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 34,
+    "lcpMs": 27104,
+    "tbtMs": 26486,
+    "bytes": 5153497,
+    "assetBytes": 4965852,
+    "scores": [
+     34,
+     34
+    ]
+   }
+  },
+  "site mobile": {
+   "before": {
+    "runs": 2,
+    "score": 37,
+    "lcpMs": 3306,
+    "tbtMs": 21154,
+    "bytes": 3407744,
+    "assetBytes": 2548094,
+    "scores": [
+     37,
+     50
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 59,
+    "lcpMs": 3304,
+    "tbtMs": 4702,
+    "bytes": 868698,
+    "assetBytes": 5402,
+    "scores": [
+     59,
+     59
+    ]
+   }
+  }
+ },
+ "gpuDisabledSoftwareFallback": {
+  "site mobile": {
+   "before": {
+    "runs": 2,
+    "score": 50,
+    "lcpMs": 2930,
+    "tbtMs": 155323,
+    "bytes": 3407744,
+    "assetBytes": 2548094,
+    "scores": [
+     50,
+     54
+    ]
+   },
+   "after": {
+    "runs": 2,
+    "score": 89,
+    "lcpMs": 3303,
+    "tbtMs": 0,
+    "bytes": 868698,
+    "assetBytes": 5402,
+    "scores": [
+     89,
+     89
+    ]
+   }
+  }
+ },
+ "assets": {
+  "earth-terrain-8192": {
+   "v2": 8427008,
+   "v3": 3385488
+  },
+  "earth-terrain-4096": {
+   "v2": 2540298,
+   "v3": 1108060
+  },
+  "stars": {
+   "v1": 499136,
+   "v2": 230911
+  },
+  "psf": {
+   "v1": 589824,
+   "v2": 84259
+  }
+ },
+ "renderChecks": {
+  "dem3VsDem2MeanAbsDiff": {
+   "aegean1x": 0,
+   "aegean4x": 0,
+   "fjord3x": 0,
+   "himalaya1x": 0.0004,
+   "highOrbit": 0.0057,
+   "highOrbit8x": 0.008,
+   "narrowAegean": 0,
+   "narrowFjord": 0.0001
+  }
+ },
+ "longTasksHardwareGL4x": {
+  "sumOver50ms": 137,
+  "largest": "initialize 123 ms"
+ },
+ "swiftShaderStallsBefore": {
+  "getParameterAnisotropyMs": 4504,
+  "getExtensionAnisotropyMs": 588,
+  "getContextMs": 2055
+ }
+}

@@ -1,13 +1,19 @@
 import {auroraMode} from './scene-effects.ts';
 
-/** Requested effects can prefer core MRT/LOD. Explicit API links stay reproducible. */
+/** Requested effects can prefer core MRT/LOD. Explicit API links stay reproducible.
+ * With failIfMajorPerformanceCaveat, software renderers are refused as well:
+ * browsers do not flag a software GL that was selected explicitly. */
 export function sceneContext(canvas:HTMLCanvasElement,params:URLSearchParams,attributes:WebGLContextAttributes){
-  const api=params.get('api');
+  const api=params.get('api'),hardware=!!attributes.failIfMajorPerformanceCaveat;
   let preferWebGL2=api==='webgl2'||(api!=='webgl'&&api!=='webgl-nolod'&&(params.get('render')==='clouds-half'||auroraMode(params)==='on'));
   // WebGL1 without explicit LOD (the measured Pixel) samples clouds and terrain
   // from derivative-selected mips, which divergent raymarch loops make
   // unreliable at the date line. WebGL2 has explicit LOD in core.
-  if(!preferWebGL2&&!api&&!webgl1ExplicitLod())preferWebGL2=true;
+  if(hardware||(!preferWebGL2&&!api)){
+    const probe=webgl1Probe(attributes);
+    if(hardware&&probe.software)return null;
+    if(!preferWebGL2&&!api&&!probe.explicitLod)preferWebGL2=true;
+  }
   const gl=(preferWebGL2?canvas.getContext('webgl2',attributes):null)??canvas.getContext('webgl',attributes);
   // Lab reproduction of WebGL1 devices without explicit LOD, such as the
   // measured Pixel: hide the extension so the fallback shaders compile here.
@@ -18,14 +24,21 @@ export function sceneContext(canvas:HTMLCanvasElement,params:URLSearchParams,att
   return gl;
 }
 
-function webgl1ExplicitLod(){
+/** Software renderer names reported by Chromium, Firefox and Mesa. */
+export const SOFTWARE_RENDERER=/swiftshader|llvmpipe|softpipe|software|basic render driver/i;
+
+// One short-lived WebGL1 context answers both questions. It shares the caller's
+// attributes, so a refused software context is never created here either.
+function webgl1Probe(attributes:WebGLContextAttributes){
   try{
-    const probe=document.createElement('canvas').getContext('webgl');
-    if(!probe)return true;
-    const supported=!!probe.getExtension('EXT_shader_texture_lod');
+    const probe=document.createElement('canvas').getContext('webgl',attributes);
+    if(!probe)return {explicitLod:true,software:false};
+    const debug=probe.getExtension('WEBGL_debug_renderer_info');
+    const renderer=String(debug?probe.getParameter(debug.UNMASKED_RENDERER_WEBGL):probe.getParameter(probe.RENDERER));
+    const result={explicitLod:!!probe.getExtension('EXT_shader_texture_lod'),software:SOFTWARE_RENDERER.test(renderer)};
     probe.getExtension('WEBGL_lose_context')?.loseContext();
-    return supported;
-  }catch{return true;}
+    return result;
+  }catch{return {explicitLod:true,software:false};}
 }
 
 /** Keep the WebGL1 path explicit while testing the same scene on WebGL2. */

@@ -7,7 +7,12 @@ import {terrainBoundShader} from './terrain-bound.ts';
 export function decodeTerrain(buffer:ArrayBuffer){
   const header=new DataView(buffer);
   const magic=buffer.byteLength>=16?header.getUint32(0,true):0;
-  if(magic!==0x314d4544&&magic!==0x324d4544)throw Error('Invalid terrain header');
+  // DEM1 raw; DEM2 byte planes with horizontal prediction; DEM3 as DEM2 with
+  // empty level-0 heights, repeated here from level 1. Streamed tiles replace
+  // global heights wherever level 0 would resolve, while the coastline mask
+  // keeps full resolution. Repetition keeps every level-1 peak in level 0,
+  // so maxima taken from level 0 still bound all mips.
+  if(magic!==0x314d4544&&magic!==0x324d4544&&magic!==0x334d4544)throw Error('Invalid terrain header');
   const width=header.getUint32(4,true),height=header.getUint32(8,true),count=header.getUint32(12,true);
   if(![4096,8192].includes(width)||height!==width/2||count!==Math.log2(width)+1)throw Error('Invalid terrain dimensions');
   let offset=16,w=width,h=height;
@@ -16,7 +21,7 @@ export function decodeTerrain(buffer:ArrayBuffer){
     const length=w*h*3;
     if(offset+length>buffer.byteLength)throw Error('Truncated terrain');
     let data=new Uint8Array(buffer,offset,length);
-    if(magic===0x324d4544){
+    if(magic!==0x314d4544){
       const decoded=new Uint8Array(length),count=w*h;
       for(let c=0;c<3;c++)for(let y=0;y<h;y++){
         let previous=0;
@@ -28,6 +33,12 @@ export function decodeTerrain(buffer:ArrayBuffer){
     offset+=length;w=Math.max(1,w/2);h=Math.max(1,h/2);
   }
   if(offset!==buffer.byteLength)throw Error('Unexpected terrain data');
+  if(magic===0x334d4544){
+    const fine=levels[0].data,coarse=levels[1].data,half=width/2;
+    for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+      const i=(y*width+x)*3,j=((y>>1)*half+(x>>1))*3;fine[i]=coarse[j];fine[i+1]=coarse[j+1];
+    }
+  }
   return {width,height,levels};
 }
 
