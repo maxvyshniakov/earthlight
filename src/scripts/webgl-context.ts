@@ -1,4 +1,5 @@
 import {auroraMode} from './scene-effects.ts';
+import {PHYSICAL_NIGHT} from './physical-night.ts';
 
 /** Requested effects can prefer core MRT/LOD. Explicit API links stay reproducible.
  * With failIfMajorPerformanceCaveat, software renderers are refused as well:
@@ -59,6 +60,15 @@ export function halfFloatTarget(gl: WebGLRenderingContext, linear = false): numb
   const half = gl.getExtension('OES_texture_half_float');
   return half && gl.getExtension('EXT_color_buffer_half_float')
     && (!linear || gl.getExtension('OES_texture_half_float_linear')) ? half.HALF_FLOAT_OES : null;
+}
+
+/** Render target type for scene radiance. Physical night radiance (the
+ * `night` lab) falls below half-float's normal range, down to 2^-34, so the
+ * lab stores float32 where it renders, blends and (if asked) filters. */
+export function radianceTarget(gl: WebGLRenderingContext, linear = false): number | null {
+  if (PHYSICAL_NIGHT && floatTarget(gl) && gl.getExtension('EXT_float_blend')
+    && (!linear || gl.getExtension('OES_texture_float_linear'))) return gl.FLOAT;
+  return halfFloatTarget(gl, linear);
 }
 
 export function floatTarget(gl: WebGLRenderingContext) {

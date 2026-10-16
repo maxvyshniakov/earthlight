@@ -1,3 +1,12 @@
+import { PHYSICAL_NIGHT } from './physical-night';
+/** Lunar irradiance relative to full Moon at a phase angle in radians. The
+ * night lab uses the measured law of Krisciunas & Schaefer (1991), which
+ * has the opposition surge: a quarter Moon gives 9%, not a Lambert sphere's 32%. */
+export function lunarPhaseIrradiance(angle:number){
+  if(!PHYSICAL_NIGHT)return (Math.sin(angle)+(Math.PI-angle)*Math.cos(angle))/Math.PI;
+  const degrees=Math.abs(angle)*180/Math.PI;
+  return 10**(-.4*(.026*degrees+4e-9*degrees**4));
+}
 // Scene-relative light, shared by terrain, water and cloud scattering.
 // A full Moon supplies a few millionths of the Sun's irradiance; the existing
 // camera/sky grade remains illustrative rather than an absolute lux calibration.

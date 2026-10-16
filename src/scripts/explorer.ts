@@ -74,6 +74,8 @@ export class EarthlightExplorer extends HTMLElement {
     cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis'].includes(params.get('cloudStudy')??'');
     exposureMode.value=params.get('exposure-mode')==='manual'?'manual':'auto';
     lensPreset.value=readLensPreset(params.get('lens-preset'));
+    // The markup is built for the default range; `night` widens it at runtime.
+    fixedExposure.min=String(EXPOSURE_MIN_EV);fixedExposure.max=String(EXPOSURE_MAX_EV);
     const restoredFixed=Number(params.get('exposure-fixed'));
     if(Number.isFinite(restoredFixed))fixedExposure.value=String(Math.max(EXPOSURE_MIN_EV,Math.min(EXPOSURE_MAX_EV,restoredFixed)));
     const profile=sceneProfile(params);
@@ -254,7 +256,7 @@ export class EarthlightExplorer extends HTMLElement {
     const updateExplorerLink = (sceneTime=playback.read(performance.now())+composition().offset) => {
       if(!explorerLink)return;
       const url=new URL(this.dataset.exploreUrl??'/',location.href);
-      for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudLighting'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
+      for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudLighting','night'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
       url.searchParams.set('t',sceneTime.toFixed(2));
       calendar.write(url.searchParams);
       if(paused)url.searchParams.set('motion','0');

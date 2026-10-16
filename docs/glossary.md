@@ -49,6 +49,10 @@ called Orbit, and older lab notes still use that name.
   `iss` (default) is the coated ISS zoom; `flare` is a flare-prone lens with
   30 times the reflections. The type is `LensPreset`, the URL parameter
   `lens-preset`; `lens` remains the zoom.
+- **Physical night**: the lab that renders night emitters at their physical
+  radiance and lets the camera program reach ISS night exposures. The type is
+  `NightMode`, the URL parameter `night` (`video` or `still`;
+  `physical-night.ts`).
 
 ## Assets
 

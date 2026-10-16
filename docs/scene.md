@@ -779,6 +779,9 @@ the aperture stays at f/3.18 and ISO continues to approximately 6150 at +5.1 EV.
 video exposure program, not a claim about every camera's auto mode. Below the day
 baseline, two thirds of the correction closes the iris and one third lowers
 ISO, reaching f/16 and ISO 100 at −5.5 EV. The shutter remains 1/48 s.
+The `night=video|still` lab continues this program to ISS night exposures and
+brings night emitters to physical radiance; see
+[docs/lab/physical-night-2026-10-17.md](lab/physical-night-2026-10-17.md).
 
 The same GPU exposure state drives ghost radius, rounded-blade shape, off-axis
 coma, vignetting and loading defocus. Ghost area normalization avoids adding

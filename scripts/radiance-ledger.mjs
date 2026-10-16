@@ -2,7 +2,7 @@
 // with photometry (src/scripts/radiometry.ts). Uses an isolated agent-browser
 // session and reads the scene buffer the exposure meter samples, so nothing
 // in the renderer changes. Prints a table and writes ledger.json.
-// bun scripts/radiance-ledger.mjs http://localhost:4382 /tmp/ledger
+// bun scripts/radiance-ledger.mjs http://localhost:4382 /tmp/ledger [night=video]
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -13,7 +13,7 @@ import {pointImageFlux} from '../src/scripts/point-photometry.ts';
 import {SOLAR_IRRADIANCE,SOLAR_RADIANCE} from '../src/scripts/solar-light.ts';
 
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4322',out=join(tmpdir(),'radiance-ledger')]=process.argv.slice(2);
+const [base='http://127.0.0.1:4322',out=join(tmpdir(),'radiance-ledger'),query='']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const session=`ledger-${process.pid}`;
 const ab=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:3e7,timeout:180000})).stdout;
@@ -39,7 +39,9 @@ const hook=`(()=>{
   gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,scene,0);
   const px=new Float32Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.FLOAT,px);
   gl.bindFramebuffer(gl.FRAMEBUFFER,previous);gl.deleteFramebuffer(fb);
-  const tests={all:()=>true,lit:(r,g,b,m)=>m>.02,dark:(r,g,b,m)=>m<.02,green:(r,g,b,m)=>g>1.6*r&&g>1.6*b&&m>1e-7};
+  const tests={all:()=>true,lit:(r,g,b,m)=>m>.02,dark:(r,g,b,m)=>m<.02,green:(r,g,b,m)=>g>1.6*r&&g>1.6*b&&m>1e-7,
+  // Physical night (night=video|still): the same classes four decades down.
+  faintLit:(r,g,b,m)=>m>.002,faintDark:(r,g,b,m)=>m<2e-6,faintGreen:(r,g,b,m)=>g>1.6*r&&g>1.6*b&&m>1e-11};
   const result={};
   for(const name of filters){
    const values=[],test=tests[name];
@@ -72,7 +74,9 @@ await exec('agent-browser',['--session',session,'--init-script',hookPath,'set','
 const measured={};
 try{
  for(const view of views){
-  await ab('open',`${base}/?${view.url}`);await ab('wait','--fn',settled);await ab('wait','3000');
+  // With physical night the Moon is ~0.01 and would fall in 'dark'.
+  if(/night=(video|still)/.test(query))view.filter={lit:'faintLit',dark:'faintDark',green:'faintGreen'}[view.filter]??view.filter;
+  await ab('open',`${base}/?${view.url}${query?`&${query}`:''}`);await ab('wait','--fn',settled);await ab('wait','3000');
   const stats=JSON.parse(JSON.parse(await ab('eval',`JSON.stringify(window.__ledger(['${view.filter}']))`)));
   if(!stats||stats.error)throw Error(`${view.id}: ${stats?.error??'scene buffer not found'}`);
   await ab('screenshot',join(out,`${view.id}.png`));

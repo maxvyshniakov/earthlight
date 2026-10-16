@@ -1,4 +1,4 @@
-import {halfFloatTarget,textureImage2D} from './webgl-context.ts';
+import {radianceTarget,textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
 import { opticalPsfSource, optics } from './optical-psf';
 import { pointBrightnessShader } from './point-photometry';
@@ -101,7 +101,7 @@ export class CatalogStars {
     const texture=gl.createTexture();
     if(!texture)throw new Error('Cannot allocate catalog target');
     this.texture=texture;
-    const half=halfFloatTarget(gl);
+    const half=radianceTarget(gl);
     this.linear=half!==null;
     this.pixelType=half??gl.UNSIGNED_BYTE;
     this.maxPointSize=gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1];

@@ -1,4 +1,5 @@
 import {continuousLongitudeShader} from './surface-map.ts';
+import {nightScaleGlsl} from './physical-night.ts';
 // The source atlas is scalar. Lamp colors below are an illustrative regional
 // mixture, not measured spectra or invented lights in unlit geography.
 export const cityLightShader=continuousLongitudeShader+`
@@ -8,7 +9,7 @@ float cityLightEnergy(float encoded) {
   // The previous 1.8 exponent suppressed a 10% source by another 1.7 stops.
   // Keep the previous full-strength detail peak; apply this calibration to
   // overview, detail and scattered light alike, before spatial integration.
-  return .65*pow(.55,1.15)*pow(max(encoded,0.),1.3);
+  return .65*pow(.55,1.15)*pow(max(encoded,0.),1.3)*${nightScaleGlsl('city')};
 }
 float cityActivation(vec3 normal){
   float solar=dot(normal,sunDirection);
