@@ -1,0 +1,102 @@
+{
+ "date": "2026-10-16",
+ "method": "agent-browser 1200x800 DPR1, look-grain=0, motion=0, 9 s exposure settle; reflections on vs look-ghosts=0; luminance difference of 8-bit output, peak after 9x9 box filter; clipped = pixels white only with reflections",
+ "stages": {
+  "before": {
+   "moon20": {
+    "peak": 243.3,
+    "mean": 0.35,
+    "visibleShare": 0.95,
+    "clipped": 0
+   },
+   "sun15": {
+    "peak": 255,
+    "mean": 9.87,
+    "visibleShare": 10.22,
+    "clipped": 15845
+   },
+   "sun1": {
+    "peak": 125.2,
+    "mean": 0.04,
+    "visibleShare": 0.08,
+    "clipped": 111
+   },
+   "crescent": {
+    "peak": 2,
+    "mean": 0,
+    "visibleShare": 0,
+    "clipped": 0
+   },
+   "earthMoon": {
+    "peak": 9.4,
+    "mean": 0,
+    "visibleShare": 0.02,
+    "clipped": 0
+   }
+  },
+  "focalScale": {
+   "moon20": {
+    "peak": 9.3,
+    "mean": 0.57,
+    "visibleShare": 1.68,
+    "clipped": 0
+   },
+   "sun15": {
+    "peak": 255,
+    "mean": 37.68,
+    "visibleShare": 68.68,
+    "clipped": 38037
+   },
+   "sun1": {
+    "peak": 125.2,
+    "mean": 0.04,
+    "visibleShare": 0.08,
+    "clipped": 111
+   },
+   "crescent": {
+    "peak": 0,
+    "mean": 0,
+    "visibleShare": 0,
+    "clipped": 0
+   },
+   "earthMoon": {
+    "peak": 9.4,
+    "mean": 0.01,
+    "visibleShare": 0.02,
+    "clipped": 9
+   }
+  },
+  "after": {
+   "moon20": {
+    "peak": 0.4,
+    "mean": 0.04,
+    "visibleShare": 0,
+    "clipped": 0
+   },
+   "sun15": {
+    "peak": 72.2,
+    "mean": 6.09,
+    "visibleShare": 20.82,
+    "clipped": 4
+   },
+   "sun1": {
+    "peak": 15.3,
+    "mean": 0,
+    "visibleShare": 0.02,
+    "clipped": 3
+   },
+   "crescent": {
+    "peak": 0,
+    "mean": 0,
+    "visibleShare": 0,
+    "clipped": 0
+   },
+   "earthMoon": {
+    "peak": 13,
+    "mean": 0.01,
+    "visibleShare": 0.02,
+    "clipped": 66
+   }
+  }
+ }
+}

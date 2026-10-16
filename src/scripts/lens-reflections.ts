@@ -15,7 +15,12 @@ export function visibleSourceDisk(camera: number[], direction: number[], radius:
 // References and deliberate approximations are documented in orbital-sky.md.
 // Upper bound on integrated reflected luminance at the default slider. The
 // coating is illustrative, but ghost area can no longer create source energy.
-export const LENS_REFLECTION_FRACTION=.002;
+// A ghost is two reflections; at ~0.5% per multicoated air-glass surface the
+// strongest path returns 2.5e-5 of the source, and the seven path weights
+// scale from it. The earlier 0.2% total was uncoated-lens territory: a solar
+// ghost the size of the disk was tens of times brighter than sunlit cloud.
+export const LENS_STRONGEST_PATH=2.5e-5;
+export const LENS_REFLECTION_FRACTION=LENS_STRONGEST_PATH*2.345/.85;
 export const lensReflectionShader=`
 float ghostAperture(vec2 q){
   float polygon=max(abs(dot(q,vec2(.963771,.266731))),
@@ -42,7 +47,11 @@ vec3 apertureGhost(vec2 p,vec2 source,float conjugate,float radius,float softnes
   // A deterministic focus response per ghost path, not a prescribed real lens.
   // Different conjugates change at different rates during the same focus pull.
   float focus=focusRadius/6.;
-  float dilation=cameraPupilScale*(1.+focus*(.10+.07*sin(conjugate*7.)));
+  // Each path's defocus scales with the entrance pupil, f/N: the f-number in
+  // cameraPupilScale and the focal length in ghostFocalScale. Source flux
+  // grows as focal² while the kernel area grows the same, so zooming in on
+  // the Sun keeps reflection surface brightness instead of stacking it.
+  float dilation=cameraPupilScale*ghostFocalScale*(1.+focus*(.10+.07*sin(conjugate*7.)));
   radius*=dilation;
   // Approximate convolution with the extended source by matching footprint
   // variance. Preserve integrated energy: stopping down cannot turn the Sun's

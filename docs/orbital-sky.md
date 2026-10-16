@@ -808,17 +808,23 @@ popping on at its center's sunrise. Tests compare this area approximation to
 independent ray/sphere disk samples. Ghosts can overlay Earth because they form
 inside the lens after scene compositing. Each path receives a fraction of the
 source's integrated image-plane flux, divided by a conservative bound on its
-elliptical support integral. The total reflected luminance is bounded by 0.2%
-of source flux at the default slider. This efficiency and the path shapes are
-chosen parameters, not a calibrated lens prescription. Stars and planets use
+elliptical support integral. The strongest path returns 2.5 × 10⁻⁵ of the
+source flux, two reflections at about 0.5% from multicoated surfaces; the seven
+paths together return about 6.9 × 10⁻⁵ at the default slider. This efficiency
+and the path shapes are chosen parameters, not a calibrated lens prescription.
+Each path's kernel scales with the entrance pupil, focal length over f-number,
+so zooming in on the Sun or Moon widens their reflections as their flux grows
+and keeps reflection surface brightness constant. Stars and planets use
 the same Pogson brightness and PSF integral as their direct images, converted
 from CSS-pixel area to viewport-height area. The Moon uses its rendered disk
 area and integrated illumination; the Sun uses its shared irradiance and the
 projection Jacobian. Exposure acts on direct and reflected light together.
-Solar ghosts include the finite source radius in their footprint and edge
-softness. This is a variance-matched convolution approximation. Increasing
+Solar and lunar ghosts include the finite source radius in their footprint and
+edge softness. This is a variance-matched convolution approximation. Increasing
 ghost size cannot multiply integrated energy. A float-buffer GPU regression
-integrates the actual kernels for multiple pupils, disk sizes and chain types.
+integrates the actual kernels for multiple pupils, focal lengths, disk sizes
+and chain types. The calibration is recorded in
+[the lens reflection lab note](lab/lens-reflections-2026-10-16.md).
 The visual reference is [Don Pettit's spacewalk photograph](https://svs.gsfc.nasa.gov/31347/):
 bright white source scatter with weaker colored reflections through which scene
 detail remains visible; it does not calibrate this preset to that camera.

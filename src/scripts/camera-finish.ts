@@ -11,7 +11,7 @@ import { cameraModelShader } from './camera-model';
 export const CAMERA_EXPOSURE_EV=0;
 /** Camera poses of this and the previous submitted frame, for shutter blur. */
 export type ShutterMotion={shutter:number;sky:boolean;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
-export type LensFrame={moon:[number,number,number];sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
+export type LensFrame={moon:[number,number,number];moonRadius?:number;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
 const fragmentSource = `
 precision highp float;
 precision highp sampler2D;
@@ -27,6 +27,7 @@ uniform float sceneLinear;
 uniform float exposureEV;
 uniform sampler2D exposureState;
 uniform vec3 moonGhost;
+uniform float moonGhostRadius;
 uniform vec3 sunGhost;
 uniform float sunReflectionAmount;
 uniform vec4 pointGhosts[3];
@@ -44,6 +45,7 @@ ${sceneColorShader}
 ${cameraModelShader}
 float cameraOpening;
 float cameraPupilScale;
+float ghostFocalScale;
 float ghostSourceRadius;
 ${lensReflectionShader}
 vec3 sourceEnergy(float column){
@@ -51,7 +53,9 @@ vec3 sourceEnergy(float column){
 }
 vec3 reflectionsAt(vec2 p,float aspect){
   vec3 result=vec3(0.);
-  ghostSourceRadius=0.;
+  // The Moon is as wide as the Sun; at long focal lengths its disk, not the
+  // aperture, sets the size of a reflection.
+  ghostSourceRadius=moonGhostRadius*FOCAL;
   if(moonGhost.z>0.)result+=lensReflections(p,moonGhost.xy,aspect,1.)*moonGhost.z*sourceEnergy(.1);
   if(sunGhost.z>0.){
     // Finite solar disk broadens the conjugate image even with a closed iris.
@@ -193,6 +197,7 @@ void main() {
   vec4 camera=cameraProgram(automaticEV);
   cameraOpening=camera.w;
   cameraPupilScale=4./camera.x;
+  ghostFocalScale=FOCAL/1.25;
   vec2 uv=gl_FragCoord.xy/resolution;
   vec2 field=(uv-.5)*vec2(resolution.x/resolution.y,1.)/1.25;
   // Lateral chromatic magnification: zero on-axis, increasing quadratically
@@ -270,7 +275,7 @@ export class CameraFinish {
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
       this.position=gl.getAttribLocation(this.program,'position');
-      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
       this.exposure=new CameraExposure(gl,prepared?.exposure);
       this.defocus=new CameraDefocus(gl,this.pixelType,prepared?.defocus);
     } catch(error){this.dispose();throw error;}
@@ -315,6 +320,7 @@ export class CameraFinish {
     gl.uniform1f(this.uniforms.exposureEV,CAMERA_EXPOSURE_EV+exposureCompensation);
     gl.uniform1f(this.uniforms.displayP3,this.displayP3?1:0);
     gl.uniform3fv(this.uniforms.moonGhost,lens.moon);
+    gl.uniform1f(this.uniforms.moonGhostRadius,lens.moonRadius??0);
     gl.uniform3fv(this.uniforms.sunGhost,lens.sun);
     gl.uniform1f(this.uniforms.sunReflectionAmount,lens.sunReflections??1);
     gl.uniform4fv(this.uniforms['pointGhosts[0]'],lens.points);
