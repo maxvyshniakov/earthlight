@@ -1010,7 +1010,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     // and every mip, but rebuilds level-0 heights from level 1: 8.4 -> 3.4 MB.
     // terrainMap=v2 keeps the previous file for comparisons.
     if(supportsTerrainTiles&&params.get('terrainMap')!=='v2')for(const asset of plan)if(asset.key==='terrain')asset.url=asset.url.replace(/-v2\.dem$/,'-v3.dem');
-    const assets=new SceneAssets(plan,upload,()=>{if(assets.previewSettled)releasePreviewNetwork();state.assetPhase=assets.settled?'settled':assets.previewSettled?'detail':'preview';state.assetFailures=String(assets.failures.length);notify();},work);
+    const assets=new SceneAssets(plan,upload,()=>{if(assets.previewSettled)releasePreviewNetwork();state.assetPhase=assets.settled?'settled':assets.previewSettled?'detail':'preview';state.assetFailures=String(assets.failures.length);state.firstLight=assets.firstLightFailed?'failed':assets.previewSettled?'loaded':'loading';notify();},work);
     const start=(restoring=false)=>{
       if(disposed||lost)return Promise.resolve(false);
       if(initialization)return initialization;

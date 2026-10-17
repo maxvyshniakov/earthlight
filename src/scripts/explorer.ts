@@ -691,8 +691,8 @@ export class EarthlightExplorer extends HTMLElement {
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       Object.assign(this.dataset,renderer.state);
       // No frame will come: shaders failed on this GPU, or every first-light
-      // asset failed. Show the poster instead of dark space.
-      if(!this.hasAttribute('data-ready')&&(renderer.state.shaderStartup==='failed'||renderer.state.assetPhase==='settled'&&Number(renderer.state.assetFailures)>0))this.dataset.unavailable='';
+      // asset failed. A failed refinement keeps the preview and is not this.
+      if(!this.hasAttribute('data-ready')&&(renderer.state.shaderStartup==='failed'||renderer.state.firstLight==='failed'))this.dataset.unavailable='';
       if(paused||!this.hasAttribute('data-ready'))draw();
     },{assetBaseURL:this.dataset.assetBase,terrainBaseURL:this.dataset.terrainBase});}
     catch(error){console.warn('The scene is unavailable.',error);this.dataset.unavailable='';return;}

@@ -63,6 +63,8 @@ export class SceneAssets {
  previewSettled=false;
  settled=false;
  failures:string[]=[];
+ /** Every first-light asset failed: the scene has nothing to draw. */
+ get firstLightFailed(){const preview=this.plan.filter(x=>x.preview);return this.previewSettled&&preview.length>0&&preview.every(x=>this.failures.includes(x.url));}
  private detailDone=0;
  private work:SceneWork;
  private plan:AssetPlan[];private upload:AssetUpload;private notify:()=>void;
