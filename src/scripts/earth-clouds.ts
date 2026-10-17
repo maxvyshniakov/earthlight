@@ -4,14 +4,19 @@ import {continuousLongitudeShader} from './surface-map.ts';
 // profile and small-scale relief below are a bounded reconstruction.
 import {stormLightShader} from './storm-light.ts';
 import {modisPatchShader} from './modis-patch.ts';
+import {cloudPropertiesShader} from './cloud-properties.ts';
 export const cloudShader=continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
 uniform float cloudMapWidth;
 ${modisPatchShader}
+${cloudPropertiesShader}
 vec3 cloudCoordinates(vec3 point){
+#ifndef CLOUD_PROPERTIES
+  // Measured clouds stay where they were observed.
   point.xy=rotate(time*.000008)*point.xy;
+#endif
   return point;
 }
 float cloudMapSample(vec2 uv,float lod,float texels,bool detailed){
@@ -30,6 +35,10 @@ float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed)
   float texels=footprint*max(1.,cloudMapWidth)/(6.283185307*latitudeScale);
   float lod=max(0.,log2(max(1.,texels)));
   float mapped=cloudMapSample(uv,lod,texels,detailed);
+#ifdef CLOUD_PROPERTIES
+  // Measured opacity is the coverage; there are no plate seams to repair.
+  return mapped;
+#endif
   // The NASA W/E photographic plates disagree south of 50 degrees at their
   // joins at Greenwich AND the date line. Blend paired geography only inside
   // these narrow seam bands;
@@ -114,6 +123,9 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
 float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
 #ifdef CLOUDS_DISABLED
   return 0.;
+#endif
+#ifdef CLOUD_PROPERTIES
+  return cloudPropertiesDensity(point,footprint,detailed,halfSpan);
 #endif
 #ifdef MODIS_GUIDANCE
   float weight;vec4 field=modisSample(point,footprint,weight);
@@ -298,6 +310,9 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
       light+=urbanLight*exp(-cloudHeight/5.);
       // Wispy foreground cloud must not become a second luminous storm sheet.
       light+=(stormCloudLight(point,stormA)+stormCloudLight(point,stormB))*smoothstep(.025,.07,rho);
+#ifdef CLOUD_PROPERTIES_QUALITY
+      light*=cloudPropertiesTint(point);
+#endif
       float opacity=1.-exp(-rho*stepLength*6371.);
       weightedDistance+=transmission*opacity*(entry+(float(i)+.5)*stepLength);
       scattered+=transmission*opacity*light;
@@ -313,6 +328,9 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
 vec3 cloudVolume(vec3 ray,float groundDistance,vec3 background,out float atmosphereDistance){
   float transmission;
   vec3 scattered=cloudIntegral(ray,groundDistance,transmission,atmosphereDistance);
+#ifdef CLOUD_PROPERTIES_QUALITY
+  if(groundDistance>0.)background=cloudPropertiesGround(cameraPosition+ray*groundDistance,background);
+#endif
   return max(vec3(0.),background*transmission+scattered);
 }
 `;

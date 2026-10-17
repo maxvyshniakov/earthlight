@@ -22,6 +22,7 @@ import { sceneProfile } from './scene-profile';
 import {auroraMode as readAuroraMode,cloudMode as readCloudMode} from './scene-effects';
 import {isWebGL2,sceneContext} from './webgl-context';
 import {modisStudyURL} from './modis-study-view';
+import {cloudPropertiesURL,type CloudPropertiesView} from './cloud-properties';
 
 export class EarthlightExplorer extends HTMLElement {
   private cleanup?: () => void;
@@ -71,7 +72,7 @@ export class EarthlightExplorer extends HTMLElement {
     const params = new URLSearchParams(location.search);
     auroraMode.value=readAuroraMode(params);
     cloudsMode.value=readCloudMode(params);
-    cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis'].includes(params.get('cloudStudy')??'');
+    cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis','global','plates'].includes(params.get('cloudStudy')??'');
     exposureMode.value=params.get('exposure-mode')==='manual'?'manual':'auto';
     lensPreset.value=readLensPreset(params.get('lens-preset'));
     const restoredFixed=Number(params.get('exposure-fixed'));
@@ -254,7 +255,7 @@ export class EarthlightExplorer extends HTMLElement {
     const updateExplorerLink = (sceneTime=playback.read(performance.now())+composition().offset) => {
       if(!explorerLink)return;
       const url=new URL(this.dataset.exploreUrl??'/',location.href);
-      for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudLighting'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
+      for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudStudyView','cloudLighting'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
       url.searchParams.set('t',sceneTime.toFixed(2));
       calendar.write(url.searchParams);
       if(paused)url.searchParams.set('motion','0');
@@ -881,6 +882,24 @@ export class EarthlightExplorer extends HTMLElement {
       reloadScene(url);
     };
     modisMode.addEventListener('change',changeModis);
+    // Measured clouds (cloudStudy=global) against the calibrated plates.
+    const propertiesPanel=this.querySelector<HTMLElement>('.cloud-properties-study')!;
+    const propertiesMode=propertiesPanel.querySelector<HTMLSelectElement>('select')!;
+    propertiesPanel.hidden=!['global','plates'].includes(params.get('cloudStudy')??'');
+    propertiesMode.value=params.get('cloudStudy')==='plates'?'plates':'global';
+    const propertiesStudy=(url:URL,mode:string)=>{
+      url.searchParams.set('cloudStudy',mode);
+      if(mode==='plates')url.searchParams.set('clouds','calibrated');else url.searchParams.delete('clouds');
+      return url;
+    };
+    for(const link of propertiesPanel.querySelectorAll<HTMLAnchorElement>('[data-cloud-properties-view]'))
+      link.href=propertiesStudy(cloudPropertiesURL(location.href,link.dataset.cloudPropertiesView as CloudPropertiesView),propertiesMode.value).href;
+    const qualityLink=propertiesPanel.querySelector<HTMLAnchorElement>('[data-cloud-properties-quality]')!;
+    const quality=new URL(location.href);
+    if(params.get('cloudStudyView')==='quality')quality.searchParams.delete('cloudStudyView');else propertiesStudy(quality,'global').searchParams.set('cloudStudyView','quality');
+    qualityLink.href=quality.href;qualityLink.textContent=params.get('cloudStudyView')==='quality'?'Без диагностики':'Диагностика';
+    const changeProperties=()=>reloadScene(propertiesStudy(new URL(pendingURL??location.href),propertiesMode.value));
+    propertiesMode.addEventListener('change',changeProperties);
     const cloudShapeSelect=comparison.querySelector<HTMLSelectElement>('#cloud-shape')!;
     cloudShapeSelect.value=params.get('cloudShape')==='texture'?'texture':'current';
     const changeCloudShape=()=>{
@@ -1004,6 +1023,7 @@ export class EarthlightExplorer extends HTMLElement {
       profileSelect.removeEventListener('change',changeProfile);
       cloudShapeSelect.removeEventListener('change',changeCloudShape);
       modisMode.removeEventListener('change',changeModis);
+      propertiesMode.removeEventListener('change',changeProperties);
       lookInputs.forEach(input=>input.removeEventListener('input',changeLook));
       exposureMode.removeEventListener('change',changeLook);fixedExposure.removeEventListener('input',changeLook);lensPreset.removeEventListener('change',changeLook);
       auroraObserver.disconnect();auroraMode.removeEventListener('change',changeAurora);
