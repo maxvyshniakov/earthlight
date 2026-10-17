@@ -1,7 +1,7 @@
 import {test,afterEach,spyOn,mock} from 'bun:test';
 import assert from 'node:assert/strict';
 import { issFrame } from '../src/scripts/iss-orbit.ts';
-import { tileAt, visibleSurfaceTiles, visibleGalaxyTiles, SurfaceTiles } from '../src/scripts/night-tiles.ts';
+import { tileAt, visibleSurfaceTiles, visibleGalaxyTiles, SurfaceTiles, nightTileShader } from '../src/scripts/night-tiles.ts';
 
 const all=new Set(Array.from({length:12800},(_,i)=>i));
 test('unresolved polar day/night detail uses the overview but close views still stream',()=>{
@@ -168,4 +168,23 @@ test('only colour and night layers smooth magnified detail; night uses its 30" g
   assert.match(nightTileShader,/smoothstep\(1\.0,2\.0,footprint\)/);
   assert.match(dayTileShader,/dayOrigin\(slot\)\+vec2\(16\.\)\+local\*540\./);
   assert.match(dayTileShader,/smoothstep\(0\.5,1\.0,footprint\)/);
+});
+
+test('VNP46A4 lab tiles interpolate their own 15" grid and convert radiance to the 2016 scale',()=>{
+  const night=nightTileShader;
+  const branch=night.slice(night.indexOf('#ifdef NIGHT_VNP46'),night.indexOf('#endif'));
+  assert.match(branch,/vec2 t=nightOrigin\(slot\)\+vec2\(16\.\)\+local\*540\./,'level 0, not the 30" level 1');
+  assert.match(night,/#ifdef NIGHT_VNP46\nfloat smooth=1\.-smoothstep\(0\.5,1\.0,footprint\);/);
+  // Run the GLSL conversion as JavaScript.
+  const body=night.slice(night.indexOf('float nightVnp46Encoded'),night.indexOf('#ifdef NIGHT_VNP46_EXTENDED'));
+  const js=body.replace(/^float nightVnp46Encoded\(float code\)\{/,'').replace(/float /g,'const ').replace(/\b(log|exp|max|min)\(/g,'Math.$1(');
+  const extended=new Function('code',js+'return encoded;');
+  const code=L=>Math.log1p(L/.25)/Math.log1p(20000);
+  const encoded=L=>Math.min(1,extended(code(L)));
+  assert.equal(encoded(0),0);
+  // Bins of the fit (vnp46-measure.py): radiance -> median Black Marble 2016 value.
+  for(const [L,e] of [[1.17,.048],[2.03,.175],[5.07,.55],[15.2,.839]])assert.ok(Math.abs(encoded(L)-e)<.06,`${L} nW`);
+  assert.ok(encoded(20)<1&&encoded(25)===1,'saturates near 23 nW like the 2016 plates');
+  assert.ok(extended(code(1000))>extended(code(100))&&extended(code(100))>1,'extended range keeps the slope');
+  for(let L=.5;L<5000;L*=1.3)assert.ok(extended(code(L*1.3))>extended(code(L)),'monotonic');
 });

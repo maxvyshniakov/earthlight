@@ -29,6 +29,27 @@ at the distant horizon, during tile loading, and when a tile cannot be fetched.
   effort 4, 8-bit, 4:4:4. Emission is isolated before mip generation so
   filtering does not cause a runtime color threshold to erase distant lights.
 
+### Lab: measured night radiance (`night-vnp46-tiles/`)
+
+Regional only, loaded with `nightDetail=vnp46`, and not part of the release
+(`assets:prepare` skips it). It has 24 tiles: Cleveland and Lake Erie (h09v04)
+and Delhi (h25v06). See `docs/lab/night-vnp46-2026-10-17.md`.
+
+- Source: NASA Black Marble VNP46A4 (Suomi NPP) and VJ146A4 (NOAA-20),
+  Collection 2, lunar-BRDF-adjusted annual nighttime lights,
+  `AllAngle_Composite_Snow_Free`, from LAADS DAAC (collection 5200).
+  DOIs 10.5067/VIIRS/VNP46A4.002 and 10.5067/VIIRS/VJ146A4.002.
+- Credit: NASA Black Marble, Román, M. O. et al. (2018), Remote Sensing of
+  Environment 210, 113–143, doi:10.1016/j.rse.2018.03.017.
+- Access: Earthdata login. LAADS asks each account to accept the product's
+  terms once; record them before any release.
+- Changes: the median of the 2022, 2023 and 2024 annual composites of both
+  satellites. Radiance below 0.5 nW cm⁻² sr⁻¹ is set to 0. Over open water the
+  shore's stray-light halo is subtracted. The result is stored as
+  `255 ln(1 + L/0.25) / ln(1 + 20000)` in 8-bit single-channel AVIF q80.
+  The originals (12 HDF5 granules, 1.82 GB) are kept outside the repository;
+  their SHA-256 sums are in the tile manifest.
+
 ## Surface color and clouds
 
 The renderer uses NASA sources directly:

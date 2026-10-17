@@ -387,7 +387,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           +(cloudProperties?'#define CLOUD_PROPERTIES 1\n'+(params.get('cloudStudyView')==='quality'?'#define CLOUD_PROPERTIES_QUALITY 1\n':''):'')
           +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
-        const skyProgram=batch.add('Scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
+        const skyProgram=batch.add('Scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(params.get('nightDetail')==='vnp46'?'#define NIGHT_VNP46 1\n'+(params.get('nightRange')==='extended'?'#define NIGHT_VNP46_EXTENDED 1\n':''):'')+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
         const attenuationProgram=supportsSourceAttenuation?batch.add('Source transmission',vertexSource,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+sourceTransmissionFragment):null;
         const lightingPlan=textureLighting?CloudLightingAtlas.prepare(batch,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')):null;
         const volumePlans=new Map<string,WebGLProgram>();
@@ -566,7 +566,8 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.uniform1f(gl.getUniformLocation(program,'sceneLinear'),finish.linear?1:0);
         state.colorSpace=wideGamut?'display-p3':'srgb';
         if(streamDetail&&params.get('nightDetail')!=='0'){
-          try{nightTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'night',work,base);}
+          // Lab, nightDetail=vnp46: regional VNP46A4 radiance tiles (docs/lab/night-vnp46-2026-10-17.md).
+          try{nightTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'night',work,base,params.get('nightDetail')==='vnp46'?'night-vnp46-tiles':'night-tiles');}
           catch(error){console.warn('Detailed night map unavailable; retaining the global map.',error);}
         }
         // Unit 6 is reused across passes. CameraFinish rebinds its target only
