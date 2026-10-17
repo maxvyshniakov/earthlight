@@ -76,8 +76,11 @@ Keep the current release and at most one previous one. Once no consumer
 references a version (the explorer deployment and personal-site `dev` and
 production packages), delete its `earthlight/releases/<version>/` objects,
 its `earthlight-assets-<version>` Worker and its route. Static visitor requests are free and
-unlimited. `media:prepare` rejects more than 19,000 files or any file above
-25 MiB, below the Workers Free file-count limit.
+unlimited. `assets:prepare` and `media:prepare` reject more than 19,000 files
+or any file above 25 MiB, below the Workers Free file-count limit
+(`scripts/media-limits.mjs`). The host ignores HTTP `Range` and answers 200
+with the whole file, so data meant to be read in parts, such as the day
+pyramid, is packed into files a view needs whole.
 
 ## Publish an asset release
 

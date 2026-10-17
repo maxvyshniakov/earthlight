@@ -711,7 +711,9 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       gl.uniform1f(sceneUniforms.solarVisibility,solarImage.visibility);
       gl.uniform4fv(sceneUniforms.solarImage,solarImageState);
       if(params.get('surface')!=='0')nightTiles?.update(observer,width,height,program);
-      if(params.get('surface')!=='0')dayTiles?.update(terrainView?{...observer,sun:observer.camera}:observer,width,height,program);
+      // Deep day tiles wait for a sharp frame: the defocused start renders a
+      // smaller buffer and would fetch packs of a level the view then drops.
+      if(params.get('surface')!=='0')dayTiles?.update(terrainView?{...observer,sun:observer.camera}:observer,width,height,program,focusRadius===0);
       if(params.get('surface')!=='0'&&cloudTiles){
         const angle=sceneTime*(cloudProperties?0:CLOUD_DRIFT),c=Math.cos(angle),s=Math.sin(angle);
         const rotate=(v:number[])=>[c*v[0]+s*v[1],-s*v[0]+c*v[1],v[2]];

@@ -78,9 +78,14 @@ called Orbit, and older lab notes still use that name.
   62.5 m; `day-pyramid.ts`, `dayDetail=sentinel`), level *L* splitting each
   day tile into 2^L × 2^L tiles, from the WorldCover Sentinel-2 composite.
   See `docs/lab/day-pyramid-global-2026-10-17.md`.
-- **Pack**: one file per day tile holding its day-pyramid tiles, read with
-  HTTP range requests; the **pack index** (`day-pyramid/index.bin`) lists
-  which tiles exist (`day-pyramid-pack.ts`).
+- **Pack**: one file of day-pyramid tiles, an aligned block of 2^k × 2^k
+  tiles of one level (`day-pyramid/<level>/<x>-<y>.pack`), fetched whole
+  because the media host ignores HTTP ranges and kept in the renderer's
+  byte-bounded **pack cache**. The **pack index** (`day-pyramid/index.bin`)
+  lists which tiles exist and each level's block size per day tile
+  (`day-pyramid-pack.ts`). A **day tile pack** is the builder's intermediate:
+  all three levels of one day tile, repacked into packs for the release
+  (`build-day-pyramid-packs.mjs`).
 
 ## Words to avoid
 

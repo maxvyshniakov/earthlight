@@ -262,9 +262,12 @@ export class SurfaceTiles {
   private revision=0;
   private uniforms=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
   private pyramid:DayPyramid|null=null;
+  private detail=false;
   requests=0;
   bytes=0;
   deepBytes=0;
+  // When the first deep day tile became resident (performance.now()), 0 before.
+  deepFirst=0;
 
   // `directory` (below the asset base) replaces `<layer>-tiles` for lab data
   // in the same layout, such as measured cloud properties.
@@ -282,7 +285,7 @@ export class SurfaceTiles {
     textureImage2D(gl,gl.TEXTURE_2D,0,this.format,1,1,0,this.format,gl.UNSIGNED_BYTE,null);
     for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
     for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
-    if(pyramid&&layer==='day')this.pyramid=new DayPyramid(assetBaseURL,this.abort.signal,()=>{this.lastSelection=-Infinity;this.notify();});
+    if(pyramid&&layer==='day')this.pyramid=new DayPyramid(assetBaseURL,this.abort.signal,()=>{this.lastSelection=-Infinity;this.notify();},(mobile?16:48)*2**20);
     this.work.network.run(scenePriority.tile,this.abort.signal,async()=>{
       const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/manifest.json',{signal:this.abort.signal});
       if(!response.ok)throw new Error('Surface tile manifest unavailable');
@@ -305,7 +308,8 @@ export class SurfaceTiles {
     this.gl.bindTexture(this.gl.TEXTURE_2D,this.texture);
   }
 
-  update(view:View,width:number,height:number,program:WebGLProgram){
+  /** `detail` false holds back the day pyramid's deep tiles (a defocused frame). */
+  update(view:View,width:number,height:number,program:WebGLProgram,detail=true){
     if(this.disposed)return;
     const {columns,rows}=this.dimensions;
     const count=columns*rows;
@@ -313,6 +317,12 @@ export class SurfaceTiles {
     if(this.wasMoving&&!this.work.moving)this.lastSelection=-Infinity;
     this.wasMoving=this.work.moving;
     const pose=[...Array.from(view.camera),...Array.from(view.cameraBasis),width,height,view.focal??1.25];
+    // The buffer grows to full size a frame after focus is reached: the first
+    // deep selection waits one selection interval for it.
+    if(this.pyramid&&detail!==this.detail){
+      this.detail=detail;
+      if(detail){this.lastSelection=now;clearTimeout(this.selectionTimer);this.selectionTimer=window.setTimeout(()=>{this.selectionTimer=0;if(!this.disposed)this.notify();},181);}
+    }
     // A fast swipe used to bypass the interval every frame for every layer,
     // repeatedly selecting and aborting tiles before they could finish loading.
     if(now-this.lastSelection>180){
@@ -320,7 +330,7 @@ export class SurfaceTiles {
       this.previousView=pose;clearTimeout(this.selectionTimer);this.selectionTimer=0;
       this.wanted=visibleSurfaceTiles(view,width,height,this.available,this.capacity,this.layer);
       // Deeper day levels share the atlas: at most half of it, ahead of BMNG.
-      if(this.pyramid)this.wanted=[...this.pyramid.select(view,width,height,Math.floor(this.capacity/2)),...this.wanted].slice(0,this.capacity);
+      if(this.pyramid&&this.detail)this.wanted=[...this.pyramid.select(view,width,height,Math.floor(this.capacity/2)),...this.wanted].slice(0,this.capacity);
       const desired=new Set(this.wanted);
       for(const [id,controller] of this.pending)if(!desired.has(id))controller.abort();
       for(const id of this.wanted){const entry=this.resident.get(id);if(entry)entry.used=now;}
@@ -377,9 +387,10 @@ export class SurfaceTiles {
       if(this.pending.size>=3)break;
       if(this.resident.has(id)||this.pending.has(id)||(this.failed.get(id)??0)>performance.now())continue;
       const controller=new AbortController();this.pending.set(id,controller);this.requests++;
-      const timeout=window.setTimeout(()=>controller.abort(),12000);
+      // A deep tile waits for its whole pack (up to about 1.6 MB).
+      const timeout=window.setTimeout(()=>controller.abort(),id>=1e8?30000:12000);
       this.work.network.run(scenePriority.tile,controller.signal,async()=>{
-        // Deep day tiles are byte ranges of their day tile's pack.
+        // Deep day tiles come from their pack, fetched whole and cached.
         if(this.pyramid&&id>=1e8)return this.pyramid.load(id,controller.signal);
         const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
         if(!response.ok)throw new Error('Surface tile unavailable');
@@ -429,6 +440,7 @@ export class SurfaceTiles {
             offset+=size;
           }
           this.resident.set(id,{slot,loaded:performance.now(),used:performance.now()});
+          if(id>=1e8&&!this.deepFirst)this.deepFirst=performance.now();
           this.tableDirty=true;
           this.notify();
         }finally{image.close();}
@@ -439,7 +451,7 @@ export class SurfaceTiles {
   }
 
   layout(){return [this.allocated?this.edge:0,this.columns];}
-  stats(){const now=performance.now();return {revision:this.revision,fading:[...this.resident.values()].filter(entry=>now-entry.loaded<650).length,resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,...(this.pyramid?{deep:[...this.resident.keys()].filter(id=>id>=1e8).length,deepWanted:this.pyramid.wanted,deepBytes:this.deepBytes,deepRequests:this.pyramid.requests}:{}),gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
+  stats(){const now=performance.now();return {revision:this.revision,fading:[...this.resident.values()].filter(entry=>now-entry.loaded<650).length,resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,...(this.pyramid?{deep:[...this.resident.keys()].filter(id=>id>=1e8).length,deepWanted:this.pyramid.wanted,deepBytes:this.deepBytes,deepRequests:this.pyramid.requests,deepPackBytes:this.pyramid.received,deepCached:this.pyramid.cached,deepFirst:Math.round(this.deepFirst)}:{}),gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
   dispose(){
     this.disposed=true;this.abort.abort();clearTimeout(this.timer);clearTimeout(this.selectionTimer);
     for(const controller of this.pending.values())controller.abort();

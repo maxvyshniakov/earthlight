@@ -1,7 +1,7 @@
 // Day pyramid views (docs/lab/day-pyramid-global-2026-10-17.md): paired
-// renders with and without `dayDetail=sentinel`, bytes per view and GPU frame
-// time, straight down from the ISS's 420 km. Uses an isolated agent-browser
-// session per view; never attaches to the user's tab.
+// renders with and without `dayDetail=sentinel`, bytes per view, first-detail
+// latency and GPU frame time, straight down from the ISS's 420 km. Uses an
+// isolated agent-browser session per view; never attaches to the user's tab.
 //
 //   bun scripts/measure-day-pyramid-views.mjs <base-url> <output-dir> [regions] [lenses] [--frames]
 //
@@ -9,13 +9,39 @@
 // --modes=bmng captures only the view without detail (for A/B checks).
 // --rounds=N repeats every view N times, interleaved, for frame-time pairs.
 // --frames adds GPU timer queries (42 frames, median of the last 36), as in
-// scripts/benchmark-scene-profiles.mjs. Results go to <output-dir>/views.json.
+// scripts/benchmark-scene-profiles.mjs. Results go to <output-dir>/views.json:
+// deepBytes are the deep tiles' own bytes (what range reads would fetch),
+// packBytes what whole packs cost, and firstDetailMs the time from the first
+// pack request to the first deep tile drawn.
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 const exec=promisify(execFile);
-const [base,output,only,lensList='4,8,20']=process.argv.slice(2).filter(a=>!a.startsWith('--')),out=output&&resolve(output);
+const [target,output,only,lensList='4,8,20']=process.argv.slice(2).filter(a=>!a.startsWith('--')),out=output&&resolve(output);
+// --throttle=<Mbit/s>,<RTT ms> serves the page through a local proxy that
+// holds each day-pyramid response for one round trip and paces its body at
+// that rate (per request), so first-detail latency reflects a real link.
+const throttle=process.argv.find(a=>a.startsWith('--throttle='))?.split('=')[1].split(',').map(Number);
+const relay=throttle&&target?proxy(target,...throttle):null,base=relay?.url??target;
+function proxy(origin,mbps,rtt){
+  const rate=mbps*1e6/8,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const server=Bun.serve({port:0,idleTimeout:120,async fetch(request){
+    const url=new URL(request.url),response=await fetch(new URL(url.pathname+url.search,origin),{method:request.method,headers:request.headers,body:request.body});
+    const headers=new Headers(response.headers);headers.delete('content-encoding');headers.delete('content-length');
+    const bytes=new Uint8Array(await response.arrayBuffer());
+    if(!url.pathname.includes('/day-pyramid/'))return new Response(bytes,{status:response.status,headers});
+    await sleep(rtt);
+    const started=performance.now();let at=0;
+    return new Response(new ReadableStream({async pull(controller){
+      if(at>=bytes.length){controller.close();return;}
+      const n=Math.min(16384,bytes.length-at),wait=started+(at+n)/rate*1000-performance.now();
+      if(wait>0)await sleep(wait);
+      controller.enqueue(bytes.slice(at,at+n));at+=n;
+    }}),{status:response.status,headers});
+  }});
+  return {url:`http://localhost:${server.port}/`,stop:()=>server.stop(true)};
+}
 if(!base||!output)throw new Error('Usage: measure-day-pyramid-views.mjs <base-url> <output-dir> [regions] [lenses] [--frames]');
 const frames=process.argv.includes('--frames');
 export const REGIONS={
@@ -29,6 +55,7 @@ export const REGIONS={
   arctic:{lon:-31,lat:82.9,label:'Peary Land at 83° N'},
   antarctic:{lon:-45.6,lat:-60.6,label:'South Orkney at 60° S'},
   giza:{lon:31.134,lat:29.979,label:'Giza'},
+  cairo:{lon:31.24,lat:30.04,label:'Cairo'},
 };
 const regions=(only&&only!=='all'?only.split(','):Object.keys(REGIONS)).map(name=>({name,...REGIONS[name]}));
 const lenses=lensList.split(',').map(Number);
@@ -71,15 +98,8 @@ for(let round=0;round<rounds;round++)for(const region of regions)for(const lens 
     // A last selection round after settling, then the state as drawn.
     await new Promise(resolve=>setTimeout(resolve,1500));
     await run('wait','--fn',settled);
-    const state=await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');return {day:JSON.parse(s.dataset.dayTiles),failures:s.dataset.assetFailures,position:s.dataset.cameraPosition,packs:[...new Set(performance.getEntriesByType('resource').map(e=>e.name).filter(n=>/\\/day-pyramid\\/\\d+\\.pack$/.test(n)))]};})()`);
-    // A host without ranges (such as the current media host) sends each
-    // touched pack whole instead.
-    let wholeBytes=0;
-    for(const pack of state.packs){
-      const response=await fetch(pack,{headers:{Range:'bytes=0-0'}});
-      wholeBytes+=Number(response.headers.get('content-range')?.split('/')[1]??response.headers.get('content-length'));
-      await response.arrayBuffer();
-    }
+    const state=await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer'),packs=performance.getEntriesByType('resource').filter(e=>/\\/day-pyramid\\/\\d\\/\\d+-\\d+\\.pack$/.test(e.name));return {day:JSON.parse(s.dataset.dayTiles),failures:s.dataset.assetFailures,position:s.dataset.cameraPosition,packs:packs.map(e=>({name:e.name.replace(/^.*day-pyramid\\//,''),bytes:e.encodedBodySize,start:Math.round(e.startTime),end:Math.round(e.responseEnd)}))};})()`);
+    const firstPack=Math.min(...state.packs.map(pack=>pack.start));
     let timing={};
     if(frames)timing=await evaluate(`(async()=>{
       const sky=document.querySelector('earthlight-explorer'),canvas=sky.querySelector('canvas'),gl=canvas.getContext('webgl');
@@ -117,10 +137,10 @@ for(let round=0;round<rounds;round++)for(const region of regions)for(const lens 
     await evaluate(`(()=>{const style=document.createElement('style');style.textContent='earthlight-explorer *{visibility:hidden!important}earthlight-explorer canvas{visibility:visible!important}';document.head.append(style);return true;})()`);
     await new Promise(resolve=>setTimeout(resolve,300));
     await run('screenshot',join(out,`${name}.png`));
-    const result={name,round,region:region.name,lens,detail,seconds:(Date.now()-started)/1000,bytes:state.day.bytes,requests:state.day.requests,deepBytes:state.day.deepBytes??0,deepRequests:state.day.deepRequests??0,deep:state.day.deep??0,packs:state.packs.length,wholeBytes,resident:state.day.resident,failures:state.failures,...timing};
+    const result={name,round,region:region.name,lens,detail,seconds:(Date.now()-started)/1000,bytes:state.day.bytes,requests:state.day.requests,deepBytes:state.day.deepBytes??0,packBytes:state.day.deepPackBytes??0,packRequests:state.day.deepRequests??0,deep:state.day.deep??0,packs:state.packs,firstDetailMs:state.day.deepFirst&&state.packs.length?state.day.deepFirst-firstPack:null,resident:state.day.resident,failures:state.failures,...timing};
     const index=results.findIndex(r=>r.name===name);if(index>=0)results[index]=result;else results.push(result);
     await writeFile(join(out,'views.json'),JSON.stringify(results,null,1)+'\n');
-    console.log(`${name}: ${result.bytes} B day (${result.deepBytes} B deep, ${result.deep} deep tiles, ${result.deepRequests} ranges in ${result.packs} packs; ${wholeBytes} B as whole packs)${result.medianMs?`, ${result.medianMs.toFixed(2)} ms GPU`:''}`);
+    console.log(`${name}: ${result.bytes} B day (${result.deep} deep tiles of ${result.deepBytes} B from ${result.packRequests} packs of ${result.packBytes} B${result.firstDetailMs!=null?`, first detail ${result.firstDetailMs} ms after the first pack request`:''})${result.medianMs?`, ${result.medianMs.toFixed(2)} ms GPU`:''}`);
   }catch(error){console.log(`${name}: failed (${String(error.message.startsWith('not settled')?error.message:error.stderr||error.message).trim().split('\n').at(-1)})`);}
   finally{await run('close').catch(()=>{});}
 }
@@ -142,3 +162,4 @@ if(process.argv.includes('--compose')){
     console.log(`${region.name}.jpg: ${rows.length} lenses`);
   }
 }
+relay?.stop();
