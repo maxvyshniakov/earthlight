@@ -60564,6 +60564,7 @@
     }
   ],
   "background": [
+    "preview/poster.webp",
     "preview/day.webp",
     "preview/night.webp",
     "preview/clouds.webp",
