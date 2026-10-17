@@ -2,12 +2,12 @@ import type { FlightInput } from './flight-navigation.ts';
 import type { ScrollSession } from './camera-controller.ts';
 import { SCENE_CONTROLS } from './camera-drag.ts';
 
-export type FlightCommand='level'|'reset-camera'|'reset-lens'|'help'|'info'|'free'|'orbit-iss'|'orbit-polar'|'orbit-high';
+export type FlightCommand='level'|'reset-camera'|'reset-lens'|'night'|'help'|'info'|'free'|'orbit-iss'|'orbit-polar'|'orbit-high';
 export type WheelDevice='mouse'|'trackpad';
 // + and − hold the lens; the keypad's work as the main keys.
 const ALIAS:Record<string,string>={NumpadAdd:'Equal',NumpadSubtract:'Minus'};
 const HELD=['KeyW','KeyA','KeyS','KeyD','KeyR','KeyF','KeyQ','KeyE','Equal','Minus','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
-const COMMANDS:Record<string,FlightCommand>={KeyH:'level',Backslash:'reset-camera',Digit0:'reset-lens',KeyI:'info',Digit1:'free',Digit2:'orbit-iss',Digit3:'orbit-polar',Digit4:'orbit-high'};
+const COMMANDS:Record<string,FlightCommand>={KeyH:'level',Backslash:'reset-camera',Digit0:'reset-lens',KeyN:'night',KeyI:'info',Digit1:'free',Digit2:'orbit-iss',Digit3:'orbit-polar',Digit4:'orbit-high'};
 type GestureEvent=UIEvent&{scale:number;rotation:number;clientX:number;clientY:number;shiftKey:boolean};
 // Shift-wheel steps the lens by a third of a doubling per notch.
 const LENS_NOTCH=Math.log(2)/3;

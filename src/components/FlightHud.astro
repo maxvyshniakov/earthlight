@@ -73,6 +73,7 @@ const groups: Group[] = [
     how: { pointer: [`Wheel or pinch with ${shift}.`] } },
   { name: 'Orbits', keys: [[[key('Digit1', '1'), 'Free flight'], [key('Digit2', '2'), 'ISS'], [key('Digit3', '3'), 'Polar'], [key('Digit4', '4'), 'High']]] },
   { name: 'Time', keys: [[[key('Space', 'Space'), 'Pause or play']]] },
+  { name: 'Night', keys: [[[key('KeyN', 'N'), 'Night mode']]] },
 ];
 ---
 <div class="flight-hud" data-modality="mouse">
@@ -133,6 +134,7 @@ const groups: Group[] = [
         </div>
         <div class="hud-now" aria-hidden="true"><output class="ev-output">0.0 EV</output></div>
       </div>
+      <button type="button" class="hud-key" data-press="KeyN" aria-pressed="false" tabindex="-1" title="Night mode (N)"><kbd data-key="KeyN">N</kbd><span>Night mode</span></button>
     </div>
     <div class="hud-zoom hud-meter" style={`--longest: ${Math.max(...lensScale.map(({ zoom }) => `${zoom}×`.length))}`}>
       <div id="explorer-lens" class="hud-tape" role="slider" tabindex="0" aria-label="Lens" aria-orientation="vertical" aria-valuemin={LENS_MIN} aria-valuemax={LENS_MAX} aria-valuenow="1" aria-valuetext="1×, 30 mm">
@@ -432,7 +434,10 @@ const groups: Group[] = [
   .hud-meter .hud-key { display: flex; align-items: center; gap: 8px; color: var(--hud-dim); font: 600 10px/1 var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
   .hud-meter .hud-key:is(:hover, :has(kbd[data-pressed])) { color: #fff; }
   .hud-altimeter .hud-key { flex-direction: row-reverse; justify-self: end; }
-  .hud-zoom .hud-key { justify-self: start; }
+  .hud-zoom .hud-key, .hud-ev .hud-key { justify-self: start; }
+  /* A latched key, like the orbit keys: night mode stays down while on. */
+  .hud-meter .hud-key[aria-pressed="true"] { color: #fff; }
+  .hud-meter .hud-key[aria-pressed="true"] :global(kbd) { background: #fff; border-color: #fff; color: #000; }
   /* Keys under their tape, 20 px off it and on the presets' 24 px pitch. */
   .hud-meter .hud-key + .hud-key { margin-top: -14px; }
   .hud-tape { --at: 82%; position: relative; width: calc(var(--axis) + 1px); height: calc(var(--tape) * var(--tape-share, 1)); cursor: ns-resize; touch-action: none; }

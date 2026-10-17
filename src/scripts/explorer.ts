@@ -7,6 +7,7 @@ import { createTouchCamera } from './camera-touch';
 import { createFlightControls, type FlightCommand } from './flight-controls';
 import { createCameraController } from './camera-controller';
 import { createFlightHud, LENS_MIN, LENS_MAX, speedAt, speedFraction, type FlightHud } from './flight-hud';
+import { PHYSICAL_NIGHT } from './physical-night';
 import { SceneCalendar, calendarFrame, dayOfYear, daysInYear, utcDay } from './scene-calendar';
 import { FlightNavigation, followLens, orbitPeriod, PROJECTION, ORBIT_LABELS, type Orbit, type ObserverFrame, type FlightInput } from './flight-navigation';
 import { createScenePanels } from './scene-panels';
@@ -791,6 +792,13 @@ export class EarthlightExplorer extends HTMLElement {
       }
       // 0 takes the lens back to 1×.
       else if(name==='reset-lens')lensTo(1);
+      // N reloads the same view with or without physical night: its shaders
+      // and exposure range are fixed when the page loads.
+      else if(name==='night'){
+        const url=new URL(pendingURL??location.href);
+        if(PHYSICAL_NIGHT)url.searchParams.delete('night');else url.searchParams.set('night','video');
+        reloadScene(url);
+      }
       else if(name==='free'){enterFree();draw();}
       else followOrbit(name.slice(6) as Orbit);
     };
@@ -840,6 +848,7 @@ export class EarthlightExplorer extends HTMLElement {
       lensZoom,
       hold:(code,down)=>flightControls?.hold(code,down),
       resetCamera:()=>command('reset-camera'),
+      night:()=>command('night'),
       faceEarth:()=>face(()=>normalize(currentObserver().camera.map(v=>-v) as Vec3)),
       faceSun:()=>face(()=>normalize([...currentObserver().sun] as Vec3)),
       faceMoon:()=>face(()=>{const f=currentObserver();return normalize(celestialFrame(f.date,f.camera as Vec3).moon.slice(0,3) as Vec3);}),

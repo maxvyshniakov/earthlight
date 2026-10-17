@@ -495,7 +495,10 @@ as close. It drives Settings' Exposure compensation, to a tenth of a stop or a
 whole stop near its mark, and hides under manual exposure. Each tape's keys sit
 together under it, 20 px off and on the presets' 24 px pitch, with their names on
 the inner side of the caps: Farther R and Closer F under the altitude tape; Zoom
-in +, Zoom out − and Reset zoom 0 (back to 1×) under the lens tape. + and −
+in +, Zoom out − and Reset zoom 0 (back to 1×) under the lens tape; Night mode
+N under the exposure tape. N is a latched key: it reloads the same view with
+`night=video` (physical night, see `lab/night-camera-2026-10-17.md`) or
+without it, and its cap stays white while on, as the orbit presets' do. + and −
 replaced Z and X for the lens and no longer move the camera closer or farther;
 R, F and the wheel do. 0, − and + sit side by side on the keyboard, so 0 left
 Free, which is now 1, with the orbits on 2 to 4. The horizon gauge sits at the
