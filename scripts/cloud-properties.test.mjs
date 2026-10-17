@@ -1,6 +1,7 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_OVERVIEW,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
+import {readFileSync} from 'node:fs';
+import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_OVERVIEW,CLOUD_PROPERTIES_PENDING,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 import {fragmentSource} from '../src/scripts/scene-shader.ts';
 
@@ -118,4 +119,17 @@ test('the measured day follows the scene epoch and falls back to the default day
   // Without an epoch the scene runs at the present: the default day stands in.
   assert.deepEqual(cloudPropertiesDate(new URLSearchParams('t=0'),Date.parse('2026-10-17T09:00:00Z')),{date:CLOUD_PROPERTIES_DATE,measured:false});
   for(const view of ['disc','region','iss','deck'])assert.equal(cloudPropertiesDate(cloudPropertiesURL('http://localhost/',view).searchParams).measured,true);
+});
+
+test('measured clouds load clear, never as sea ice',()=>{
+  // Mirrors of cloudPropertiesObserved and cloudPropertiesSeaIce on the placeholder texel.
+  const [r,,,a]=CLOUD_PROPERTIES_PENDING.map(x=>x/255),ice=x=>Math.min(1,Math.max(0,x<.225?x/.15:(x-.3)/.7));
+  assert.equal(r,0);
+  assert.ok(a<.225,'unobserved');
+  assert.equal(ice(a),0,'no sea ice');
+  assert.equal(ice(1),1,'the plates\' opaque placeholder read as ice on every sea');
+  const renderer=readFileSync(new URL('../src/scripts/scene-renderer.ts',import.meta.url),'utf8');
+  assert.match(renderer,/new Uint8Array\(cloudProperties&&name==='cloudMap'\?CLOUD_PROPERTIES_PENDING:\[0,0,0,255\]\)/);
+  // Tiles wait for the overview, which carries the measured heights.
+  assert.match(cloudPropertiesShader,/if\(detailed&&cloudMapWidth>1\.\)field\.r=detailedCloud/);
 });

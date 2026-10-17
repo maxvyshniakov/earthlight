@@ -16,6 +16,10 @@ export const CLOUD_PROPERTIES_DATES:readonly string[]=[CLOUD_PROPERTIES_DATE];
 export const cloudPropertiesPath=(date=CLOUD_PROPERTIES_DATE)=>`cloud-properties/${date}`;
 /** v2 carries sea ice in alpha; v1 (observed fraction only) would read as ice everywhere. */
 export const CLOUD_PROPERTIES_OVERVIEW='overview-v2.avif';
+/** The cloud map's texel before the overview arrives (or if it fails): no
+ * cloud, and alpha 0, unobserved ground without sea ice. The plates' opaque
+ * black placeholder read as alpha 1, sea ice on every sea. */
+export const CLOUD_PROPERTIES_PENDING:readonly number[]=[0,0,0,0];
 
 export function cloudPropertiesEnabled(params:URLSearchParams){return params.get('cloudStudy')==='global';}
 
@@ -80,7 +84,9 @@ vec4 cloudPropertiesAt(vec3 point,float footprint,bool detailed){
   vec2 uv=earthUV(n);
   float texels=footprint*max(1.,cloudMapWidth)/(6.283185307*max(.15,length(n.xy)));
   vec4 field=cloudProperties(uv,max(0.,log2(max(1.,texels))));
-  if(detailed)field.r=detailedCloud(uv,texels*16384./max(1.,cloudMapWidth),field.r);
+  // Tiles refine the overview's opacity only; before it arrives (width 1)
+  // they would draw cloud without its measured height.
+  if(detailed&&cloudMapWidth>1.)field.r=detailedCloud(uv,texels*16384./cloudMapWidth,field.r);
   return field;
 }
 // Alpha: observed at or above 0.3, sea ice c as 0.3 + 0.7 c there and as
