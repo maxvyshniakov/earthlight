@@ -333,7 +333,8 @@ try{
   if(failure!=='all')await wait("document.querySelector('earthlight-explorer').dataset.focus==='sharp'");
   const state=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {failure:${JSON.stringify(failure)},ready:e.hasAttribute('data-ready'),data:{...e.dataset},fallback:getComputedStyle(e.querySelector('.explorer-fallback')).backgroundImage};})()`);
   assert.equal(state.ready,failure!=='all');assert.ok(Number(state.data.assetFailures)>0);
-  if(failure==='all')assert.ok(state.fallback.includes('poster.webp'));
+  if(failure==='all'){assert.ok(state.fallback.includes('poster.webp'));assert.ok('unavailable' in state.data,'a complete failure shows the poster');}
+  else assert.ok(!('unavailable' in state.data),'partial failures never show the poster');
   results.push(state);console.log(`failure ${failure}: fallback works`);
  }
  // Lose the context while decoded inputs and strip uploads are queued.

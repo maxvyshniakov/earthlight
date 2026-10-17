@@ -66,7 +66,8 @@ export class EarthlightExplorer extends HTMLElement {
     const look:SceneLook = { ...lookBase };
     const attributes:WebGLContextAttributes={alpha:false,antialias:false,depth:false,powerPreference:'low-power'};
     const gl=sceneContext(canvas,new URLSearchParams(location.search),attributes);
-    if (!gl) return;
+    // The poster is only for an explorer that cannot draw at all.
+    if (!gl) { this.dataset.unavailable = ''; return; }
     this.dataset.renderApi=isWebGL2(gl)?'webgl2':'webgl';
 
     let disposed = false;
@@ -678,9 +679,11 @@ export class EarthlightExplorer extends HTMLElement {
       if(disposed||lost)return;
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       Object.assign(this.dataset,renderer.state);
+      // Every first-light asset failed: no frame will come, so show the poster.
+      if(renderer.state.assetPhase==='settled'&&Number(renderer.state.assetFailures)>0&&!this.hasAttribute('data-ready'))this.dataset.unavailable='';
       if(paused||!this.hasAttribute('data-ready'))draw();
     },{assetBaseURL:this.dataset.assetBase,terrainBaseURL:this.dataset.terrainBase});}
-    catch(error){console.warn('The scene is unavailable.',error);return;}
+    catch(error){console.warn('The scene is unavailable.',error);this.dataset.unavailable='';return;}
     // Restoring controls must not turn a fresh visit into a dated replay URL.
     applyLook();
     const dragSurface=this.dataset.composition==='explorer'?this.closest<HTMLElement>('.explorer-view'):null;
