@@ -103,6 +103,14 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   // Preserve the column optical thickness while changing its height. This
   // prevents an illustrative crown from becoming a separate opaque white lid.
   float column=top-base-.5*baseFeather-.25*topFeather;
+#ifdef CALIBRATED_CLOUDS
+  // NASA composited these plates as white over the surface in display space,
+  // alpha 1-(1-v)^2.6 at every surface brightness (land_ocean_ice_cloud).
+  // Over dark ocean that is a linear opacity of .998*coverage^.7 at nadir.
+  // Slant rays and all light paths integrate the same column optical depth.
+  float columnDepth=-log(1.-.998*pow(coverage,.7));
+  return profile/max(.5,column)*columnDepth*(1.-smoothstep(11.5,12.,height));
+#endif
   float density=profile*1.4/max(.5,column);
 #ifdef BALANCED_CLOUDS
   // Gently thin weak columns without changing their extent or height. Dense
