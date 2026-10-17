@@ -22,6 +22,12 @@ export const FIELD_LEVEL_SPREAD=.76;
 /** Radiance at which a meter block counts as lit (smoothstep), shared with
  * the exposure meter's point samples. Scene units: sunlit cloud ~0.5. */
 export const METER_LIT=[.025,.10] as const;
+/** With `night=video|still` METER_LIT and the meter's subject bound hold in
+ * scene units up to this EV, the default program's ceiling, and scale with
+ * the exposure above it: at night a subject is what stands 4–6 stops over
+ * metered mid-grey, as daylit Earth does on black sky at EV 5.1. Below it
+ * the day is metered exactly as before. */
+export const METER_SUBJECT_EV=5.1;
 /** Level whose blocks define a metering subject: about 1/70 of the frame
  * height including the chain's spread (12 px at 800). The lit half of a
  * 40 px Moon fills several; a star fills none. */
@@ -88,7 +94,7 @@ ${cameraModelShader}${preExposureShader}`:''}vec4 tap(vec2 uv){
     c.rgb=min(c.rgb,vec3(${GLARE_SOLAR_CAP.toFixed(1)})${PRE_EXPOSURE?'*sceneExposure()':''});
   return vec4(max(c.rgb,vec3(0.)),c.a);
 }
-float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b))${PRE_EXPOSURE?'/sceneExposure()':''});}
+float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b))${PRE_EXPOSURE?`/min(sceneExposure(),${(2**METER_SUBJECT_EV).toFixed(4)})`:''});}
 void main(){
   vec2 uv=gl_FragCoord.xy/targetSize,d=1./sourceSize;
   vec4 a=tap(uv-d),b=tap(uv+d),c=tap(uv+vec2(d.x,-d.y)),e=tap(uv+vec2(-d.x,d.y));

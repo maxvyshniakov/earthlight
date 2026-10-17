@@ -74,7 +74,7 @@ uniform sampler2D auroraMap;
 uniform vec4 moonSamples[${LUNAR_SAMPLE_COUNT}];
 // Share of the Moon drawn by MoonSurface's resolved pass instead of this sampled disk.
 uniform float lunarResolved;
-${opticalPsfSource}
+${PHYSICAL_NIGHT?'// The disk tied to moonlight (earth-light.ts, lunarDiskGain).\nuniform float lunarDiskGain;\n':''}${opticalPsfSource}
 ${solarDiskShader}
 ${nightTileShader}
 ${dayTileShader}
@@ -300,7 +300,7 @@ void main() {
       lunarLight+=lensPsf(delta,lunarCenter)*moonSamples[i].w;
     }
     float area=3.141592654*radiusPixels*radiusPixels;
-    color+=lunarLight*area/${optics.integral.toFixed(8)}*18.*${nightScaleGlsl('moonDisk')}*(1.-lunarResolved);
+    color+=lunarLight*area/${optics.integral.toFixed(8)}*${PHYSICAL_NIGHT?'lunarDiskGain':'18.*1.000000e0'}*(1.-lunarResolved);
   }
   // Legacy composition encoding, decoded before the linear HDR output.
   color=pow(max(color,vec3(0.)),vec3(1./2.2));
