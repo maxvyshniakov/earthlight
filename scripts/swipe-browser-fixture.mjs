@@ -8,7 +8,7 @@ export async function verifySwipeRecovery({run,evaluate,wait,base}){
  await run('wait','250');
  assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.inspection"),'true','exposure changes keep inspection size stable');
  const motion=await evaluate(`(async()=>{
-  const s=document.querySelector('earthlight-explorer'),surface=s.closest('.explorer-view'),g=s.querySelector('canvas').getContext('webgl'),upload=g.texSubImage2D;
+  const s=document.querySelector('earthlight-explorer'),surface=s.closest('.explorer-view'),g=(s.querySelector('canvas').getContext('webgl2')||s.querySelector('canvas').getContext('webgl')),upload=g.texSubImage2D;
   const start=performance.now(),writes=[];let deferred=false;
   g.texSubImage2D=function(...args){const w=args.length===9?args[4]:args[6].width,h=args.length===9?args[5]:args[6].height;if(w>=256&&h>=256)writes.push(performance.now()-start);return upload.apply(this,args);};
   try{for(let i=0;i<35;i++){
@@ -22,7 +22,7 @@ export async function verifySwipeRecovery({run,evaluate,wait,base}){
  assert.equal(motion.deferred,true);assert.ok(Number(motion.target)>=23.9&&Number(motion.target)<=60.1,motion.target);assert.equal(motion.motion,'Play');
  assert.deepEqual(motion.lateWrites,[],'large optional uploads stay out of a sustained swipe');
  await wait("(()=>{const s=document.querySelector('earthlight-explorer');return s.dataset.streamingMotion==='ready'&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0);})()");
- const after=await evaluate("(()=>{const s=document.querySelector('earthlight-explorer');return {motion:s.dataset.streamingMotion,fps:s.dataset.targetFps,failures:s.dataset.assetFailures,terrain:JSON.parse(s.dataset.terrainTiles),error:s.querySelector('canvas').getContext('webgl').getError()};})()");
+ const after=await evaluate("(()=>{const s=document.querySelector('earthlight-explorer');return {motion:s.dataset.streamingMotion,fps:s.dataset.targetFps,failures:s.dataset.assetFailures,terrain:JSON.parse(s.dataset.terrainTiles),error:(s.querySelector('canvas').getContext('webgl2')||s.querySelector('canvas').getContext('webgl')).getError()};})()");
  assert.ok(Number(after.fps)>=23.9&&Number(after.fps)<=30.1,`the passive cadence returns: ${after.fps}`);assert.equal(after.failures,'0');assert.equal(after.error,0);assert.ok(after.terrain.resident>0);
  return {during:motion,after};
 }

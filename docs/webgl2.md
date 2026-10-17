@@ -1,8 +1,11 @@
 # WebGL2 migration
 
-`api=webgl2` opts into a native WebGL2 context. The default Compact renderer uses
-WebGL1. Selecting `render=clouds-half` prefers WebGL2 automatically; use
-`api=webgl` to reproduce the explicit WebGL1 path.
+WebGL2 is the default on every device since 2026-10-18, with WebGL1 as the
+fallback where WebGL2 is unavailable. Desktops had stayed on WebGL1 while
+phones without WebGL1 explicit LOD took WebGL2, so a GLSL ES 3.00 reserved
+name (`smooth`, `centroid`) broke a Mali-G715 phone without failing any
+desktop check. Use `api=webgl` (or `api=webgl-nolod`) to reproduce the WebGL1
+paths.
 If creating the requested context fails, the scene requests WebGL1. The actual
 backend is exposed as `data-render-api`; this must be checked before accepting
 a comparison. The page-mode link to the standalone scene preserves the API and texture choices.
@@ -71,6 +74,4 @@ record the native WebGL1/WebGL2 run on the development M2 Max, Chromium, at
 No sample differed by more than one output code. These results are close but
 are not bit-identical rendering. Resizing half-cloud rendering to 801×601 and
 restoring its WebGL2 context retained the 401×301 cloud target, with no failed
-assets or WebGL errors. These were the original opt-in migration results. Compact still defaults to
-WebGL1; the half-cloud profile now prefers WebGL2 so core MRT is available on
-devices such as the measured Pixel.
+assets or WebGL errors. These were the original opt-in migration results.

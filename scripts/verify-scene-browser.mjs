@@ -302,13 +302,13 @@ try{
  results.push({airglow});console.log('airglow: fixed altitude profile, local sunrise fade, continuous solid limb',airglow);
  for(const pose of ['t=900&yaw=79&pitch=-10','t=1200&yaw=100&pitch=-10','t=900&yaw=79&pitch=-10&aurora=0']){
   await run('open',`${base}/?${pose}&motion=0`);await wait(settled);
-  assert.equal(await evaluate("document.querySelector('canvas').getContext('webgl').getError()"),0);
+  assert.equal(await evaluate("(document.querySelector('canvas').getContext('webgl2')||document.querySelector('canvas').getContext('webgl')).getError()"),0);
   assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.aurora"),pose.includes('aurora=0')?'off':'volume');
   await run('screenshot',`${out}/aurora-${pose.replaceAll('&','-').replaceAll('=','_')}.png`);
  }
  for(const time of [0,1000,1338.89,2488.10,2753.09,4156.13,4594.06]){
   await run('open',`${base}/?t=${time}&motion=0&quality=fixed`);await wait(settled);
-  const state=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),i=e.querySelector('[data-look=grain]');i.value='0';i.dispatchEvent(new Event('input'));const c=e.querySelector('canvas'),gl=c.getContext('webgl');return {time:${time},ready:e.hasAttribute('data-ready'),error:gl.getError(),data:{...e.dataset},canvas:[c.width,c.height]};})()`);
+  const state=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),i=e.querySelector('[data-look=grain]');i.value='0';i.dispatchEvent(new Event('input'));const c=e.querySelector('canvas'),gl=c.getContext('webgl2')||c.getContext('webgl');return {time:${time},ready:e.hasAttribute('data-ready'),error:gl.getError(),data:{...e.dataset},canvas:[c.width,c.height]};})()`);
   assert.equal(state.ready,true);assert.equal(state.error,0);assert.equal(state.data.assetFailures,'0');
   assert.deepEqual([state.data.terrainWork,state.data.terrainRefinement,state.data.cloudSteps],['bounded','pixel','balanced']);
   if(state.data.terrainTiles){const terrain=JSON.parse(state.data.terrainTiles);for(const [field,name] of [['cacheMode','SCENE_TERRAIN_CACHE'],['decoderMode','SCENE_TERRAIN_DECODER'],['sourceMode','SCENE_TERRAIN_SOURCE']])if(process.env[name])assert.equal(terrain[field],process.env[name]);if(process.env.SCENE_TERRAIN_SOURCE==='packed')assert.equal(terrain.packedFallbacks,0);}
@@ -322,7 +322,7 @@ try{
   console.log('prepared terrain: actual packed residents, no TIFF error fallback');
  }
  await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&terrainWork=legacy&terrainRefinement=full&cloudSteps=full`);await wait(settled);
- const legacyWork=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {work:[e.dataset.terrainWork,e.dataset.terrainRefinement,e.dataset.cloudSteps],failures:e.dataset.assetFailures,error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
+ const legacyWork=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {work:[e.dataset.terrainWork,e.dataset.terrainRefinement,e.dataset.cloudSteps],failures:e.dataset.assetFailures,error:(e.querySelector('canvas').getContext('webgl2')||e.querySelector('canvas').getContext('webgl')).getError()};})()`);
  assert.deepEqual(legacyWork.work,['legacy','full','full']);assert.equal(legacyWork.failures,'0');assert.equal(legacyWork.error,0);
  results.push({legacyWork});console.log('ray work: optimized defaults and explicit legacy settings render cleanly');
  // Refine failures must retain preview images and still complete focus.
@@ -343,7 +343,7 @@ try{
   const old=document.querySelector('earthlight-explorer'),e=old.cloneNode(true);
   for(const key of Object.keys(e.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete e.dataset[key];
   old.replaceWith(e);
-  const gl=e.querySelector('canvas').getContext('webgl'),native=gl.texSubImage2D.bind(gl);
+  const gl=(e.querySelector('canvas').getContext('webgl2')||e.querySelector('canvas').getContext('webgl')),native=gl.texSubImage2D.bind(gl);
   window.loadingContextLost=false;
   gl.texSubImage2D=(...args)=>{
    const result=native(...args);
@@ -357,22 +357,22 @@ try{
   return true;
  })()`);
  await wait("window.loadingContextLost&&document.querySelector('earthlight-explorer').hasAttribute('data-terrain-ready')&&"+settled);
- assert.equal(await evaluate("document.querySelector('canvas').getContext('webgl').getError()"),0);
+ assert.equal(await evaluate("(document.querySelector('canvas').getContext('webgl2')||document.querySelector('canvas').getContext('webgl')).getError()"),0);
  assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.assetFailures"),'0');
  results.push({loadingContextRestored:true});console.log('queued uploads: context restoration works');
  await run('set','viewport','390','844');await run('open',`${base}/?t=2488.10&motion=0`);await wait(settled);
- await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),gl=e.querySelector('canvas').getContext('webgl');const ext=gl.getExtension('WEBGL_lose_context');window.restoreScene=()=>ext.restoreContext();ext.loseContext();return true;})()`);
+ await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),gl=(e.querySelector('canvas').getContext('webgl2')||e.querySelector('canvas').getContext('webgl'));const ext=gl.getExtension('WEBGL_lose_context');window.restoreScene=()=>ext.restoreContext();ext.loseContext();return true;})()`);
  await wait("!document.querySelector('earthlight-explorer').hasAttribute('data-ready')");
  await evaluate('window.restoreScene();true');
  await wait("document.querySelector('earthlight-explorer').hasAttribute('data-terrain-ready')&&document.querySelector('earthlight-explorer').hasAttribute('data-ready')");
  const restored=true;
- assert.equal(await evaluate("document.querySelector('canvas').getContext('webgl').getError()"),0);
+ assert.equal(await evaluate("(document.querySelector('canvas').getContext('webgl2')||document.querySelector('canvas').getContext('webgl')).getError()"),0);
  await run('screenshot',`${out}/mobile-restored.png`);results.push({mobileContextRestored:restored});
  assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.dayMapWidth"),'2048');
  // A real viewport resize must still update the targets and camera aspect.
  await run('set','viewport','844','390');
  await wait("document.querySelector('canvas').width>document.querySelector('canvas').height");
- const landscape=await evaluate(`(()=>{const c=document.querySelector('canvas');return {css:[c.clientWidth,c.clientHeight],buffer:[c.width,c.height],error:c.getContext('webgl').getError()};})()`);
+ const landscape=await evaluate(`(()=>{const c=document.querySelector('canvas');return {css:[c.clientWidth,c.clientHeight],buffer:[c.width,c.height],error:(c.getContext('webgl2')||c.getContext('webgl')).getError()};})()`);
  assert.deepEqual(landscape.css,[844,390]);assert.equal(landscape.error,0);
  assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.dayMapWidth"),'2048');
  // Crossing the render-pixel threshold promotes only the color overview.
@@ -384,14 +384,14 @@ try{
  assert.equal(await evaluate("document.querySelector('earthlight-explorer').dataset.dayMapWidth"),'4096');
  results.push({viewportRotation:landscape});console.log('viewport rotation: targets follow the new aspect');
  // Exercise actual RAF playback, pause and seek without relying on a screenshot.
- const motion=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),gl=e.querySelector('canvas').getContext('webgl'),native=gl.drawArrays.bind(gl);let frames=0;gl.drawArrays=(...a)=>{if(a[0]===gl.POINTS)frames++;return native(...a);};const button=e.querySelector('.explorer-motion'),seek=e.querySelector('.explorer-track input');seek.value='45';seek.dispatchEvent(new Event('input'));if(button.getAttribute('aria-label')==='Play')button.click();const start=performance.now();return new Promise(resolve=>setTimeout(()=>{button.click();gl.drawArrays=native;resolve({fps:frames*1000/(performance.now()-start),error:gl.getError(),scale:e.dataset.renderScale});},6000));})()`);
+ const motion=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),gl=(e.querySelector('canvas').getContext('webgl2')||e.querySelector('canvas').getContext('webgl')),native=gl.drawArrays.bind(gl);let frames=0;gl.drawArrays=(...a)=>{if(a[0]===gl.POINTS)frames++;return native(...a);};const button=e.querySelector('.explorer-motion'),seek=e.querySelector('.explorer-track input');seek.value='45';seek.dispatchEvent(new Event('input'));if(button.getAttribute('aria-label')==='Play')button.click();const start=performance.now();return new Promise(resolve=>setTimeout(()=>{button.click();gl.drawArrays=native;resolve({fps:frames*1000/(performance.now()-start),error:gl.getError(),scale:e.dataset.renderScale});},6000));})()`);
  assert.equal(motion.error,0);assert.ok(motion.fps>10);results.push(motion);console.log('motion',motion);
  // Exercise the guaranteed WebGL-1 sampler budget, without optional cloud LOD.
  // Without the pin, a missing LOD extension would select WebGL 2 instead.
  await run('open',`${base}/?t=2488.10&motion=0&quality=fixed&api=webgl`);await wait(settled);
  await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,get=p.getParameter,extension=p.getExtension;p.getParameter=function(key){return key===this.MAX_TEXTURE_IMAGE_UNITS?8:key===this.MAX_TEXTURE_SIZE?4096:get.call(this,key);};p.getExtension=function(name){return name==='EXT_shader_texture_lod'?null:extension.call(this,name);};const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const key of Object.keys(copy.dataset))if(key!=='composition'&&!key.startsWith('astro'))delete copy.dataset[key];e.replaceWith(copy);return true;})()`);
  await wait(settled);
- const basic=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {ready:e.hasAttribute('data-ready'),terrain:e.hasAttribute('data-terrain-ready'),error:e.querySelector('canvas').getContext('webgl').getError()};})()`);
+ const basic=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {ready:e.hasAttribute('data-ready'),terrain:e.hasAttribute('data-terrain-ready'),error:(e.querySelector('canvas').getContext('webgl2')||e.querySelector('canvas').getContext('webgl')).getError()};})()`);
  assert.equal(basic.ready,true);assert.equal(basic.terrain,false);assert.equal(basic.error,0);results.push({basicCapabilities:basic});console.log('basic WebGL capabilities: fallback works');
  // Save-Data must suppress both large overview maps and streamed detail.
  await run('open',`${base}/?t=2488.10&motion=0`);await wait(settled);
@@ -410,12 +410,13 @@ try{
  // defocusing must spread a point while preserving integrated linear light.
  // A fixed exposure keeps the sharp point's clipping independent of metering.
  for(const byteTarget of [false,true]){
- await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&exposure-mode=manual&exposure-fixed=-0.7`);await wait(settled);
+  // The defocus probe patches WebGLRenderingContext.prototype: pin WebGL1.
+ await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&exposure-mode=manual&exposure-fixed=-0.7&api=webgl`);await wait(settled);
  await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,source=p.shaderSource,get=p.getUniformLocation,set=p.uniform1f,names=new WeakMap();window.fixtureRadius=0;const fetchImage=window.fetch.bind(window);window.fetch=async(u,o)=>{if(String(u).includes('/media/earthlight/')&&!String(u).includes('/preview/')&&!String(u).endsWith('.bin'))await new Promise(r=>setTimeout(r,8000));return fetchImage(u,o);};if(${byteTarget}){const ext=p.getExtension;p.getExtension=function(name){return name==='OES_texture_half_float'?null:ext.call(this,name);};}p.shaderSource=function(shader,text){if(text.includes('CameraFinish owns defocus'))text=text.slice(0,text.indexOf('void main()'))+'void main(){vec2 d=abs(gl_FragCoord.xy-resolution*.5);float v=d.x<4.&&d.y<4.?.2:.02;vec3 color=displayToLinear(vec3(v));gl_FragColor=sceneLinear>.5?vec4(color,1.):packSceneRadiance(color);}';return source.call(this,shader,text);};p.getUniformLocation=function(prog,name){const loc=get.call(this,prog,name);if(loc)names.set(loc,name);return loc;};p.uniform1f=function(loc,v){return set.call(this,loc,names.get(loc)==='focusRadius'?window.fixtureRadius:v);};const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const k of Object.keys(copy.dataset))if(k!=='composition'&&!k.startsWith('astro'))delete copy.dataset[k];e.replaceWith(copy);return true;})()`);
  await wait("document.querySelector('earthlight-explorer').hasAttribute('data-ready')");
  await run('wait','1800');
  const optical=await evaluate(`(async()=>{
-  const e=document.querySelector('earthlight-explorer'),gl=e.querySelector('canvas').getContext('webgl');
+  const e=document.querySelector('earthlight-explorer'),gl=(e.querySelector('canvas').getContext('webgl2')||e.querySelector('canvas').getContext('webgl'));
   // UI invalidation is asynchronous. Read inside the final camera pass, before
   // the browser clears the non-preserved drawing buffer for presentation.
   const capture=(size,dx,dy)=>new Promise(resolve=>{

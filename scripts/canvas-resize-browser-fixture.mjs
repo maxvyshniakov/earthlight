@@ -15,7 +15,7 @@ export async function verifyCanvasResize({run,evaluate,wait,base}){
     queueMicrotask(()=>{if(root.hasAttribute('data-ready')&&painted<version)result.unpainted.push({width:canvas.width,height:canvas.height});});
    }});
   }
-  const gl=canvas.getContext('webgl'),draw=gl.drawArrays;
+  const gl=canvas.getContext('webgl2')||canvas.getContext('webgl'),draw=gl.drawArrays;
   gl.drawArrays=function(...args){const result=draw.apply(this,args);if(!this.getParameter(this.FRAMEBUFFER_BINDING))painted=version;return result;};
   return true;
  })()`);

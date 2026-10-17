@@ -1,19 +1,14 @@
-import {auroraMode} from './scene-effects.ts';
-
-/** Requested effects can prefer core MRT/LOD. Explicit API links stay reproducible.
+/** WebGL2 wherever it exists, WebGL1 as the fallback. Explicit LOD, MRT and
+ * sized formats are core there, and phones whose WebGL1 lacks explicit LOD
+ * need it anyway, so desktops, phones and the tests compile one dialect
+ * (GLSL ES 3.00 reserves names WebGL1 accepts). `api=webgl` and
+ * `api=webgl-nolod` keep the WebGL1 lab paths reproducible.
  * With failIfMajorPerformanceCaveat, software renderers are refused as well:
  * browsers do not flag a software GL that was selected explicitly. */
 export function sceneContext(canvas:HTMLCanvasElement,params:URLSearchParams,attributes:WebGLContextAttributes){
   const api=params.get('api'),hardware=!!attributes.failIfMajorPerformanceCaveat;
-  let preferWebGL2=api==='webgl2'||(api!=='webgl'&&api!=='webgl-nolod'&&(params.get('render')==='clouds-half'||auroraMode(params)==='on'));
-  // WebGL1 without explicit LOD (the measured Pixel) samples clouds and terrain
-  // from derivative-selected mips, which divergent raymarch loops make
-  // unreliable at the date line. WebGL2 has explicit LOD in core.
-  if(hardware||(!preferWebGL2&&!api)){
-    const probe=webgl1Probe(attributes);
-    if(hardware&&probe.software)return null;
-    if(!preferWebGL2&&!api&&!probe.explicitLod)preferWebGL2=true;
-  }
+  const preferWebGL2=api!=='webgl'&&api!=='webgl-nolod';
+  if(hardware&&webgl1Probe(attributes).software)return null;
   const gl=(preferWebGL2?canvas.getContext('webgl2',attributes):null)??canvas.getContext('webgl',attributes);
   // Lab reproduction of WebGL1 devices without explicit LOD, such as the
   // measured Pixel: hide the extension so the fallback shaders compile here.

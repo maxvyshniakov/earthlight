@@ -59,22 +59,20 @@ test('MRT adapter uses native drawBuffers on WebGL2',()=>{
 });
 
 
-test('half clouds prefer WebGL2; explicit API overrides and unsupported contexts retain fallback',async()=>{
+test('WebGL2 is the default; explicit WebGL1 links and unsupported contexts keep the fallback',async()=>{
  const {sceneContext}=await import('../src/scripts/webgl-context.ts');
  for(const [query,available,expected,calls] of [
-  ['',true,'webgl',['webgl']],
+  ['',true,'webgl2',['webgl2']],
+  ['',false,'webgl',['webgl2','webgl']],
   ['render=clouds-half',true,'webgl2',['webgl2']],
   ['render=clouds-half&api=webgl',true,'webgl',['webgl']],
   ['render=compact&api=webgl2',true,'webgl2',['webgl2']],
-  ['render=clouds-half',false,'webgl',['webgl2','webgl']],
-  ['aurora=1',true,'webgl2',['webgl2']],
-  ['aurora=on',true,'webgl2',['webgl2']],
+  ['aurora=0',true,'webgl2',['webgl2']],
   ['aurora=1&api=webgl',true,'webgl',['webgl']],
-  ['aurora=1',false,'webgl',['webgl2','webgl']],
-  ['aurora=0',true,'webgl',['webgl']],
  ]){
   const seen=[];const canvas={getContext(api){seen.push(api);return api==='webgl2'&&!available?null:api;}};
-  assert.equal(sceneContext(canvas,new URLSearchParams(query),{}),expected);
+  const gl=sceneContext(canvas,new URLSearchParams(query),{});
+  assert.equal(typeof gl==='string'?gl:'webgl',expected);
   assert.deepEqual(seen,calls);
  }
 });
