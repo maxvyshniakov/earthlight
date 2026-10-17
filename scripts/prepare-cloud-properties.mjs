@@ -3,14 +3,17 @@
 // optical thickness (CLDPROP, ~13:30 local solar time), and for partly cloudy
 // pixels the reflectance of the same overpass. Aqua and Terra MODIS supply
 // only the thermodynamic phase. Nothing fills a gap with cloud.
-//   bun scripts/prepare-cloud-properties.mjs [cache-directory]
+//   bun scripts/prepare-cloud-properties.mjs [cache-directory] [YYYY-MM-DD]
+// The day defaults to 2026-09-22. A new day renders only once it is listed in
+// CLOUD_PROPERTIES_DATES (src/scripts/cloud-properties.ts).
 // CLOUD_PROPERTIES_GRID=<file> also writes the raw 2.4 km opacity grid
 // (uint8, 16384 x 8192) for encoding experiments.
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import sharp from 'sharp';
 sharp.concurrency(2);sharp.cache(false);
-const date='2026-09-22';
 const cache=process.argv[2]||'/tmp/earthlight-cloud-properties-cache';
+const date=process.argv[3]||'2026-09-22';
+if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)throw Error(`Not a UTC day: ${date}`);
 const out=`public/media/earthlight/cloud-properties/${date}`;
 await mkdir(cache,{recursive:true});await mkdir(out+'/tiles',{recursive:true});
 // Fine grid 32768 x 16384 (1.22 km at the equator, near the 1 km product),

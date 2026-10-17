@@ -1,6 +1,6 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
+import {CLOUD_PROPERTIES_DATE,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 
 test('measured clouds are an opt-in study',()=>{
@@ -65,4 +65,19 @@ test('comparison views sit at their altitudes and dates',()=>{
     assert.equal(url.searchParams.get('epoch'),epoch);
     assert.equal(url.searchParams.get('cloudStudy'),'global');
   }
+});
+
+test('the measured day follows the scene epoch and falls back to the default day',()=>{
+  assert.deepEqual(cloudPropertiesDay(new Date('2026-09-22T00:00:00Z')),{date:'2026-09-22',measured:true});
+  assert.deepEqual(cloudPropertiesDay(new Date('2026-09-22T23:59:59Z')),{date:'2026-09-22',measured:true});
+  // A neighbouring day is another sky: no nearest-day substitution.
+  for(const date of ['2026-09-21T23:59:59Z','2026-09-23T00:00:00Z','2027-03-05T12:00:00Z',NaN])
+    assert.deepEqual(cloudPropertiesDay(new Date(date)),{date:CLOUD_PROPERTIES_DATE,measured:false});
+  // The scene's date is epoch plus the scene time t, in UTC.
+  assert.deepEqual(cloudPropertiesDate(new URLSearchParams('epoch=2026-09-22T23:00:00Z&t=0')),{date:'2026-09-22',measured:true});
+  assert.deepEqual(cloudPropertiesDate(new URLSearchParams('epoch=2026-09-22T23:00:00Z&t=7200')),{date:CLOUD_PROPERTIES_DATE,measured:false});
+  assert.deepEqual(cloudPropertiesDate(new URLSearchParams('epoch=2026-09-21T23:00:00Z&t=7200')),{date:'2026-09-22',measured:true});
+  // Without an epoch the scene runs at the present: the default day stands in.
+  assert.deepEqual(cloudPropertiesDate(new URLSearchParams('t=0'),Date.parse('2026-10-17T09:00:00Z')),{date:CLOUD_PROPERTIES_DATE,measured:false});
+  for(const view of ['disc','region','iss','deck'])assert.equal(cloudPropertiesDate(cloudPropertiesURL('http://localhost/',view).searchParams).measured,true);
 });

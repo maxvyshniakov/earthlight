@@ -22,7 +22,8 @@ import { sceneProfile } from './scene-profile';
 import {auroraMode as readAuroraMode,cloudMode as readCloudMode} from './scene-effects';
 import {isWebGL2,sceneContext} from './webgl-context';
 import {modisStudyURL} from './modis-study-view';
-import {cloudPropertiesURL,type CloudPropertiesView} from './cloud-properties';
+import {cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesPath,cloudPropertiesURL,type CloudPropertiesView} from './cloud-properties';
+import {assetURL} from './asset-location';
 
 export class EarthlightExplorer extends HTMLElement {
   private cleanup?: () => void;
@@ -584,6 +585,7 @@ export class EarthlightExplorer extends HTMLElement {
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;draw();
     };
     const calendarChanged=()=>{
+      if(!propertiesPanel.hidden)updatePropertiesDate(calendar.date(playback.read(performance.now())+composition().offset));
       lastStatus=-1;exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       saveNavigation();updateExplorerLink();draw();statusTick();
     };
@@ -900,6 +902,17 @@ export class EarthlightExplorer extends HTMLElement {
     const quality=new URL(location.href);
     if(params.get('cloudStudyView')==='quality')quality.searchParams.delete('cloudStudyView');else propertiesStudy(quality,'global').searchParams.set('cloudStudyView','quality');
     qualityLink.href=quality.href;qualityLink.textContent=params.get('cloudStudyView')==='quality'?'Без диагностики':'Диагностика';
+    // The renderer draws the measured day it chose at load; a calendar change
+    // to another day keeps that sky and says so.
+    const cloudDay=cloudPropertiesDate(params);
+    const dayLabel=(day:string)=>new Date(day+'T12:00:00Z').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).replace(/\s*г\.$/,'');
+    const propertiesDate=propertiesPanel.querySelector<HTMLElement>('[data-cloud-properties-date]')!;
+    const updatePropertiesDate=(scene:Date)=>{
+      const now=cloudPropertiesDay(scene);
+      propertiesDate.textContent=dayLabel(cloudDay.date)+(now.measured&&now.date===cloudDay.date?'':now.measured?' · дата сцены изменилась, перезагрузите':' · на дату сцены данных нет');
+    };
+    updatePropertiesDate(calendar.date(initialSeconds));
+    propertiesPanel.querySelector<HTMLAnchorElement>('[data-cloud-properties-manifest]')!.href=assetURL(cloudPropertiesPath(cloudDay.date)+'/manifest.json',this.dataset.assetBase);
     const changeProperties=()=>reloadScene(propertiesStudy(new URL(pendingURL??location.href),propertiesMode.value));
     propertiesMode.addEventListener('change',changeProperties);
     const cloudShapeSelect=comparison.querySelector<HTMLSelectElement>('#cloud-shape')!;

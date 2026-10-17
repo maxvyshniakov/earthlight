@@ -4,10 +4,30 @@
 // thickness, phase-aware), G cloud-top height / 16 km, B ice fraction,
 // A observed. Cloud tiles refine opacity only. Bases and vertical profiles
 // are inferred here.
+import {initialSceneSeconds} from './iss-orbit';
+import {SceneCalendar} from './scene-calendar';
+
 export const CLOUD_PROPERTIES_DATE='2026-09-22';
+// UTC days that have been built and published, each a GIBS daily composite of
+// NOAA-20's daytime passes. Add a day here only with its asset directory.
+export const CLOUD_PROPERTIES_DATES:readonly string[]=[CLOUD_PROPERTIES_DATE];
 export const cloudPropertiesPath=(date=CLOUD_PROPERTIES_DATE)=>`cloud-properties/${date}`;
 
 export function cloudPropertiesEnabled(params:URLSearchParams){return params.get('cloudStudy')==='global';}
+
+/** The measured day for the scene's date: its UTC day when that day was
+ * built, otherwise the default day, never a neighbour (weather a day away is
+ * another sky). `measured` is false when the scene's date has no data. */
+export function cloudPropertiesDay(date:Date){
+  const day=Number.isFinite(date.getTime())?date.toISOString().slice(0,10):'';
+  const measured=CLOUD_PROPERTIES_DATES.includes(day);
+  return {date:measured?day:CLOUD_PROPERTIES_DATE,measured};
+}
+/** The measured day for a scene URL: `epoch` at the scene time `t`. */
+export function cloudPropertiesDate(params:URLSearchParams,now=Date.now()){
+  const seconds=initialSceneSeconds(params);
+  return cloudPropertiesDay(new SceneCalendar(params,seconds,now).date(seconds));
+}
 
 export type CloudPropertiesView='disc'|'region'|'iss'|'deck';
 // Matched comparison views for 22 September 2026: the DSCOVR EPIC frame of

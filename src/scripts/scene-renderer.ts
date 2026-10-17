@@ -30,7 +30,7 @@ import { lensReflectance, type LensPreset } from './lens-reflections';
 import { SceneTimer } from './scene-quality';
 import { sceneProfile } from './scene-profile';
 import {auroraEnabled,auroraMode,cloudMode} from './scene-effects';
-import {cloudPropertiesEnabled,cloudPropertiesPath} from './cloud-properties';
+import {cloudPropertiesDate,cloudPropertiesEnabled,cloudPropertiesPath} from './cloud-properties';
 import { SceneAssets, sceneAssetPlan, type AssetPlan } from './scene-assets';
 import { sceneBufferSize, compactSurfaceOverview } from './scene-viewport';
 import { NOISE_TABLE_SIZE, NOISE_TABLE_UNIT, noiseTableData } from './noise-table';
@@ -109,6 +109,8 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     let modisTexture:WebGLTexture|null=null;
     // Lab study: measured cloud properties replace the photographic plates.
     const cloudProperties=streamDetail&&!modisStudy&&cloudPropertiesEnabled(params);
+    // The day follows the scene's epoch when it was built; otherwise the default day.
+    const cloudDay=cloudPropertiesDate(params);
     const supportsTerrain=!background&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>8 && gl.getParameter(gl.MAX_TEXTURE_SIZE)>=4096;
     const supportsTerrainTiles=supportsTerrain&&streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&params.get('terrain')!=='0'&&params.get('terrainDetail')!=='0';
     // Lab prototypes borrow the detailed galaxy sampler; its overview remains.
@@ -350,6 +352,8 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       state.cloudShape=modisStudy||params.get('cloudShape')==='texture'?'texture':'current';
       state.clouds=clouds;
       state.cloudStudy=modisStudy||cloudProperties?params.get('cloudStudy')!:'off';
+      state.cloudDate=cloudProperties?cloudDay.date:'';
+      state.cloudDateSource=cloudProperties?cloudDay.measured?'epoch':'default':'';
       state.modisReady='0';
       state.terrainWork=params.get('terrainWork')==='legacy'?'legacy':'bounded';
       state.terrainRefinement=params.get('terrainRefinement')==='full'?'full':'pixel';
@@ -578,7 +582,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           try{dayTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'day',work,base,'day-tiles',dayPyramid);}
           catch(error){console.warn('Detailed day map unavailable; retaining the global map.',error);}
         }
-        if(supportsCloudTiles&&params.get('cloudDetail')!=='0')cloudTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'cloud',work,base,cloudProperties?cloudPropertiesPath()+'/tiles':undefined);
+        if(supportsCloudTiles&&params.get('cloudDetail')!=='0')cloudTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'cloud',work,base,cloudProperties?cloudPropertiesPath(cloudDay.date)+'/tiles':undefined);
         if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL,params.get('terrainUpload')==='tile'?'tile':'strips',params.get('terrainCache')==='small'?'small':'working',params.get('terrainDecoder')==='pool'?'pool':'single',params.get('terrainSource')==='packed'?'packed':'tiff',state.terrainBound==='regional'?'regional':'off');}
         if(supportsGalaxyTiles)galaxyTiles=new SurfaceTiles(gl,canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches,notify,'galaxy',work,base);
         if(starData)catalog.upload(starData);
@@ -856,7 +860,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     if(cloudProperties){
       // No photographic preview: until the properties arrive the sky stays clear.
       plan.splice(plan.findIndex(asset=>asset.key==='clouds'&&asset.preview),1);
-      for(const asset of plan)if(asset.key==='clouds')asset.url=assetURL(cloudPropertiesPath()+'/overview.avif',base);
+      for(const asset of plan)if(asset.key==='clouds')asset.url=assetURL(cloudPropertiesPath(cloudDay.date)+'/overview.avif',base);
     }
     // Streamed 1.85 km and 92 m tiles replace global heights wherever a pixel
     // spans less than ~59 km. DEM3 keeps the full-resolution coastline mask

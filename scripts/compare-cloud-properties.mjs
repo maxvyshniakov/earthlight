@@ -62,10 +62,11 @@ try{
      const gpuMs=ext&&!gl.getParameter(ext.GPU_DISJOINT_EXT)?ext.getQueryObjectEXT(query,ext.QUERY_RESULT_EXT)/1e6:null;if(ext)ext.deleteQueryEXT(query);
      if(i>=2)samples.push(gpuMs);
     }}finally{gl.bindFramebuffer=bind;gl.drawArrays=draw;}
-    return {png,samples,width:c.width,height:c.height,cloudStudy:s.dataset.cloudStudy,clouds:s.dataset.clouds,cloudLighting:s.dataset.cloudLighting,cloudLightingReady:s.dataset.cloudLightingReady,cloudTiles:s.dataset.cloudTiles,assetBytes:s.dataset.assetBytes,assetFailures:s.dataset.assetFailures,error:gl.getError()};
+    return {png,samples,width:c.width,height:c.height,cloudStudy:s.dataset.cloudStudy,cloudDate:s.dataset.cloudDate,cloudDateSource:s.dataset.cloudDateSource,clouds:s.dataset.clouds,cloudLighting:s.dataset.cloudLighting,cloudLightingReady:s.dataset.cloudLightingReady,cloudTiles:s.dataset.cloudTiles,assetBytes:s.dataset.assetBytes,assetFailures:s.dataset.assetFailures,error:gl.getError()};
    })()`);
    assert.equal(frame.error,0);assert.equal(frame.assetFailures,'0');
    assert.equal(frame.cloudStudy,['global','atlas','quality'].includes(variant)?'global':'off');
+   if(frame.cloudStudy==='global')assert.deepEqual([frame.cloudDate,frame.cloudDateSource],['2026-09-22','epoch']);
    await writeFile(`${out}/${view}-${variant}.png`,Buffer.from(frame.png.split(',')[1],'base64'));delete frame.png;
    const gpu=frame.samples.filter(x=>x!==null).sort((a,b)=>a-b);frame.medianGpuMs=gpu.length?gpu[gpu.length>>1]:null;
    results.push({view,variant,...frame});console.log(JSON.stringify(results.at(-1)));

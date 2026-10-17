@@ -29,11 +29,11 @@ const firstLight=firstLightAssets(assetBaseURL.replace(/\/+$/,'')+'/');
     <p>Same satellite map; compare shape and shadows. Height and cloud types are still illustrative.</p>
   </aside>
   <aside class="cloud-properties-study scene-comparison" hidden aria-label="Measured cloud comparison">
-    <label for="cloud-properties-mode">Облака по измерениям · 22 сентября 2026</label>
+    <label for="cloud-properties-mode">Облака по измерениям · <span data-cloud-properties-date>22 сентября 2026</span></label>
     <select id="cloud-properties-mode"><option value="plates">A · Снимок 2001 г., Calibrated</option><option value="global">B · NOAA-20 VIIRS: высота, толщина, фаза</option></select>
     <p>Сравни типы облаков: перистые вуали, низкие слоисто-кучевые поля, глубокую конвекцию. Камера при переключении сохраняется.</p>
     <nav aria-label="Measured cloud views"><a data-cloud-properties-view="disc" href={exploreURL}>Диск, как EPIC</a> · <a data-cloud-properties-view="region" href={exploreURL}>2000 км</a> · <a data-cloud-properties-view="iss" href={exploreURL}>МКС над Чадом</a> · <a data-cloud-properties-view="deck" href={exploreURL}>420 км над Анголой</a> · <a data-cloud-properties-quality href={exploreURL}>Диагностика</a></nav>
-    <details><summary>Об этом сравнении</summary><p>Облака B — дневной пролёт NOAA-20 (около 13:30 местного времени) за одни сутки: оптическая толщина задаёт непрозрачность, высота — верх облака, фаза MODIS — тип. Частично облачные пиксели берут непрозрачность из яркости того же снимка. Основание и профиль выведены. Где спутник не видел облака днём, облаков нет; в диагностике такие места заштрихованы. <a href={assetURL('cloud-properties/2026-09-22/manifest.json',assetBaseURL)} target="_blank" rel="noopener">Данные и источник</a></p></details>
+    <details><summary>Об этом сравнении</summary><p>Облака B — дневной пролёт NOAA-20 (около 13:30 местного времени) за одни сутки: оптическая толщина задаёт непрозрачность, высота — верх облака, фаза MODIS — тип. Частично облачные пиксели берут непрозрачность из яркости того же снимка. Основание и профиль выведены. Где спутник не видел облака днём, облаков нет; в диагностике такие места заштрихованы. Сутки берутся из даты сцены (UTC); если за эту дату данных нет, рисуется 22 сентября 2026. <a data-cloud-properties-manifest href={assetURL('cloud-properties/2026-09-22/manifest.json',assetBaseURL)} target="_blank" rel="noopener">Данные и источник</a></p></details>
   </aside>
   <aside class="modis-study scene-comparison" hidden aria-label="MODIS comparison">
     <label for="modis-study-mode">Тихий океан · MODIS, 1 июня 2025</label>
