@@ -1037,6 +1037,282 @@
      }
     }
    }
+  },
+  "afterMergeBalancedBaseline": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.053,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 2.281,
+      "instability": 2.25
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 2.209,
+      "instability": 1.553
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.685,
+      "instability": 0.646
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.403,
+      "instability": 0.431
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 3.086,
+      "instability": 1.104
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 4.26,
+      "instability": 2.494
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 4.16,
+      "instability": 1.754
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.875,
+      "instability": 0.219
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.542,
+      "instability": 0.126
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.805,
+      "instability": 1.025
+     }
+    }
+   }
+  },
+  "afterMergeBalancedFinal": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.689,
+      "instability": 1.409
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.568,
+      "instability": 0.912
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.558,
+      "instability": 0.558
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.403,
+      "instability": 0.431
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.791,
+      "instability": 0.758
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 2.879,
+      "instability": 1.25
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.284,
+      "instability": 0.944
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.854,
+      "instability": 0.206
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.541,
+      "instability": 0.126
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.706,
+      "instability": 0.984
+     }
+    }
+   }
+  },
+  "afterMergeCalibratedBaseline": {
+   "extra": "clouds=calibrated",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.054,
+      "instability": 0.047
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 2.5,
+      "instability": 2.41
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 2.378,
+      "instability": 1.744
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.861,
+      "instability": 0.777
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.469,
+      "instability": 0.476
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 3.172,
+      "instability": 1.208
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.022,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 2.917,
+      "instability": 2.061
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 4.186,
+      "instability": 1.883
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 1.789,
+      "instability": 0.45
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 1.213,
+      "instability": 0.281
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.854,
+      "instability": 1.124
+     }
+    }
+   }
+  },
+  "afterMergeCalibratedFinal": {
+   "extra": "clouds=calibrated",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.054,
+      "instability": 0.046
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.973,
+      "instability": 1.708
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.878,
+      "instability": 1.22
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.747,
+      "instability": 0.699
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.469,
+      "instability": 0.475
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.832,
+      "instability": 0.835
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.022,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 2.215,
+      "instability": 1.398
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.305,
+      "instability": 1.03
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 1.731,
+      "instability": 0.41
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 1.204,
+      "instability": 0.274
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.765,
+      "instability": 1.071
+     }
+    }
+   }
   }
  },
  "timing": {

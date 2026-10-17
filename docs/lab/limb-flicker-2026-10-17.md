@@ -96,6 +96,20 @@ Sharpness is the mean gradient magnitude of frame 0:
   The isotropic major axis lost 31%, and the crops show it as blur along the
   horizon.
 
+### After merging the Calibrated preset
+
+Measured again on top of main's seam blend, terminator fade and Calibrated
+preset. Instability before → after:
+
+| Band | Balanced, polar | Balanced, horizon | Calibrated, polar | Calibrated, horizon |
+|---|---|---|---|---|
+| Limb μ < 0.1 | 2.25 → 1.41 | 2.49 → 1.25 | 2.41 → 1.71 | 2.06 → 1.40 |
+| Grazing 0.1–0.25 | 1.55 → 0.91 | 1.75 → 0.94 | 1.74 → 1.22 | 1.88 → 1.03 |
+| Disc μ > 0.5 | 0.43 → 0.43 | 0.13 → 0.13 | 0.48 → 0.48 | 0.28 → 0.27 |
+
+At the polar limb Calibrated falls less than Balanced (−29% against −37%);
+the reason was not isolated.
+
 ## Cost
 
 `scripts/compare-cloud-footprint.mjs` times whole frames on one GPU. Two fresh
@@ -133,8 +147,6 @@ Final paired medians over two runs:
 
 ## Limits
 
-- `clouds=calibrated` was not on this branch. Both presets share this sampling
-  path, and the owner measured the same flicker in both.
 - The remaining polar limb gap and the clear-air residual come from the
   surface. Hardware anisotropy stops at 8:1, and day/night tiles select their
   level from half the footprint. Neither was changed here.
