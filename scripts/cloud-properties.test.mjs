@@ -1,8 +1,10 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_OVERVIEW,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
+import {readFileSync} from 'node:fs';
+import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_DATES,CLOUD_PROPERTIES_OVERVIEW,CLOUD_PROPERTIES_PENDING,CLOUD_PROPERTIES_SWATH_BLEND,CLOUD_PROPERTIES_SWATHS,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesSwathDay,cloudPropertiesSwathEdge,cloudPropertiesSwathHeader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 import {fragmentSource} from '../src/scripts/scene-shader.ts';
+import {cloudTileShader} from '../src/scripts/night-tiles.ts';
 
 test('measured clouds are an opt-in study',()=>{
   assert.equal(cloudPropertiesEnabled(new URLSearchParams('')),false);
@@ -118,4 +120,121 @@ test('the measured day follows the scene epoch and falls back to the default day
   // Without an epoch the scene runs at the present: the default day stands in.
   assert.deepEqual(cloudPropertiesDate(new URLSearchParams('t=0'),Date.parse('2026-10-17T09:00:00Z')),{date:CLOUD_PROPERTIES_DATE,measured:false});
   for(const view of ['disc','region','iss','deck'])assert.equal(cloudPropertiesDate(cloudPropertiesURL('http://localhost/',view).searchParams).measured,true);
+});
+
+// The source as the default renderer compiles it: #ifdef CLOUD_PROPERTIES*
+// blocks removed, their #else kept.
+const defaultSource=source=>{
+  const out=[],stack=[];
+  for(const line of source.split('\n')){
+    const t=line.trim();
+    if(/^#if/.test(t)){const measured=/^#ifdef\s+CLOUD_PROPERTIES\w*/.test(t);stack.push({measured,live:!measured});if(!measured)out.push(line);continue;}
+    if(t.startsWith('#else')&&stack.at(-1)?.measured){stack.at(-1).live=true;continue;}
+    if(t.startsWith('#endif')&&stack.length){if(!stack.pop().measured)out.push(line);continue;}
+    if(stack.every(s=>s.live))out.push(line);
+  }
+  return out.join('\n');
+};
+
+test('the default renderer compiles none of the measured clouds',()=>{
+  // Directives aside (the plates' own #ifndef CLOUD_PROPERTIES), nothing measured remains.
+  for(const source of [fragmentSource,cloudShader,cloudTileShader])assert.doesNotMatch(defaultSource(source).split('\n').filter(line=>!line.trim().startsWith('#')).join('\n'),/cloudProperties|CLOUD_PROPERTIES/);
+  // The plates' cloud tiles keep bilinear magnification.
+  assert.doesNotMatch(defaultSource(cloudTileShader),/cloudSmooth/);
+  assert.match(defaultSource(cloudTileShader),/float smooth=0\.;/);
+  assert.match(cloudTileShader,/#ifdef CLOUD_PROPERTIES\n  float smooth=1\.-smoothstep\(\.5,1\.,footprint\);/);
+});
+
+test('measured clouds load clear, never as sea ice',()=>{
+  // Mirrors of cloudPropertiesObserved and cloudPropertiesSeaIce on the placeholder texel.
+  const [r,,,a]=CLOUD_PROPERTIES_PENDING.map(x=>x/255),ice=x=>Math.min(1,Math.max(0,x<.225?x/.15:(x-.3)/.7));
+  assert.equal(r,0);
+  assert.ok(a<.225,'unobserved');
+  assert.equal(ice(a),0,'no sea ice');
+  assert.equal(ice(1),1,'the plates\' opaque placeholder read as ice on every sea');
+  const renderer=readFileSync(new URL('../src/scripts/scene-renderer.ts',import.meta.url),'utf8');
+  assert.match(renderer,/new Uint8Array\(cloudProperties&&name==='cloudMap'\?CLOUD_PROPERTIES_PENDING:\[0,0,0,255\]\)/);
+  // Tiles wait for the overview, which carries the measured heights.
+  assert.match(cloudPropertiesShader,/if\(detailed&&cloudMapWidth>1\.\)field\.r=detailedCloud/);
+});
+
+test('a view-ray step reads the column where the ray crosses the layer',()=>{
+  assert.match(cloudShader,/#ifdef CLOUD_PROPERTIES\n    float rho=cloudPropertiesStep\(point,ray\*stepLength\*sign\(along\),footprint,stepLength\*3185\.5\*abs\(along\)\);\n#else/);
+  assert.match(cloudPropertiesShader,/point\+=stride\*\(\(centroid-height\)\/\(2\.\*halfSpan\)\);\n      field=cloudPropertiesAt\(point,footprint,true\);\n      column=cloudPropertiesColumn\(field\);/);
+  // A 2-D mirror of cloudPropertiesStep: a 0.4 km deck whose optical depth
+  // ends at a cloud edge one 2.4 km texel wide, crossed 12 degrees above the
+  // horizon by 1 km steps (balanced), level or with its top rising 80 m per km.
+  const angle=12*Math.PI/180,rise=Math.sin(angle),run=Math.cos(angle),half=.5*rise;
+  const s=t=>t*t*(3-2*t),clamp=t=>Math.min(1,Math.max(0,t)),depth=x=>.2+1.5*s(clamp((x+.7)/2.4));
+  for(const slope of [0,.08]){
+    const column=x=>[1.2+slope*x,1.6+slope*x];
+    const mass=([base,top],height)=>s(clamp((height+half-base)/(top-base)))-s(clamp((height-half-base)/(top-base)));
+    const integrate=(x0,phase,centroid)=>{
+      let tau=0;
+      for(let i=-8;i<8;i++){
+        const along=i+.5+phase,height=1.4+along*rise;
+        let x=x0+along*run,col=column(x);
+        const [base,top]=col,a=clamp((height-half-base)/(top-base)),b=clamp((height+half-base)/(top-base)),m=s(b)-s(a);
+        if(centroid&&m>1e-6){x+=(base+(top-base)*(b*b*b*(2-1.5*b)-a*a*a*(2-1.5*a))/m-height)*run/rise;col=column(x);}
+        tau+=depth(x)*mass(col,height)/rise;
+      }
+      return tau;
+    };
+    // Exact: the density along the ray itself.
+    const exact=x0=>{let t=0;for(let k=-40000;k<40000;k++){const along=(k+.5)/5000,x=x0+along*run,[base,top]=column(x),z=(1.4+along*rise-base)/(top-base);if(z>0&&z<1)t+=depth(x)*6*z*(1-z)/(top-base)/5000;}return t;};
+    // Error against the exact depth, and its spread over the step phase: the
+    // ripple neighbouring pixels draw.
+    const worst={centre:[0,0],centroid:[0,0]};
+    for(const x0 of [-2,-1,-.5,0,.5,1,2]){
+      const e=exact(x0);
+      for(const [name,centroid] of [['centre',false],['centroid',true]]){
+        const tau=[];for(let p=0;p<1;p+=.05)tau.push(integrate(x0,p,centroid));
+        worst[name][0]=Math.max(worst[name][0],...tau.map(t=>Math.abs(t-e)/e));
+        worst[name][1]=Math.max(worst[name][1],(Math.max(...tau)-Math.min(...tau))/e);
+      }
+    }
+    if(!slope){
+      assert.ok(worst.centroid[1]<worst.centre[1]/2.5,`level: phase spread ${worst.centroid[1]} against the centre read's ${worst.centre[1]}`);
+      assert.ok(worst.centroid[0]<worst.centre[0],`level: error ${worst.centroid[0]} against ${worst.centre[0]}`);
+    }else{
+      // A deck read as level within the step: steadier, a little shallower.
+      assert.ok(worst.centroid[1]<worst.centre[1],`sloping: phase spread ${worst.centroid[1]} against ${worst.centre[1]}`);
+      assert.ok(worst.centroid[0]<.25,`sloping: error ${worst.centroid[0]}`);
+    }
+  }
+});
+
+const unit=(lat,lon)=>{const a=lat*Math.PI/180,o=lon*Math.PI/180;return [Math.cos(a)*Math.cos(o),Math.cos(a)*Math.sin(o),Math.sin(a)];};
+test('swath edges follow the day\'s orbit fit',()=>{
+  for(const date of CLOUD_PROPERTIES_DATES)assert.ok(CLOUD_PROPERTIES_SWATHS[date],`${date} has a swath fit`);
+  const day=cloudPropertiesSwathDay(CLOUD_PROPERTIES_DATE);
+  assert.equal(cloudPropertiesSwathDay('2026-09-23'),null);
+  assert.equal(cloudPropertiesSwathHeader('2026-09-23'),'');
+  // The shader receives the same fit.
+  const header=cloudPropertiesSwathHeader(CLOUD_PROPERTIES_DATE);
+  const [lon,minutes]=header.match(/CLOUD_PROPERTIES_SWATHS vec2\(([-\d.]+),([-\d.]+)\)/).slice(1).map(Number);
+  assert.ok(Math.abs(lon-day.longitude)<1e-7&&Math.abs(minutes-day.minutes)<1e-7);
+  assert.deepEqual(header.match(/CLOUD_PROPERTIES_EDGE_OFFSET vec3\(([^)]*)\)/)[1].split(',').map(Number),[...day.edgeOffset]);
+  assert.match(header,new RegExp(`#define CLOUD_PROPERTIES_SWATH_BLEND ${CLOUD_PROPERTIES_SWATH_BLEND}\\.0\\n`));
+  assert.match(cloudPropertiesShader,/#ifdef CLOUD_PROPERTIES_SWATHS\n\/\/ Mirror of cloudPropertiesSwathEdge/);
+  // The edge in the owner's Botswana view: the opacity steps at about 24.45 E, 23.6 S.
+  const west=cloudPropertiesSwathEdge(unit(-23.6,24.3),day),east=cloudPropertiesSwathEdge(unit(-23.6,24.6),day);
+  assert.ok(west.valid&&east.valid&&west.distance<0&&east.distance>0);
+  let near=0;
+  for(let lat=-66;lat<=66;lat+=6)for(let lon=-179;lon<180;lon+=1.3){
+    const n=unit(lat,lon),e=cloudPropertiesSwathEdge(n,day);
+    if(!e.valid)continue;
+    if(Math.abs(e.distance)<300)near++;
+    // `across` is the distance's gradient: 2 km along it adds 2 km.
+    const q=n.map((x,i)=>x+e.across[i]*2/6371),f=cloudPropertiesSwathEdge(q.map(x=>x/Math.hypot(...q)),day);
+    if(Math.abs(e.distance)<300)assert.ok(Math.abs(f.distance-e.distance-2)<.1,`${lat} ${lon}: ${f.distance-e.distance}`);
+    // The later pass belongs to the local solar day the composite keeps, near 13:25.
+    const local=e.minutes/60+lon/15;
+    assert.ok(local>=101.44/60&&local<24);
+    if(Math.abs(lat)<=48&&Math.abs(e.distance)<300)assert.ok(Math.abs(local-13.42)<2.5,`${lat} ${lon}: ${local} h`);
+  }
+  assert.ok(near>150);
+  // No edge among the turning polar passes; no mirror across the date line, 24 h apart.
+  assert.equal(cloudPropertiesSwathEdge(unit(75,10),day).valid,false);
+  assert.match(cloudPropertiesShader,/if\(n\.x<0\.&&n\.y\*mirror\.y<0\.\)return vec4\(0\.\);/);
 });

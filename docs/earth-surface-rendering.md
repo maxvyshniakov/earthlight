@@ -89,6 +89,11 @@ Its columns' sunlight falls as cos θ₀^1.19, like a plane-parallel cloud's,
 instead of the shared 0.48 + 0.38 cos θ₀, which let clouds outshine ice and
 snow two to three times at low Sun; see
 [surfaces against clouds at low Sun](lab/cloud-properties-sun-zenith-2026-10-17.md).
+Each view-ray step reads its column where the ray crosses the layer, not at
+the step's centre, magnified opacity tiles are a cubic B-spline, opacity is
+averaged with its mirror image within 6 km of a swath edge, and the study
+loads clear rather than as sea ice; see
+[ripples, swath edges and loading](lab/cloud-properties-ripples-2026-10-17.md).
 
 
 Build scripts and official source URLs are in `public/media/earthlight/README.md`.

@@ -30,7 +30,7 @@ import { lensReflectance, type LensPreset } from './lens-reflections';
 import { SceneTimer } from './scene-quality';
 import { sceneProfile } from './scene-profile';
 import {auroraEnabled,auroraMode,cloudMode} from './scene-effects';
-import {CLOUD_PROPERTIES_OVERVIEW,cloudPropertiesDate,cloudPropertiesEnabled,cloudPropertiesPath} from './cloud-properties';
+import {CLOUD_PROPERTIES_OVERVIEW,CLOUD_PROPERTIES_PENDING,cloudPropertiesDate,cloudPropertiesSwathHeader,cloudPropertiesEnabled,cloudPropertiesPath} from './cloud-properties';
 import { SceneAssets, sceneAssetPlan, vnp46NightOverview, type AssetPlan } from './scene-assets';
 import { sceneBufferSize, compactSurfaceOverview } from './scene-viewport';
 import { NOISE_TABLE_SIZE, NOISE_TABLE_UNIT, noiseTableData } from './noise-table';
@@ -390,7 +390,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           +(state.shaderWork==='lean'?'#define LEAN_SHADER_WORK 1\n':'')
           +(state.terrainFetch==='shared'?'#define SHARED_TERRAIN_ENTRY 1\n':'')
           +(clouds==='balanced'?'#define BALANCED_CLOUDS 1\n':clouds==='calibrated'?'#define CALIBRATED_CLOUDS 1\n':clouds==='off'?'#define CLOUDS_DISABLED 1\n':'')
-          +(cloudProperties?'#define CLOUD_PROPERTIES 1\n'+(params.get('cloudStudyView')==='quality'?'#define CLOUD_PROPERTIES_QUALITY 1\n':''):'')
+          +(cloudProperties?'#define CLOUD_PROPERTIES 1\n'+cloudPropertiesSwathHeader(cloudDay.date)+(params.get('cloudStudyView')==='quality'?'#define CLOUD_PROPERTIES_QUALITY 1\n':''):'')
           +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
         const skyProgram=batch.add('Scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(params.get('nightDetail')==='vnp46'?'#define NIGHT_VNP46 1\n'+(params.get('nightRange')==='extended'?'#define NIGHT_VNP46_EXTENDED 1\n':''):'')+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(dayPyramid?'#define DAY_PYRAMID 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
@@ -436,7 +436,9 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           textures.push(texture);
           gl.activeTexture(gl.TEXTURE0+index);
           gl.bindTexture(gl.TEXTURE_2D,texture);
-          textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,255]));
+          // Until the measured overview arrives its alpha must read as unobserved
+          // ground without sea ice; an opaque texel laid ice on every sea.
+          textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(cloudProperties&&name==='cloudMap'?CLOUD_PROPERTIES_PENDING:[0,0,0,255]));
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
