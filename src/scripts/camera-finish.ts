@@ -7,7 +7,8 @@ import { FRAME_SCATTER_FRACTION, SOLAR_IRRADIANCE, SOLAR_RADIUS, SOLAR_SCATTER_F
 import { fieldReflectionShader, lensReflectionShader } from './lens-reflections';
 import { lensDirtShader } from './lens-dirt';
 import { sceneColorShader } from './scene-color';
-import { poissonQuantiles, POISSON_COLUMNS, POISSON_ROWS } from './sensor-noise';
+import { poissonQuantiles, POISSON_COLUMNS, POISSON_ROWS, GRAIN_AMOUNT, LOOK_ELECTRONS, LOOK_ISO_GAIN_MAX, SENSOR_ELECTRONS, SENSOR_ROWS } from './sensor-noise';
+import { PHYSICAL_NIGHT } from './physical-night';
 import { CameraExposure } from './camera-exposure';
 import { cameraModelShader } from './camera-model';
 import { PRE_EXPOSURE } from './pre-exposure';
@@ -15,6 +16,42 @@ export const CAMERA_EXPOSURE_EV=0;
 /** Camera poses of this and the previous submitted frame, for shutter blur. */
 export type ShutterMotion={shutter:number;sky:boolean;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
 export type LensFrame={reflectance?:number;moon:[number,number,number];moonRadius?:number;glare?:boolean;fieldReflections?:boolean;pyramidMeter?:boolean;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
+const sensor=PHYSICAL_NIGHT?'nightSensorChannel':'sensorChannel';
+const nightSensorShader=`// Equivalent RGB sensor in linear output primaries. Shot/read noise precede
+// ISO amplification and the display curve; ISO never creates extra photons.
+// Night lab (docs/lab/night-camera-2026-10-17.md): a grain cell, one CSS
+// pixel, bins the photosites of a 12 MP sensor (sensor-noise.ts), and the
+// default program's grain stays as a look up to the day program's top ISO.
+float nightSensorChannel(float opticalSignal,float isoGain,vec2 seed) {
+  if(grainAmount<.001)return min(max(0.,opticalSignal),4.)*isoGain;
+  float lookElectrons=${LOOK_ELECTRONS.toFixed(1)}/(grainAmount*grainAmount);
+  float photosites=max(1.,pow(${SENSOR_ROWS.toFixed(1)}*pixelRatio/resolution.y,2.));
+  float electronsAtWhite=photosites*${SENSOR_ELECTRONS.toFixed(1)}*${(GRAIN_AMOUNT*GRAIN_AMOUNT).toFixed(4)}/(grainAmount*grainAmount);
+  float expected=max(0.,opticalSignal)*electronsAtWhite;
+  float u=max(hash(seed),.000001);
+  float angle=6.283185307*hash(seed+vec2(113.7,47.1));
+  vec2 normal=sqrt(-2.*log(u))*vec2(cos(angle),sin(angle));
+  float measured;
+  if(expected<16.) {
+    float quantile=hash(seed+vec2(219.3,97.8));
+    float row=floor(sqrt(expected/16.)*${POISSON_ROWS-1}.+.5);
+    measured=texture2D(poisson,vec2(quantile,(row+.5)/${POISSON_ROWS}. )).r*255.;
+  } else {
+    measured=expected+sqrt(expected)*normal.x;
+  }
+  // Read noise of every binned photosite.
+  float readNoise=sqrt(.9*.9+pow(.8/isoGain,2.))*sqrt(photosites);
+  measured+=readNoise*normal.y;
+  float signal=clamp(measured/electronsAtWhite,0.,4.)*isoGain;
+  // The look: the variance the default program's single cell had above the
+  // binned sensor's, at most at ISO ${Math.round(400*LOOK_ISO_GAIN_MAX)}.
+  float lookVariance=min(isoGain,${LOOK_ISO_GAIN_MAX.toFixed(4)})*max(0.,opticalSignal*isoGain)*max(0.,1./lookElectrons-1./electronsAtWhite);
+  float v=max(hash(seed+vec2(31.9,211.4)),.000001);
+  float look=sqrt(-2.*log(v))*cos(6.283185307*hash(seed+vec2(97.1,5.3)));
+  return clamp(signal+sqrt(lookVariance)*look,0.,4.*isoGain);
+}
+
+`;
 const fragmentSource = `
 precision highp float;
 precision highp sampler2D;
@@ -193,7 +230,7 @@ vec3 shutterImage(vec2 uv,vec2 shift,vec2 p,float aspect){
   }
   return sum/weight;
 }
-float hash(vec2 p) {
+${PHYSICAL_NIGHT?nightSensorShader:''}float hash(vec2 p) {
   vec3 p3=fract(vec3(p.xyx)*.1031);
   p3+=dot(p3,p3.yzx+33.33);
   return fract((p3.x+p3.y)*p3.z);
@@ -263,9 +300,9 @@ ${PRE_EXPOSURE?'  float sceneScale=exp2(-decodeCameraEV(texture2D(sceneState,vec
   vec2 grainSeed=vec2(hash(vec2(grainFrame,19.3)),hash(vec2(71.7,grainFrame)))*256.;
   const float grainSizeCss=1.;
   vec2 sensorPixel=floor(gl_FragCoord.xy/(max(pixelRatio,.001)*grainSizeCss))+grainSeed;
-  linear=vec3(sensorChannel(linear.r,camera.z,sensorPixel),
-              sensorChannel(linear.g,camera.z,sensorPixel+vec2(51.3,173.9)),
-              sensorChannel(linear.b,camera.z,sensorPixel+vec2(137.2,23.6)));
+  linear=vec3(${sensor}(linear.r,camera.z,sensorPixel),
+              ${sensor}(linear.g,camera.z,sensorPixel+vec2(51.3,173.9)),
+              ${sensor}(linear.b,camera.z,sensorPixel+vec2(137.2,23.6)));
   linear=cameraHighlights(linear);
   vec3 color=linearToDisplay(max(linear,vec3(0.)));
 

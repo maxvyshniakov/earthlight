@@ -58,7 +58,9 @@ called Orbit, and older lab notes still use that name.
 - **Physical night**: the lab that renders night emitters at their physical
   radiance and lets the camera program reach ISS night exposures. The type is
   `NightMode`, the URL parameter `night` (`video` or `still`;
-  `physical-night.ts`).
+  `physical-night.ts`). Its **night lens** opens to max(f/1.4, focal / 143 mm)
+  (`NIGHT_LENS`, `exposureCeiling`), and its grain bins the **photosites** of
+  a 12 MP sensor into each CSS pixel (`photositesPerPixel`, `sensor-noise.ts`).
 - **Pre-exposure**: scene radiance stored multiplied by 2^ev of the exposure
   its frame is rendered with, so physical night fits half-float and RGBE
   targets; the meter, the glare pyramid and the camera finish divide it back

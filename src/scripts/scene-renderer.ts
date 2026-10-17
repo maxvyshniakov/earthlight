@@ -1,5 +1,5 @@
 import {cropTextureBitmap} from './texture-bitmap.ts';
-import { lunarPhaseIrradiance } from './earth-light';
+import { lunarPhaseIrradiance, lunarDiskGain } from './earth-light';
 import {assetURL,type SceneSources} from './asset-location';
 import {halfFloatTarget,shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {ShaderProgramBatch} from './shader-programs';
@@ -427,7 +427,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         scenePosition=gl.getAttribLocation(program,'position');
         resolution = gl.getUniformLocation(program, 'resolution');
         time = gl.getUniformLocation(program, 'time');
-        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','solarImage','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','cameraState','stormSources[0]']) sceneUniforms[name] = gl.getUniformLocation(program,name);
+        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','solarImage','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','lunarDiskGain','cameraState','stormSources[0]']) sceneUniforms[name] = gl.getUniformLocation(program,name);
         gl.uniform1f(gl.getUniformLocation(program, 'surfaceEnabled'),params.get('surface') === '0' ? 0 : 1);
         gl.uniform2f(gl.getUniformLocation(program,'nightMapResolution'),1,1);
         ['surfaceMap','nightMap','cloudMap'].forEach((name,index) => {
@@ -673,6 +673,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const phaseCosine=Math.max(-1,Math.min(1,-sky.moon.slice(0,3).reduce((sum,x,i)=>sum+x*lunarLight[i],0)));
       const phaseAngle=Math.acos(phaseCosine);
       gl.uniform1f(sceneUniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle));
+      if(sceneUniforms.lunarDiskGain)gl.uniform1f(sceneUniforms.lunarDiskGain,lunarDiskGain(phaseAngle));
       const moonSamples=lunarSamples(sky.moon,lunarLight,observer.cameraBasis,observer.camera);
       gl.uniform4fv(sceneUniforms['moonSamples[0]'],moonSamples);
       let lunarFlux=0;
@@ -840,7 +841,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(!terrainView)finish.render(height/Math.max(1,cssHeight),grainIndex,look.grain*1.3,look.chromatic*.8,focusRadius,{
         motion,
         reflectance:lensReflectance(look.lensPreset??'iss'),
-        moon:project(sky.moon,lunarFlux*Math.PI*(sky.moon[3]*focal)**2*18*look.ghosts),
+        moon:project(sky.moon,lunarFlux*Math.PI*(sky.moon[3]*focal)**2*lunarDiskGain(phaseAngle)*look.ghosts),
         moonRadius:sky.moon[3],
         glare:params.get('glare')!=='off',
         fieldReflections:params.get('fieldReflections')!=='off',

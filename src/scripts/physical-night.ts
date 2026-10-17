@@ -29,8 +29,6 @@ export const NIGHT_EXCESS={
   /** The constant sky floor under the Milky Way. */
   sky:600,
   aurora:2.4e4,
-  /** The sampled and resolved lunar disk; moonlight is already physical. */
-  moonDisk:200,
 } as const;
 export type NightEmitter=keyof typeof NIGHT_EXCESS;
 /** Scale for an emitter in the current mode: 1 unless the lab is on. */
