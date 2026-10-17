@@ -41,6 +41,13 @@ export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean
  ];
 }
 
+/** nightDetail=vnp46 (lab): the overview, its first light and the tiles come
+ * from one VNP46A4 composite, so the fade, uplight and haze see the same lights. */
+export function vnp46NightOverview(plan:AssetPlan[]){
+ for(const asset of plan)if(asset.key==='night')asset.url=asset.url.replace(/(?:preview\/night\.webp|earth-night(?:-8k)?\.avif)$/,file=>'night-vnp46-tiles/'+file.replace('preview/','preview-'));
+ return plan;
+}
+
 /** Fetches preview first, then two refinements at a time. Only compressed blobs
  * survive upload; decoded bitmaps and DEM buffers belong to the upload callback.
  * A context generation prevents late decodes from touching a restored renderer.

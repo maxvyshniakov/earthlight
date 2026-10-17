@@ -58,7 +58,9 @@ test('galaxy detail follows sky direction, prioritizes centre and excludes Earth
  assert.ok(wrap.some(id=>id%32===0)&&wrap.some(id=>id%32===31));
 });
 
-for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atlas bounds loads, evicts after seek, closes decodes, and cancels on disposal`,async()=>{
+for(const variant of ['night','night-vnp46','day','cloud','galaxy','terrain'])test(`${variant} atlas bounds loads, evicts after seek, closes decodes, and cancels on disposal`,async()=>{
+  // night-vnp46: the lab's VNP46A4 tiles, with mipmaps packed like the galaxy's.
+  const layer=variant==='night-vnp46'?'night':variant,packed=variant==='galaxy'||variant==='night-vnp46';
   let now=1000;spyOn(performance,'now').mockImplementation(()=>now);
   const cell=(layer==='cloud'||layer==='galaxy')?544:572,columns=layer==='terrain'?40:(layer==='cloud'||layer==='galaxy')?32:160,rows=layer==='terrain'?20:(layer==='cloud'||layer==='galaxy')?16:80;
   const ids=Array.from({length:columns*rows},(_,i)=>i);
@@ -67,9 +69,10 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
   globalThis.window=globalThis;
   globalThis.document={hidden:false};
   globalThis.OffscreenCanvas=class{constructor(width,height){this.width=width;this.height=height;}getContext(){return {drawImage(){}};}transferToImageBitmap(){return {width:this.width,height:this.height,close(){closes++;}};}};
-  globalThis.__resized=false;globalThis.createImageBitmap=async(...args)=>{const options=args.at(-1);if(options?.resizeWidth)globalThis.__resized=true;return {width:args.length>2?args[3]:options.resizeWidth||cell*(layer==='terrain'||layer==='galaxy'?2:1),height:args.length>2?args[4]:options.resizeHeight||cell,close(){closes++;}};};
+  globalThis.__resized=false;globalThis.createImageBitmap=async(...args)=>{const options=args.at(-1);if(options?.resizeWidth)globalThis.__resized=true;return {width:args.length>2?args[3]:options.resizeWidth||cell*(layer==='terrain'||packed?2:1),height:args.length>2?args[4]:options.resizeHeight||cell,close(){closes++;}};};
   globalThis.fetch=async(url,options)=>{
-    if(url.endsWith('manifest.json'))return {ok:true,json:async()=>({version:layer==='galaxy'?2:1,...(layer==='galaxy'?{mipmaps:'packed'}:{}),interior:cell-32,gutter:16,columns,rows,tiles:ids})};
+    if(url.endsWith('manifest.json'))return {ok:true,json:async()=>({version:packed?2:1,...(packed?{mipmaps:'packed'}:{}),interior:cell-32,gutter:16,columns,rows,tiles:ids})};
+    assert.equal(url.includes('/night-vnp46-tiles/'),variant==='night-vnp46');
     return new Promise((resolve,reject)=>{
       requests.push({url,resolve:()=>resolve({ok:true,blob:async()=>new Blob(['image'])}),signal:options.signal});
       options.signal.addEventListener('abort',()=>reject(new Error('aborted')),{once:true});
@@ -84,7 +87,7 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   let atlas;
   try{
-    atlas=new SurfaceTiles(gl,true,()=>{},layer);
+    atlas=new SurfaceTiles(gl,true,()=>{},layer,undefined,undefined,variant==='night-vnp46'?'night-vnp46-tiles':undefined);
     const cells=layer==='galaxy'||layer==='terrain'?4:layer==='night'?8:6,capacity=Math.floor((cells*cells-1)/2);
     assert.equal(atlas.stats().gpuBytes,(layer==='day'||layer==='galaxy'||layer==='terrain')?4:1,'inactive atlas is a single texel');
     await flush();
@@ -104,8 +107,8 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
     }
     assert.equal(atlas.stats().resident,atlas.stats().wanted);
     assert.ok(atlas.stats().resident<=capacity);
-    assert.equal(closes,atlas.stats().resident*(layer==='terrain'||layer==='galaxy'?3:5));
-    if(layer==='galaxy')assert.ok(!globalThis.__resized,'galaxy mipmaps are uploaded as built, never resized');
+    assert.equal(closes,atlas.stats().resident*(layer==='terrain'||packed?3:5));
+    if(packed)assert.ok(!globalThis.__resized,'packed mipmaps are uploaded as built, never resized');
     assert.equal(atlas.stats().fading,atlas.stats().resident,'new images are still fading after network completion');
     const previousRevision=atlas.stats().revision;
     now+=1000;
@@ -170,7 +173,14 @@ test('only colour and night layers smooth magnified detail; night uses its 30" g
   assert.match(dayTileShader,/smoothstep\(0\.5,1\.0,footprint\)/);
 });
 
-test('VNP46A4 lab tiles interpolate their own 15" grid and convert radiance to the 2016 scale',()=>{
+// scripts/vnp46-transfer.py over all 540 granules, 2022-2024 radiance (nW) -> 2016 value.
+const GLOBAL_BINS=[[1.2,.034],[1.7,.075],[2.39,.139],[3.36,.253],[4.74,.406],[6.67,.553],[9.39,.662],[13.23,.757],[18.63,.862],[22.11,.931]];
+
+// The build's transfer (scripts/vnp46-global.py: A, R0, P, TOP), radiance -> stored code.
+const displayed=L=>{const t=4.567*(Math.log(Math.max(L,1e-6))-Math.log(1.564));return .3572/4.567*(t>15?t:Math.log1p(Math.exp(Math.min(t,15))));};
+const vnp46Code=L=>Math.min(2.88,displayed(L))/2.88;
+
+test('VNP46A4 lab tiles interpolate their own 15" grid and carry the 2016 display scale',()=>{
   const night=nightTileShader;
   const branch=night.slice(night.indexOf('#ifdef NIGHT_VNP46'),night.indexOf('#endif'));
   assert.match(branch,/vec2 t=nightOrigin\(slot\)\+vec2\(16\.\)\+local\*540\./,'level 0, not the 30" level 1');
@@ -179,12 +189,26 @@ test('VNP46A4 lab tiles interpolate their own 15" grid and convert radiance to t
   const body=night.slice(night.indexOf('float nightVnp46Encoded'),night.indexOf('#ifdef NIGHT_VNP46_EXTENDED'));
   const js=body.replace(/^float nightVnp46Encoded\(float code\)\{/,'').replace(/float /g,'const ').replace(/\b(log|exp|max|min)\(/g,'Math.$1(');
   const extended=new Function('code',js+'return encoded;');
-  const code=L=>Math.log1p(L/.25)/Math.log1p(20000);
-  const encoded=L=>Math.min(1,extended(code(L)));
-  assert.equal(encoded(0),0);
-  // Bins of the fit (vnp46-measure.py): radiance -> median Black Marble 2016 value.
-  for(const [L,e] of [[1.17,.048],[2.03,.175],[5.07,.55],[15.2,.839]])assert.ok(Math.abs(encoded(L)-e)<.06,`${L} nW`);
-  assert.ok(encoded(20)<1&&encoded(25)===1,'saturates near 23 nW like the 2016 plates');
-  assert.ok(extended(code(1000))>extended(code(100))&&extended(code(100))>1,'extended range keeps the slope');
-  for(let L=.5;L<5000;L*=1.3)assert.ok(extended(code(L*1.3))>extended(code(L)),'monotonic');
+  const encoded=L=>Math.min(1,extended(vnp46Code(L)));
+  assert.ok(encoded(0)<1e-12&&Math.round(255*vnp46Code(0))===0,'dark land stores 0');
+  // Global bins of the fit (vnp46-transfer.py): radiance -> median Black Marble 2016 value.
+  for(const [L,e] of GLOBAL_BINS)assert.ok(Math.abs(encoded(L)-e)<.04,`${L} nW`);
+  assert.ok(encoded(23)<1&&encoded(28)===1,'saturates near 26 nW like the 2016 plates');
+  assert.ok(extended(vnp46Code(1000))>extended(vnp46Code(100))&&extended(vnp46Code(100))>1,'extended range keeps the slope');
+  for(let L=.5;L<4900;L*=1.3)assert.ok(extended(vnp46Code(L*1.3))>extended(vnp46Code(L)),'monotonic');
+  // Linear in the displayed value: a dark-to-lit ramp is not held black by the toe.
+  for(const f of [.25,.5,.75])assert.ok(Math.abs(extended(f*vnp46Code(10))-f*extended(vnp46Code(10)))<1e-9);
+});
+
+test('the global VNP46A4 build converts its overview as the shader converts its tiles',async()=>{
+  const {sceneAssetPlan,vnp46NightOverview}=await import('../src/scripts/scene-assets.ts');
+  for(const desktop of [true,false]){
+    const night=vnp46NightOverview(sceneAssetPlan(desktop,16384,false)).filter(asset=>asset.key==='night').map(asset=>asset.url);
+    assert.deepEqual(night,['/media/earthlight/night-vnp46-tiles/preview-night.webp',`/media/earthlight/night-vnp46-tiles/earth-night${desktop?'-8k':''}.avif`]);
+  }
+  // scripts/vnp46-global.py's overview and build-night-vnp46.mjs's packed mips average nightVnp46Encoded.
+  const python=await Bun.file(new URL('./vnp46-global.py',import.meta.url)).text();
+  const builder=await Bun.file(new URL('./build-night-vnp46.mjs',import.meta.url)).text();
+  assert.match(python,/A, R0, P = \.3572, 1\.564, 4\.567\n/);assert.match(python,/TOP = 2\.88 /);
+  assert.match(builder,/const TOP = 2\.88;/);assert.match(nightTileShader,/code\*2\.88;/);
 });

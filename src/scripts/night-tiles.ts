@@ -79,16 +79,17 @@ ${valueType} ${layer}Neighbor(vec2 key,vec2 local,float lod,float smooth,${value
 }
 `:''}
 ${layer==='night'?`#ifdef NIGHT_VNP46
-// Lab, nightDetail=vnp46: tiles carry VNP46A4 radiance L (nW cm^-2 sr^-1) as
-// code = ln(1 + L/0.25) / ln(1 + 20000). The overview, uplight and city curve
-// expect Black Marble 2016's display scale, so convert to it with the fit to
-// co-located 30" blocks (Cleveland, Delhi): 0.328 ln(1 + (L/1.089)^6.84)/6.84,
-// a soft toe and then 0.328 ln(L/1.089), saturating near 23 nW like the 2016
-// plates. Above that, nightRange=extended keeps the slope. Interpolation and
-// mips stay in the log code; the conversion runs once on the filtered value.
+// Lab, nightDetail=vnp46: tiles carry VNP46A4 radiance L (nW cm^-2 sr^-1) on
+// Black Marble 2016's display scale, which the overview, uplight and city curve
+// expect: e = 0.357 ln(1 + (L/1.564)^4.567)/4.567, fitted to co-located 30"
+// blocks of all 540 granules (scripts/vnp46-transfer.py), stored as e/2.88.
+// That is a soft toe and then 0.357 ln(L/1.564), 1 near 26 nW where the 2016
+// plates saturate, and up to ~5000 nW for nightRange=extended. Interpolating
+// a log radiance code instead drew dark gaps as hard-edged holes: the toe
+// keeps half of a dark-to-lit ramp black. The prepacked mips are area means
+// of the value with the 2016 ceiling, as is the overview.
 float nightVnp46Encoded(float code){
-  float t=6.839*(log(max(.25*(exp(code*${Math.log1p(20000).toFixed(4)})-1.),1e-6))-.08498);
-  float encoded=.04790*(t>15.?t:log(1.+exp(min(t,15.))));
+  float encoded=code*2.88;
 #ifdef NIGHT_VNP46_EXTENDED
   return encoded;
 #else
@@ -273,10 +274,14 @@ export class SurfaceTiles {
       if(!response.ok)throw new Error('Surface tile manifest unavailable');
       return response.json();
     }).then(data=>{
-      // Galaxy tiles carry box mipmaps averaged in displayed radiance (version 2).
-      if(data.version!==(this.layer==='galaxy'?2:1)||(this.layer==='galaxy'&&data.mipmaps!=='packed')||data.interior!==interior||data.gutter!==16||data.columns!==columns||data.rows!==rows||!Array.isArray(data.tiles)
+      // Galaxy tiles carry box mipmaps averaged in displayed radiance (version
+      // 2), and so do the VNP46A4 night tiles (lab): a resize would average
+      // their saturated cores above the 2016 ceiling.
+      const packed=data.mipmaps==='packed';
+      if(data.version!==(packed?2:1)||packed!==(this.layer==='galaxy'||this.layer==='night'&&packed)||data.interior!==interior||data.gutter!==16||data.columns!==columns||data.rows!==rows||!Array.isArray(data.tiles)
         ||!data.tiles.every((id:unknown)=>typeof id==='number'&&Number.isInteger(id)&&id>=0&&id<columns*rows))throw new Error('Invalid night tile manifest');
       if(this.disposed)return;
+      this.prepacked||=packed;
       this.available=new Set(data.tiles);this.lastSelection=-Infinity;this.notify();
     }).catch(()=>{/* Keep the global map if detail is unavailable. */});
   }

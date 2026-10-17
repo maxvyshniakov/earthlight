@@ -4,7 +4,11 @@
 """Lab, nightDetail=vnp46: median VNP46A4/VJ146A4 Collection 2 radiance, 2022-2024.
 
 Usage: uv run scripts/vnp46-composite.py <h5-dir> <work-dir> h09v04 [h25v06 ...]
-Then:  bun scripts/build-night-vnp46.mjs <work-dir> h09v04 [h25v06 ...]
+Then:  uv run scripts/vnp46-measure.py <work-dir> h09v04 [h25v06 ...]
+
+The regional lab's composite, kept for its measurements. Its <tile>-code.u8 is
+the lab's log radiance code; the tiles now come from scripts/vnp46-global.py,
+whose code is linear in the displayed value (docs/lab/night-vnp46-2026-10-17.md).
 
 Each 10-degree tile needs six granules (two satellites x three years) from
 LAADS DAAC, collection 5200, day 001. Keep them outside the repository.
