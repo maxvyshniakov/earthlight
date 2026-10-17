@@ -1,0 +1,1271 @@
+{
+ "date": "2026-10-17",
+ "method": "scripts/measure-limb-flicker.mjs: 1280x800, five frames per view turned by ~0.3 px; turnDifference = mean |frame2-frame0| (0.6 px, the owner metric); instability = mean |I(k-1)-2I(k)+I(k+1)| over k=1..3; 8-bit sRGB levels averaged over RGB; bands by view-ray cosine mu at the ground hit.",
+ "note": "baselineRepeat used a Red Sea horizon pose; its horizon numbers are not comparable. Supersampled = 2560x1600 box-filtered to 1280x800.",
+ "runs": {
+  "baseline": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.053,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 2.382,
+      "instability": 2.323
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 2.298,
+      "instability": 1.607
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.729,
+      "instability": 0.668
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.456,
+      "instability": 0.44
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 3.098,
+      "instability": 1.106
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 4.26,
+      "instability": 2.494
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 4.16,
+      "instability": 1.754
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.875,
+      "instability": 0.219
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.542,
+      "instability": 0.126
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.805,
+      "instability": 1.025
+     }
+    }
+   }
+  },
+  "baselineRepeat": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 2.355,
+      "instability": 2.286
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 2.293,
+      "instability": 1.568
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.727,
+      "instability": 0.659
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.456,
+      "instability": 0.44
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 3.097,
+      "instability": 1.105
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.042,
+      "instability": 0.029
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 1.515,
+      "instability": 0.888
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 0.632,
+      "instability": 0.325
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.885,
+      "instability": 0.427
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.917,
+      "instability": 0.397
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 1.777,
+      "instability": 0.372
+     }
+    }
+   }
+  },
+  "final": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.746,
+      "instability": 1.404
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.619,
+      "instability": 0.923
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.596,
+      "instability": 0.57
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.456,
+      "instability": 0.44
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.805,
+      "instability": 0.755
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 2.879,
+      "instability": 1.25
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.284,
+      "instability": 0.944
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.854,
+      "instability": 0.206
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.541,
+      "instability": 0.126
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.706,
+      "instability": 0.984
+     }
+    }
+   }
+  },
+  "finalSupersampled2x": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.053,
+      "instability": 0.048
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 2.18,
+      "instability": 1.102
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 2.264,
+      "instability": 0.835
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 2.288,
+      "instability": 0.734
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.97,
+      "instability": 0.563
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.824,
+      "instability": 0.608
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.011,
+      "instability": 0.006
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 3.39,
+      "instability": 1.242
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.771,
+      "instability": 1.095
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.895,
+      "instability": 0.185
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.562,
+      "instability": 0.1
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.71,
+      "instability": 0.691
+     }
+    }
+   }
+  },
+  "layerCloudsOff": {
+   "extra": "clouds=off",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.051,
+      "instability": 0.042
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.072,
+      "instability": 0.827
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 0.92,
+      "instability": 0.577
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 0.651,
+      "instability": 0.276
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 0.789,
+      "instability": 0.287
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.455,
+      "instability": 0.481
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.02,
+      "instability": 0.01
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 0.66,
+      "instability": 0.428
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 0.383,
+      "instability": 0.248
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.034,
+      "instability": 0.032
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.013,
+      "instability": 0.013
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 1.643,
+      "instability": 0.37
+     }
+    }
+   }
+  },
+  "layerTerrainOff": {
+   "extra": "terrain=0",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.053,
+      "instability": 0.045
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 2.564,
+      "instability": 2.487
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 2.261,
+      "instability": 1.548
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.714,
+      "instability": 0.632
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.428,
+      "instability": 0.373
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 3.2,
+      "instability": 1.06
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 4.136,
+      "instability": 2.342
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 4.155,
+      "instability": 1.746
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.875,
+      "instability": 0.219
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.542,
+      "instability": 0.126
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.807,
+      "instability": 1.034
+     }
+    }
+   }
+  },
+  "layerChromaticOff": {
+   "extra": "look-chromatic=0",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.071,
+      "instability": 0.052
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 4.345,
+      "instability": 4.244
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 4.325,
+      "instability": 2.784
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 2.773,
+      "instability": 1.15
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.682,
+      "instability": 0.546
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 3.096,
+      "instability": 0.901
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.024,
+      "instability": 0.012
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 4.77,
+      "instability": 3.034
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 4.796,
+      "instability": 2.239
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.961,
+      "instability": 0.266
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.59,
+      "instability": 0.147
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.853,
+      "instability": 1.196
+     }
+    }
+   }
+  },
+  "layerSurfaceTilesOffCloudsOff": {
+   "extra": "clouds=off&dayDetail=0&nightDetail=0",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.051,
+      "instability": 0.042
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.072,
+      "instability": 0.827
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 0.92,
+      "instability": 0.577
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 0.651,
+      "instability": 0.276
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 0.789,
+      "instability": 0.287
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.455,
+      "instability": 0.481
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.02,
+      "instability": 0.01
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 0.66,
+      "instability": 0.428
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 0.235,
+      "instability": 0.16
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.032,
+      "instability": 0.031
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.013,
+      "instability": 0.013
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 1.643,
+      "instability": 0.371
+     }
+    }
+   }
+  },
+  "layerCloudTilesOff": {
+   "extra": "cloudDetail=0",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.053,
+      "instability": 0.045
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 2.383,
+      "instability": 2.311
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 2.3,
+      "instability": 1.629
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.737,
+      "instability": 0.702
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.448,
+      "instability": 0.442
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 3.097,
+      "instability": 1.109
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 4.051,
+      "instability": 2.234
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.648,
+      "instability": 1.322
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.659,
+      "instability": 0.166
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.338,
+      "instability": 0.1
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.809,
+      "instability": 1.027
+     }
+    }
+   }
+  },
+  "rejectedIsotropicMajor": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.712,
+      "instability": 1.364
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.487,
+      "instability": 0.871
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.295,
+      "instability": 0.453
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.283,
+      "instability": 0.401
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.792,
+      "instability": 0.74
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 2.585,
+      "instability": 1.157
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 2.729,
+      "instability": 0.711
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.822,
+      "instability": 0.197
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.541,
+      "instability": 0.126
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.709,
+      "instability": 0.984
+     }
+    }
+   }
+  },
+  "rejectedFourTaps1p5": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.788,
+      "instability": 1.432
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.752,
+      "instability": 0.984
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.605,
+      "instability": 0.537
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.455,
+      "instability": 0.439
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.82,
+      "instability": 0.766
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 3.19,
+      "instability": 1.432
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.619,
+      "instability": 1.155
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.851,
+      "instability": 0.204
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.539,
+      "instability": 0.123
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.706,
+      "instability": 0.983
+     }
+    }
+   }
+  },
+  "rejectedFourTaps3": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.815,
+      "instability": 1.462
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.626,
+      "instability": 0.94
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.596,
+      "instability": 0.57
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.456,
+      "instability": 0.44
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.809,
+      "instability": 0.76
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 3.081,
+      "instability": 1.37
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.387,
+      "instability": 1.004
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.854,
+      "instability": 0.206
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.541,
+      "instability": 0.126
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.706,
+      "instability": 0.984
+     }
+    }
+   }
+  },
+  "rejectedVerticalRamps": {
+   "extra": "",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.801,
+      "instability": 1.418
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.757,
+      "instability": 0.986
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.61,
+      "instability": 0.537
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.46,
+      "instability": 0.438
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.855,
+      "instability": 0.788
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 3.199,
+      "instability": 1.409
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.625,
+      "instability": 1.146
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.852,
+      "instability": 0.204
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.539,
+      "instability": 0.123
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.731,
+      "instability": 0.936
+     }
+    }
+   }
+  },
+  "checkCloudLightingRaymarch": {
+   "extra": "cloudLighting=raymarch",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.788,
+      "instability": 1.448
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.752,
+      "instability": 0.992
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.605,
+      "instability": 0.538
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.455,
+      "instability": 0.439
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.82,
+      "instability": 0.763
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 3.177,
+      "instability": 1.448
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.562,
+      "instability": 1.143
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.839,
+      "instability": 0.203
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.532,
+      "instability": 0.122
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.707,
+      "instability": 0.984
+     }
+    }
+   }
+  },
+  "checkCloudReuseOff": {
+   "extra": "cloudReuse=off",
+   "views": {
+    "polar": {
+     "space": {
+      "pixels": 179211,
+      "turnDifference": 0.052,
+      "instability": 0.044
+     },
+     "limb mu<0.1": {
+      "pixels": 6716,
+      "turnDifference": 1.791,
+      "instability": 1.388
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 35530,
+      "turnDifference": 1.745,
+      "instability": 0.957
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 132296,
+      "turnDifference": 1.605,
+      "instability": 0.531
+     },
+     "disc mu>0.5": {
+      "pixels": 657542,
+      "turnDifference": 1.456,
+      "instability": 0.439
+     },
+     "air above limb <60 km": {
+      "pixels": 12705,
+      "turnDifference": 2.815,
+      "instability": 0.755
+     }
+    },
+    "horizon": {
+     "space": {
+      "pixels": 536444,
+      "turnDifference": 0.021,
+      "instability": 0.011
+     },
+     "limb mu<0.1": {
+      "pixels": 18334,
+      "turnDifference": 3.191,
+      "instability": 1.432
+     },
+     "grazing 0.1-0.25": {
+      "pixels": 89410,
+      "turnDifference": 3.62,
+      "instability": 1.155
+     },
+     "oblique 0.25-0.5": {
+      "pixels": 272922,
+      "turnDifference": 0.851,
+      "instability": 0.204
+     },
+     "disc mu>0.5": {
+      "pixels": 70476,
+      "turnDifference": 0.539,
+      "instability": 0.123
+     },
+     "air above limb <60 km": {
+      "pixels": 36414,
+      "turnDifference": 2.706,
+      "instability": 0.983
+     }
+    }
+   }
+  }
+ },
+ "timing": {
+  "method": "scripts/compare-cloud-footprint.mjs: two fresh clones of one explorer, the reference compiled with HEAD earth-clouds.ts; EXT_disjoint_timer_query whole frame, AB/BA alternation, 8 warm-up pairs. Shared, heavily loaded M2 Max (load average 10-36).",
+  "aa": [
+   {
+    "view": "polar",
+    "referenceMs": 19.34,
+    "candidateMs": 20.09,
+    "pairedRatio": 1.045,
+    "ratioQuartiles": [
+     0.899,
+     1.364
+    ],
+    "fastestRatio": 1.488
+   },
+   {
+    "view": "horizon",
+    "referenceMs": 22.64,
+    "candidateMs": 22.9,
+    "pairedRatio": 1.015,
+    "ratioQuartiles": [
+     0.924,
+     1.18
+    ],
+    "fastestRatio": 1.113
+   },
+   {
+    "view": "nadir",
+    "referenceMs": 16.07,
+    "candidateMs": 16.21,
+    "pairedRatio": 1.003,
+    "ratioQuartiles": [
+     0.965,
+     1.031
+    ],
+    "fastestRatio": 0.998
+   }
+  ],
+  "final": [
+   [
+    {
+     "view": "polar",
+     "referenceMs": 19.44,
+     "candidateMs": 19.72,
+     "pairedRatio": 1.013,
+     "ratioQuartiles": [
+      0.81,
+      1.182
+     ],
+     "fastestRatio": 1.037
+    },
+    {
+     "view": "horizon",
+     "referenceMs": 22.62,
+     "candidateMs": 24.57,
+     "pairedRatio": 1.093,
+     "ratioQuartiles": [
+      1.007,
+      1.249
+     ],
+     "fastestRatio": 1.061
+    },
+    {
+     "view": "nadir",
+     "referenceMs": 16.2,
+     "candidateMs": 16.45,
+     "pairedRatio": 1.018,
+     "ratioQuartiles": [
+      0.99,
+      1.048
+     ],
+     "fastestRatio": 1.016
+    }
+   ],
+   [
+    {
+     "view": "polar",
+     "referenceMs": 18.63,
+     "candidateMs": 20.23,
+     "pairedRatio": 1.115,
+     "ratioQuartiles": [
+      0.96,
+      1.394
+     ],
+     "fastestRatio": 1.246
+    },
+    {
+     "view": "horizon",
+     "referenceMs": 23.52,
+     "candidateMs": 24.84,
+     "pairedRatio": 1.049,
+     "ratioQuartiles": [
+      0.924,
+      1.196
+     ],
+     "fastestRatio": 1.343
+    },
+    {
+     "view": "nadir",
+     "referenceMs": 15.9,
+     "candidateMs": 16.35,
+     "pairedRatio": 1.021,
+     "ratioQuartiles": [
+      0.992,
+      1.638
+     ],
+     "fastestRatio": 1.729
+    }
+   ]
+  ],
+  "twoTapsWithGate": [
+   {
+    "view": "horizon",
+    "referenceMs": 22.84,
+    "candidateMs": 25.27,
+    "pairedRatio": 1.108,
+    "ratioQuartiles": [
+     0.987,
+     1.241
+    ],
+    "fastestRatio": 1.203
+   },
+   {
+    "view": "polar",
+    "referenceMs": 19.78,
+    "candidateMs": 20.95,
+    "pairedRatio": 1.072,
+    "ratioQuartiles": [
+     0.934,
+     1.208
+    ],
+    "fastestRatio": 1.08
+   }
+  ],
+  "fourTaps3": [
+   {
+    "view": "horizon",
+    "referenceMs": 22.82,
+    "candidateMs": 28.82,
+    "pairedRatio": 1.267,
+    "ratioQuartiles": [
+     1.099,
+     1.413
+    ],
+    "fastestRatio": 1.224
+   },
+   {
+    "view": "polar",
+    "referenceMs": 22.38,
+    "candidateMs": 24.87,
+    "pairedRatio": 1.126,
+    "ratioQuartiles": [
+     0.989,
+     1.273
+    ],
+    "fastestRatio": 1.104
+   }
+  ],
+  "fourTaps2": [
+   {
+    "view": "polar",
+    "referenceMs": 19.6,
+    "candidateMs": 22.08,
+    "pairedRatio": 1.159,
+    "ratioQuartiles": [
+     1.006,
+     1.297
+    ],
+    "fastestRatio": 1.134
+   },
+   {
+    "view": "horizon",
+    "referenceMs": 22.28,
+    "candidateMs": 29.74,
+    "pairedRatio": 1.332,
+    "ratioQuartiles": [
+     1.216,
+     1.536
+    ],
+    "fastestRatio": 1.499
+   },
+   {
+    "view": "nadir",
+    "referenceMs": 15.89,
+    "candidateMs": 16.89,
+    "pairedRatio": 1.068,
+    "ratioQuartiles": [
+     1.034,
+     1.564
+    ],
+    "fastestRatio": 1.746
+   }
+  ]
+ },
+ "sharpness": {
+  "method": "mean |dI/dx|+|dI/dy| in frame 0; horizon rows 415-440 (limb), 440-520 (grazing), 700-800 (disc); polar x 400-880 y 250-550 (disc), x 110-200 y 250-550 (limb)",
+  "baseline": {
+   "horizon": {
+    "limb": 4.635,
+    "grazing": 6.571,
+    "disc": 1.937
+   },
+   "polar": {
+    "disc": 3.513,
+    "limb": 8.755
+   }
+  },
+  "final": {
+   "horizon": {
+    "limb": 3.965,
+    "grazing": 5.389,
+    "disc": 1.935
+   },
+   "polar": {
+    "disc": 3.513,
+    "limb": 7.599
+   }
+  },
+  "isotropicMajor": {
+   "horizon": {
+    "limb": 3.808,
+    "grazing": 4.537,
+    "disc": 1.935
+   },
+   "polar": {
+    "disc": 3.428,
+    "limb": 6.342
+   }
+  }
+ }
+}

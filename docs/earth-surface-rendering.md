@@ -140,6 +140,10 @@ even below pixel/sample resolution.
 
 Coverage now selects mip levels explicitly with EXT_shader_texture_lod using
 the larger of the projected pixel footprint and half the ray integration step.
+Seen obliquely, an opaque cloud top is a surface: the view integral filters
+the pixel's ellipse on it, whose major axis grows as 1/cos of the incidence.
+Beyond 3:1 two taps along the ray's horizontal direction each average half of
+it ([limb flicker](lab/limb-flicker-2026-10-17.md)).
 Drivers without the extension use a conservative mip-bias fallback. Noise
 octaves fade continuously to their mean as they become unresolved, and erosion
 rotates with the same coordinates as the coverage map. The march uses 24 steps

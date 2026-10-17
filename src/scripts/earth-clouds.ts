@@ -60,6 +60,8 @@ float filteredCloudNoise(vec3 point,float frequency,float footprint){
   if(fade>=1.)return .5;
   return mix(noise(point*frequency),.5,fade);
 }
+// The vertical envelope of a column of known photographic coverage.
+float cloudColumnDensity(vec3 point,float height,float coverage,float neighborhood,float footprint);
 float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   float height=(length(point)-1.)*6371.;
   if(height<.6 || height>12.)return 0.;
@@ -79,6 +81,9 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   // convection, changing their height, whiteness and texture all at once.
   float neighborhood=cloudCoverage(point,max(footprint,.0025),false);
 #endif
+  return cloudColumnDensity(point,height,coverage,neighborhood,footprint);
+}
+float cloudColumnDensity(vec3 point,float height,float coverage,float neighborhood,float footprint){
   float connected=smoothstep(.32,.78,min(coverage,neighborhood));
   float relief=0.;
 #ifndef TEXTURE_SHAPED_CLOUDS
@@ -111,6 +116,39 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
 #endif
   return pow(coverage,1.35)*density*(1.-smoothstep(11.5,12.,height));
 }
+// Seen obliquely, a cloud top is a surface and a pixel covers an ellipse on
+// it: footprint across the view and ellipse.w along the horizontal direction
+// ellipse.xyz. Up to 3:1 one tap keeps the isotropic filter. Beyond, two
+// taps each average half the long axis while the short one keeps its
+// detail. Four taps were no steadier, 4% sharper and three times the cost.
+float cloudBaseDensity(vec3 point,float footprint,bool detailed,vec4 ellipse){
+  float height=(length(point)-1.)*6371.;
+  if(height<.6 || height>12.)return 0.;
+  float major=max(footprint,ellipse.w);
+  bool stretched=major>3.*footprint;
+  vec3 quarter=stretched?normalize(ellipse.xyz)*major*.25:vec3(0.);
+  float coverage=0.;
+#if defined(LEAN_SHADER_WORK) && !defined(MODIS_PATCH)
+  // One projection serves the neighbourhood and a single detailed tap.
+  vec3 cloudNormal=normalize(cloudCoordinates(point));
+  vec2 cloudUV=earthUV(cloudNormal);
+  float latitudeScale=max(.15,length(cloudNormal.xy));
+  // A loop around this texture-heavy call cost 5% even for one tap.
+  if(!stretched)coverage=cloudCoverageAt(cloudUV,latitudeScale,footprint,detailed);
+  else for(int i=0;i<2;i++){
+    vec3 n=normalize(cloudCoordinates(point+quarter*(float(i)*2.-1.)));
+    coverage+=.5*cloudCoverageAt(earthUV(n),max(.15,length(n.xy)),major*.5,detailed);
+  }
+  if(coverage<.001)return 0.;
+  float neighborhood=cloudCoverageAt(cloudUV,latitudeScale,max(major,.0025),false);
+#else
+  if(!stretched)coverage=cloudCoverage(point,footprint,detailed);
+  else for(int i=0;i<2;i++)coverage+=.5*cloudCoverage(point+quarter*(float(i)*2.-1.),major*.5,detailed);
+  if(coverage<.001)return 0.;
+  float neighborhood=cloudCoverage(point,max(major,.0025),false);
+#endif
+  return cloudColumnDensity(point,height,coverage,neighborhood,major);
+}
 float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
 #ifdef CLOUDS_DISABLED
   return 0.;
@@ -122,6 +160,20 @@ float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float half
   return mix(cloudBaseDensity(point,footprint,detailed),guided,weight);
 #else
   return cloudBaseDensity(point,footprint,detailed);
+#endif
+}
+// The view integral's density, filtered over the pixel's ellipse.
+float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan,vec4 ellipse){
+#ifdef CLOUDS_DISABLED
+  return 0.;
+#endif
+#ifdef MODIS_GUIDANCE
+  float weight;vec4 field=modisSample(point,footprint,weight);
+  float guided=weight>0.?modisDensity(field,(length(point)-1.)*6371.,halfSpan):0.;
+  if(weight>=.999)return guided;
+  return mix(cloudBaseDensity(point,footprint,detailed,ellipse),guided,weight);
+#else
+  return cloudBaseDensity(point,footprint,detailed,ellipse);
 #endif
 }
 float cloudDensity(vec3 point,float footprint,bool detailed){return cloudIntegratedDensity(point,footprint,detailed,0.);}
@@ -255,7 +307,13 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
     pixelFootprint*=2.;
 #endif
     float footprint=max(pixelFootprint,stepLength*.5);
-    float rho=cloudIntegratedDensity(point,footprint,true,stepLength*3185.5*abs(dot(normalize(point),ray)));
+    // The pixel's ellipse on the cloud top: its major axis grows as 1/cos of
+    // the incidence, along the ray's horizontal direction. Filtering the minor
+    // axis alone let foreshortened streaks near the limb alias as views turn.
+    // |point| is 1 within 0.2% in the shell: no normalization per step.
+    float along=dot(point,ray);
+    vec4 ellipse=vec4(ray-point*along,pixelFootprint/max(.05,abs(along)));
+    float rho=cloudIntegratedDensity(point,footprint,true,stepLength*3185.5*abs(along),ellipse);
     if(rho>.001){
 #ifdef MODIS_GUIDANCE
       // Light the cloud mass inside the interval, not its possibly empty
