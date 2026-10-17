@@ -784,6 +784,8 @@ ISO, reaching f/16 and ISO 100 at −5.5 EV. The shutter remains 1/48 s.
 The `night=video|still` lab continues this program to ISS night exposures and
 brings night emitters to physical radiance; see
 [docs/lab/physical-night-2026-10-17.md](lab/physical-night-2026-10-17.md).
+Its radiance targets stay half float: they store radiance pre-exposed by the
+frame's exposure ([docs/lab/pre-exposure-2026-10-17.md](lab/pre-exposure-2026-10-17.md)).
 
 The same GPU exposure state drives ghost radius, rounded-blade shape, off-axis
 coma, vignetting and loading defocus. Ghost area normalization avoids adding

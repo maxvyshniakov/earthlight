@@ -1,4 +1,4 @@
-import {textureImage2D,drawBuffersApi,radianceTarget,isWebGL2} from './webgl-context.ts';
+import {textureImage2D,drawBuffersApi,halfFloatTarget,isWebGL2} from './webgl-context.ts';
 /** Half-resolution cloud radiance/transmittance and depth metadata. WebGL1 MRT
  * avoids running the cloud integral twice or quantizing HDR light into bytes. */
 export class CloudBuffer {
@@ -14,12 +14,12 @@ export class CloudBuffer {
     return !!mrt && gl.getParameter(mrt.MAX_DRAW_BUFFERS_WEBGL) >= 2
       && gl.getParameter(mrt.MAX_COLOR_ATTACHMENTS_WEBGL) >= 2
       && gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) > 14
-      && radianceTarget(gl) !== null;
+      && halfFloatTarget(gl) !== null;
   }
 
   constructor(private gl: WebGLRenderingContext) {
     this.drawBuffers = drawBuffersApi(gl)!;
-    this.pixelType = radianceTarget(gl)!;
+    this.pixelType = halfFloatTarget(gl)!;
     try {
       this.framebuffer = gl.createFramebuffer();
       if (!this.framebuffer) throw Error('Cannot allocate cloud framebuffer');

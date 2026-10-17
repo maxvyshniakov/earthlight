@@ -5,6 +5,7 @@ import { AUTO_EXPOSURE_MIN_EV, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, cameraModelShad
 import { SOLAR_IRRADIANCE, SOLAR_RADIUS } from './solar-light';
 import { METER_LIT, METER_MAX_SIDE, type MeterField } from './camera-glare';
 import { PHYSICAL_NIGHT } from './physical-night';
+import { PRE_EXPOSURE } from './pre-exposure';
 export { EXPOSURE_MIN_EV, EXPOSURE_MAX_EV };
 // 24 log-luminance bins. Physical night radiance reaches 2^-34 scene units
 // (airglow on the sea), so the lab's bins are two stops wide.
@@ -12,6 +13,8 @@ const METER_BIN_STOPS=PHYSICAL_NIGHT?2:1;
 const METER_LOG_FLOOR=-24*METER_BIN_STOPS+8;
 // Below this the meter asks for more than the ceiling anyway.
 const METER_LUMINANCE_FLOOR=PHYSICAL_NIGHT?`exp2(${METER_LOG_FLOOR.toFixed(1)})`:'.00001';
+// The scene was rendered pre-exposed with the previous state's EV.
+const sceneRadiance=PRE_EXPOSURE?'/preExposure':'';
 export const EXPOSURE_SETTLE_MS=7000;
 
 // A one-pixel meter and two RGBA8 state targets. Exposure stays on the GPU:
@@ -39,7 +42,7 @@ uniform float useField;
 ${sceneColorShader}
 ${cameraModelShader}
 void main(){
-  vec3 weights=displayP3>.5?vec3(.2289746,.6917385,.0792869):vec3(.2126,.7152,.0722);
+${PRE_EXPOSURE?'  float preExposure=exp2(decodeCameraEV(texture2D(previous,vec2(.5)).rg));\n':''}  vec3 weights=displayP3>.5?vec3(.2289746,.6917385,.0792869):vec3(.2126,.7152,.0722);
   float total=0.,emission=0.,emissionWeight=0.,coverage=0.,count=0.;
   // Point samples on a 32 x 32 grid, or every texel of the pyramid level once.
   vec2 grid=useField>.5?meterSize:vec2(32.);
@@ -57,11 +60,11 @@ void main(){
       // a subject falls. Alpha is the share of the cell in subjects, which
       // hold nearly all of its light on a dark sky.
       vec4 cell=texture2D(meterField,meterRect.xy+uv*meterRect.zw);
-      c=cell.rgb;lit=cell.a;peak=max(c.r,max(c.g,c.b))/max(lit,.05);
+      c=cell.rgb${sceneRadiance};lit=cell.a;peak=max(c.r,max(c.g,c.b))/max(lit,.05);
     }else{
       vec4 pixel=texture2D(scene,uv);
       c=sceneLinear>.5?pixel.rgb:unpackSceneRadiance(pixel);
-      peak=max(c.r,max(c.g,c.b));lit=smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},peak);
+${PRE_EXPOSURE?'      c/=preExposure;\n':''}      peak=max(c.r,max(c.g,c.b));lit=smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},peak);
     }
     float w=1.+exp(-dot(uv-.5,uv-.5)*8.);
     float luminance=dot(c,weights);
@@ -123,6 +126,9 @@ export class CameraExposure {
   static prepare(batch:ShaderProgramBatch){return {batch,program:batch.add('Camera exposure','attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}',fragment)};}
 
   get texture(){return this.targets[this.index].texture;}
+  /** The state before the last update: the exposure the metered scene was
+   * rendered with, and so its pre-exposure. */
+  get previousTexture(){return this.targets[1-this.index].texture;}
   private program:WebGLProgram;
   private buffer:WebGLBuffer;
   private targets:{texture:WebGLTexture;framebuffer:WebGLFramebuffer}[]=[];

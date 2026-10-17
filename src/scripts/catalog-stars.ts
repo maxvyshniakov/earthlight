@@ -1,7 +1,8 @@
-import {radianceTarget,textureImage2D} from './webgl-context.ts';
+import {halfFloatTarget,textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
 import { opticalPsfSource, optics } from './optical-psf';
 import { pointBrightnessShader } from './point-photometry';
+import { PRE_EXPOSURE, PRE_EXPOSED_MAX } from './pre-exposure';
 
 const vertexSource = `
 precision highp float;
@@ -77,7 +78,8 @@ void main() {
   // optics, but only bright sources lift the weak wings above visibility.
   vec3 profile=vec3(core*.96)+lensPsf(delta,sourcePosition)*.04;
   vec3 radiance=pow(tint,vec3(2.2))*energy*profile*edge;
-  gl_FragColor=vec4(mix(pow(radiance,vec3(1./2.2)),radiance,linearOutput),1.);
+${PRE_EXPOSURE?`  radiance=min(radiance*sceneExposure(),vec3(${PRE_EXPOSED_MAX}.));
+`:''}  gl_FragColor=vec4(mix(pow(radiance,vec3(1./2.2)),radiance,linearOutput),1.);
 }
 `;
 
@@ -101,7 +103,7 @@ export class CatalogStars {
     const texture=gl.createTexture();
     if(!texture)throw new Error('Cannot allocate catalog target');
     this.texture=texture;
-    const half=radianceTarget(gl);
+    const half=halfFloatTarget(gl);
     this.linear=half!==null;
     this.pixelType=half??gl.UNSIGNED_BYTE;
     this.maxPointSize=gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1];

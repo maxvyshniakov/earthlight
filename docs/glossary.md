@@ -53,6 +53,11 @@ called Orbit, and older lab notes still use that name.
   radiance and lets the camera program reach ISS night exposures. The type is
   `NightMode`, the URL parameter `night` (`video` or `still`;
   `physical-night.ts`).
+- **Pre-exposure**: scene radiance stored multiplied by 2^ev of the exposure
+  its frame is rendered with, so physical night fits half-float and RGBE
+  targets; the meter, the glare pyramid and the camera finish divide it back
+  out. On with physical night only (`PRE_EXPOSURE`, `sceneExposure()`;
+  `pre-exposure.ts`).
 
 ## Assets
 

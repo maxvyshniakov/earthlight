@@ -1,4 +1,5 @@
 import { cameraModelShader } from './camera-model';
+import { preExposureShader } from './pre-exposure';
 import optics from '../data/optical-psf.json' with { type:'json' };
 export { optics };
 /** Atlas rows: the PSF tiles, then the far-field ray profiles. */
@@ -17,7 +18,7 @@ ${cameraModelShader}
 #ifdef CAMERA_PUPIL_STATE
 uniform sampler2D cameraState;
 #endif
-// One atlas tile per tabulated f-number. Decode log radiance BEFORE
+${preExposureShader}// One atlas tile per tabulated f-number. Decode log radiance BEFORE
 // interpolating tiles so flux remains constant through the exposure ramp.
 vec3 diffractionPsf(vec2 delta, float state) {
   vec2 uv=delta/${optics.span.toFixed(1)}+vec2(.5+.5/${optics.size.toFixed(1)});

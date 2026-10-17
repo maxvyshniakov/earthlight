@@ -19,6 +19,7 @@ const session=`night-${process.pid}`;
 const ab=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:3e7,timeout:180000})).stdout;
 
 // The radiance ledger's scene-buffer hook, plus the exposure state it writes.
+// Lab modes pre-expose the scene buffer; the ledger divides that out.
 const ledger=await readFile(new URL('./radiance-ledger.mjs',import.meta.url),'utf8');
 const hook=ledger.slice(ledger.indexOf('const hook=`')+12,ledger.indexOf('})();`;')+5)
  .replace('if(fb&&small.has(fb)){','if(fb&&small.has(fb)){window.__state={gl:this,fb};')
@@ -60,7 +61,7 @@ try{
  for(const v of views)for(const mode of modes){
   if(v.id==='day'&&mode==='still'||v.modes&&!v.modes.includes(mode))continue;
   await ab('open',`${base}/?${v.url}${mode==='current'?'':`&night=${mode}`}`);await ab('wait','--fn',settled);await ab('wait','12000');
-  const result=JSON.parse(JSON.parse(await ab('eval',`JSON.stringify({ev:window.__ev(),stats:window.__ledger(['all'])})`)));
+  const result=JSON.parse(JSON.parse(await ab('eval',`JSON.stringify({ev:window.__ev(),stats:window.__ledger(['all'],${mode==='current'?1:'2**(window.__sceneState()*27.6-5.5)'})})`)));
   const max=mode==='current'?5.1:22.1,ev=result.ev*(max+5.5)-5.5,camera=cameraProgramFor(mode,ev);
   await ab('screenshot',join(out,`${v.id}-${mode}.png`));
   const s=result.stats.all,cd=x=>(x*SCENE_CANDELA).toExponential(2);

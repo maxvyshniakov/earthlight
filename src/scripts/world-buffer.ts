@@ -1,4 +1,4 @@
-import {textureImage2D,radianceTarget,floatTarget} from './webgl-context.ts';
+import {textureImage2D,halfFloatTarget,floatTarget} from './webgl-context.ts';
 /** Full-resolution linear radiance + ray distance between independent passes.
  * Float32 preserves distant ground intersections; optional Float16 halves the
  * bandwidth and stores terrain distance as a small residual. Neither uses upsampling or history.
@@ -7,10 +7,10 @@ export class WorldBuffer {
  readonly texture:WebGLTexture;
  private framebuffer:WebGLFramebuffer;
  private width=0;private height=0;
- static supported(gl:WebGLRenderingContext,compact=false){return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>14&&(compact?radianceTarget(gl)!==null:floatTarget(gl));}
+ static supported(gl:WebGLRenderingContext,compact=false){return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>14&&(compact?halfFloatTarget(gl)!==null:floatTarget(gl));}
  private pixelType:number;
  constructor(private gl:WebGLRenderingContext,compact=false){
-  this.pixelType=compact?radianceTarget(gl)!:gl.FLOAT;
+  this.pixelType=compact?halfFloatTarget(gl)!:gl.FLOAT;
   const texture=gl.createTexture(),framebuffer=gl.createFramebuffer();
   if(!texture||!framebuffer){gl.deleteTexture(texture);gl.deleteFramebuffer(framebuffer);throw Error('Cannot allocate world buffer');}
   this.texture=texture;this.framebuffer=framebuffer;
