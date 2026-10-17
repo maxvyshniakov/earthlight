@@ -407,6 +407,21 @@ from a host without ranges), Astro check and build pass.
 `bun run verify` run timed out two terrain tests at 5 s under the load
 average of about 100; they pass alone and in the full run that followed.
 
+With whole packs: `bun run verify` passes 294 tests (twelve for the day
+pyramid: keys, slots and pack paths; the level cap; day tile packs,
+release packs and the index; cold views fetching one level from their own
+packs; parents and guard tiles from free packs; the date line and poles;
+the page table; streamed tiles and one request per pack without `Range`;
+the byte-bounded LRU cache; aborting an abandoned pack; the repack's
+byte-identical check and merging; the day atlas waiting for a sharp frame),
+then Astro check (0 errors) and build. `bun run verify:scene` passed once in
+three runs on this branch; the two failures ("partial failures never show
+the poster" in the `detail` failure case) also occur on the base commit,
+which passed two of four runs (its failures: the same assertion and a
+passive-cadence check), with a load average of 8–13. `assets:prepare` and
+`media:prepare` accept the release (17,770 files, largest 13 MiB);
+`assets-manifest.json` keeps the pinned version.
+
 ## Reproduce
 
 ```bash
