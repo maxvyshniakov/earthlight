@@ -50,7 +50,13 @@ unrelated regions and is not used.
 - New detail fades in over 650 ms, including while paused. Unloaded neighboring
   tiles receive a spatial blend to avoid a hard resolution boundary.
 - Texture footprint selects the mip level; the distant limb blends back to the
-  global map. Clouds, sunlight and atmospheric extinction still affect the lights.
+  global map. Magnified detail is a cubic B-spline of the source grid from four
+  bilinear taps, fully weighted at two pixels per source sample. The 15″ plates
+  repeat each 30″ (about 1 km) value in 2 × 2 blocks aligned to the tiles: in
+  sampled tiles 82–95% of the texel-to-texel gradient falls on block edges. The
+  spline therefore runs over level 1, the true grid. Bilinear magnification had
+  turned those blocks, through the city curve and the camera's clip, into
+  squares and stepped shorelines. See `lab/night-light-reconstruction-2026-10-16.md`. Clouds, sunlight and atmospheric extinction still affect the lights.
 - City emission is combined with the surface in approximate linear light after
   cloud/background compositing. Cloud extinction is applied once; the separate
   atmospheric ray integral supplies view-dependent extinction. There is no extra

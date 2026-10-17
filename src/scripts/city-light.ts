@@ -21,7 +21,12 @@ float cityActivation(vec3 normal){
 }
 vec3 cityLampColor(vec3 normal) {
   float district=noise(normal*1050.+vec3(31.,17.,9.));
-  float local=noise(normal*2300.+vec3(8.,2.,11.));
+  // Thresholded value noise reads as axis-aligned boxes once a long lens
+  // resolves its 3 km cells. A gentle warp bends their edges and keeps the
+  // field's value distribution, so the share of cooler districts is unchanged.
+  vec3 cell=normal*2300.;
+  vec2 warp=vec2(noise(cell*.37+vec3(3.,41.,7.)),noise(cell*.37+vec3(23.,5.,19.)))-.5;
+  float local=noise(cell+vec3(8.,2.,11.)+vec3(warp,warp.x-warp.y)*1.6);
   vec3 lamps=mix(vec3(1.,.70,.42),vec3(1.,.91,.78),smoothstep(.20,.78,district));
   // Occasional cooler districts, without tinting entire regions green/blue.
   return mix(lamps,vec3(.82,.92,1.),smoothstep(.72,.94,local)*.45);

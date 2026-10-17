@@ -477,11 +477,11 @@ from 200 to 300, 200 km from 1K to 2K), so each sits near a round value. Short
 screens show only the long ticks and drop the 200, 3K and 30K labels. The reading sits beyond the labels, plain text
 joined to the tape by a rule that passes under them; on hover or focus it turns
 black on opaque orange. The lens tape mirrors it at the middle of the left edge:
-0.5× to 20×, a 15 mm wide angle to 600 mm, logarithmic, long ticks on the 1-2-5
-series (0.5×, 1×, 2×, 5×, 10×, 20×),
+0.5× to 50×, a 15 mm wide angle to 1500 mm, logarithmic, long ticks on the 1-2-5
+series (0.5×, 1×, 2×, 5×, 10×, 20×, 50×),
 nearly even on that scale and labelled at both ends, short ticks at one pitch
 along the whole tape (about a sixth of an octave). It is
-0.7 of the altitude tape's height, so its 32 tick gaps fall about as close as
+0.7 of the altitude tape's height, so its 40 tick gaps fall about as close as
 the altitude tape's 46; the two need not match in length, the reading (2.5×) beyond its labels. On
 both tapes the reading stands the same gap past the longest label, so it
 follows the label length (50K, 0.5×). A

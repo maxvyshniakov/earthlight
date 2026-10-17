@@ -6,7 +6,9 @@ code or assets from Julien Sulpis's GPL repository are included.
 ## Night lights
 
 `night-tiles/` contains the global 500 m Black Marble 2016 grayscale imagery
-(86,400 × 43,200 source pixels), encoded as sparse AVIF quality 80 tiles. The
+(86,400 × 43,200 source pixels), encoded as sparse AVIF quality 80 tiles.
+Its independent samples are 30″ (about 1 km): each value repeats in a 2 × 2
+block aligned to the tiles, and the renderer interpolates that grid. The
 renderer loads only visible night-side regions. See `docs/night-lights-streaming.md`
 for the atlas layout, cache limits, filtering, verification and build command.
 The grayscale source already isolates emitted light; no terrain-removal threshold
@@ -183,7 +185,9 @@ Hipparcos/Tycho stars, which the scene renders from HYG instead.
 NASA SVS's **CGI Moon Kit**. The explorer loads one only while a resolved Moon
 (at least 5 CSS px in radius) is on screen. The tier is the smallest giving one
 texel per device pixel at the disk centre: 1K at 20× on DPR 1, 2K at 20× on
-DPR 2 in an 800 px tall view, and 4K only on very tall high-DPR views. These
+DPR 2 in an 800 px tall view, and 4K only on very tall high-DPR views. At the
+50× limit the same view takes 2K on DPR 1 and 4K on DPR 2; 4K stays at or
+above one texel per pixel up to about 2,300 device pixels of height. These
 maps never join the startup plan or the background package.
 
 - Credit: NASA's Scientific Visualization Studio (Ernie Wright, USRA; Noah

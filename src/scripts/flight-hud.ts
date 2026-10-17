@@ -13,7 +13,7 @@ const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
 export const GAUGE={dial:16.33,pitch:.42,earthAt:23.25,sun:4.2,sunAt:29.3,moon:3.3,moonAt:23.25};
 /** The lens range, as magnifications of the 1× pinhole (about 30 mm): from a
  * 15 mm wide angle to 600 mm. */
-export const LENS_MIN=.5,LENS_MAX=20;
+export const LENS_MIN=.5,LENS_MAX=50;
 /** Exposure compensation range in EV, shared by Settings and the HUD tape. */
 export const EV_MIN=-3,EV_MAX=4;
 /** Time scale, from 0× (time stands still, which is what pausing means) to

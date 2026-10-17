@@ -51,6 +51,7 @@ test('resolved disk keeps the sampled Lambert disk flux at every phase',()=>{
 test('the map tier follows the on-screen size and never enters startup',()=>{
  assert.equal(lunarTier(113,16384),1024);
  assert.equal(lunarTier(180,16384),2048,"20x at DPR 2 on an 800 px tall viewport");
+ assert.equal(lunarTier(450,16384),4096,"50x at DPR 2 on an 800 px tall viewport");
  assert.equal(lunarTier(700,16384),4096);
  assert.equal(lunarTier(700,2048),2048,'never above MAX_TEXTURE_SIZE');
  assert.equal(lunarResolved(LUNAR_RESOLVED_PX[0]),0);
