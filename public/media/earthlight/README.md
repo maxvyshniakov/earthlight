@@ -31,24 +31,36 @@ at the distant horizon, during tile loading, and when a tile cannot be fetched.
 
 ### Lab: measured night radiance (`night-vnp46-tiles/`)
 
-Regional only, loaded with `nightDetail=vnp46`, and not part of the release
-(`assets:prepare` skips it). It has 24 tiles: Cleveland and Lake Erie (h09v04)
-and Delhi (h25v06). See `docs/lab/night-vnp46-2026-10-17.md`.
+Global, loaded with `nightDetail=vnp46`, and not part of the release yet
+(`assets:prepare` skips it; publishing it is a separate decision). 3,448 tiles,
+29.6 MB, with the overview maps built from the same composite:
+`night-vnp46-tiles/earth-night-8k.avif`, `earth-night.avif` and
+`preview-night.webp` replace the 2016 overview under the switch. See
+`docs/lab/night-vnp46-2026-10-17.md`.
 
 - Source: NASA Black Marble VNP46A4 (Suomi NPP) and VJ146A4 (NOAA-20),
   Collection 2, lunar-BRDF-adjusted annual nighttime lights,
-  `AllAngle_Composite_Snow_Free`, from LAADS DAAC (collection 5200).
+  `AllAngle_Composite_Snow_Free`, from LAADS DAAC (collection 5200), all 540
+  land granules for 2022, 2023 and 2024: 3,240 HDF5 files, 303 GB.
   DOIs 10.5067/VIIRS/VNP46A4.002 and 10.5067/VIIRS/VJ146A4.002.
 - Credit: NASA Black Marble, Román, M. O. et al. (2018), Remote Sensing of
-  Environment 210, 113–143, doi:10.1016/j.rse.2018.03.017.
-- Access: Earthdata login. LAADS asks each account to accept the product's
-  terms once; record them before any release.
-- Changes: the median of the 2022, 2023 and 2024 annual composites of both
-  satellites. Radiance below 0.5 nW cm⁻² sr⁻¹ is set to 0. Over open water the
-  shore's stray-light halo is subtracted. The result is stored as
-  `255 ln(1 + L/0.25) / ln(1 + 20000)` in 8-bit single-channel AVIF q80.
-  The originals (12 HDF5 granules, 1.82 GB) are kept outside the repository;
-  their SHA-256 sums are in the tile manifest.
+  Environment 210, 113–143, doi:10.1016/j.rse.2018.03.017; VIIRS Land SIPS,
+  LAADS DAAC at NASA GSFC.
+- Terms: the CMR records of both products (C3860065683-LAADS,
+  C3816918646-LAADS) list no access constraints, mark the data free and open,
+  and link NASA's Earth science data use policy: data without a marked
+  restriction are CC0; cite the data and acknowledge NASA as the source,
+  without implying endorsement. The LAADS/Earthdata terms the owner accepted
+  for the download carry no further restriction.
+- Changes: the median of the six annual composites. Radiance below
+  1 nW cm⁻² sr⁻¹ is set to 0. Over open water the shore's stray-light halo is
+  subtracted, with neighbouring granules across granule edges. The result is
+  stored as `255 ln(1 + L/0.25) / ln(1 + 20000)` in 8-bit single-channel AVIF
+  q80, 1144 × 572 per tile: level 0 and four prepacked mip levels that average
+  the displayed value. The overview maps are the area mean of the displayed
+  value at 8192, 4096 and 1024 px (AVIF q65; WebP q75). Gas flares are kept.
+  The originals are not kept; each granule's SHA-256, production time and
+  input count are in `sources.json`, whose checksum is in the manifest.
 
 ## Surface color and clouds
 
