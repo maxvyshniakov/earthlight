@@ -1,4 +1,5 @@
 import {cropTextureBitmap} from './texture-bitmap.ts';
+import { lunarPhaseIrradiance } from './earth-light';
 import {assetURL,type SceneSources} from './asset-location';
 import {halfFloatTarget,shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {ShaderProgramBatch} from './shader-programs';
@@ -655,7 +656,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const lunarLight=currentLunarLight(observer.date,sky.moon,sky.starToFixed);
       const phaseCosine=Math.max(-1,Math.min(1,-sky.moon.slice(0,3).reduce((sum,x,i)=>sum+x*lunarLight[i],0)));
       const phaseAngle=Math.acos(phaseCosine);
-      gl.uniform1f(sceneUniforms.lunarIrradiance,(Math.sin(phaseAngle)+(Math.PI-phaseAngle)*phaseCosine)/Math.PI);
+      gl.uniform1f(sceneUniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle));
       const moonSamples=lunarSamples(sky.moon,lunarLight,observer.cameraBasis,observer.camera);
       gl.uniform4fv(sceneUniforms['moonSamples[0]'],moonSamples);
       let lunarFlux=0;
@@ -744,7 +745,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.uniform2f(uniforms.resolution,width,height);gl.uniform1f(uniforms.time,sceneTime);gl.uniform1f(uniforms.zoomExcess,zoomExcess);
         gl.uniform3fv(uniforms.cameraPosition,observer.camera);gl.uniformMatrix3fv(uniforms.cameraBasis,false,observer.cameraBasis);
         gl.uniform3fv(uniforms.sunDirection,observer.sun);gl.uniform4fv(uniforms.moon,sky.moon);
-        gl.uniform1f(uniforms.lunarIrradiance,(Math.sin(phaseAngle)+(Math.PI-phaseAngle)*phaseCosine)/Math.PI);
+        gl.uniform1f(uniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle));
         gl.uniformMatrix3fv(uniforms.galacticBasis,false,sky.galacticBasis);
         gl.uniform1f(uniforms.pixelRatio,height/Math.max(1,cssHeight));
         gl.uniform4fv(uniforms['stormSources[0]'],storms);

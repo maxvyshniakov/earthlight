@@ -1,4 +1,4 @@
-import {halfFloatTarget,textureImage2D} from './webgl-context.ts';
+import {radianceTarget,textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
 import { sceneImageShader } from './scene-image';
 import { CameraDefocus } from './camera-defocus';
@@ -292,7 +292,7 @@ export class CameraFinish {
   private defocus:CameraDefocus|null=null;
   private glare:CameraGlare|null=null;
   constructor(private gl:WebGLRenderingContext,private displayP3=false,prepared?:ReturnType<typeof CameraFinish.prepare>){
-    this.pixelType=halfFloatTarget(gl,true)??gl.UNSIGNED_BYTE;
+    this.pixelType=radianceTarget(gl,true)??gl.UNSIGNED_BYTE;
     const shaders:WebGLShader[]=[];
     try {
       this.program=prepared?prepared.batch.take(prepared.program):gl.createProgram();

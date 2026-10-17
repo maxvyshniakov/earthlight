@@ -4,7 +4,14 @@ import { sceneColorShader } from './scene-color';
 import { AUTO_EXPOSURE_MIN_EV, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, cameraModelShader } from './camera-model';
 import { SOLAR_IRRADIANCE, SOLAR_RADIUS } from './solar-light';
 import { METER_LIT, METER_MAX_SIDE, type MeterField } from './camera-glare';
+import { PHYSICAL_NIGHT } from './physical-night';
 export { EXPOSURE_MIN_EV, EXPOSURE_MAX_EV };
+// 24 log-luminance bins. Physical night radiance reaches 2^-34 scene units
+// (airglow on the sea), so the lab's bins are two stops wide.
+const METER_BIN_STOPS=PHYSICAL_NIGHT?2:1;
+const METER_LOG_FLOOR=-24*METER_BIN_STOPS+8;
+// Below this the meter asks for more than the ceiling anyway.
+const METER_LUMINANCE_FLOOR=PHYSICAL_NIGHT?`exp2(${METER_LOG_FLOOR.toFixed(1)})`:'.00001';
 export const EXPOSURE_SETTLE_MS=7000;
 
 // A one-pixel meter and two RGBA8 state targets. Exposure stays on the GPU:
@@ -58,8 +65,8 @@ void main(){
     }
     float w=1.+exp(-dot(uv-.5,uv-.5)*8.);
     float luminance=dot(c,weights);
-    float logL=clamp(log2(max(luminance,exp2(-16.))),-16.,7.999);
-    float bucket=floor(logL+16.);
+    float logL=clamp(log2(max(luminance,exp2(${METER_LOG_FLOOR.toFixed(1)}))),${METER_LOG_FLOOR.toFixed(1)},7.999);
+    float bucket=floor((logL-(${METER_LOG_FLOOR.toFixed(1)}))/${METER_BIN_STOPS.toFixed(1)});
     for(int bin=0;bin<24;bin++){
       float included=1.-step(.5,abs(float(bin)-bucket));
       mass[bin]+=w*included;logs[bin]+=w*included*logL;
@@ -91,8 +98,8 @@ void main(){
   // Blend within the metering range. A black sky asks for about +15 EV; mixed
   // before clamping, it outweighed any bright subject under 2.5% of the frame,
   // so a small Earth or a zoomed Moon was metered as empty sky.
-  float target=clamp(log2(.055/max(measured+sunMean*.45,.00001)),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
-  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),.00001)),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
+  float target=clamp(log2(.055/max(measured+sunMean*.45,${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
+  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
   // Point samples catch stars, so a subject needs 0.6-2.5% of them. Pyramid
   // subjects already exclude stars: a lit region counts from 0.005% of the
   // frame and fully from 0.025%, about two subject blocks.

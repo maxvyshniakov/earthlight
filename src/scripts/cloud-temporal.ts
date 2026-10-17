@@ -1,4 +1,4 @@
-import {textureImage2D,drawBuffersApi,halfFloatTarget} from './webgl-context.ts';
+import {textureImage2D,drawBuffersApi,radianceTarget} from './webgl-context.ts';
 
 // Column-interleaved clouds. Each frame integrates every other full-resolution
 // column into a dense half-width target, so fragment work really halves. A
@@ -141,10 +141,10 @@ export class TemporalClouds {
   static supported(gl:WebGLRenderingContext){
     const mrt=drawBuffersApi(gl);
     return !!mrt&&gl.getParameter(mrt.MAX_DRAW_BUFFERS_WEBGL)>=2&&gl.getParameter(mrt.MAX_COLOR_ATTACHMENTS_WEBGL)>=2
-      &&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&halfFloatTarget(gl)!==null;
+      &&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&radianceTarget(gl)!==null;
   }
   constructor(private gl:WebGLRenderingContext){
-    this.drawBuffers=drawBuffersApi(gl)!;this.pixelType=halfFloatTarget(gl)!;
+    this.drawBuffers=drawBuffersApi(gl)!;this.pixelType=radianceTarget(gl)!;
     try{this.fresh=[this.target(true),this.target(true)];this.resolved=[this.target(false),this.target(false)];this.allocate(2,2);}
     catch(error){this.dispose();throw error;}
     finally{gl.bindFramebuffer(gl.FRAMEBUFFER,null);}
@@ -153,7 +153,7 @@ export class TemporalClouds {
     const gl=this.gl,framebuffer=gl.createFramebuffer();if(!framebuffer)throw Error('Cannot allocate temporal clouds');
     // Computed radiance is resampled between columns when reprojected; depth
     // metadata (including the sky sentinel) must never be blended.
-    const linear=interpolated&&halfFloatTarget(this.gl,true)!==null;
+    const linear=interpolated&&radianceTarget(this.gl,true)===this.pixelType;
     const textures=[0,1].map(index=>{
       const texture=gl.createTexture();if(!texture)throw Error('Cannot allocate temporal clouds');
       gl.activeTexture(gl.TEXTURE6);gl.bindTexture(gl.TEXTURE_2D,texture);

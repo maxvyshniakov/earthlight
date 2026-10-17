@@ -1,6 +1,7 @@
 import { Body, RotationAxis } from 'astronomy-engine';
 import { transform } from './celestial-sky';
 import { cameraModelShader } from './camera-model';
+import { nightScale } from './physical-night';
 import { assetURL } from './asset-location';
 import { textureImage2D } from './webgl-context.ts';
 import type { ShaderProgramBatch } from './shader-programs';
@@ -323,7 +324,7 @@ export class MoonSurface {
     gl.uniform3fv(u.lunarLight,view.light);
     gl.uniformMatrix3fv(u.lunarFrame,false,frame.lunarFrame);
     // 18 is the sampled disk's radiance gain in scene-shader.ts.
-    gl.uniform4f(u.lunarShape,18*frame.scale,frame.weight,frame.resolved,this.mapWidth?1:0);
+    gl.uniform4f(u.lunarShape,18*nightScale('moonDisk')*frame.scale,frame.weight,frame.resolved,this.mapWidth?1:0);
     const mean=this.manifest?.color.meanLinear??[1,1,1];
     gl.uniform3f(u.lunarMean,mean[0],mean[1],mean[2]);
     const km=this.manifest?.height.km??[0,1];
