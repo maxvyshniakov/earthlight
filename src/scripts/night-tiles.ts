@@ -19,7 +19,7 @@ function tileShader(layer:Layer){
   const valueType=layer==='day'||layer==='galaxy'||layer==='terrain'?'vec3':'float';
   const channel=layer==='day'||layer==='galaxy'||layer==='terrain'?'rgb':'r';
   // Terrain packs height bytes, and clouds are sampled along every view ray.
-  const smooth=layer==='night'||layer==='day'||layer==='galaxy';
+  const magnify=layer==='night'||layer==='day'||layer==='galaxy';
   // Emits code for the tile texels per independent source sample: 2 for the
   // 30" Black Marble 2016 plates (see the note below), 1 for VNP46A4 radiance
   // (lab, nightDetail=vnp46), which has independent 15" samples.
@@ -58,7 +58,7 @@ ${valueType} ${layer}Level(vec2 local,float slot,float level){
   vec2 p=origin+(vec2(16.)+local*${interior}.)/${cell}.*size;
   return texture2D(${layer}TileAtlas,p/${layer}TileLayout.x).${channel};
 }
-${smooth?`
+${magnify?`
 // Magnified source grid as a cubic B-spline from four bilinear taps. A
 // bilinear ramp between contrasting texels, through the tone curve and the
 // camera's clip, reads as a square. The kernel is positive and sums to one:
@@ -70,21 +70,21 @@ ${smoothSource}`:measured(`// Measured clouds (cloudStudy=global) magnify their 
 // way: bilinear ramps between texels read as squares through -log(1 - R)
 // and the lighting once a texel spans tens of pixels.
 ${smoothSource}`)}
-// Explicit trilinear filtering of isolated mip levels; smooth > 0 only while
+// Explicit trilinear filtering of isolated mip levels; magnify > 0 only while
 // magnifying, where lod is zero.
-${valueType} ${layer}Sample(vec2 local,float slot,float lod,float smooth){
-  ${valueType} light=smooth<1.?${layer}Level(local,slot,floor(lod)):${valueType}(0.);
-  ${smooth?`if(smooth>0.)light=mix(light,${layer}Smooth(local,slot),smooth);`:measured(`  if(smooth>0.)light=mix(light,${layer}Smooth(local,slot),smooth);`)}
+${valueType} ${layer}Sample(vec2 local,float slot,float lod,float magnify){
+  ${valueType} light=magnify<1.?${layer}Level(local,slot,floor(lod)):${valueType}(0.);
+  ${magnify?`if(magnify>0.)light=mix(light,${layer}Smooth(local,slot),magnify);`:measured(`  if(magnify>0.)light=mix(light,${layer}Smooth(local,slot),magnify);`)}
   if(fract(lod)>0.)light=mix(light,${layer}Level(local,slot,min(4.,floor(lod)+1.)),fract(lod));
   return light;
 }
 ${layer==='day'||layer==='cloud'?`
-${valueType} ${layer}Neighbor(vec2 key,vec2 local,float lod,float smooth,${valueType} fallback){
+${valueType} ${layer}Neighbor(vec2 key,vec2 local,float lod,float magnify,${valueType} fallback){
  if(key.y<0.||key.y>=${rows}.)return fallback;
  key=vec2(mod(key.x+${columns}.,${columns}.),clamp(key.y,0.,${rows-1}.));
  float slot=floor(texture2D(${layer}TileAtlas,(key+.5)/${layer}TileLayout.x).r*255.+.5);
  if(slot<.5||${layer}Fade(key)<=0.)return fallback;
- return ${layer}Sample(local,slot,lod,smooth);
+ return ${layer}Sample(local,slot,lod,magnify);
 }
 `:''}
 ${layer==='night'?`#ifdef NIGHT_VNP46
@@ -128,8 +128,8 @@ ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='gala
   // Mip gutters contain actual neighboring geography, including across the
   // NASA source plates. Smoothing reaches full weight at two pixels per
   // source sample.
-  ${smooth?spaced(spacing=>`float smooth=1.-smoothstep(${(spacing*.5).toFixed(1)},${spacing.toFixed(1)},footprint);`):layer==='cloud'?'\n#ifdef CLOUD_PROPERTIES\n  float smooth=1.-smoothstep(.5,1.,footprint);\n#else\n  float smooth=0.;\n#endif\n':'float smooth=0.;'}
-  ${valueType} light=${layer}Sample(local,slot,lod,smooth);
+  ${magnify?spaced(spacing=>`float magnify=1.-smoothstep(${(spacing*.5).toFixed(1)},${spacing.toFixed(1)},footprint);`):layer==='cloud'?'\n#ifdef CLOUD_PROPERTIES\n  float magnify=1.-smoothstep(.5,1.,footprint);\n#else\n  float magnify=0.;\n#endif\n':'float magnify=0.;'}
+  ${valueType} light=${layer}Sample(local,slot,lod,magnify);
   ${layer==='day'||layer==='cloud'?`
   // Independently compressed photos disagree even when both tiles are loaded.
   // Average the SAME geography from their existing overlap, symmetrically at
@@ -138,9 +138,9 @@ ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='gala
   vec2 blend=.5*(1.-smoothstep(vec2(0.),vec2(band),min(local,1.-local)));
   if(blend.x>0.||blend.y>0.){
     ${valueType} horizontal=light,vertical=light,diagonal=light;
-    if(blend.x>0.)horizontal=${layer}Neighbor(key+vec2(stepTo.x,0.),local-vec2(stepTo.x,0.),lod,smooth,light);
-    if(blend.y>0.)vertical=${layer}Neighbor(key+vec2(0.,stepTo.y),local-vec2(0.,stepTo.y),lod,smooth,light);
-    if(blend.x>0.&&blend.y>0.)diagonal=${layer}Neighbor(key+stepTo,local-stepTo,lod,smooth,light);
+    if(blend.x>0.)horizontal=${layer}Neighbor(key+vec2(stepTo.x,0.),local-vec2(stepTo.x,0.),lod,magnify,light);
+    if(blend.y>0.)vertical=${layer}Neighbor(key+vec2(0.,stepTo.y),local-vec2(0.,stepTo.y),lod,magnify,light);
+    if(blend.x>0.&&blend.y>0.)diagonal=${layer}Neighbor(key+stepTo,local-stepTo,lod,magnify,light);
     light=mix(mix(light,horizontal,blend.x),mix(vertical,diagonal,blend.x),blend.y);
   }
   `:''}

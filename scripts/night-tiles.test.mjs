@@ -162,15 +162,15 @@ test('magnified tiles reconstruct a cubic B-spline from four bilinear taps',()=>
   }
 });
 
-test('only colour and night layers smooth magnified detail; night uses its 30" grid',async()=>{
+test('only colour and night layers magnify magnified detail; night uses its 30" grid',async()=>{
   const {nightTileShader,dayTileShader,galaxyTileShader,terrainTileShader,cloudTileShader}=await import('../src/scripts/night-tiles.ts');
   for(const shader of [nightTileShader,dayTileShader,galaxyTileShader])assert.match(shader,/Smooth\(vec2 local,float slot\)/);
   assert.doesNotMatch(terrainTileShader,/Smooth\(/);
-  // The plates' cloud tiles stay bilinear; only measured clouds (CLOUD_PROPERTIES) smooth.
+  // The plates' cloud tiles stay bilinear; only measured clouds (CLOUD_PROPERTIES) magnify.
   const measured=/\n#ifdef CLOUD_PROPERTIES\n[\s\S]*?\n#endif\n/g;
   assert.match(cloudTileShader,/#ifdef CLOUD_PROPERTIES\n[^#]*float cloudSmooth\(vec2 local,float slot\)/);
   assert.doesNotMatch(cloudTileShader.replace(measured,'\n'),/Smooth\(/);
-  // Black Marble repeats each 30" value in 2 x 2 blocks: smooth level 1.
+  // Black Marble repeats each 30" value in 2 x 2 blocks: magnify level 1.
   assert.match(nightTileShader,/nightOrigin\(slot\+1\.\)\+vec2\(8\.\)\+local\*270\./);
   assert.match(nightTileShader,/smoothstep\(1\.0,2\.0,footprint\)/);
   assert.match(dayTileShader,/dayOrigin\(slot\)\+vec2\(16\.\)\+local\*540\./);
@@ -188,7 +188,7 @@ test('VNP46A4 lab tiles interpolate their own 15" grid and carry the 2016 displa
   const night=nightTileShader;
   const branch=night.slice(night.indexOf('#ifdef NIGHT_VNP46'),night.indexOf('#endif'));
   assert.match(branch,/vec2 t=nightOrigin\(slot\)\+vec2\(16\.\)\+local\*540\./,'level 0, not the 30" level 1');
-  assert.match(night,/#ifdef NIGHT_VNP46\nfloat smooth=1\.-smoothstep\(0\.5,1\.0,footprint\);/);
+  assert.match(night,/#ifdef NIGHT_VNP46\nfloat magnify=1\.-smoothstep\(0\.5,1\.0,footprint\);/);
   // Run the GLSL conversion as JavaScript.
   const body=night.slice(night.indexOf('float nightVnp46Encoded'),night.indexOf('#ifdef NIGHT_VNP46_EXTENDED'));
   const js=body.replace(/^float nightVnp46Encoded\(float code\)\{/,'').replace(/float /g,'const ').replace(/\b(log|exp|max|min)\(/g,'Math.$1(');

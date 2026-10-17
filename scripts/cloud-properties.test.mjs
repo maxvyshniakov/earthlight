@@ -25,10 +25,10 @@ const layer=(base,top,height,halfSpan)=>{
   return (s(clamp((height+halfSpan-base)/(top-base)))-s(clamp((height-halfSpan-base)/(top-base))))/(2*halfSpan);
 };
 const column=(opacity,top,ice)=>{
-  const smooth=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+  const magnify=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
   const tau=Math.min(opacity,.995)/((.13+(.2165-.13)*ice)*(1-Math.min(opacity,.995)));top=Math.min(11.8,Math.max(.9,top));
   const liquid=Math.min(2.5,Math.max(.25,.25+.04*tau));
-  const glaciated=1.5+(Math.max(1.5,top-1.5)-1.5)*smooth(6,30,tau)*smooth(6,9,top);
+  const glaciated=1.5+(Math.max(1.5,top-1.5)-1.5)*magnify(6,30,tau)*magnify(6,9,top);
   return [Math.max(.6,top-(liquid+(glaciated-liquid)*ice)),top];
 };
 const albedo=(tau,ice=0)=>{const c=.13+(.2165-.13)*ice;return c*tau/(1+c*tau);};
@@ -141,8 +141,8 @@ test('the default renderer compiles none of the measured clouds',()=>{
   for(const source of [fragmentSource,cloudShader,cloudTileShader])assert.doesNotMatch(defaultSource(source).split('\n').filter(line=>!line.trim().startsWith('#')).join('\n'),/cloudProperties|CLOUD_PROPERTIES/);
   // The plates' cloud tiles keep bilinear magnification.
   assert.doesNotMatch(defaultSource(cloudTileShader),/cloudSmooth/);
-  assert.match(defaultSource(cloudTileShader),/float smooth=0\.;/);
-  assert.match(cloudTileShader,/#ifdef CLOUD_PROPERTIES\n  float smooth=1\.-smoothstep\(\.5,1\.,footprint\);/);
+  assert.match(defaultSource(cloudTileShader),/float magnify=0\.;/);
+  assert.match(cloudTileShader,/#ifdef CLOUD_PROPERTIES\n  float magnify=1\.-smoothstep\(\.5,1\.,footprint\);/);
 });
 
 test('measured clouds load clear, never as sea ice',()=>{
@@ -160,7 +160,7 @@ test('measured clouds load clear, never as sea ice',()=>{
 
 test('a view-ray step reads the column where the ray crosses the layer',()=>{
   assert.match(cloudShader,/#ifdef CLOUD_PROPERTIES\n    float rho=cloudPropertiesStep\(point,ray\*stepLength\*sign\(along\),footprint,stepLength\*3185\.5\*abs\(along\)\);\n#else/);
-  assert.match(cloudPropertiesShader,/point\+=stride\*\(\(centroid-height\)\/\(2\.\*halfSpan\)\);\n      field=cloudPropertiesAt\(point,footprint,true\);\n      column=cloudPropertiesColumn\(field\);/);
+  assert.match(cloudPropertiesShader,/point\+=stride\*\(\(layerCentre-height\)\/\(2\.\*halfSpan\)\);\n      field=cloudPropertiesAt\(point,footprint,true\);\n      column=cloudPropertiesColumn\(field\);/);
   // A 2-D mirror of cloudPropertiesStep: a 0.4 km deck whose optical depth
   // ends at a cloud edge one 2.4 km texel wide, crossed 12 degrees above the
   // horizon by 1 km steps (balanced), level or with its top rising 80 m per km.

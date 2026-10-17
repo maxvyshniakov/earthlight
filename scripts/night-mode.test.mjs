@@ -55,3 +55,15 @@ test('links choose the mode, and only the night key changes it at runtime',()=>{
  assert.equal(readNightMode(new URLSearchParams('night=1')),'current');
  assert.equal(readNightMode(new URLSearchParams('')),'current');
 });
+
+// WebGL2 compiles the same sources as GLSL ES 3.00, where these words are
+// keywords or reserved; WebGL1 accepts them as names. Phones that need WebGL2
+// (no explicit LOD in WebGL1) failed to compile `float smooth` and `float centroid`.
+const RESERVED_ES3=['smooth','flat','centroid','layout','sample','patch','noperspective','invariant','common','partition','active','asm','class','union','enum','typedef','template','this','resource','goto','inline','noinline','public','static','extern','external','interface','long','short','double','half','fixed','unsigned','superp','input','output','filter','sizeof','cast','namespace','using','buffer','shared','coherent','volatile','restrict','readonly','writeonly','subroutine'];
+test('no program declares a GLSL ES 3.00 reserved word as a name',()=>{
+ const declared=new RegExp(`\\b(?:float|int|uint|bool|vec[234]|ivec[234]|uvec[234]|bvec[234]|mat[234])\\s+(?:${RESERVED_ES3.join('|')})\\b`);
+ for(const mode of NIGHT_MODES)for(const [name,source] of Object.entries(sources(mode))){
+  const found=source.match(declared);
+  assert.equal(found,null,`${mode} ${name}: ${found?.[0]}`);
+ }
+});

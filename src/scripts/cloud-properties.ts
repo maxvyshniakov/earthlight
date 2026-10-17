@@ -283,8 +283,8 @@ float cloudPropertiesStep(inout vec3 point,vec3 stride,float footprint,float hal
     float mass=b*b*(3.-2.*b)-a*a*(3.-2.*a);
     float moment=b*b*b*(2.-1.5*b)-a*a*a*(2.-1.5*a);
     if(mass>1e-6){
-      float centroid=column.x+span*moment/mass;
-      point+=stride*((centroid-height)/(2.*halfSpan));
+      float layerCentre=column.x+span*moment/mass;
+      point+=stride*((layerCentre-height)/(2.*halfSpan));
       field=cloudPropertiesAt(point,footprint,true);
       column=cloudPropertiesColumn(field);
     }
