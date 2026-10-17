@@ -79,7 +79,9 @@ cloud lighting atlas runs in its no-drift mode. See
 [measured cloud properties](lab/cloud-properties-2026-10-17.md) and
 [its second iteration](lab/cloud-properties-iteration-2026-10-17.md); the
 [third](lab/cloud-properties-seams-2026-10-17.md) reviews the date-line and
-swath seams and thin cirrus.
+swath seams and thin cirrus, and a
+[rebuild](lab/cloud-properties-artefacts-2026-10-17.md) removes glint taken for
+cloud, the dark column at 180° and stepped polar veils.
 
 
 Build scripts and official source URLs are in `public/media/earthlight/README.md`.

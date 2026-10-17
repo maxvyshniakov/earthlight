@@ -403,8 +403,13 @@ for that date and decoded from the published palettes. Clouds with a height
 but no retrieved thickness take an albedo inverted from the same overpass's
 true colour (`VIIRS_NOAA20_CorrectedReflectance_TrueColor`) against the local
 clear sky, calibrated on the retrieved pixels, over dark surfaces within 60° of
-the equator; elsewhere that day's median MODIS Aqua partly cloudy thickness.
+the equator; elsewhere that day's median MODIS Aqua partly cloudy thickness,
+with a smooth blend between the two. In sun glint over water, from a NOAA-20
+orbit model fitted to the day's glint and the Natural Earth water mask of
+`earth-terrain-8192-v2.dem`, the inversion uses the glint as its reference and
+clouds retrieved below 400 m count as partly cloudy. Columns at the
+antimeridian edge of the GIBS requests copy their neighbour on the same side.
 Nothing fills unobserved areas. Credit: NASA GIBS (ESDIS) and the NASA Atmosphere SIPS
 cloud products; NASA data carry no restriction on use. Build with
-`bun scripts/prepare-cloud-properties.mjs [cache]`. `assets:prepare` skips
+`bun scripts/prepare-cloud-properties.mjs [cache] [YYYY-MM-DD]`. `assets:prepare` skips
 this directory; it is not part of a release.
