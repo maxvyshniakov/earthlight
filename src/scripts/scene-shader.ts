@@ -379,6 +379,14 @@ void main() {
     // polar cap selects unresolved tile detail in wedges meeting at the pole.
     float footprint=distance*13751./(resolution.y*FOCAL*max(.02,-dot(geo,earthRay))*max(.02,length(geo.xy)));
     vec3 albedo=pyramidDay(mapUV,footprint,detailedDay(mapUV,footprint,surfaceAlbedo(mapUV)));
+    float water=terrainReady>.5?terrainData(mapUV,0.).b:1.-smoothstep(.01,.065,albedo.g-albedo.b*.65);
+#ifdef CLOUD_PROPERTIES
+    // The measured day's sea ice, which the day map lacks; footprint counts
+    // 86,400-wide day-map texels per pixel.
+    float seaIce=water*cloudPropertiesSeaIce(mapUV,log2(max(1.,footprint*cloudMapWidth/86400.)));
+    albedo=pow(mix(pow(albedo,vec3(2.2)),CLOUD_PROPERTIES_SEA_ICE,seaIce),vec3(1./2.2));
+    water-=seaIce;
+#endif
     vec3 surface=vec3(0.);
     float lamp=detailedNight(mapUV,footprint,cityEmission(mapUV));
     float groundShadow=direct>0.?cloudShadowAlong(surfacePoint+sunDirection*.00003,sunDirection)*terrainSunVisibility(surfacePoint):1.;
@@ -398,7 +406,6 @@ void main() {
     float lunarDirect=max(0.,dot(normal,moonDirection))*smoothstep(-.005,.005,dot(geo,moonDirection));
     float lunarShadow=solar<.08&&lunarDirect*lunarIrradiance>.0001?cloudShadowAlong(surfacePoint,moonDirection):1.;
     vec3 lunarDiffuse=pow(albedo,vec3(2.2))*incidentMoon*lunarDirect*lunarShadow/3.141592654;
-    float water=terrainReady>.5?terrainData(mapUV,0.).b:1.-smoothstep(.01,.065,albedo.g-albedo.b*.65);
     // Diffuse downwelling light belongs to the emitting atmosphere, not the
     // observer. The same point receives it from every camera altitude.
     bool skyDiffuseNeeded=solar<.08;

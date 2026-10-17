@@ -30,7 +30,7 @@ import { lensReflectance, type LensPreset } from './lens-reflections';
 import { SceneTimer } from './scene-quality';
 import { sceneProfile } from './scene-profile';
 import {auroraEnabled,auroraMode,cloudMode} from './scene-effects';
-import {cloudPropertiesDate,cloudPropertiesEnabled,cloudPropertiesPath} from './cloud-properties';
+import {CLOUD_PROPERTIES_OVERVIEW,cloudPropertiesDate,cloudPropertiesEnabled,cloudPropertiesPath} from './cloud-properties';
 import { SceneAssets, sceneAssetPlan, type AssetPlan } from './scene-assets';
 import { sceneBufferSize, compactSurfaceOverview } from './scene-viewport';
 import { NOISE_TABLE_SIZE, NOISE_TABLE_UNIT, noiseTableData } from './noise-table';
@@ -268,7 +268,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           state.terrainReady='';return;
         }
         const limit=gl.getParameter(gl.MAX_TEXTURE_SIZE);
-        // Measured properties keep every channel, including the observed mask in alpha.
+        // Measured properties keep every channel, including observed and sea ice in alpha.
         const properties=cloudProperties&&asset.key==='clouds';
         const image=await createImageBitmap(blob,properties?{imageOrientation:'flipY',premultiplyAlpha:'none',colorSpaceConversion:'none'}:{imageOrientation:'flipY'});
         try{
@@ -860,7 +860,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     if(cloudProperties){
       // No photographic preview: until the properties arrive the sky stays clear.
       plan.splice(plan.findIndex(asset=>asset.key==='clouds'&&asset.preview),1);
-      for(const asset of plan)if(asset.key==='clouds')asset.url=assetURL(cloudPropertiesPath(cloudDay.date)+'/overview.avif',base);
+      for(const asset of plan)if(asset.key==='clouds')asset.url=assetURL(cloudPropertiesPath(cloudDay.date)+'/'+CLOUD_PROPERTIES_OVERVIEW,base);
     }
     // Streamed 1.85 km and 92 m tiles replace global heights wherever a pixel
     // spans less than ~59 km. DEM3 keeps the full-resolution coastline mask

@@ -391,8 +391,10 @@ are illustrative. Generate with `scripts/prepare-modis-orbit.mjs` after the
 MODIS demo importer. This texture is not part of default Orbit loading.
 
 `cloud-properties/2026-09-22/` holds measured cloud properties for the opt-in
-lab study `cloudStudy=global`: `overview.avif` (4,096 × 2,048 RGBA: opacity,
-cloud-top height / 16 km, ice fraction, observed fraction), `tiles/` (2.4 km
+lab study `cloudStudy=global`: `overview-v2.avif` (4,096 × 2,048 RGBA: opacity,
+cloud-top height / 16 km, ice fraction, and in alpha the observed flag with the
+day's sea-ice concentration c, 0.3 + 0.7c where observed and 0.15c where not;
+version 1, `overview.avif`, held the observed fraction), `tiles/` (2.4 km
 opacity in the cloud-atlas layout) and `manifest.json` (every GIBS layer, URL,
 palette, encoding, coverage and byte count). Opacity is the albedo
 cτ / (1 + cτ) of NOAA-20 VIIRS optical thickness
@@ -409,7 +411,12 @@ orbit model fitted to the day's glint and the Natural Earth water mask of
 `earth-terrain-8192-v2.dem`, the inversion uses the glint as its reference and
 clouds retrieved below 400 m count as partly cloudy. Columns at the
 antimeridian edge of the GIBS requests copy their neighbour on the same side.
-Nothing fills unobserved areas. Credit: NASA GIBS (ESDIS) and the NASA Atmosphere SIPS
-cloud products; NASA data carry no restriction on use. Build with
+Nothing fills unobserved areas. Sea ice, which the Blue Marble day map lacks,
+is that day's GHRSST Level 4 MUR sea-ice fraction
+(`GHRSST_L4_MUR_Sea_Ice_Concentration`, passive microwave, NASA JPL PO.DAAC,
+palette `GHRSST_Sea_Ice_Concentration`), averaged over the water pixels of each
+overview texel; the study's surface draws it under the clouds. Credit: NASA
+GIBS (ESDIS), the NASA Atmosphere SIPS cloud products and GHRSST MUR (NASA
+JPL); NASA data carry no restriction on use. Build with
 `bun scripts/prepare-cloud-properties.mjs [cache] [YYYY-MM-DD]`. `assets:prepare` skips
 this directory; it is not part of a release.

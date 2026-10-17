@@ -1,7 +1,8 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {CLOUD_PROPERTIES_DATE,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
+import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_OVERVIEW,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
+import {fragmentSource} from '../src/scripts/scene-shader.ts';
 
 test('measured clouds are an opt-in study',()=>{
   assert.equal(cloudPropertiesEnabled(new URLSearchParams('')),false);
@@ -55,6 +56,24 @@ test('measured columns are lit by what lies beyond their own layer',()=>{
   assert.match(cloudShader,/#ifdef CLOUD_PROPERTIES\n      if\(sunVisible>\.5\)shadow=cloudPropertiesIllumination\(point,footprint,shadow\);/);
   const ice=albedo(10,1),liquid=albedo(10,0);
   assert.ok(ice>liquid,'the same retrieved tau of ice reflects more');
+});
+
+test('the overview alpha carries observed and sea ice without crossing branches',()=>{
+  // Mirrors of prepare-cloud-properties.mjs and cloudPropertiesSeaIce.
+  const encode=(observed,ice)=>Math.round((observed?.3+.7*ice:.15*ice)*255);
+  const decode=byte=>{const a=byte/255;return {observed:a>=.225,ice:Math.min(1,Math.max(0,a<.225?a/.15:(a-.3)/.7))};};
+  assert.match(cloudPropertiesShader,/float cloudPropertiesObserved\(float a\)\{return step\(\.225,a\);\}/);
+  assert.match(cloudPropertiesShader,/return clamp\(a<\.225\?a\/\.15:\(a-\.3\)\/\.7,0\.,1\.\);/);
+  // AVIF quality 80 leaves an RMS error near 6/255; three times that never flips the branch.
+  for(const observed of [true,false])for(let k=0;k<=20;k++)for(const error of [-18,0,18]){
+    const ice=k/20,read=decode(Math.min(255,Math.max(0,encode(observed,ice)+error)));
+    assert.equal(read.observed,observed);
+    if(!error)assert.ok(Math.abs(read.ice-ice)<.02);
+  }
+  // A version-1 overview (observed fraction) would read as ice on every sea.
+  assert.equal(CLOUD_PROPERTIES_OVERVIEW,'overview-v2.avif');
+  // Only the measured study lays sea ice on the water, and the glint leaves with it.
+  assert.match(fragmentSource,/#ifdef CLOUD_PROPERTIES\n[^#]*float seaIce=water\*cloudPropertiesSeaIce\(mapUV,[^\n]*\n[^#]*water-=seaIce;\n#endif/);
 });
 
 test('comparison views sit at their altitudes and dates',()=>{

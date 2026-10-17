@@ -81,7 +81,10 @@ cloud lighting atlas runs in its no-drift mode. See
 [third](lab/cloud-properties-seams-2026-10-17.md) reviews the date-line and
 swath seams and thin cirrus, and a
 [rebuild](lab/cloud-properties-artefacts-2026-10-17.md) removes glint taken for
-cloud, the dark column at 180° and stepped polar veils.
+cloud, the dark column at 180° and stepped polar veils. The study also lays
+that day's sea ice (GHRSST MUR concentration) on the sea under its clouds,
+which the day map lacks; see
+[sea ice under measured clouds](lab/cloud-properties-sea-ice-2026-10-17.md).
 
 
 Build scripts and official source URLs are in `public/media/earthlight/README.md`.
@@ -233,7 +236,8 @@ also falls back, and context restoration decodes and reuploads the compressed nu
 Limits: 8K is approximately 4.9 km per texel at the equator, so these are regional
 mountain forms, not individual cliffs or street-scale relief. The bounded march
 can miss features thinner than a search interval. Negative elevations are
-clamped to sea level; inland lake reflections and changing sea ice are absent.
+clamped to sea level; inland lake reflections and changing sea ice are absent
+(only the measured-cloud study draws its day's sea ice).
 Only the GPU retains the decoded mip chain. Restoration decodes a retained
 compressed DEM2 blob; horizontal prediction and byte planes preserve every
 height/mask/mip byte while reducing transfer size.

@@ -4,7 +4,8 @@
 // pixels the reflectance of the same overpass. Aqua and Terra MODIS supply
 // only the thermodynamic phase. Nothing fills a gap with cloud. The water
 // mask of the local terrain map (earth-terrain-8192-v2.dem) bounds the sun-glint
-// screen.
+// screen. The day's sea-ice concentration (GHRSST MUR) rides along for the
+// surface under the clouds.
 //   bun scripts/prepare-cloud-properties.mjs [cache-directory] [YYYY-MM-DD]
 // The day defaults to 2026-09-22. A new day renders only once it is listed in
 // CLOUD_PROPERTIES_DATES (src/scripts/cloud-properties.ts).
@@ -33,6 +34,7 @@ const layers={
  aquaPhase:'MODIS_Aqua_Cloud_Phase_Optical_Properties',
  terraPhase:'MODIS_Terra_Cloud_Phase_Optical_Properties',
  aquaPartial:'MODIS_Aqua_Cloud_Optical_Thickness_PCL',
+ seaIce:'GHRSST_L4_MUR_Sea_Ice_Concentration',
 };
 function mapURL(layer,bbox,width,height,format='image/png'){
  const u=new URL(wms);
@@ -71,7 +73,7 @@ async function palette(name){
  }
  return map;
 }
-const heightMap=await palette('MODIS_VIIRS_Cloud_Top_Height'),tauMap=await palette('MODIS_VIIRS_Cloud_Optical_Thickness'),phaseMap=await palette('MODIS_Cloud_Phase_Optical_Properties');
+const heightMap=await palette('MODIS_VIIRS_Cloud_Top_Height'),tauMap=await palette('MODIS_VIIRS_Cloud_Optical_Thickness'),phaseMap=await palette('MODIS_Cloud_Phase_Optical_Properties'),seaIceMap=await palette('GHRSST_Sea_Ice_Concentration');
 const decode=(pixels,i,map)=>pixels[i+3]===255?map.get((pixels[i]<<16)|(pixels[i+1]<<8)|pixels[i+2]):undefined;
 // Plane-parallel albedo of a conservative cloud with the two-stream
 // diffusivity sqrt(3): R = c tau / (1 + c tau), c = (1 - g) sqrt(3) / 2.
@@ -333,20 +335,37 @@ for(let cy=0;cy<4;cy++)for(let cx=0;cx<4;cx++){
 }
 if(process.env.CLOUD_PROPERTIES_GRID)await writeFile(process.env.CLOUD_PROPERTIES_GRID,opacityGrid);
 
+// Sea ice. The day map (Blue Marble, October 2004) has none: under the
+// measured clouds the renderer drew open sea where the overpass saw pack ice.
+// Over that ice VIIRS retrieves no optical thickness for two fifths of the
+// observed pixels (22 September 2026, 50 to 75 S, concentration above 80%),
+// and their red reflectance (0.76) is below that of clear ice (0.82): nothing
+// in them separates thin cloud from ice, so they keep the median thickness,
+// and the surface beneath them is the ice itself. GHRSST MUR L4 sea-ice
+// concentration (passive microwave, all weather) of the same day, mean of
+// the water pixels of each overview texel; open water is transparent.
+const seaIcePixels=await raster(layers.seaIce,[-180,-90,180,90],COARSE,COARSE/2,'sea-ice-8192');
+const seaIce=new Float32Array(OVERVIEW*OVERVIEW/2);
+for(let y=0;y<COARSE/2;y++)for(let x=0;x<COARSE;x++){
+ if(!water(y,x))continue;const c=decode(seaIcePixels,(y*COARSE+x)*4,seaIceMap);
+ if(c!==undefined)seaIce[(y>>1)*OVERVIEW+(x>>1)]+=Math.min(100,c)/400;
+}
 const top=new Float32Array(OVERVIEW*OVERVIEW/2);
 for(let p=0;p<top.length;p++)top[p]=heightWeight[p]>0?heightSum[p]/heightWeight[p]:0;
 extend(top,heightWeight.map(w=>w>0?1:0));
-const overview=Buffer.alloc(OVERVIEW*OVERVIEW/2*4);let unknownArea=0,overviewArea=0;
+const overview=Buffer.alloc(OVERVIEW*OVERVIEW/2*4);let unknownArea=0,overviewArea=0,seaIceArea=0;
 for(let p=0;p<top.length;p++){
  const w=latitudeWeight((p/OVERVIEW)|0,OVERVIEW/2);overviewArea+=w;unknownArea+=w*(1-known[p]/4);
  overview[p*4]=Math.round(Math.min(1,opacitySum[p])*255);
  overview[p*4+1]=Math.round(Math.min(16000,top[p])/16000*255);
  overview[p*4+2]=Math.round(ice[p]*255);
- overview[p*4+3]=Math.round(known[p]/4*255);
+ // Observed (at least half the texel): 0.3 + 0.7 c; unobserved: 0.15 c. The
+ // gap keeps AVIF error from flipping the branch (cloud-properties.ts).
+ overview[p*4+3]=Math.round((known[p]>=2?.3+.7*seaIce[p]:.15*seaIce[p])*255);seaIceArea+=w*seaIce[p];
 }
 // AVIF 4:4:4 at quality 80: 4.2 MB instead of 17 MB lossless. Opacity RMS
 // error 6/255 and height 230 m; tiles replace the opacity below ~10 km.
-await sharp(overview,{raw:{width:OVERVIEW,height:OVERVIEW/2,channels:4}}).avif({quality:80,effort:5,chromaSubsampling:'4:4:4'}).toFile(out+'/overview.avif');
+await sharp(overview,{raw:{width:OVERVIEW,height:OVERVIEW/2,channels:4}}).avif({quality:80,effort:5,chromaSubsampling:'4:4:4'}).toFile(out+'/overview-v2.avif');
 
 // Opacity tiles in the cloud atlas layout: 32 x 16 tiles of 512 texels with
 // 16-texel neighbour gutters. Tiles without any cloud are left out; the
@@ -367,12 +386,12 @@ for(let ty=0;ty<rows;ty++)for(let tx=0;tx<columns;tx++){
  tileManifest.tiles.push(id);tileManifest.bytes+=encoded.length;
 }
 await writeFile(out+'/tiles/manifest.json',JSON.stringify(tileManifest));
-const overviewBytes=(await readFile(out+'/overview.avif')).length;
+const overviewBytes=(await readFile(out+'/overview-v2.avif')).length;
 const fraction=v=>+(v/area.total).toFixed(4);
 const manifest={
  date,
  grid:{overview:[OVERVIEW,OVERVIEW/2],tiles:[GRID,GRID/2],fine:[CHUNK*4,CHUNK*2]},
- encoding:{overview:'R: opacity R = c tau / (1 + c tau), c = 0.13 liquid to 0.2165 ice by the ice fraction, area mean of 8 x 8 fine pixels; G: cloud-top height / 16 km, opacity-weighted, extended from the nearest cloud; B: ice fraction (MODIS liquid 0, ice 1, uncertain 0.5), extended likewise; A: fraction observed by NOAA-20',tiles:`Luminance: opacity, area mean of 2 x 2 fine pixels, AVIF quality ${TILE_QUALITY}`},
+ encoding:{overview:'R: opacity R = c tau / (1 + c tau), c = 0.13 liquid to 0.2165 ice by the ice fraction, area mean of 8 x 8 fine pixels; G: cloud-top height / 16 km, opacity-weighted, extended from the nearest cloud; B: ice fraction (MODIS liquid 0, ice 1, uncertain 0.5), extended likewise; A: sea-ice concentration c, 0.3 + 0.7 c where NOAA-20 observed at least half the texel, 0.15 c elsewhere',tiles:`Luminance: opacity, area mean of 2 x 2 fine pixels, AVIF quality ${TILE_QUALITY}`},
  sources:{
   geometry:{satellite:'NOAA-20',sensor:'VIIRS',product:'CLDPROP_L2_VIIRS_NOAA20 (NASA continuity cloud properties)',layers:[layers.tau,layers.height],localTime:'about 13:30 at the equator (ascending, daytime)',example:mapURL(layers.tau,[-180,45,-90,90],CHUNK,CHUNK/2)},
   footprint:{layer:layers.footprint,use:'Observed area: corrected reflectance present or a cloud-top height retrieved'},
@@ -383,16 +402,18 @@ const manifest={
    glint:{use:`Over water within 30 degrees of the specular direction (full weight within 15), retrieved clouds with a top below ${GLINT_TOP} m count as partly cloudy, and partly cloudy pixels are inverted against the mean red reflectance of observed water in 20 km cells that is clear, partly cloudy with a top below ${REFERENCE_TOP} m or retrieved glint, where it exceeds the clear sky`,orbit:{...ORBIT,model:'circular sun-synchronous; latest ascending pass of the local day covering the pixel',firstAscendingNodeMinutes:+glintPhase.toFixed(1),fit:'brightest clear water within 15 degrees of the specular direction against the rest, 30 S to 30 N',contrast:+glintBest.toFixed(3)},water:'earth-terrain-8192-v2.dem water channel (Natural Earth 1:10m land, public domain)'},
    edges:`Columns within ${EDGE} degrees of the antimeridian copy the nearest intact column on their side of the date line`,
    median:{layer:layers.aquaPartial,tau:partialTau},
+   seaIce:'Over sea ice the partly cloudy pixels keep the median: their reflectance is no brighter than clear ice, so it cannot separate cloud from ice',
    meanOpacity:{reflectance:+(partialOpacity.reflectance/Math.max(1e-9,area.partialReflectance)).toFixed(4),median:+(partialOpacity.median/Math.max(1e-9,area.partial-area.partialReflectance)).toFixed(4)},
   },
+  seaIce:{layer:layers.seaIce,product:'GHRSST Level 4 MUR global foundation SST analysis (NASA JPL, PO.DAAC), its passive-microwave sea-ice fraction',palette:'https://gibs.earthdata.nasa.gov/colormaps/v1.3/GHRSST_Sea_Ice_Concentration.xml',use:'Surface under the clouds: mean concentration of the water pixels (earth-terrain-8192-v2.dem) of each overview texel; open water is transparent in the layer',example:mapURL(layers.seaIce,[-180,-90,180,90],COARSE,COARSE/2)},
   albedo:'R = c tau / (1 + c tau), c = (1 - g) sqrt(3) / 2: liquid g 0.85 (c 0.13), Collection 6 ice g 0.75 (c 0.2165), mixed by ice fraction',
-  palettes:['MODIS_VIIRS_Cloud_Top_Height','MODIS_VIIRS_Cloud_Optical_Thickness','MODIS_Cloud_Phase_Optical_Properties'].map(n=>`https://gibs.earthdata.nasa.gov/colormaps/v1.3/${n}.xml`),
-  credit:'NASA Earth Science Data and Information System (ESDIS) Global Imagery Browse Services (GIBS); NASA Atmosphere SIPS cloud products from NOAA-20 VIIRS, Aqua and Terra MODIS.',
+  palettes:['MODIS_VIIRS_Cloud_Top_Height','MODIS_VIIRS_Cloud_Optical_Thickness','MODIS_Cloud_Phase_Optical_Properties','GHRSST_Sea_Ice_Concentration'].map(n=>`https://gibs.earthdata.nasa.gov/colormaps/v1.3/${n}.xml`),
+  credit:'NASA Earth Science Data and Information System (ESDIS) Global Imagery Browse Services (GIBS); NASA Atmosphere SIPS cloud products from NOAA-20 VIIRS, Aqua and Terra MODIS; sea-ice fraction of the GHRSST Level 4 MUR analysis (NASA JPL, PO.DAAC).',
   licence:'NASA data and imagery, no restriction on use (NASA Earth Science Data and Information Policy); credit NASA GIBS.',
  },
  // Contributions to the global mean nadir opacity (area-weighted, fine grid).
  budget:{measured:fraction(measuredOpacity.phase),measuredWithLiquidRelation:fraction(measuredOpacity.liquid),partialFromReflectance:fraction(partialOpacity.reflectance),partialFromMedian:fraction(partialOpacity.median)},
- area:{measured:fraction(area.measured),partial:fraction(area.partial),partialFromReflectance:fraction(area.partialReflectance),clear:fraction(area.clear),unknown:+(unknownArea/overviewArea).toFixed(4)},
+ area:{measured:fraction(area.measured),partial:fraction(area.partial),partialFromReflectance:fraction(area.partialReflectance),clear:fraction(area.clear),unknown:+(unknownArea/overviewArea).toFixed(4),seaIce:+(seaIceArea/overviewArea).toFixed(4)},
  types:{rows:'low < 3.2 km, middle < 6.5 km, high',columns:'tau < 3.6, < 23, thicker',fractionOfGlobe:types.map(r=>[...r].map(fraction))},
  bytes:{overview:overviewBytes,tiles:tileManifest.bytes,tileCount:tileManifest.tiles.length},
  limits:'One daytime overpass per place, so the picture is a mosaic of ~13:30 local solar times; the date line joins observations about 24 h apart. Only the highest layer is measured; lower decks under it are not reconstructed. Phase comes from MODIS 1-2 h later or earlier. Night and polar areas beyond the daytime swaths are unknown and render without cloud. Bases and vertical profiles are inferred in the shader from phase, height and thickness.',

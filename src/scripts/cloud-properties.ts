@@ -2,8 +2,10 @@
 // (scripts/prepare-cloud-properties.mjs). The cloud map is then an RGBA
 // overview: R opacity (plane-parallel albedo of the retrieved optical
 // thickness, phase-aware), G cloud-top height / 16 km, B ice fraction,
-// A observed. Cloud tiles refine opacity only. Bases and vertical profiles
-// are inferred here.
+// A observed and the day's sea-ice concentration c (0.3 + 0.7 c where
+// observed, 0.15 c where not). Cloud tiles refine opacity only. Bases and
+// vertical profiles are inferred here. The surface takes the sea ice, which
+// the Blue Marble day map lacks.
 import {initialSceneSeconds} from './iss-orbit';
 import {SceneCalendar} from './scene-calendar';
 
@@ -12,6 +14,8 @@ export const CLOUD_PROPERTIES_DATE='2026-09-22';
 // NOAA-20's daytime passes. Add a day here only with its asset directory.
 export const CLOUD_PROPERTIES_DATES:readonly string[]=[CLOUD_PROPERTIES_DATE];
 export const cloudPropertiesPath=(date=CLOUD_PROPERTIES_DATE)=>`cloud-properties/${date}`;
+/** v2 carries sea ice in alpha; v1 (observed fraction only) would read as ice everywhere. */
+export const CLOUD_PROPERTIES_OVERVIEW='overview-v2.avif';
 
 export function cloudPropertiesEnabled(params:URLSearchParams){return params.get('cloudStudy')==='global';}
 
@@ -79,6 +83,19 @@ vec4 cloudPropertiesAt(vec3 point,float footprint,bool detailed){
   if(detailed)field.r=detailedCloud(uv,texels*16384./max(1.,cloudMapWidth),field.r);
   return field;
 }
+// Alpha: observed at or above 0.3, sea ice c as 0.3 + 0.7 c there and as
+// 0.15 c where unobserved. The gap keeps AVIF error (~6/255) from flipping
+// the branch.
+float cloudPropertiesObserved(float a){return step(.225,a);}
+float cloudPropertiesSeaIce(vec2 uv,float lod){
+  float a=cloudProperties(uv,lod).a;
+  return clamp(a<.225?a/.15:(a-.3)/.7,0.,1.);
+}
+// Linear albedo of the day's sea ice, from the same overpass: clear pixels
+// over 90-100% ice (red, green, blue 0.85, 0.86, 0.86 Rayleigh-corrected)
+// against the clear Antarctic plateau (1.0), scaled to the plateau of the
+// Blue Marble day map, so ice and continent keep the overpass's contrast.
+const vec3 CLOUD_PROPERTIES_SEA_ICE=vec3(.68,.73,.78);
 // Base and thickness from measured top, optical thickness and phase:
 // - liquid: adiabatic-like decks, 0.25 km thin to 2.5 km for tau ~ 56;
 // - ice: 1.5 km cirrus sheets, deepening to a 1.5 km base when the cloud is
@@ -127,9 +144,9 @@ vec3 cloudPropertiesTint(vec3 point){
 }
 vec3 cloudPropertiesGround(vec3 point,vec3 color){
   vec3 n=normalize(point);
-  float observed=cloudProperties(earthUV(n),0.).a;
+  float observed=cloudPropertiesObserved(cloudProperties(earthUV(n),0.).a);
   float hatch=step(.5,fract((n.x+n.y+n.z)*900.));
-  return mix(color,vec3(.3,.1,.32)*(.6+.4*hatch),(1.-smoothstep(.25,.75,observed))*.8);
+  return mix(color,vec3(.3,.1,.32)*(.6+.4*hatch),(1.-observed)*.8);
 }
 #endif
 #endif
