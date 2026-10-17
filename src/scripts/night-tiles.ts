@@ -379,8 +379,9 @@ export class SurfaceTiles {
       const controller=new AbortController();this.pending.set(id,controller);this.requests++;
       const timeout=window.setTimeout(()=>controller.abort(),12000);
       this.work.network.run(scenePriority.tile,controller.signal,async()=>{
-        const deep=this.pyramid&&id>=1e8;
-        const response=await fetch(deep?this.pyramid!.url(id):this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
+        // Deep day tiles are byte ranges of their day tile's pack.
+        if(this.pyramid&&id>=1e8)return this.pyramid.load(id,controller.signal);
+        const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
         if(!response.ok)throw new Error('Surface tile unavailable');
         return response.blob();
       }).then(blob=>this.work.decode.run(scenePriority.tile,controller.signal,async()=>{
@@ -438,7 +439,7 @@ export class SurfaceTiles {
   }
 
   layout(){return [this.allocated?this.edge:0,this.columns];}
-  stats(){const now=performance.now();return {revision:this.revision,fading:[...this.resident.values()].filter(entry=>now-entry.loaded<650).length,resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,...(this.pyramid?{deep:[...this.resident.keys()].filter(id=>id>=1e8).length,deepWanted:this.pyramid.wanted,deepBytes:this.deepBytes}:{}),gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
+  stats(){const now=performance.now();return {revision:this.revision,fading:[...this.resident.values()].filter(entry=>now-entry.loaded<650).length,resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,...(this.pyramid?{deep:[...this.resident.keys()].filter(id=>id>=1e8).length,deepWanted:this.pyramid.wanted,deepBytes:this.deepBytes,deepRequests:this.pyramid.requests}:{}),gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
   dispose(){
     this.disposed=true;this.abort.abort();clearTimeout(this.timer);clearTimeout(this.selectionTimer);
     for(const controller of this.pending.values())controller.abort();

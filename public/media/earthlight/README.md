@@ -96,17 +96,28 @@ Sources and credits:
 - Cloud plates: `https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud.{W,E}.2001210.21600x21600.png`
 - NASA media usage: https://www.nasa.gov/nasa-brand-center/images-and-media/
 
-- `day-pyramid/` (lab, local only, never released): five levels below
-  `day-tiles/` for 30.375–31.5° E, 29.25–30.375° N (Cairo and Giza), 341 tiles,
-  5.04 MiB. Sentinel-2 detail with BMNG's colour as a smooth per-channel gain;
-  `manifest.json` lists the source files, their ETags and the mosaic checksum.
-  Source: ESA WorldCover 10m 2021 v200 Sentinel-2 median L2A RGBNIR composite,
-  CC BY 4.0, `https://registry.opendata.aws/esa-worldcover-vito-composites`,
-  https://doi.org/10.5281/zenodo.7254221. Attribution: "ESA WorldCover project
-  2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA
-  WorldCover consortium". Build with `scripts/fetch-sentinel-mosaic.mjs` and
-  `scripts/build-day-pyramid.mjs`; see `docs/lab/day-pyramid-2026-10-17.md`.
-  `assets:prepare` skips this directory.
+- `day-pyramid/`: three levels below `day-tiles/` (7.5″, 3.75″ and 1.875″;
+  about 250, 125 and 62.5 m), over land from 82° N to 60° S, behind
+  `dayDetail=sentinel`. One `<day tile>.pack` per day tile holds its deep
+  AVIF tiles (Q50, 4:4:4) and is read with HTTP range requests;
+  `index.bin` lists the packs and their tiles (layout in
+  `src/scripts/day-pyramid-pack.ts`). Sentinel-2 detail carries BMNG's
+  colour as a smooth per-channel gain; BMNG stays under snow and ice, empty
+  composite and cloud or snow left in the median. `provenance.json` records
+  method, totals and bytes read; `sources.json` lists every object read with
+  its ETag and byte range.
+  Sources: ESA WorldCover 10m 2021 v200 Sentinel-2 median L2A RGBNIR
+  composite (internal 1500 px overviews of the 1° files) and the WorldCover
+  2021 v200 land-cover map (2250 px overviews of the 3° files, class 70
+  "Snow and ice"), both CC BY 4.0,
+  https://registry.opendata.aws/esa-worldcover-vito-composites,
+  https://doi.org/10.5281/zenodo.7254221. Attribution: "ESA WorldCover
+  project 2021 / Contains modified Copernicus Sentinel data (2021) processed
+  by ESA WorldCover consortium". Changes: resampled, colour-matched to and
+  blended with BMNG, AVIF-encoded. Build with
+  `scripts/build-day-pyramid.mjs all` (which reads the overviews through
+  `scripts/fetch-worldcover.mjs`), then `scripts/build-day-pyramid.mjs
+  index`; see `docs/lab/day-pyramid-global-2026-10-17.md`.
 
 Build: `bun scripts/build-day-tiles.mjs /path/to/day` and
 `bun scripts/build-day-cloud-maps.mjs /path/to/orbital-reference` (with `day/`

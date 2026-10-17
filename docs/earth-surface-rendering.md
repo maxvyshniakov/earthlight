@@ -29,6 +29,14 @@ the global daytime overview from 8K to 4K. Uniform ocean/polar fill is omitted:
 6615 of 12800 tiles remain, totaling 70.68 MiB on disk. Only visible tiles load.
 All native plates remain outside the repository; the manifest records SHA-256.
 
+Below the day tiles, `dayDetail=sentinel` adds the day pyramid: three levels
+(250, 125 and 62.5 m) from the ESA WorldCover 2021 Sentinel-2 composite over
+land from 60° S to 83° N, 4,266 packs and 2.90 GiB, read with HTTP ranges and
+listed by `day-pyramid/index.bin`. Low frequencies and colour stay BMNG's;
+BMNG stays under snow and ice, open water and composite failures. It shares
+the day atlas and is off by default. See
+`lab/day-pyramid-global-2026-10-17.md`.
+
 Day/night tile selection and mip filtering include the reciprocal cosine of
 latitude: longitude texels converge at the poles. Unresolved polar detail fades
 to the overview instead of forming sharp wedges against it. The CPU applies the
