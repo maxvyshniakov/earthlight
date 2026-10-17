@@ -6,7 +6,12 @@ export default defineConfig({
   output: 'static',
   // The explorer's instruments occupy the bottom centre.
   devToolbar: {placement: 'bottom-left'},
-  vite: {plugins: [{name: 'terrain-source', configureServer: server => {
-    server.middlewares.use(terrainMiddleware);
-  }}]},
+  vite: {
+    plugins: [{name: 'terrain-source', configureServer: server => {
+      server.middlewares.use(terrainMiddleware);
+    }}],
+    // Agent worktrees live under .claude/; their builds and configs restarted
+    // this checkout's dev server and reloaded its pages.
+    server: {watch: {ignored: ['**/.claude/**']}},
+  },
 });
