@@ -467,7 +467,7 @@ while it is open. The panel's text and key caps share one size and a 16 KB
 subset of Inter (`public/fonts`, OFL, weights 400–700) for its arrows and ⇧ ⌥;
 inline keys sit on the text baseline. Info and
 Settings are centred dialogs that scroll inside: Info carries a short note on
-what the scene shows and the image credits. Diagnostics (`compare=1`, the MODIS study, `perf=1`) stack in
+what the scene shows and the image credits. Diagnostics (`compare=1`, the MODIS study, the measured cloud study, `perf=1`) stack in
 the top-left corner, under the presets. The altitude tape stands alone at the middle of the right
 edge, without a card and without an axis line: the right ends of its ticks form
 the line. Long ticks sit at 1, 2, 3 and 5 of each decade from the 150 km floor
@@ -477,11 +477,11 @@ from 200 to 300, 200 km from 1K to 2K), so each sits near a round value. Short
 screens show only the long ticks and drop the 200, 3K and 30K labels. The reading sits beyond the labels, plain text
 joined to the tape by a rule that passes under them; on hover or focus it turns
 black on opaque orange. The lens tape mirrors it at the middle of the left edge:
-0.5× to 20×, a 15 mm wide angle to 600 mm, logarithmic, long ticks on the 1-2-5
-series (0.5×, 1×, 2×, 5×, 10×, 20×),
+0.5× to 50×, a 15 mm wide angle to 1500 mm, logarithmic, long ticks on the 1-2-5
+series (0.5×, 1×, 2×, 5×, 10×, 20×, 50×),
 nearly even on that scale and labelled at both ends, short ticks at one pitch
 along the whole tape (about a sixth of an octave). It is
-0.7 of the altitude tape's height, so its 32 tick gaps fall about as close as
+0.7 of the altitude tape's height, so its 40 tick gaps fall about as close as
 the altitude tape's 46; the two need not match in length, the reading (2.5×) beyond its labels. On
 both tapes the reading stands the same gap past the longest label, so it
 follows the label length (50K, 0.5×). A
@@ -740,14 +740,18 @@ log mean to target 0.055 linear radiance. Within-bin log sums avoid rounding
 uniform scenes to a stop boundary. A coverage-weighted strongest-channel
 measurement protects extended coloured highlights; isolated stars may clip.
 The pyramid's alpha marks subjects: blocks about 1/70 of the frame height
-that are mostly lit. A star never fills one, so a lit region counts from
-0.005% of the frame and fully from 0.025%, and a 40 px Moon is metered
-wherever it falls; its radiance is the cell's light over its subject share.
+that are mostly lit. A star never fills one, so a subject counts fully from
+0.025% of the frame, and a 40 px Moon is metered wherever it falls; its
+radiance is the cell's light over its subject share. Smaller subjects mix
+with the frame's request as light, with weight (coverage/0.025%)²: half the
+area exposes two stops brighter, and the metered EV moves at most 2.9 EV per
+e-fold of coverage however far apart the requests are.
 Point samples cannot tell a star's core from a subject and need 0.6–2.5% of
-samples. Both targets are limited to the automatic range before coverage
+samples, blended in EV. Both targets are limited to the automatic range before coverage
 blends them: blended unbounded, a black sky's +15 EV outweighed any smaller
-bright subject. See [the zoom metering lab note](lab/auto-exposure-zoom-2026-10-16.md)
-and [the pyramid metering lab note](lab/pyramid-metering-2026-10-16.md).
+bright subject. See [the zoom metering lab note](lab/auto-exposure-zoom-2026-10-16.md),
+[the pyramid metering lab note](lab/pyramid-metering-2026-10-16.md) and
+[the meter blend lab note](lab/meter-blend-2026-10-17.md).
 An analytic disk-area measurement catches the Sun between taps, including
 occultation and atmospheric transmission. The meter does not receive Earth
 position or object labels. All automatic views use one -3.0 to +5.1 EV range; manual exposure retains -5.5 to +5.1 EV.
@@ -781,6 +785,11 @@ the aperture stays at f/3.18 and ISO continues to approximately 6150 at +5.1 EV.
 video exposure program, not a claim about every camera's auto mode. Below the day
 baseline, two thirds of the correction closes the iris and one third lowers
 ISO, reaching f/16 and ISO 100 at −5.5 EV. The shutter remains 1/48 s.
+The `night=video|still` lab continues this program to ISS night exposures and
+brings night emitters to physical radiance; see
+[docs/lab/physical-night-2026-10-17.md](lab/physical-night-2026-10-17.md).
+Its radiance targets stay half float: they store radiance pre-exposed by the
+frame's exposure ([docs/lab/pre-exposure-2026-10-17.md](lab/pre-exposure-2026-10-17.md)).
 
 The same GPU exposure state drives ghost radius, rounded-blade shape, off-axis
 coma, vignetting and loading defocus. Ghost area normalization avoids adding

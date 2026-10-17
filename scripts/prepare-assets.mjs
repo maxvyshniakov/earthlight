@@ -14,9 +14,10 @@ async function walk(dir,prefix=''){
   const name=prefix+entry.name;
   // Regional prepared DEM fixtures are opt-in experiments, not release assets.
   // Publish a complete versioned dataset separately before including them.
-  if(name==='terrain-packed')continue;
-  // Lab regional night tiles (nightDetail=vnp46) are not a release asset.
-  if(name==='night-vnp46-tiles')continue;
+  // Measured cloud properties (cloudStudy=global) are a one-day lab dataset,
+  // and regional night tiles (nightDetail=vnp46) and the one-region Sentinel-2
+  // day pyramid (dayDetail=sentinel) are lab data too.
+  if(name==='terrain-packed'||name==='cloud-properties'||name==='night-vnp46-tiles'||name==='day-pyramid')continue;
   if(entry.isDirectory())files.push(...await walk(join(dir,entry.name),name+'/'));
   else if(entry.isFile()&&!excluded.has(name)&&!name.split('/').some(part=>part.startsWith('.')))files.push(name);
  }

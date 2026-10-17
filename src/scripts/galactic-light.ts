@@ -1,6 +1,7 @@
 import {continuousLongitudeShader} from './surface-map.ts';
 import {galaxyOverviewShader} from './texture-profile.ts';
 import {galaxyTileShader} from './night-tiles.ts';
+import {nightScaleGlsl} from './physical-night.ts';
 // Shared diffuse sky radiance for the camera and reflected night illumination.
 export const galacticLightShader=continuousLongitudeShader+`
 #ifndef FOCAL
@@ -10,7 +11,7 @@ ${galaxyOverviewShader}
 #ifdef GALAXY_TILES
 ${galaxyTileShader}
 #endif
-vec3 galacticRadiance(vec3 color){return pow(color,vec3(3.3))*.006;}
+vec3 galacticRadiance(vec3 color){return pow(color,vec3(3.3))*.006*${nightScaleGlsl('milkyWay')};}
 vec3 milkyWay(vec3 direction) {
   vec3 g=vec3(dot(direction,galacticBasis[0]),dot(direction,galacticBasis[1]),dot(direction,galacticBasis[2]));
   // NASA SVS plate carree: Galactic center at u=.5, longitude increases left.

@@ -1,10 +1,11 @@
 export type AuroraMode = 'auto' | 'off' | 'on';
-export type CloudMode = 'balanced' | 'original' | 'off';
+export type CloudMode = 'balanced' | 'calibrated' | 'original' | 'off';
 
 /** Photographic coverage presets; the MODIS study retains its measured input. */
 export function cloudMode(params:URLSearchParams):CloudMode {
  const value=params.get('clouds');
  if(value==='off'||value==='0')return 'off';
+ if(value==='calibrated')return 'calibrated';
  if(value==='original'||['photo','modis'].includes(params.get('cloudStudy')??''))return 'original';
  // Old clouds=broken links now use the corrected, full-disc-safe preset.
  return 'balanced';

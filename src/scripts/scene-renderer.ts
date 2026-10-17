@@ -1,10 +1,11 @@
 import {cropTextureBitmap} from './texture-bitmap.ts';
+import { lunarPhaseIrradiance } from './earth-light';
 import {assetURL,type SceneSources} from './asset-location';
 import {halfFloatTarget,shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {ShaderProgramBatch} from './shader-programs';
 import {textureProfile} from './texture-profile';
 import {CloudBuffer} from './cloud-buffer';
-import {CloudLightingAtlas, cloudLightingSource} from './cloud-lighting';
+import {CLOUD_DRIFT, CloudLightingAtlas, cloudLightingSource} from './cloud-lighting';
 import {OceanField,oceanPrototype,oceanPrototypeSource} from './ocean-prototype';
 import {WorldBuffer} from './world-buffer';
 import { SceneWork, scenePriority } from './scene-work';
@@ -29,6 +30,7 @@ import { lensReflectance, type LensPreset } from './lens-reflections';
 import { SceneTimer } from './scene-quality';
 import { sceneProfile } from './scene-profile';
 import {auroraEnabled,auroraMode,cloudMode} from './scene-effects';
+import {cloudPropertiesDate,cloudPropertiesEnabled,cloudPropertiesPath} from './cloud-properties';
 import { SceneAssets, sceneAssetPlan, vnp46NightOverview, type AssetPlan } from './scene-assets';
 import { sceneBufferSize, compactSurfaceOverview } from './scene-viewport';
 import { NOISE_TABLE_SIZE, NOISE_TABLE_UNIT, noiseTableData } from './noise-table';
@@ -105,10 +107,16 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     const streamDetail=!background&&!saveData&&gl.getParameter(gl.MAX_TEXTURE_SIZE)>=4096;
     const modisStudy=['photo','modis'].includes(params.get('cloudStudy')??'')&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>9;
     let modisTexture:WebGLTexture|null=null;
+    // Lab study: measured cloud properties replace the photographic plates.
+    const cloudProperties=streamDetail&&!modisStudy&&cloudPropertiesEnabled(params);
+    // The day follows the scene's epoch when it was built; otherwise the default day.
+    const cloudDay=cloudPropertiesDate(params);
     const supportsTerrain=!background&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>8 && gl.getParameter(gl.MAX_TEXTURE_SIZE)>=4096;
     const supportsTerrainTiles=supportsTerrain&&streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&params.get('terrain')!=='0'&&params.get('terrainDetail')!=='0';
     // Lab prototypes borrow the detailed galaxy sampler; its overview remains.
     const supportsGalaxyTiles=!oceanMode&&streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>14&&params.get('galaxyDetail')!=='0';
+    // Lab: Sentinel-2 detail below the BMNG tiles (docs/lab/day-pyramid-2026-10-17.md).
+    const dayPyramid=streamDetail&&params.get('dayDetail')==='sentinel';
     const supportsCloudTiles=clouds!=='off'&&!modisStudy&&streamDetail&&gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>9&&params.get('cloudDetail')!=='0';
     let starData:Float32Array|null=null;
     let psfData:Uint8Array|null=null;
@@ -260,14 +268,17 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           state.terrainReady='';return;
         }
         const limit=gl.getParameter(gl.MAX_TEXTURE_SIZE);
-        const image=await createImageBitmap(blob,{imageOrientation:'flipY'});
+        // Measured properties keep every channel, including the observed mask in alpha.
+        const properties=cloudProperties&&asset.key==='clouds';
+        const image=await createImageBitmap(blob,properties?{imageOrientation:'flipY',premultiplyAlpha:'none',colorSpaceConversion:'none'}:{imageOrientation:'flipY'});
         try{
           if(disposed||lost||current!==generation||!program)return;
           if(image.width>limit||image.height>limit)throw Error('Texture exceeds device limit');
           if(image.width<(imageWidths[asset.key]??0))return;
           const unit={day:0,night:1,clouds:2,galaxy:5}[asset.key];
-          const format=asset.key==='night'||asset.key==='clouds'?gl.LUMINANCE:gl.RGBA;
-          if(!asset.preview&&image.width>=4096){
+          const format=asset.key==='night'||(asset.key==='clouds'&&!properties)?gl.LUMINANCE:gl.RGBA;
+          // Strips pass through a 2D canvas, which would premultiply the properties.
+          if(!asset.preview&&image.width>=4096&&!properties){
             // Convert/upload bounded strips while the existing overview stays
             // visible. A single 8K bitmap upload can block the main thread >60 ms.
             const replacement=gl.createTexture();
@@ -340,7 +351,9 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       state.shaderCompileMs='0';
       state.cloudShape=modisStudy||params.get('cloudShape')==='texture'?'texture':'current';
       state.clouds=clouds;
-      state.cloudStudy=modisStudy?params.get('cloudStudy')!:'off';
+      state.cloudStudy=modisStudy||cloudProperties?params.get('cloudStudy')!:'off';
+      state.cloudDate=cloudProperties?cloudDay.date:'';
+      state.cloudDateSource=cloudProperties?cloudDay.measured?'epoch':'default':'';
       state.modisReady='0';
       state.terrainWork=params.get('terrainWork')==='legacy'?'legacy':'bounded';
       state.terrainRefinement=params.get('terrainRefinement')==='full'?'full':'pixel';
@@ -376,10 +389,11 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           +(state.cloudSteps==='balanced'?'#define BALANCED_CLOUD_STEPS 1\n':'')
           +(state.shaderWork==='lean'?'#define LEAN_SHADER_WORK 1\n':'')
           +(state.terrainFetch==='shared'?'#define SHARED_TERRAIN_ENTRY 1\n':'')
-          +(clouds==='balanced'?'#define BALANCED_CLOUDS 1\n':clouds==='off'?'#define CLOUDS_DISABLED 1\n':'')
+          +(clouds==='balanced'?'#define BALANCED_CLOUDS 1\n':clouds==='calibrated'?'#define CALIBRATED_CLOUDS 1\n':clouds==='off'?'#define CLOUDS_DISABLED 1\n':'')
+          +(cloudProperties?'#define CLOUD_PROPERTIES 1\n'+(params.get('cloudStudyView')==='quality'?'#define CLOUD_PROPERTIES_QUALITY 1\n':''):'')
           +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
           +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
-        const skyProgram=batch.add('Scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(params.get('nightDetail')==='vnp46'?'#define NIGHT_VNP46 1\n'+(params.get('nightRange')==='extended'?'#define NIGHT_VNP46_EXTENDED 1\n':''):'')+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
+        const skyProgram=batch.add('Scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(params.get('nightDetail')==='vnp46'?'#define NIGHT_VNP46 1\n'+(params.get('nightRange')==='extended'?'#define NIGHT_VNP46_EXTENDED 1\n':''):'')+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(dayPyramid?'#define DAY_PYRAMID 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
         const attenuationProgram=supportsSourceAttenuation?batch.add('Source transmission',vertexSource,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+sourceTransmissionFragment):null;
         const lightingPlan=textureLighting?CloudLightingAtlas.prepare(batch,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')):null;
         const volumePlans=new Map<string,WebGLProgram>();
@@ -523,7 +537,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         if(lightingPlan){
           const bakeProgram=batch.take(lightingPlan);
           gl.useProgram(bakeProgram);gl.uniform1i(gl.getUniformLocation(bakeProgram,'noiseTable'),NOISE_TABLE_UNIT);
-          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify,params.get('cloudBake')==='budget'?'budget':'fixed');state.cloudLighting='texture';}
+          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify,params.get('cloudBake')==='budget'?'budget':'fixed',cloudProperties?0:CLOUD_DRIFT);state.cloudLighting='texture';}
           catch(error){gl.deleteProgram(bakeProgram);console.warn('Cloud lighting atlas unavailable; retaining traced lighting.',error);}
         }
         if(modisStudy){
@@ -565,10 +579,10 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         // Unit 6 is reused across passes. CameraFinish rebinds its target only
         // after this scene has finished, so no framebuffer feedback is sampled.
         if(streamDetail&&params.get('dayDetail')!=='0'){
-          try{dayTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'day',work,base);}
+          try{dayTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'day',work,base,'day-tiles',dayPyramid);}
           catch(error){console.warn('Detailed day map unavailable; retaining the global map.',error);}
         }
-        if(supportsCloudTiles&&params.get('cloudDetail')!=='0')cloudTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'cloud',work,base);
+        if(supportsCloudTiles&&params.get('cloudDetail')!=='0')cloudTiles=new SurfaceTiles(gl,canvas.clientWidth<1000,notify,'cloud',work,base,cloudProperties?cloudPropertiesPath(cloudDay.date)+'/tiles':undefined);
         if(supportsTerrainTiles){const mobile=canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches;terrainTiles=params.get('terrainDetail')==='coarse'?new SurfaceTiles(gl,mobile,notify,'terrain',work,base):new TerrainStream(gl,mobile,notify,work,base,sources.terrainBaseURL,params.get('terrainUpload')==='tile'?'tile':'strips',params.get('terrainCache')==='small'?'small':'working',params.get('terrainDecoder')==='pool'?'pool':'single',params.get('terrainSource')==='packed'?'packed':'tiff',state.terrainBound==='regional'?'regional':'off');}
         if(supportsGalaxyTiles)galaxyTiles=new SurfaceTiles(gl,canvas.clientWidth<1000||matchMedia('(pointer: coarse)').matches,notify,'galaxy',work,base);
         if(starData)catalog.upload(starData);
@@ -656,7 +670,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const lunarLight=currentLunarLight(observer.date,sky.moon,sky.starToFixed);
       const phaseCosine=Math.max(-1,Math.min(1,-sky.moon.slice(0,3).reduce((sum,x,i)=>sum+x*lunarLight[i],0)));
       const phaseAngle=Math.acos(phaseCosine);
-      gl.uniform1f(sceneUniforms.lunarIrradiance,(Math.sin(phaseAngle)+(Math.PI-phaseAngle)*phaseCosine)/Math.PI);
+      gl.uniform1f(sceneUniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle));
       const moonSamples=lunarSamples(sky.moon,lunarLight,observer.cameraBasis,observer.camera);
       gl.uniform4fv(sceneUniforms['moonSamples[0]'],moonSamples);
       let lunarFlux=0;
@@ -696,7 +710,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(params.get('surface')!=='0')nightTiles?.update(observer,width,height,program);
       if(params.get('surface')!=='0')dayTiles?.update(terrainView?{...observer,sun:observer.camera}:observer,width,height,program);
       if(params.get('surface')!=='0'&&cloudTiles){
-        const angle=sceneTime*.000008,c=Math.cos(angle),s=Math.sin(angle);
+        const angle=sceneTime*(cloudProperties?0:CLOUD_DRIFT),c=Math.cos(angle),s=Math.sin(angle);
         const rotate=(v:number[])=>[c*v[0]+s*v[1],-s*v[0]+c*v[1],v[2]];
         cloudTiles.update({...observer,camera:rotate(observer.camera),cameraBasis:[0,3,6].flatMap(i=>rotate(observer.cameraBasis.slice(i,i+3)))},width,height,program);
       }
@@ -745,7 +759,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.uniform2f(uniforms.resolution,width,height);gl.uniform1f(uniforms.time,sceneTime);gl.uniform1f(uniforms.zoomExcess,zoomExcess);
         gl.uniform3fv(uniforms.cameraPosition,observer.camera);gl.uniformMatrix3fv(uniforms.cameraBasis,false,observer.cameraBasis);
         gl.uniform3fv(uniforms.sunDirection,observer.sun);gl.uniform4fv(uniforms.moon,sky.moon);
-        gl.uniform1f(uniforms.lunarIrradiance,(Math.sin(phaseAngle)+(Math.PI-phaseAngle)*phaseCosine)/Math.PI);
+        gl.uniform1f(uniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle));
         gl.uniformMatrix3fv(uniforms.galacticBasis,false,sky.galacticBasis);
         gl.uniform1f(uniforms.pixelRatio,height/Math.max(1,cssHeight));
         gl.uniform4fv(uniforms['stormSources[0]'],storms);
@@ -844,6 +858,11 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     if(modisStudy)plan.push({key:'modis',url:assetURL('modis-demo/orbit-patch.png',base),preview:true});
     if(supportsCloudTiles)for(const asset of plan)if(asset.key==='clouds'&&!asset.preview)asset.url=assetURL('earth-clouds-nasa-4096.avif',base);
     if(params.get('nightDetail')==='vnp46')vnp46NightOverview(plan);
+    if(cloudProperties){
+      // No photographic preview: until the properties arrive the sky stays clear.
+      plan.splice(plan.findIndex(asset=>asset.key==='clouds'&&asset.preview),1);
+      for(const asset of plan)if(asset.key==='clouds')asset.url=assetURL(cloudPropertiesPath(cloudDay.date)+'/overview.avif',base);
+    }
     // Streamed 1.85 km and 92 m tiles replace global heights wherever a pixel
     // spans less than ~59 km. DEM3 keeps the full-resolution coastline mask
     // and every mip, but rebuilds level-0 heights from level 1: 8.4 -> 3.4 MB.

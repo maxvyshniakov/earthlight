@@ -49,6 +49,15 @@ called Orbit, and older lab notes still use that name.
   `iss` (default) is the coated ISS zoom; `flare` is a flare-prone lens with
   30 times the reflections. The type is `LensPreset`, the URL parameter
   `lens-preset`; `lens` remains the zoom.
+- **Physical night**: the lab that renders night emitters at their physical
+  radiance and lets the camera program reach ISS night exposures. The type is
+  `NightMode`, the URL parameter `night` (`video` or `still`;
+  `physical-night.ts`).
+- **Pre-exposure**: scene radiance stored multiplied by 2^ev of the exposure
+  its frame is rendered with, so physical night fits half-float and RGBE
+  targets; the meter, the glare pyramid and the camera finish divide it back
+  out. On with physical night only (`PRE_EXPOSURE`, `sceneExposure()`;
+  `pre-exposure.ts`).
 
 ## Assets
 
@@ -57,6 +66,9 @@ called Orbit, and older lab notes still use that name.
   release manifest lists paths relative to that directory.
 - **DEM proxy**: `/media/earthlight/dem90/`, the explorer's same-origin route
   for Copernicus GLO-90 tiles.
+- **Day pyramid**: lab levels below the 500 m day tiles (`day-pyramid.ts`,
+  `dayDetail=sentinel`), level *L* splitting each day tile into 2^L × 2^L
+  tiles. Local only; see `docs/lab/day-pyramid-2026-10-17.md`.
 
 ## Words to avoid
 

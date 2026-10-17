@@ -1,6 +1,8 @@
 import { Body, RotationAxis } from 'astronomy-engine';
 import { transform } from './celestial-sky';
 import { cameraModelShader } from './camera-model';
+import { nightScale } from './physical-night';
+import { PRE_EXPOSURE, PRE_EXPOSED_MAX, preExposureShader } from './pre-exposure';
 import { assetURL } from './asset-location';
 import { textureImage2D } from './webgl-context.ts';
 import type { ShaderProgramBatch } from './shader-programs';
@@ -133,7 +135,7 @@ uniform sampler2D lunarMap;
 uniform sampler2D cameraState;
 #endif
 ${cameraModelShader}
-const float LUNAR_KM=1737.4;
+${preExposureShader}const float LUNAR_KM=1737.4;
 vec2 selenographic(vec3 n){
   vec3 s=n*lunarFrame;
   return vec2(atan(s.y,s.x)/6.283185307+.5,.5-asin(clamp(s.z,-1.,1.))/3.141592654);
@@ -249,7 +251,7 @@ void main(){
   float tangentHeight=(length(cameraPosition+ray*max(0.,-b))-1.)*6371.;
   float pixelHeight=length(cameraPosition)*6371./resolution.y*.6;
   float sky=b>=0.?1.:smoothstep(-pixelHeight,pixelHeight,tangentHeight);
-  gl_FragColor=vec4(radiance*coverage*pow(sky,2.2)*lunarShape.z,0.);
+  gl_FragColor=vec4(${PRE_EXPOSURE?`min(radiance*coverage*pow(sky,2.2)*lunarShape.z*sceneExposure(),vec3(${PRE_EXPOSED_MAX}.))`:'radiance*coverage*pow(sky,2.2)*lunarShape.z'},0.);
 }
 `;
 
@@ -323,7 +325,7 @@ export class MoonSurface {
     gl.uniform3fv(u.lunarLight,view.light);
     gl.uniformMatrix3fv(u.lunarFrame,false,frame.lunarFrame);
     // 18 is the sampled disk's radiance gain in scene-shader.ts.
-    gl.uniform4f(u.lunarShape,18*frame.scale,frame.weight,frame.resolved,this.mapWidth?1:0);
+    gl.uniform4f(u.lunarShape,18*nightScale('moonDisk')*frame.scale,frame.weight,frame.resolved,this.mapWidth?1:0);
     const mean=this.manifest?.color.meanLinear??[1,1,1];
     gl.uniform3f(u.lunarMean,mean[0],mean[1],mean[2]);
     const km=this.manifest?.height.km??[0,1];

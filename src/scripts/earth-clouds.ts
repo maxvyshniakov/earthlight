@@ -4,14 +4,20 @@ import {continuousLongitudeShader} from './surface-map.ts';
 // profile and small-scale relief below are a bounded reconstruction.
 import {stormLightShader} from './storm-light.ts';
 import {modisPatchShader} from './modis-patch.ts';
+import {PHYSICAL_NIGHT} from './physical-night.ts';
+import {cloudPropertiesShader} from './cloud-properties.ts';
 export const cloudShader=continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
 uniform float cloudMapWidth;
 ${modisPatchShader}
+${cloudPropertiesShader}
 vec3 cloudCoordinates(vec3 point){
+#ifndef CLOUD_PROPERTIES
+  // Measured clouds stay where they were observed.
   point.xy=rotate(time*.000008)*point.xy;
+#endif
   return point;
 }
 float cloudMapSample(vec2 uv,float lod,float texels,bool detailed){
@@ -30,12 +36,19 @@ float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed)
   float texels=footprint*max(1.,cloudMapWidth)/(6.283185307*latitudeScale);
   float lod=max(0.,log2(max(1.,texels)));
   float mapped=cloudMapSample(uv,lod,texels,detailed);
-  // The NASA W/E photographic plates disagree south of 50 degrees at their
-  // joins at Greenwich AND the date line. Blend paired geography only inside
-  // these narrow seam bands;
+#ifdef CLOUD_PROPERTIES
+  // Measured opacity is the coverage; there are no plate seams to repair.
+  return mapped;
+#endif
+  // The NASA W/E photographic plates disagree at their joins at Greenwich AND
+  // the date line, at most latitudes: across the join the mean step is up to
+  // 35 levels where the plates themselves step 1-3 (equatorial Pacific, the
+  // Sahel, both polar caps; the eastern plate reaches farther north). Blend
+  // paired geography only inside these seam bands, of constant ground width;
   // all density, shadow and lens-transmission paths share the correction.
   float seam=mod(uv.x+.25,.5)-.25;
-  float repair=(1.-smoothstep(.20,.23,uv.y))*(1.-smoothstep(0.,.012,abs(seam)));
+  float band=.012/max(.25,cos((uv.y-.5)*3.141592654));
+  float repair=1.-smoothstep(0.,band,abs(seam));
   if(repair>0.){
     float paired=cloudMapSample(vec2(fract(uv.x-2.*seam),uv.y),lod,texels,detailed);
     mapped=mix(mapped,(mapped+paired)*.5,repair);
@@ -60,6 +73,8 @@ float filteredCloudNoise(vec3 point,float frequency,float footprint){
   if(fade>=1.)return .5;
   return mix(noise(point*frequency),.5,fade);
 }
+// The vertical envelope of a column of known photographic coverage.
+float cloudColumnDensity(vec3 point,float height,float coverage,float neighborhood,float footprint);
 float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   float height=(length(point)-1.)*6371.;
   if(height<.6 || height>12.)return 0.;
@@ -79,6 +94,9 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   // convection, changing their height, whiteness and texture all at once.
   float neighborhood=cloudCoverage(point,max(footprint,.0025),false);
 #endif
+  return cloudColumnDensity(point,height,coverage,neighborhood,footprint);
+}
+float cloudColumnDensity(vec3 point,float height,float coverage,float neighborhood,float footprint){
   float connected=smoothstep(.32,.78,min(coverage,neighborhood));
   float relief=0.;
 #ifndef TEXTURE_SHAPED_CLOUDS
@@ -103,6 +121,14 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   // Preserve the column optical thickness while changing its height. This
   // prevents an illustrative crown from becoming a separate opaque white lid.
   float column=top-base-.5*baseFeather-.25*topFeather;
+#ifdef CALIBRATED_CLOUDS
+  // NASA composited these plates as white over the surface in display space,
+  // alpha 1-(1-v)^2.6 at every surface brightness (land_ocean_ice_cloud).
+  // Over dark ocean that is a linear opacity of .998*coverage^.7 at nadir.
+  // Slant rays and all light paths integrate the same column optical depth.
+  float columnDepth=-log(1.-.998*pow(coverage,.7));
+  return profile/max(.5,column)*columnDepth*(1.-smoothstep(11.5,12.,height));
+#endif
   float density=profile*1.4/max(.5,column);
 #ifdef BALANCED_CLOUDS
   // Gently thin weak columns without changing their extent or height. Dense
@@ -111,9 +137,45 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed){
 #endif
   return pow(coverage,1.35)*density*(1.-smoothstep(11.5,12.,height));
 }
+// Seen obliquely, a cloud top is a surface and a pixel covers an ellipse on
+// it: footprint across the view and ellipse.w along the horizontal direction
+// ellipse.xyz. Up to 3:1 one tap keeps the isotropic filter. Beyond, two
+// taps each average half the long axis while the short one keeps its
+// detail. Four taps were no steadier, 4% sharper and three times the cost.
+float cloudBaseDensity(vec3 point,float footprint,bool detailed,vec4 ellipse){
+  float height=(length(point)-1.)*6371.;
+  if(height<.6 || height>12.)return 0.;
+  float major=max(footprint,ellipse.w);
+  bool stretched=major>3.*footprint;
+  vec3 quarter=stretched?normalize(ellipse.xyz)*major*.25:vec3(0.);
+  float coverage=0.;
+#if defined(LEAN_SHADER_WORK) && !defined(MODIS_PATCH)
+  // One projection serves the neighbourhood and a single detailed tap.
+  vec3 cloudNormal=normalize(cloudCoordinates(point));
+  vec2 cloudUV=earthUV(cloudNormal);
+  float latitudeScale=max(.15,length(cloudNormal.xy));
+  // A loop around this texture-heavy call cost 5% even for one tap.
+  if(!stretched)coverage=cloudCoverageAt(cloudUV,latitudeScale,footprint,detailed);
+  else for(int i=0;i<2;i++){
+    vec3 n=normalize(cloudCoordinates(point+quarter*(float(i)*2.-1.)));
+    coverage+=.5*cloudCoverageAt(earthUV(n),max(.15,length(n.xy)),major*.5,detailed);
+  }
+  if(coverage<.001)return 0.;
+  float neighborhood=cloudCoverageAt(cloudUV,latitudeScale,max(major,.0025),false);
+#else
+  if(!stretched)coverage=cloudCoverage(point,footprint,detailed);
+  else for(int i=0;i<2;i++)coverage+=.5*cloudCoverage(point+quarter*(float(i)*2.-1.),major*.5,detailed);
+  if(coverage<.001)return 0.;
+  float neighborhood=cloudCoverage(point,max(major,.0025),false);
+#endif
+  return cloudColumnDensity(point,height,coverage,neighborhood,major);
+}
 float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
 #ifdef CLOUDS_DISABLED
   return 0.;
+#endif
+#ifdef CLOUD_PROPERTIES
+  return cloudPropertiesDensity(point,footprint,detailed,halfSpan);
 #endif
 #ifdef MODIS_GUIDANCE
   float weight;vec4 field=modisSample(point,footprint,weight);
@@ -122,6 +184,24 @@ float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float half
   return mix(cloudBaseDensity(point,footprint,detailed),guided,weight);
 #else
   return cloudBaseDensity(point,footprint,detailed);
+#endif
+}
+// The view integral's density, filtered over the pixel's ellipse. Measured
+// columns keep their own density (the ellipse filters plate coverage only).
+float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan,vec4 ellipse){
+#ifdef CLOUDS_DISABLED
+  return 0.;
+#endif
+#ifdef CLOUD_PROPERTIES
+  return cloudPropertiesDensity(point,footprint,detailed,halfSpan);
+#endif
+#ifdef MODIS_GUIDANCE
+  float weight;vec4 field=modisSample(point,footprint,weight);
+  float guided=weight>0.?modisDensity(field,(length(point)-1.)*6371.,halfSpan):0.;
+  if(weight>=.999)return guided;
+  return mix(cloudBaseDensity(point,footprint,detailed,ellipse),guided,weight);
+#else
+  return cloudBaseDensity(point,footprint,detailed,ellipse);
 #endif
 }
 float cloudDensity(vec3 point,float footprint,bool detailed){return cloudIntegratedDensity(point,footprint,detailed,0.);}
@@ -255,7 +335,13 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
     pixelFootprint*=2.;
 #endif
     float footprint=max(pixelFootprint,stepLength*.5);
-    float rho=cloudIntegratedDensity(point,footprint,true,stepLength*3185.5*abs(dot(normalize(point),ray)));
+    // The pixel's ellipse on the cloud top: its major axis grows as 1/cos of
+    // the incidence, along the ray's horizontal direction. Filtering the minor
+    // axis alone let foreshortened streaks near the limb alias as views turn.
+    // |point| is 1 within 0.2% in the shell: no normalization per step.
+    float along=dot(point,ray);
+    vec4 ellipse=vec4(ray-point*along,pixelFootprint/max(.05,abs(along)));
+    float rho=cloudIntegratedDensity(point,footprint,true,stepLength*3185.5*abs(along),ellipse);
     if(rho>.001){
 #ifdef MODIS_GUIDANCE
       // Light the cloud mass inside the interval, not its possibly empty
@@ -264,15 +350,21 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
 #endif
       vec3 normal=normalize(point);
       float mu=dot(normal,sunDirection),sb=dot(point,sunDirection);
-      float earthDisc=sb*sb-dot(point,point)+1.;
-      float sunVisible=(sb>=0. || earthDisc<0.)?1.:0.;
+      // Sunlight reaching a cloud near the terminator grazes the air: a
+      // Chapman column at the ray's lowest point, of which .5*erfc(sb/sqrt(2H))
+      // lies ahead (logistic fit). A geometric cut drew a hard line across
+      // the cloud field; the 550 nm extinction ramps it over ~20 km of
+      // tangent height and reaches zero where the ray meets the ground.
+      float lowest=sb<0.?sqrt(max(0.,dot(point,point)-sb*sb)):length(point);
+      float grazing=exp(-max(-20.,(lowest-1.)*6371./8.))/(1.+exp(min(40.,sb*45.)));
+      float sunVisible=exp(-86.0085*.0888*grazing);
       float dusk=1.-smoothstep(.01,.22,mu);
       vec3 sunColor=mix(vec3(1.,.98,.94),vec3(1.,.46,.20),dusk*.8);
       float shadow=1.;
 #ifdef SHARED_CLOUD_LIGHTING
       // Preserve every density sample. Reuse the expensive light integral
       // between four view samples, interpolating at their actual positions.
-      if(sunVisible>.5){
+      if(sunVisible>.01){
         float block=floor(float(i)/4.);
         if(block!=shadowBlock){
           float end=entry+(min(block*4.+4.,viewSteps-1.)+.5)*stepLength;
@@ -287,17 +379,24 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
         shadow=mix(shadowStart,shadowEnd,(float(i)-block*4.)/span);
       }
 #else
-      shadow=sunVisible>.5?cloudShadow(point):1.;
+      shadow=sunVisible>.01?cloudShadow(point):1.;
+#endif
+#ifdef CLOUD_PROPERTIES
+      if(sunVisible>.5)shadow=cloudPropertiesIllumination(point,footprint,shadow);
 #endif
       // Twilight belongs to the Sun; no source-independent night fill.
       float ambient=smoothstep(-.15,.20,mu)*.09;
       vec3 light=vec3(.76,.84,1.)*ambient+sunColor*sunVisible*(.20+.80*shadow)*(.48+.38*max(0.,mu))*(.8+forward*.30);
       light+=nightSky;
-      light+=lunarLight*(.20+.80*max(0.,dot(normal,lunarDirection)));
+      // Moonlight is irradiance: a cloud of albedo 0.8 returns 0.8/pi of it.
+      light+=lunarLight*${PHYSICAL_NIGHT?'(.8/3.141592654)*':''}(.20+.80*max(0.,dot(normal,lunarDirection)));
       float cloudHeight=max(0.,(length(point)-1.)*6371.);
       light+=urbanLight*exp(-cloudHeight/5.);
       // Wispy foreground cloud must not become a second luminous storm sheet.
       light+=(stormCloudLight(point,stormA)+stormCloudLight(point,stormB))*smoothstep(.025,.07,rho);
+#ifdef CLOUD_PROPERTIES_QUALITY
+      light*=cloudPropertiesTint(point);
+#endif
       float opacity=1.-exp(-rho*stepLength*6371.);
       weightedDistance+=transmission*opacity*(entry+(float(i)+.5)*stepLength);
       scattered+=transmission*opacity*light;
@@ -313,6 +412,9 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
 vec3 cloudVolume(vec3 ray,float groundDistance,vec3 background,out float atmosphereDistance){
   float transmission;
   vec3 scattered=cloudIntegral(ray,groundDistance,transmission,atmosphereDistance);
+#ifdef CLOUD_PROPERTIES_QUALITY
+  if(groundDistance>0.)background=cloudPropertiesGround(cameraPosition+ray*groundDistance,background);
+#endif
   return max(vec3(0.),background*transmission+scattered);
 }
 `;

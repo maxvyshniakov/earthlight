@@ -10,6 +10,7 @@ import { sceneColorShader } from './scene-color';
 import { poissonQuantiles, POISSON_COLUMNS, POISSON_ROWS } from './sensor-noise';
 import { CameraExposure } from './camera-exposure';
 import { cameraModelShader } from './camera-model';
+import { PRE_EXPOSURE } from './pre-exposure';
 export const CAMERA_EXPOSURE_EV=0;
 /** Camera poses of this and the previous submitted frame, for shutter blur. */
 export type ShutterMotion={shutter:number;sky:boolean;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
@@ -28,7 +29,7 @@ uniform float focusRadius;
 uniform float sceneLinear;
 uniform float exposureEV;
 uniform sampler2D exposureState;
-uniform vec3 moonGhost;
+${PRE_EXPOSURE?'// The state the scene was rendered with: its pre-exposure.\nuniform sampler2D sceneState;\n':''}uniform vec3 moonGhost;
 uniform float moonGhostRadius;
 uniform vec3 sunGhost;
 uniform float sunReflectionAmount;
@@ -247,12 +248,12 @@ void main() {
   float aspect=resolution.x/resolution.y;
   vec2 p=(uv-.5)*vec2(aspect,1.);
   vec3 linear=shutterImage(uv,shift,p,aspect);
-  // Ghost paths have their own conjugates; focus changes their size/softness
+${PRE_EXPOSURE?'  float sceneScale=exp2(-decodeCameraEV(texture2D(sceneState,vec2(.5)).rg));\n  linear*=sceneScale;\n':''}  // Ghost paths have their own conjugates; focus changes their size/softness
   // in apertureGhost instead of convolving them with the scene's pupil.
-  if(glareAmount>.5)linear+=${FRAME_SCATTER_FRACTION.toFixed(5)}*(texture2D(glare,uv).rgb-glareSource(linear,p));
+  if(glareAmount>.5)linear+=${FRAME_SCATTER_FRACTION.toFixed(5)}*(texture2D(glare,uv).rgb${PRE_EXPOSURE?'*sceneScale':''}-glareSource(linear,p));
   // The lens barrel's bore shades the veil where it shades its own ghost.
   float barrelShade=sunGhost.z>0.?mix(1.,barrelVeilShadow(p,sunGhost.xy),clamp(sunReflectionAmount,0.,1.)):1.;
-  linear+=reflectionsAt(p,aspect)+fieldReflections(p,aspect)*sunReflectionAmount*lensReflectance*reflectionFieldWeight+solarVeil(p)*barrelShade+solarDustGlints(p);
+  linear+=reflectionsAt(p,aspect)+fieldReflections(p,aspect)${PRE_EXPOSURE?'*sceneScale':''}*sunReflectionAmount*lensReflectance*reflectionFieldWeight+solarVeil(p)*barrelShade+solarDustGlints(p);
   // Dust on the filter stack shades whatever light reaches the sensor.
   linear*=dustShadow(p,camera.x);
   // Aperture changes collected light; ISO amplifies the sampled sensor signal.
@@ -321,7 +322,7 @@ export class CameraFinish {
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
       this.position=gl.getAttribLocation(this.program,'position');
-      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','lensReflectance','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal','glare','glareAmount','glareMask','reflectionField','reflectionLevels[0]','reflectionFieldSize','reflectionLevelCount','reflectionFieldWeight'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','sceneState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','lensReflectance','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal','glare','glareAmount','glareMask','reflectionField','reflectionLevels[0]','reflectionFieldSize','reflectionLevelCount','reflectionFieldWeight'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
       this.exposure=new CameraExposure(gl,prepared?.exposure);
       this.defocus=new CameraDefocus(gl,this.pixelType,prepared?.defocus);
       // RGBE scene values cannot be filtered, so the fallback keeps only the
@@ -351,7 +352,7 @@ export class CameraFinish {
     // One pyramid of the focused scene serves the meter, glare and the
     // reflections of the whole frame, so it is built first. Loading defocus
     // blurs the picture only; glare is far broader than that blur.
-    const built=this.glare?.build(this.texture!,this.width,this.height,glareMask)??false;
+    const built=this.glare?.build(this.texture!,this.width,this.height,glareMask,PRE_EXPOSURE?this.exposure!.texture:null)??false;
     const meter=built&&lens.pyramidMeter!==false?this.glare!.meter:null;
     const exposure=this.exposure!.update(this.texture!,this.linear,this.displayP3,performance.now(),lens.sun,this.width/this.height,lens.attenuation,manualExposure,lens.focal,meter);
     const image=this.defocus!.render(this.texture!,exposure,this.width,this.height,pixelRatio,focusRadius);
@@ -361,6 +362,7 @@ export class CameraFinish {
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,this.width,this.height);gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,exposure);
     gl.uniform1i(this.uniforms.exposureState,2);
+    if(PRE_EXPOSURE){gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,this.exposure!.previousTexture);gl.uniform1i(this.uniforms.sceneState,4);}
     gl.activeTexture(gl.TEXTURE6);gl.bindTexture(gl.TEXTURE_2D,image);
     gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.noiseTexture);

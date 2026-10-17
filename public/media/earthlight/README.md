@@ -6,7 +6,9 @@ code or assets from Julien Sulpis's GPL repository are included.
 ## Night lights
 
 `night-tiles/` contains the global 500 m Black Marble 2016 grayscale imagery
-(86,400 × 43,200 source pixels), encoded as sparse AVIF quality 80 tiles. The
+(86,400 × 43,200 source pixels), encoded as sparse AVIF quality 80 tiles.
+Its independent samples are 30″ (about 1 km): each value repeats in a 2 × 2
+block aligned to the tiles, and the renderer interpolates that grid. The
 renderer loads only visible night-side regions. See `docs/night-lights-streaming.md`
 for the atlas layout, cache limits, filtering, verification and build command.
 The grayscale source already isolates emitted light; no terrain-removal threshold
@@ -93,6 +95,18 @@ Sources and credits:
 - Cloud collection: https://visibleearth.nasa.gov/images/57747/blue-marble-clouds
 - Cloud plates: `https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud.{W,E}.2001210.21600x21600.png`
 - NASA media usage: https://www.nasa.gov/nasa-brand-center/images-and-media/
+
+- `day-pyramid/` (lab, local only, never released): five levels below
+  `day-tiles/` for 30.375–31.5° E, 29.25–30.375° N (Cairo and Giza), 341 tiles,
+  5.04 MiB. Sentinel-2 detail with BMNG's colour as a smooth per-channel gain;
+  `manifest.json` lists the source files, their ETags and the mosaic checksum.
+  Source: ESA WorldCover 10m 2021 v200 Sentinel-2 median L2A RGBNIR composite,
+  CC BY 4.0, `https://registry.opendata.aws/esa-worldcover-vito-composites`,
+  https://doi.org/10.5281/zenodo.7254221. Attribution: "ESA WorldCover project
+  2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA
+  WorldCover consortium". Build with `scripts/fetch-sentinel-mosaic.mjs` and
+  `scripts/build-day-pyramid.mjs`; see `docs/lab/day-pyramid-2026-10-17.md`.
+  `assets:prepare` skips this directory.
 
 Build: `bun scripts/build-day-tiles.mjs /path/to/day` and
 `bun scripts/build-day-cloud-maps.mjs /path/to/orbital-reference` (with `day/`
@@ -216,7 +230,9 @@ Hipparcos/Tycho stars, which the scene renders from HYG instead.
 NASA SVS's **CGI Moon Kit**. The explorer loads one only while a resolved Moon
 (at least 5 CSS px in radius) is on screen. The tier is the smallest giving one
 texel per device pixel at the disk centre: 1K at 20× on DPR 1, 2K at 20× on
-DPR 2 in an 800 px tall view, and 4K only on very tall high-DPR views. These
+DPR 2 in an 800 px tall view, and 4K only on very tall high-DPR views. At the
+50× limit the same view takes 2K on DPR 1 and 4K on DPR 2; 4K stays at or
+above one texel per pixel up to about 2,300 device pixels of height. These
 maps never join the startup plan or the background package.
 
 - Credit: NASA's Scientific Visualization Studio (Ernie Wright, USRA; Noah
@@ -385,3 +401,22 @@ illumination-dependent; height/tau are broadly filtered quantized retrieval
 previews. Missing properties are not interpreted as clear sky. Vertical layers
 are illustrative. Generate with `scripts/prepare-modis-orbit.mjs` after the
 MODIS demo importer. This texture is not part of default Orbit loading.
+
+`cloud-properties/2026-09-22/` holds measured cloud properties for the opt-in
+lab study `cloudStudy=global`: `overview.avif` (4,096 × 2,048 RGBA: opacity,
+cloud-top height / 16 km, ice fraction, observed fraction), `tiles/` (2.4 km
+opacity in the cloud-atlas layout) and `manifest.json` (every GIBS layer, URL,
+palette, encoding, coverage and byte count). Opacity is the albedo
+cτ / (1 + cτ) of NOAA-20 VIIRS optical thickness
+(`VIIRS_NOAA20_Cloud_Optical_Thickness`), c = 0.13 for liquid and 0.2165 for
+ice, with top heights from `VIIRS_NOAA20_Cloud_Top_Height_Day` and phase from
+Aqua and Terra MODIS (`MODIS_*_Cloud_Phase_Optical_Properties`), all NASA GIBS
+for that date and decoded from the published palettes. Clouds with a height
+but no retrieved thickness take an albedo inverted from the same overpass's
+true colour (`VIIRS_NOAA20_CorrectedReflectance_TrueColor`) against the local
+clear sky, calibrated on the retrieved pixels, over dark surfaces within 60° of
+the equator; elsewhere that day's median MODIS Aqua partly cloudy thickness.
+Nothing fills unobserved areas. Credit: NASA GIBS (ESDIS) and the NASA Atmosphere SIPS
+cloud products; NASA data carry no restriction on use. Build with
+`bun scripts/prepare-cloud-properties.mjs [cache]`. `assets:prepare` skips
+this directory; it is not part of a release.

@@ -1,0 +1,931 @@
+{
+ "date": "2026-10-17",
+ "note": "docs/lab/pre-exposure-2026-10-17.md",
+ "method": {
+  "viewport": "1200x800",
+  "query": "look-grain=0&quality=fixed",
+  "crop": "130,70,940,630 (no HUD)",
+  "settle": "assets settled, focus sharp, then 12 s",
+  "builds": {
+   "float": "merge 5e2e5b0: night lab with float32 radiance targets",
+   "half": "5e2e5b0 with radianceTarget() returning half floats (a half-float device)",
+   "pre": "this change: half floats, pre-exposed"
+  },
+  "units": "quantiles of scene luminance in cd/m2; ev metered; zeroShare = pixels stored as exactly 0"
+ },
+ "runs": {
+  "float": {
+   "full-moon/current": {
+    "ev": 0.143,
+    "p50": 2.15,
+    "p90": 3.66,
+    "p99": 5500,
+    "zeroShare": 0
+   },
+   "full-moon/video": {
+    "ev": 18.687,
+    "p50": 0.00598,
+    "p90": 0.0241,
+    "p99": 0.286,
+    "zeroShare": 0
+   },
+   "full-moon/still": {
+    "ev": 18.687,
+    "p50": 0.00598,
+    "p90": 0.0241,
+    "p99": 0.286,
+    "zeroShare": 0
+   },
+   "new-moon/current": {
+    "ev": 0.143,
+    "p50": 2.15,
+    "p90": 3.68,
+    "p99": 5500,
+    "zeroShare": 0
+   },
+   "new-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000152,
+    "p90": 0.000234,
+    "p99": 0.275,
+    "zeroShare": 0
+   },
+   "new-moon/still": {
+    "ev": 22.1,
+    "p50": 0.000152,
+    "p90": 0.000234,
+    "p99": 0.275,
+    "zeroShare": 0
+   },
+   "quarter-moon/current": {
+    "ev": 5.1,
+    "p50": 2.19,
+    "p90": 2.93,
+    "p99": 4.28,
+    "zeroShare": 0
+   },
+   "quarter-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000202,
+    "p90": 0.000856,
+    "p99": 0.00295,
+    "zeroShare": 0
+   },
+   "quarter-moon/still": {
+    "ev": 22.1,
+    "p50": 0.000202,
+    "p90": 0.000856,
+    "p99": 0.00295,
+    "zeroShare": 0
+   },
+   "iberia/current": {
+    "ev": -0.157,
+    "p50": 8.03,
+    "p90": 385,
+    "p99": 8490,
+    "zeroShare": 0
+   },
+   "iberia/video": {
+    "ev": 18.291,
+    "p50": 0.000779,
+    "p90": 0.0196,
+    "p99": 0.425,
+    "zeroShare": 0
+   },
+   "iberia/still": {
+    "ev": 18.291,
+    "p50": 0.000779,
+    "p90": 0.0196,
+    "p99": 0.425,
+    "zeroShare": 0
+   },
+   "iberia-reference/video": {
+    "ev": 19.3,
+    "p50": 0.000779,
+    "p90": 0.0196,
+    "p99": 0.425,
+    "zeroShare": 0
+   },
+   "iberia-reference/still": {
+    "ev": 19.3,
+    "p50": 0.000779,
+    "p90": 0.0196,
+    "p99": 0.425,
+    "zeroShare": 0
+   },
+   "day/current": {
+    "ev": -0.733,
+    "p50": 4660,
+    "p90": 10700,
+    "p99": 24300,
+    "zeroShare": 0
+   },
+   "day/video": {
+    "ev": -0.735,
+    "p50": 4660,
+    "p90": 10700,
+    "p99": 24400,
+    "zeroShare": 0
+   }
+  },
+  "half": {
+   "full-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000768,
+    "p90": 0.0212,
+    "p99": 0.281,
+    "zeroShare": 0.3948
+   },
+   "full-moon/still": {
+    "ev": 22.1,
+    "p50": 0.000768,
+    "p90": 0.0212,
+    "p99": 0.281,
+    "zeroShare": 0.3948
+   },
+   "new-moon/video": {
+    "ev": 22.1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0.271,
+    "zeroShare": 0.958
+   },
+   "new-moon/still": {
+    "ev": 22.1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0.271,
+    "zeroShare": 0.958
+   },
+   "quarter-moon/video": {
+    "ev": 22.1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "zeroShare": 0.9995
+   },
+   "quarter-moon/still": {
+    "ev": 22.1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "zeroShare": 0.9995
+   },
+   "iberia/video": {
+    "ev": 22.1,
+    "p50": 0,
+    "p90": 0.016,
+    "p99": 0.422,
+    "zeroShare": 0.8171
+   },
+   "iberia/still": {
+    "ev": 22.1,
+    "p50": 0,
+    "p90": 0.016,
+    "p99": 0.422,
+    "zeroShare": 0.8171
+   },
+   "iberia-reference/video": {
+    "ev": 19.3,
+    "p50": 0,
+    "p90": 0.016,
+    "p99": 0.422,
+    "zeroShare": 0.8171
+   },
+   "iberia-reference/still": {
+    "ev": 19.3,
+    "p50": 0,
+    "p90": 0.016,
+    "p99": 0.422,
+    "zeroShare": 0.8171
+   },
+   "day/video": {
+    "ev": -0.73,
+    "p50": 4660,
+    "p90": 10700,
+    "p99": 24300,
+    "zeroShare": 0
+   }
+  },
+  "pre": {
+   "full-moon/current": {
+    "ev": 0.143,
+    "p50": 2.15,
+    "p90": 3.66,
+    "p99": 5500,
+    "zeroShare": 0
+   },
+   "full-moon/video": {
+    "ev": 18.69,
+    "p50": 0.00597,
+    "p90": 0.0241,
+    "p99": 0.285,
+    "zeroShare": 0
+   },
+   "full-moon/still": {
+    "ev": 18.69,
+    "p50": 0.00597,
+    "p90": 0.0241,
+    "p99": 0.285,
+    "zeroShare": 0
+   },
+   "new-moon/current": {
+    "ev": 0.144,
+    "p50": 2.15,
+    "p90": 3.68,
+    "p99": 5500,
+    "zeroShare": 0
+   },
+   "new-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000152,
+    "p90": 0.000234,
+    "p99": 0.275,
+    "zeroShare": 0
+   },
+   "new-moon/still": {
+    "ev": 22.1,
+    "p50": 0.000152,
+    "p90": 0.000234,
+    "p99": 0.275,
+    "zeroShare": 0
+   },
+   "quarter-moon/current": {
+    "ev": 5.1,
+    "p50": 2.19,
+    "p90": 2.93,
+    "p99": 4.28,
+    "zeroShare": 0
+   },
+   "quarter-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000202,
+    "p90": 0.000856,
+    "p99": 0.00294,
+    "zeroShare": 0
+   },
+   "quarter-moon/still": {
+    "ev": 22.1,
+    "p50": 0.000202,
+    "p90": 0.000856,
+    "p99": 0.00294,
+    "zeroShare": 0
+   },
+   "iberia/current": {
+    "ev": -0.156,
+    "p50": 8.03,
+    "p90": 385,
+    "p99": 8490,
+    "zeroShare": 0
+   },
+   "iberia/video": {
+    "ev": 18.295,
+    "p50": 0.000779,
+    "p90": 0.0196,
+    "p99": 0.425,
+    "zeroShare": 0
+   },
+   "iberia/still": {
+    "ev": 18.294,
+    "p50": 0.000779,
+    "p90": 0.0196,
+    "p99": 0.425,
+    "zeroShare": 0
+   },
+   "iberia-reference/video": {
+    "ev": 19.3,
+    "p50": 0.000779,
+    "p90": 0.0196,
+    "p99": 0.425,
+    "zeroShare": 0
+   },
+   "iberia-reference/still": {
+    "ev": 19.3,
+    "p50": 0.000779,
+    "p90": 0.0196,
+    "p99": 0.425,
+    "zeroShare": 0
+   },
+   "day/current": {
+    "ev": -0.731,
+    "p50": 4660,
+    "p90": 10700,
+    "p99": 24300,
+    "zeroShare": 0
+   },
+   "day/video": {
+    "ev": -0.732,
+    "p50": 4660,
+    "p90": 10700,
+    "p99": 24300,
+    "zeroShare": 0
+   }
+  },
+  "gl1-pre": {
+   "full-moon/video": {
+    "ev": 18.689,
+    "p50": 0.00597,
+    "p90": 0.0241,
+    "p99": 0.285,
+    "zeroShare": 0
+   },
+   "new-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000152,
+    "p90": 0.000234,
+    "p99": 0.275,
+    "zeroShare": 0
+   },
+   "quarter-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000202,
+    "p90": 0.000856,
+    "p99": 0.00294,
+    "zeroShare": 0
+   }
+  },
+  "ch-float": {
+   "full-moon/video": {
+    "ev": 18.687,
+    "p50": 0.006,
+    "p90": 0.024,
+    "p99": 0.286,
+    "zeroShare": 0
+   },
+   "new-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000152,
+    "p90": 0.000234,
+    "p99": 0.276,
+    "zeroShare": 0
+   },
+   "quarter-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000203,
+    "p90": 0.000858,
+    "p99": 0.00293,
+    "zeroShare": 0
+   }
+  },
+  "ch-pre": {
+   "full-moon/video": {
+    "ev": 18.69,
+    "p50": 0.00599,
+    "p90": 0.024,
+    "p99": 0.286,
+    "zeroShare": 0
+   },
+   "new-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000152,
+    "p90": 0.000234,
+    "p99": 0.276,
+    "zeroShare": 0
+   },
+   "quarter-moon/video": {
+    "ev": 22.1,
+    "p50": 0.000203,
+    "p90": 0.000857,
+    "p99": 0.00292,
+    "zeroShare": 0
+   }
+  },
+  "rgbe-float": {
+   "full-moon/video": {
+    "ev": 18.999
+   },
+   "new-moon/video": {
+    "ev": 22.1
+   },
+   "quarter-moon/video": {
+    "ev": 22.1
+   }
+  },
+  "rgbe-pre": {
+   "full-moon/video": {
+    "ev": 18.999
+   },
+   "new-moon/video": {
+    "ev": 22.1
+   },
+   "quarter-moon/video": {
+    "ev": 22.1
+   }
+  }
+ },
+ "diffs": {
+  "preVsFloat": [
+   {
+    "name": "day-current.png",
+    "meanAbs": 0.049,
+    "max": 2,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "day-video.png",
+    "meanAbs": 0.035,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "full-moon-current.png",
+    "meanAbs": 0,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "full-moon-still.png",
+    "meanAbs": 0.035,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "full-moon-video.png",
+    "meanAbs": 0.035,
+    "max": 2,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "iberia-current.png",
+    "meanAbs": 0.003,
+    "max": 4,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "iberia-reference-still.png",
+    "meanAbs": 0.026,
+    "max": 24,
+    "over2Percent": 0.01,
+    "over8Percent": 0
+   },
+   {
+    "name": "iberia-reference-video.png",
+    "meanAbs": 0.026,
+    "max": 13,
+    "over2Percent": 0.01,
+    "over8Percent": 0
+   },
+   {
+    "name": "iberia-still.png",
+    "meanAbs": 0.023,
+    "max": 16,
+    "over2Percent": 0.01,
+    "over8Percent": 0
+   },
+   {
+    "name": "iberia-video.png",
+    "meanAbs": 0.028,
+    "max": 7,
+    "over2Percent": 0.01,
+    "over8Percent": 0
+   },
+   {
+    "name": "new-moon-current.png",
+    "meanAbs": 0,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "new-moon-still.png",
+    "meanAbs": 0.013,
+    "max": 25,
+    "over2Percent": 0.01,
+    "over8Percent": 0
+   },
+   {
+    "name": "new-moon-video.png",
+    "meanAbs": 0.013,
+    "max": 25,
+    "over2Percent": 0.01,
+    "over8Percent": 0
+   },
+   {
+    "name": "quarter-moon-current.png",
+    "meanAbs": 0,
+    "max": 0,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "quarter-moon-still.png",
+    "meanAbs": 0.013,
+    "max": 20,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "quarter-moon-video.png",
+    "meanAbs": 0.013,
+    "max": 20,
+    "over2Percent": 0,
+    "over8Percent": 0
+   }
+  ],
+  "halfVsFloat": [
+   {
+    "name": "day-video.png",
+    "meanAbs": 0.089,
+    "max": 2,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "full-moon-still.png",
+    "meanAbs": 63.817,
+    "max": 231,
+    "over2Percent": 100,
+    "over8Percent": 99.99
+   },
+   {
+    "name": "full-moon-video.png",
+    "meanAbs": 63.82,
+    "max": 231,
+    "over2Percent": 100,
+    "over8Percent": 99.99
+   },
+   {
+    "name": "iberia-reference-still.png",
+    "meanAbs": 19.873,
+    "max": 85,
+    "over2Percent": 95.45,
+    "over8Percent": 91.8
+   },
+   {
+    "name": "iberia-reference-video.png",
+    "meanAbs": 19.872,
+    "max": 85,
+    "over2Percent": 95.45,
+    "over8Percent": 91.8
+   },
+   {
+    "name": "iberia-still.png",
+    "meanAbs": 30.378,
+    "max": 254,
+    "over2Percent": 97.93,
+    "over8Percent": 80.78
+   },
+   {
+    "name": "iberia-video.png",
+    "meanAbs": 30.378,
+    "max": 254,
+    "over2Percent": 97.93,
+    "over8Percent": 80.78
+   },
+   {
+    "name": "new-moon-still.png",
+    "meanAbs": 26.297,
+    "max": 170,
+    "over2Percent": 99.99,
+    "over8Percent": 99.99
+   },
+   {
+    "name": "new-moon-video.png",
+    "meanAbs": 26.297,
+    "max": 170,
+    "over2Percent": 99.99,
+    "over8Percent": 99.99
+   },
+   {
+    "name": "quarter-moon-still.png",
+    "meanAbs": 36.337,
+    "max": 147,
+    "over2Percent": 100,
+    "over8Percent": 100
+   },
+   {
+    "name": "quarter-moon-video.png",
+    "meanAbs": 36.337,
+    "max": 147,
+    "over2Percent": 100,
+    "over8Percent": 100
+   }
+  ],
+  "webgl1PreVsFloat": [
+   {
+    "name": "full-moon-video.png",
+    "meanAbs": 0.027,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "new-moon-video.png",
+    "meanAbs": 0.013,
+    "max": 25,
+    "over2Percent": 0.01,
+    "over8Percent": 0
+   },
+   {
+    "name": "quarter-moon-video.png",
+    "meanAbs": 0.013,
+    "max": 20,
+    "over2Percent": 0,
+    "over8Percent": 0
+   }
+  ],
+  "cloudsHalfPreVsFloat": [
+   {
+    "name": "full-moon-video.png",
+    "meanAbs": 0.044,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "new-moon-video.png",
+    "meanAbs": 0.013,
+    "max": 26,
+    "over2Percent": 0.01,
+    "over8Percent": 0.01
+   },
+   {
+    "name": "quarter-moon-video.png",
+    "meanAbs": 0.013,
+    "max": 20,
+    "over2Percent": 0,
+    "over8Percent": 0
+   }
+  ],
+  "rgbePreVsRgbeReference": [
+   {
+    "name": "full-moon-video.png",
+    "meanAbs": 0.043,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "new-moon-video.png",
+    "meanAbs": 0.027,
+    "max": 3,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "quarter-moon-video.png",
+    "meanAbs": 0.063,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   }
+  ],
+  "cloudReuseOffPreVsFloat": [
+   {
+    "name": "iberia-reference-video.png",
+    "meanAbs": 0.025,
+    "max": 13,
+    "over2Percent": 0.01,
+    "over8Percent": 0
+   },
+   {
+    "name": "new-moon-video.png",
+    "meanAbs": 0.012,
+    "max": 1,
+    "over2Percent": 0,
+    "over8Percent": 0
+   }
+  ],
+  "floatRepeat": [
+   {
+    "name": "iberia-reference-video.png",
+    "meanAbs": 0,
+    "max": 9,
+    "over2Percent": 0,
+    "over8Percent": 0
+   },
+   {
+    "name": "new-moon-video.png",
+    "meanAbs": 0,
+    "max": 2,
+    "over2Percent": 0,
+    "over8Percent": 0
+   }
+  ]
+ },
+ "stripes": {
+  "pre": [
+   [
+    "settled",
+    1.086
+   ],
+   [
+    "manual",
+    0
+   ],
+   [
+    "adapt-0",
+    0
+   ],
+   [
+    "adapt-1",
+    0.967
+   ],
+   [
+    "adapt-2",
+    1.294
+   ],
+   [
+    "adapt-3",
+    1.32
+   ],
+   [
+    "adapt-4",
+    1.135
+   ],
+   [
+    "adapt-5",
+    1.078
+   ],
+   [
+    "adapt-6",
+    1.079
+   ],
+   [
+    "adapt-7",
+    1.084
+   ]
+  ],
+  "norescale": [
+   [
+    "settled",
+    1.085
+   ],
+   [
+    "manual",
+    0
+   ],
+   [
+    "adapt-0",
+    0
+   ],
+   [
+    "adapt-1",
+    1.067
+   ],
+   [
+    "adapt-2",
+    11.71
+   ],
+   [
+    "adapt-3",
+    4.293
+   ],
+   [
+    "adapt-4",
+    3.586
+   ],
+   [
+    "adapt-5",
+    2.058
+   ],
+   [
+    "adapt-6",
+    1.742
+   ],
+   [
+    "adapt-7",
+    1.131
+   ]
+  ],
+  "float": [
+   [
+    "settled",
+    1.085
+   ],
+   [
+    "manual",
+    0
+   ],
+   [
+    "adapt-0",
+    0.679
+   ],
+   [
+    "adapt-1",
+    1.28
+   ],
+   [
+    "adapt-2",
+    1.279
+   ],
+   [
+    "adapt-3",
+    1.195
+   ],
+   [
+    "adapt-4",
+    1.109
+   ],
+   [
+    "adapt-5",
+    1.074
+   ],
+   [
+    "adapt-6",
+    1.08
+   ],
+   [
+    "adapt-7",
+    1.082
+   ]
+  ]
+ },
+ "defaultShaders": {
+  "programs": [
+   19,
+   21
+  ],
+  "identical": true
+ },
+ "moonInFrame": {
+  "views": "radiance ledger moon (lens=20) and Milky Way (lens=5), night=video",
+  "float": [
+   {
+    "view": "moon",
+    "ev": 16.497,
+    "p50": 0.00706,
+    "p99": 0.0387,
+    "moonLitP50": 1509,
+    "moonLitP99": 4567
+   },
+   {
+    "view": "milky-way",
+    "ev": 17.04,
+    "p50": 0.0243,
+    "p99": 0.0392,
+    "moonLitP50": 1299,
+    "moonLitP99": 3709
+   }
+  ],
+  "pre": [
+   {
+    "view": "moon",
+    "ev": 16.548,
+    "p50": 0.00706,
+    "p99": 0.0387,
+    "moonLitP50": 1508,
+    "moonLitP99": 4565
+   },
+   {
+    "view": "milky-way",
+    "ev": 17.042,
+    "p50": 0.0243,
+    "p99": 0.0391,
+    "moonLitP50": 1298,
+    "moonLitP99": 3707
+   }
+  ],
+  "pointMeter": {
+   "float": [
+    {
+     "view": "full-moon",
+     "ev": 18.992
+    },
+    {
+     "view": "moon",
+     "ev": 18.864
+    }
+   ],
+   "pre": [
+    {
+     "view": "full-moon",
+     "ev": 18.996
+    },
+    {
+     "view": "moon",
+     "ev": 18.871
+    }
+   ]
+  }
+ },
+ "meterSensitivity": {
+  "note": "moon view; pyramid meter field summed over the atlas, green divided by pre-exposure",
+  "float": {
+   "ev": 16.493,
+   "fieldGreenSum": 60.77,
+   "fieldAlphaSum": 174.062
+  },
+  "pre": {
+   "ev": 16.548,
+   "fieldGreenSum": 60.732,
+   "fieldAlphaSum": 173.827
+  },
+  "floatRgbTimes0999": {
+   "ev": 16.501,
+   "fieldGreenSum": 60.689,
+   "fieldAlphaSum": 174.062
+  },
+  "floatAlphaTimes0999": {
+   "ev": 16.572,
+   "fieldGreenSum": 60.77,
+   "fieldAlphaSum": 173.845
+  }
+ }
+}

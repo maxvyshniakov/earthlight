@@ -1,4 +1,14 @@
 import {textureImage2D,drawBuffersApi,halfFloatTarget} from './webgl-context.ts';
+import {PRE_EXPOSURE,PRE_EXPOSED_MAX} from './pre-exposure';
+
+// Pre-exposure: fresh radiance is stored at its frame's exposure, and the EV
+// rides in the depth target's z (whole eighths) and w (the rest), exact in
+// half floats. The resolve brings the previous frame's columns to this one's.
+const freshExposure=PRE_EXPOSURE?`min(scattered*sceneExposure(),vec3(${PRE_EXPOSED_MAX}.))`:'scattered';
+const freshEV=PRE_EXPOSURE?'floor(log2(sceneExposure())*8.)/8.,fract(log2(sceneExposure())*8.)':'0.,1.';
+const historyRescale=PRE_EXPOSURE?`
+  vec4 nowEV=texture2D(freshDepth,vec2(.5)),thenEV=texture2D(historyDepth,vec2(.5));
+  vec4 rescale=vec4(vec3(exp2(nowEV.z-thenEV.z+(nowEV.w-thenEV.w)/8.)),1.);`:'';
 
 // Column-interleaved clouds. Each frame integrates every other full-resolution
 // column into a dense half-width target, so fragment work really halves. A
@@ -26,8 +36,8 @@ void main(){
   float entry=max(0.,-b-sqrt(max(0.,b*b-c+1.0018835*1.0018835)));
   float depth=groundDistance>0.?atmosphereDistance-groundDistance:
     (transmission<.999?(atmosphereDistance-entry)*(1.-transmission):0.);
-  gl_FragData[0]=vec4(scattered,transmission);
-  gl_FragData[1]=vec4(depth,world.a,0.,1.);
+  gl_FragData[0]=vec4(${freshExposure},transmission);
+  gl_FragData[1]=vec4(depth,world.a,${freshEV});
 }
 `;
 
@@ -56,7 +66,7 @@ void main(){
     return;
   }
   float groundResidual=texture2D(worldScene,uv).a;
-  bool ground=groundResidual> -1.;
+  bool ground=groundResidual> -1.;${historyRescale}
   // Bounds from the computed columns on either side, three rows each, and a
   // ground-aware interpolation of the two horizontal neighbours.
   vec4 low=vec4(1e9),high=vec4(-1e9),sum=vec4(0.),unweighted=vec4(0.);
@@ -75,7 +85,7 @@ void main(){
       if(tapGround&&ground)weight*=exp(-abs(meta.y-groundResidual)*6371./.5);
       sum+=light*weight;depthSum+=meta.x*weight;weightSum+=weight;unweighted+=light;count+=1.;
       // How much this neighbour changed since the last frame, in place.
-      vec4 before=texture2D(previousResolved,(vec2(column,pixel.y)+.5)/resolution);
+      vec4 before=texture2D(previousResolved,(vec2(column,pixel.y)+.5)/resolution)${PRE_EXPOSURE?'*rescale':''};
       change=max(change,max(max(abs(light.r-before.r),abs(light.g-before.g)),max(abs(light.b-before.b),abs(light.a-before.a)))
         /(.02+.1*max(max(light.r,light.g),max(light.b,light.a))));
     }
@@ -98,7 +108,7 @@ void main(){
         // their own half-width lattice; a still view lands exactly on one.
         float column=(previous.x*resolution.x-.5-(1.-cloudParity))*.5;
         vec2 at=vec2((column+.5)/freshResolution.x,previous.y);
-        vec4 history=texture2D(historyRadiance,at),historyMeta=texture2D(historyDepth,at);
+        vec4 history=texture2D(historyRadiance,at)${PRE_EXPOSURE?'*rescale':''},historyMeta=texture2D(historyDepth,at);
         if((historyMeta.y> -1.)==ground){
           float moved=length((previous-uv)*resolution);
           // Exact reuse only when nothing moved and the neighbours did not change.
@@ -123,7 +133,7 @@ vec3 temporalClouds(vec2 uv,vec3 ray,float groundDistance,vec3 background,out fl
   float depth=texture2D(temporalDepth,uv).x,opacity=1.-light.a;
   atmosphereDistance=groundDistance;
   if(opacity>.001)atmosphereDistance=groundDistance>0.?groundDistance+depth:temporalCloudEntry(ray)+depth/opacity;
-  return max(vec3(0.),background*light.a+light.rgb);
+  return max(vec3(0.),background*light.a+light.rgb${PRE_EXPOSURE?'/sceneExposure()':''});
 }
 `;
 

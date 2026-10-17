@@ -1,0 +1,425 @@
+{
+ "date": "2026-10-17",
+ "method": "Production builds served by scripts/preview.mjs; agent-browser 1200x800, DPR 1; metered EV read from the meter state after settled assets and sharp focus plus 12 s. The meter field (37 x 25 pyramid level) was read from the atlas and the pyramid meter replayed in float64 to split the result into its terms.",
+ "moonView": "radiance ledger view moon (lens 20), night=video",
+ "openLoop": {
+  "note": "manual exposure held; meter target replayed from the field the scene produced at that exposure",
+  "points": [
+   {
+    "manualEV": 16.3,
+    "coverage": 0.00008933035103050439,
+    "blend": 0.10081,
+    "target": 16.5581
+   },
+   {
+    "manualEV": 16.5,
+    "coverage": 0.00008937603718525655,
+    "blend": 0.10102,
+    "target": 16.5538
+   },
+   {
+    "manualEV": 16.8,
+    "coverage": 0.00008939279092324747,
+    "blend": 0.1011,
+    "target": 16.5521
+   }
+  ]
+ },
+ "moonTermsBefore": {
+  "coverage": 0.0000894,
+  "blend": 0.101,
+  "frameTarget": 18.46,
+  "emissionTarget": -0.45,
+  "settled": 16.548,
+  "subjectBlocks": 56,
+  "subjectBlockShares": [
+   0.3,
+   0.61
+  ],
+  "moonPeakRadiance": 0.0825,
+  "levelOneLitShares": [
+   0,
+   0.8
+  ]
+ },
+ "moonTermsAfter": {
+  "coverage": 0.0000784,
+  "weight": 0.0983,
+  "frameTarget": 17.53,
+  "emissionTarget": -0.45,
+  "settled": 2.898
+ },
+ "perturbations": {
+  "before": {
+   "plain": [
+    16.5476,
+    16.5413
+   ],
+   "meterShares0999": [
+    16.5547,
+    16.5522
+   ],
+   "levelOneLit0999": [
+    16.5893,
+    16.5893
+   ]
+  },
+  "after": {
+   "plain": [
+    2.8981,
+    2.8981
+   ],
+   "meterShares0999": [
+    2.9015,
+    2.9015
+   ],
+   "levelOneLit0999": [
+    2.915,
+    2.9146
+   ]
+  }
+ },
+ "halfVersusFloat32": {
+  "note": "float32 = 5e2e5b0 (physical-night lab, float32 radiance and pyramid targets); half = pre-exposed build (8828757); after = each with this change",
+  "before": {
+   "float32": [
+    16.4941,
+    16.4932
+   ],
+   "half": [
+    16.5476,
+    16.5413
+   ]
+  },
+  "after": {
+   "float32": [
+    2.8762,
+    2.8767
+   ],
+   "half": [
+    2.8981,
+    2.8981
+   ]
+  }
+ },
+ "worstSlopeEVPerEfold": {
+  "gap8_1": {
+   "before": 10,
+   "after": 2.87
+  },
+  "gap19": {
+   "before": 23.4,
+   "after": 2.89
+  },
+  "gap25_1": {
+   "before": 30.9,
+   "after": 2.89
+  }
+ },
+ "fixturePartialSubject": {
+  "note": "synthetic meter field, subject radiance 0.5 on black sky, EV at 25/50/75% of full coverage and with 1% more area",
+  "before": [
+   [
+    5.031,
+    5.025
+   ],
+   [
+    3.169,
+    3.115
+   ],
+   [
+    0.414,
+    0.34
+   ]
+  ],
+  "after": [
+   [
+    2.711,
+    2.687
+   ],
+   [
+    0.936,
+    0.909
+   ],
+   [
+    -0.188,
+    -0.216
+   ]
+  ]
+ },
+ "fixtureMoons": {
+  "note": "full chain (glare pyramid + meter) on 1200x800 float scenes, half-lit Moon radius r at radiance v on sky 1e-4; [ev, ev with radiance +1%]",
+  "before": {
+   "r10 v0.08": [
+    5.1,
+    5.1
+   ],
+   "r12 v0.08": [
+    4.735,
+    4.652
+   ],
+   "r14 v0.08": [
+    3.148,
+    2.989
+   ],
+   "r6 v1": [
+    5.1,
+    5.1
+   ],
+   "r8 v1": [
+    4.419,
+    4.417
+   ],
+   "stars5px": 5.1
+  },
+  "after": {
+   "r10 v0.08": [
+    5.088,
+    5.076
+   ],
+   "r12 v0.08": [
+    4.078,
+    3.929
+   ],
+   "r14 v0.08": [
+    2.57,
+    2.476
+   ],
+   "r6 v1": [
+    4.588,
+    4.579
+   ],
+   "r8 v1": [
+    1.972,
+    1.959
+   ],
+   "stars5px": 4.855
+  }
+ },
+ "views": [
+  {
+   "view": "airglowLimb-current",
+   "before": 5.1,
+   "after": 5.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "airglowLimb-video",
+   "before": 22.1,
+   "after": 22.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "aurora-current",
+   "before": -0.622,
+   "after": -0.622,
+   "coverageBefore": 0.654,
+   "coverageAfter": 0.654
+  },
+  {
+   "view": "aurora-video",
+   "before": -0.622,
+   "after": -0.621,
+   "coverageBefore": 0.653,
+   "coverageAfter": 0.653
+  },
+  {
+   "view": "cityNight-current",
+   "before": 0.435,
+   "after": 0.435,
+   "coverageBefore": 8.87,
+   "coverageAfter": 8.87
+  },
+  {
+   "view": "cityNight-video",
+   "before": 19.455,
+   "after": 19.46,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "earthDay-current",
+   "before": -0.732,
+   "after": -0.731,
+   "coverageBefore": 83,
+   "coverageAfter": 83
+  },
+  {
+   "view": "earthDay-video",
+   "before": -0.732,
+   "after": -0.732,
+   "coverageBefore": 83,
+   "coverageAfter": 83
+  },
+  {
+   "view": "emptySky-current",
+   "before": 5.1,
+   "after": 5.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "emptySky-video",
+   "before": 22.1,
+   "after": 22.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "full-moon-current",
+   "before": 0.144,
+   "after": 0.143,
+   "coverageBefore": 1.2,
+   "coverageAfter": 1.2
+  },
+  {
+   "view": "full-moon-still",
+   "before": 18.69,
+   "after": 18.69,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "full-moon-video",
+   "before": 18.69,
+   "after": 18.69,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "iberia-current",
+   "before": -0.156,
+   "after": -0.156,
+   "coverageBefore": 1.56,
+   "coverageAfter": 1.56
+  },
+  {
+   "view": "iberia-still",
+   "before": null,
+   "after": 18.295,
+   "coverageBefore": null,
+   "coverageAfter": 0
+  },
+  {
+   "view": "iberia-video",
+   "before": 18.294,
+   "after": 18.295,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "milkyWay-current",
+   "before": -2.992,
+   "after": -2.991,
+   "coverageBefore": 0.106,
+   "coverageAfter": 0.106
+  },
+  {
+   "view": "milkyWay-video",
+   "before": 17.042,
+   "after": 17.036,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "moon-current",
+   "before": -2.999,
+   "after": -2.999,
+   "coverageBefore": 0.906,
+   "coverageAfter": 0.906
+  },
+  {
+   "view": "moon-video",
+   "before": 16.548,
+   "after": 2.897,
+   "coverageBefore": 0.00894,
+   "coverageAfter": 0.00784
+  },
+  {
+   "view": "moon1-current",
+   "before": 0.234,
+   "after": 0.234,
+   "coverageBefore": 9.77,
+   "coverageAfter": 9.77
+  },
+  {
+   "view": "moon1-video",
+   "before": 0.236,
+   "after": 0.235,
+   "coverageBefore": 9.77,
+   "coverageAfter": 9.77
+  },
+  {
+   "view": "moon10-current",
+   "before": -2.999,
+   "after": -2.998,
+   "coverageBefore": 0.291,
+   "coverageAfter": 0.291
+  },
+  {
+   "view": "moon10-video",
+   "before": 17.931,
+   "after": 17.936,
+   "coverageBefore": 0.0000113,
+   "coverageAfter": 0.0000112
+  },
+  {
+   "view": "moon2-current",
+   "before": 0.972,
+   "after": 0.972,
+   "coverageBefore": 2.76,
+   "coverageAfter": 2.76
+  },
+  {
+   "view": "moon2-video",
+   "before": 1.008,
+   "after": 1.01,
+   "coverageBefore": 2.75,
+   "coverageAfter": 2.75
+  },
+  {
+   "view": "new-moon-current",
+   "before": 0.144,
+   "after": 0.143,
+   "coverageBefore": 1.2,
+   "coverageAfter": 1.2
+  },
+  {
+   "view": "new-moon-still",
+   "before": 22.1,
+   "after": 22.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "new-moon-video",
+   "before": 22.1,
+   "after": 22.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "quarter-moon-current",
+   "before": 5.1,
+   "after": 5.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "quarter-moon-still",
+   "before": 22.1,
+   "after": 22.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  },
+  {
+   "view": "quarter-moon-video",
+   "before": 22.1,
+   "after": 22.1,
+   "coverageBefore": 0,
+   "coverageAfter": 0
+  }
+ ]
+}

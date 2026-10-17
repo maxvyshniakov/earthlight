@@ -2,7 +2,7 @@
 // with photometry (src/scripts/radiometry.ts). Uses an isolated agent-browser
 // session and reads the scene buffer the exposure meter samples, so nothing
 // in the renderer changes. Prints a table and writes ledger.json.
-// bun scripts/radiance-ledger.mjs http://localhost:4382 /tmp/ledger
+// bun scripts/radiance-ledger.mjs http://localhost:4382 /tmp/ledger [night=video]
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -13,33 +13,47 @@ import {pointImageFlux} from '../src/scripts/point-photometry.ts';
 import {SOLAR_IRRADIANCE,SOLAR_RADIANCE} from '../src/scripts/solar-light.ts';
 
 const exec=promisify(execFile);
-const [base='http://127.0.0.1:4322',out=join(tmpdir(),'radiance-ledger')]=process.argv.slice(2);
+const [base='http://127.0.0.1:4322',out=join(tmpdir(),'radiance-ledger'),query='']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const session=`ledger-${process.pid}`;
 const ab=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:3e7,timeout:180000})).stdout;
 
 // Remember the texture bound to unit 0 while the meter draws into its 1 x 1
-// state target: that is the scene buffer in scene radiance.
+// state target: that is the scene buffer. Unit 1 holds the state it was
+// rendered with; with physical night the buffer is pre-exposed by 2^ev of
+// that state (src/scripts/pre-exposure.ts), and __ledger divides it out.
 const hook=`(()=>{
- const sizes=new Map(),types=new Map(),small=new Set();let scene=null,owner=null;
+ const sizes=new Map(),types=new Map(),small=new Set();let scene=null,state=null,owner=null;
  for(const proto of [WebGLRenderingContext.prototype,window.WebGL2RenderingContext?.prototype].filter(Boolean)){
   const tex=proto.texImage2D,attach=proto.framebufferTexture2D,draw=proto.drawArrays;
   proto.texImage2D=function(...a){const t=this.getParameter(this.TEXTURE_BINDING_2D);if(a.length>=9&&t){sizes.set(t,[a[3],a[4]]);types.set(t,a[7]);}return tex.apply(this,a);};
   proto.framebufferTexture2D=function(target,att,tt,texture,level){const fb=this.getParameter(this.FRAMEBUFFER_BINDING),s=sizes.get(texture);if(fb&&s&&s[0]===1&&s[1]===1)small.add(fb);return attach.call(this,target,att,tt,texture,level);};
   proto.drawArrays=function(...a){
    const fb=this.getParameter(this.FRAMEBUFFER_BINDING);
-   if(fb&&small.has(fb)){const unit=this.getParameter(this.ACTIVE_TEXTURE);this.activeTexture(this.TEXTURE0);const t=this.getParameter(this.TEXTURE_BINDING_2D);this.activeTexture(unit);if(t&&sizes.get(t)?.[0]>32){scene=t;owner=this;}}
+   if(fb&&small.has(fb)){const unit=this.getParameter(this.ACTIVE_TEXTURE);this.activeTexture(this.TEXTURE0);const t=this.getParameter(this.TEXTURE_BINDING_2D);this.activeTexture(unit);if(t&&sizes.get(t)?.[0]>32){scene=t;owner=this;this.activeTexture(this.TEXTURE1);state=this.getParameter(this.TEXTURE_BINDING_2D);this.activeTexture(unit);}}
    return draw.apply(this,a);
   };
  }
- window.__ledger=filters=>{
+ // The scene buffer's camera state, 0-1 across the exposure range.
+ window.__sceneState=()=>{
+  const gl=owner;if(!gl||!state)return null;
+  const previous=gl.getParameter(gl.FRAMEBUFFER_BINDING),fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,state,0);
+  const v=new Uint8Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,v);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,previous);gl.deleteFramebuffer(fb);
+  return (v[0]*256+v[1])/65535;
+ };
+ window.__ledger=(filters,preExposure=1)=>{
   const gl=owner;if(!gl||!scene)return null;
   const [w,h]=sizes.get(scene);if(types.get(scene)===gl.UNSIGNED_BYTE)return {error:'RGBE scene buffer'};
   const previous=gl.getParameter(gl.FRAMEBUFFER_BINDING),fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
   gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,scene,0);
   const px=new Float32Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.FLOAT,px);
+  if(preExposure!==1)for(let i=0;i<px.length;i++)px[i]/=preExposure;
   gl.bindFramebuffer(gl.FRAMEBUFFER,previous);gl.deleteFramebuffer(fb);
-  const tests={all:()=>true,lit:(r,g,b,m)=>m>.02,dark:(r,g,b,m)=>m<.02,green:(r,g,b,m)=>g>1.6*r&&g>1.6*b&&m>1e-7};
+  const tests={all:()=>true,lit:(r,g,b,m)=>m>.02,dark:(r,g,b,m)=>m<.02,green:(r,g,b,m)=>g>1.6*r&&g>1.6*b&&m>1e-7,
+  // Physical night (night=video|still): the same classes four decades down.
+  faintLit:(r,g,b,m)=>m>.002,faintDark:(r,g,b,m)=>m<2e-6,faintGreen:(r,g,b,m)=>g>1.6*r&&g>1.6*b&&m>1e-11};
   const result={};
   for(const name of filters){
    const values=[],test=tests[name];
@@ -70,10 +84,14 @@ const views=[
 const settled="document.querySelector('earthlight-explorer')?.dataset.assets==='settled'&&document.querySelector('earthlight-explorer')?.dataset.focus==='sharp'";
 await exec('agent-browser',['--session',session,'--init-script',hookPath,'set','viewport','1200','800'],{timeout:60000});
 const measured={};
+// Physical night pre-exposes the scene buffer; its EV range is −5.5 to 22.1.
+const lab=/night=(video|still)/.test(query);
 try{
  for(const view of views){
-  await ab('open',`${base}/?${view.url}`);await ab('wait','--fn',settled);await ab('wait','3000');
-  const stats=JSON.parse(JSON.parse(await ab('eval',`JSON.stringify(window.__ledger(['${view.filter}']))`)));
+  // With physical night the Moon is ~0.01 and would fall in 'dark'.
+  if(lab)view.filter={lit:'faintLit',dark:'faintDark',green:'faintGreen'}[view.filter]??view.filter;
+  await ab('open',`${base}/?${view.url}${query?`&${query}`:''}`);await ab('wait','--fn',settled);await ab('wait','3000');
+  const stats=JSON.parse(JSON.parse(await ab('eval',`JSON.stringify(window.__ledger(['${view.filter}'],${lab?'2**(window.__sceneState()*27.6-5.5)':1}))`)));
   if(!stats||stats.error)throw Error(`${view.id}: ${stats?.error??'scene buffer not found'}`);
   await ab('screenshot',join(out,`${view.id}.png`));
   measured[view.id]=Object.fromEntries(view.quantiles.map(q=>[q,stats[view.filter][q]]));

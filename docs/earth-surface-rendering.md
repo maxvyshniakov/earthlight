@@ -62,6 +62,24 @@ and their shadows. Old `clouds=broken` links use Balanced: the earlier .32
 coverage cutoff was rejected because it left only sparse bright cores.
 The MODIS study keeps its own input by default. See the
 [full-disc revision](lab/2026-10-11-cloud-balanced.md).
+`clouds=calibrated` (Clouds → Calibrated, opt-in) sets each column's optical
+depth to `−ln(1 − 0.998·coverage^0.7)`. That reproduces the opacity of NASA's
+own Blue Marble composite of these plates over dark ocean; Balanced is two to
+three times more transparent for thin cloud. The 43,200-pixel plates add
+almost no structure beyond the 16K tiles. See
+[cloud calibration](lab/cloud-calibration-2026-10-17.md).
+`cloudStudy=global` (lab) replaces the plates with measured cloud properties
+for the UTC day of the scene's epoch when that day is built, otherwise for
+22 September 2026, the only day built so far: NOAA-20 VIIRS optical thickness and top height, MODIS
+phase. Opacity is the plane-parallel albedo of the optical thickness, by phase;
+partly cloudy pixels take the albedo of their own reflectance. Bases and
+profiles are inferred per type, unobserved places stay clear, and each column
+is lit without re-shadowing its own albedo. The clouds do not drift, so the
+cloud lighting atlas runs in its no-drift mode. See
+[measured cloud properties](lab/cloud-properties-2026-10-17.md) and
+[its second iteration](lab/cloud-properties-iteration-2026-10-17.md); the
+[third](lab/cloud-properties-seams-2026-10-17.md) reviews the date-line and
+swath seams and thin cirrus.
 
 
 Build scripts and official source URLs are in `public/media/earthlight/README.md`.
@@ -140,6 +158,10 @@ even below pixel/sample resolution.
 
 Coverage now selects mip levels explicitly with EXT_shader_texture_lod using
 the larger of the projected pixel footprint and half the ray integration step.
+Seen obliquely, an opaque cloud top is a surface: the view integral filters
+the pixel's ellipse on it, whose major axis grows as 1/cos of the incidence.
+Beyond 3:1 two taps along the ray's horizontal direction each average half of
+it ([limb flicker](lab/limb-flicker-2026-10-17.md)).
 Drivers without the extension use a conservative mip-bias fallback. Noise
 octaves fade continuously to their mean as they become unresolved, and erosion
 rotates with the same coordinates as the coverage map. The march uses 24 steps

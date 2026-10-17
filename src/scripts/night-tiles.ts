@@ -1,6 +1,7 @@
 import {cropTextureBitmap} from './texture-bitmap.ts';
 import {textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import { SceneWork, scenePriority } from './scene-work.ts';
+import { DayPyramid, PYRAMID_TABLE } from './day-pyramid.ts';
 // Bounded virtual textures: night lights in unit 7, daytime in 6, clouds in 9,
 // and galaxy in 14. Units 6/14 are reused only AFTER the scene pass.
 // Slot zero holds layer-sized lookup tables: resident slot and fade amount.
@@ -19,8 +20,9 @@ function tileShader(layer:Layer){
   const channel=layer==='day'||layer==='galaxy'||layer==='terrain'?'rgb':'r';
   // Terrain packs height bytes, and clouds are sampled along every view ray.
   const smooth=layer==='night'||layer==='day'||layer==='galaxy';
-  // Tile texels per independent source sample (see the night-light note below).
-  // Lab, nightDetail=vnp46: VNP46A4 radiance has independent 15" samples.
+  // Emits code for the tile texels per independent source sample: 2 for the
+  // 30" Black Marble 2016 plates (see the note below), 1 for VNP46A4 radiance
+  // (lab, nightDetail=vnp46), which has independent 15" samples.
   const spaced=(code:(spacing:number)=>string)=>layer==='night'?`\n#ifdef NIGHT_VNP46\n${code(1)}\n#else\n${code(2)}\n#endif\n`:code(1);
   return `
 uniform sampler2D ${layer}TileAtlas;
@@ -252,10 +254,14 @@ export class SurfaceTiles {
   private tableDirty=true;
   private revision=0;
   private uniforms=new WeakMap<WebGLProgram,{atlas:WebGLUniformLocation|null;layout:WebGLUniformLocation|null}>();
+  private pyramid:DayPyramid|null=null;
   requests=0;
   bytes=0;
+  deepBytes=0;
 
-  constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork(),private assetBaseURL='/media/earthlight/',private directory=layer+'-tiles'){
+  // `directory` (below the asset base) replaces `<layer>-tiles` for lab data
+  // in the same layout, such as measured cloud properties.
+  constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork(),private assetBaseURL='/media/earthlight/',private directory=layer+'-tiles',pyramid=false){
     this.work=work;
     this.gl=gl;this.notify=notify;this.layer=layer;this.dimensions=dimensions(layer);this.prepacked=layer==='terrain'||layer==='galaxy';this.unit=layer==='terrain'?15:layer==='galaxy'?14:layer==='night'?7:layer==='day'?6:9;this.format=layer==='day'||layer==='galaxy'||layer==='terrain'?gl.RGBA:gl.LUMINANCE;
     const {columns,rows,cell,interior}=this.dimensions;
@@ -269,8 +275,9 @@ export class SurfaceTiles {
     textureImage2D(gl,gl.TEXTURE_2D,0,this.format,1,1,0,this.format,gl.UNSIGNED_BYTE,null);
     for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
     for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
+    if(pyramid&&layer==='day')this.pyramid=new DayPyramid(assetBaseURL,this.abort.signal,()=>{this.lastSelection=-Infinity;this.notify();});
     this.work.network.run(scenePriority.tile,this.abort.signal,async()=>{
-      const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+'manifest.json',{signal:this.abort.signal});
+      const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/manifest.json',{signal:this.abort.signal});
       if(!response.ok)throw new Error('Surface tile manifest unavailable');
       return response.json();
     }).then(data=>{
@@ -305,6 +312,8 @@ export class SurfaceTiles {
       this.lastSelection=now;
       this.previousView=pose;clearTimeout(this.selectionTimer);this.selectionTimer=0;
       this.wanted=visibleSurfaceTiles(view,width,height,this.available,this.capacity,this.layer);
+      // Deeper day levels share the atlas: at most half of it, ahead of BMNG.
+      if(this.pyramid)this.wanted=[...this.pyramid.select(view,width,height,Math.floor(this.capacity/2)),...this.wanted].slice(0,this.capacity);
       const desired=new Set(this.wanted);
       for(const [id,controller] of this.pending)if(!desired.has(id))controller.abort();
       for(const id of this.wanted){const entry=this.resident.get(id);if(entry)entry.used=now;}
@@ -334,17 +343,21 @@ export class SurfaceTiles {
     let fading=false;
     for(const [id,entry] of this.resident){
       const fade=Math.max(0,Math.min(1,(now-entry.loaded)/650));
+      fading ||= fade<1&&Number.isFinite(entry.loaded);
+      if(id>=count)continue;
       const value=Math.round(fade*255);
       if(this.pages[id]!==entry.slot||this.pages[id+count]!==value)this.tableDirty=true;
       this.pages[id]=entry.slot;this.pages[id+count]=value;
-      fading ||= fade<1&&Number.isFinite(entry.loaded);
     }
+    if(this.pyramid?.write(this.resident,now))this.tableDirty=true;
     const gl=this.gl;
     if(this.tableDirty){
       gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
       const table=this.format===gl.RGBA?this.colorPages:this.pages;
       if(this.format===gl.RGBA)for(let i=0;i<this.pages.length;i++)table[i*4]=this.pages[i];
+      if(this.pyramid)for(let i=0;i<count;i++)table[i*4+1]=this.pyramid.directory[i];
       textureSubImage2D(gl,gl.TEXTURE_2D,0,0,0,columns,rows*2,this.format,gl.UNSIGNED_BYTE,table);
+      if(this.pyramid)textureSubImage2D(gl,gl.TEXTURE_2D,0,PYRAMID_TABLE.x,PYRAMID_TABLE.y,PYRAMID_TABLE.width,PYRAMID_TABLE.height,gl.RGBA,gl.UNSIGNED_BYTE,this.pyramid.table);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT,4);this.tableDirty=false;this.revision++;
     }
     if(fading&&!this.timer)this.timer=window.setTimeout(()=>{this.timer=0;if(!this.disposed)this.notify();},42);
@@ -359,11 +372,12 @@ export class SurfaceTiles {
       const controller=new AbortController();this.pending.set(id,controller);this.requests++;
       const timeout=window.setTimeout(()=>controller.abort(),12000);
       this.work.network.run(scenePriority.tile,controller.signal,async()=>{
-        const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
+        const deep=this.pyramid&&id>=1e8;
+        const response=await fetch(deep?this.pyramid!.url(id):this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
         if(!response.ok)throw new Error('Surface tile unavailable');
         return response.blob();
       }).then(blob=>this.work.decode.run(scenePriority.tile,controller.signal,async()=>{
-        this.bytes+=blob.size;
+        this.bytes+=blob.size;if(id>=1e8)this.deepBytes+=blob.size;
         const image=await createImageBitmap(blob,{colorSpaceConversion:'none',premultiplyAlpha:'none'});
         try{
           if(this.disposed||controller.signal.aborted||!this.wanted.includes(id))return;
@@ -417,7 +431,7 @@ export class SurfaceTiles {
   }
 
   layout(){return [this.allocated?this.edge:0,this.columns];}
-  stats(){const now=performance.now();return {revision:this.revision,fading:[...this.resident.values()].filter(entry=>now-entry.loaded<650).length,resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
+  stats(){const now=performance.now();return {revision:this.revision,fading:[...this.resident.values()].filter(entry=>now-entry.loaded<650).length,resident:this.resident.size,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,...(this.pyramid?{deep:[...this.resident.keys()].filter(id=>id>=1e8).length,deepWanted:this.pyramid.wanted,deepBytes:this.deepBytes}:{}),gpuBytes:(this.allocated?this.edge*this.edge:1)*(this.format===this.gl.RGBA?4:1)};}
   dispose(){
     this.disposed=true;this.abort.abort();clearTimeout(this.timer);clearTimeout(this.selectionTimer);
     for(const controller of this.pending.values())controller.abort();
