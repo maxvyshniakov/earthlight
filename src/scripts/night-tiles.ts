@@ -20,7 +20,8 @@ function tileShader(layer:Layer){
   // Terrain packs height bytes, and clouds are sampled along every view ray.
   const smooth=layer==='night'||layer==='day'||layer==='galaxy';
   // Tile texels per independent source sample (see the night-light note below).
-  const sampleSpacing=layer==='night'?2:1;
+  // Lab, nightDetail=vnp46: VNP46A4 radiance has independent 15" samples.
+  const spaced=(code:(spacing:number)=>string)=>layer==='night'?`\n#ifdef NIGHT_VNP46\n${code(1)}\n#else\n${code(2)}\n#endif\n`:code(1);
   return `
 uniform sampler2D ${layer}TileAtlas;
 uniform vec2 ${layer}TileLayout;
@@ -48,9 +49,10 @@ ${smooth?`
 // camera's clip, reads as a square. The kernel is positive and sums to one:
 // no ringing around clipped city cores, no detail beyond the source's own
 // resolution. Black Marble's 15" plates repeat each 30" value in 2 x 2 blocks
-// aligned to the tile, so night lights interpolate their level 1 instead.
+// aligned to the tile, so night lights interpolate their level 1 instead;
+// VNP46A4 tiles (lab) have independent 15" samples and use level 0.
 ${valueType} ${layer}Smooth(vec2 local,float slot){
-  vec2 t=${sampleSpacing>1?`${layer}Origin(slot+1.)+vec2(8.)+local*${interior/2}.`:`${layer}Origin(slot)+vec2(16.)+local*${interior}.`}-.5;
+  ${spaced(spacing=>`vec2 t=${spacing>1?`${layer}Origin(slot+1.)+vec2(8.)+local*${interior/2}.`:`${layer}Origin(slot)+vec2(16.)+local*${interior}.`}-.5;`)}
   vec2 i=floor(t),f=t-i,g=f*f,c=g*f;
   vec2 w0=(1.-3.*f+3.*g-c)/6.,w1=(4.-6.*g+3.*c)/6.,w3=c/6.;
   vec2 a=w0+w1,b=1.-a;
@@ -76,6 +78,25 @@ ${valueType} ${layer}Neighbor(vec2 key,vec2 local,float lod,float smooth,${value
  return ${layer}Sample(local,slot,lod,smooth);
 }
 `:''}
+${layer==='night'?`#ifdef NIGHT_VNP46
+// Lab, nightDetail=vnp46: tiles carry VNP46A4 radiance L (nW cm^-2 sr^-1) as
+// code = ln(1 + L/0.25) / ln(1 + 20000). The overview, uplight and city curve
+// expect Black Marble 2016's display scale, so convert to it with the fit to
+// co-located 30" blocks (Cleveland, Delhi): 0.328 ln(1 + (L/1.089)^6.84)/6.84,
+// a soft toe and then 0.328 ln(L/1.089), saturating near 23 nW like the 2016
+// plates. Above that, nightRange=extended keeps the slope. Interpolation and
+// mips stay in the log code; the conversion runs once on the filtered value.
+float nightVnp46Encoded(float code){
+  float t=6.839*(log(max(.25*(exp(code*${Math.log1p(20000).toFixed(4)})-1.),1e-6))-.08498);
+  float encoded=.04790*(t>15.?t:log(1.+exp(min(t,15.))));
+#ifdef NIGHT_VNP46_EXTENDED
+  return encoded;
+#else
+  return min(1.,encoded);
+#endif
+}
+#endif
+`:''}
 ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='galaxy'?'Galaxy':layer==='terrain'?'Terrain':'Cloud'}(vec2 uv,float footprint,${valueType} fallback) {
   if(${layer}TileLayout.x<1. || footprint>=${layer==='cloud'||layer==='galaxy'?'4.':'32.'})return fallback;
   vec2 grid=vec2(fract(uv.x),clamp(1.-uv.y,0.,.999999))*vec2(${columns}.,${rows}.);
@@ -97,7 +118,7 @@ ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='gala
   // Mip gutters contain actual neighboring geography, including across the
   // NASA source plates. Smoothing reaches full weight at two pixels per
   // source sample.
-  float smooth=${smooth?`1.-smoothstep(${(sampleSpacing*.5).toFixed(1)},${sampleSpacing.toFixed(1)},footprint)`:'0.'};
+  ${smooth?spaced(spacing=>`float smooth=1.-smoothstep(${(spacing*.5).toFixed(1)},${spacing.toFixed(1)},footprint);`):'float smooth=0.;'}
   ${valueType} light=${layer}Sample(local,slot,lod,smooth);
   ${layer==='day'||layer==='cloud'?`
   // Independently compressed photos disagree even when both tiles are loaded.
@@ -113,6 +134,7 @@ ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='gala
     light=mix(mix(light,horizontal,blend.x),mix(vertical,diagonal,blend.x),blend.y);
   }
   `:''}
+  ${layer==='night'?'#ifdef NIGHT_VNP46\n  light=nightVnp46Encoded(light);\n#endif':''}
   return mix(fallback,light,fade*(1.-smoothstep(${layer==='cloud'||layer==='galaxy'?'2.5,4.':'20.,32.'},footprint)));
 }
 `;
@@ -232,7 +254,7 @@ export class SurfaceTiles {
   requests=0;
   bytes=0;
 
-  constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork(),private assetBaseURL='/media/earthlight/'){
+  constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork(),private assetBaseURL='/media/earthlight/',private directory=layer+'-tiles'){
     this.work=work;
     this.gl=gl;this.notify=notify;this.layer=layer;this.dimensions=dimensions(layer);this.prepacked=layer==='terrain'||layer==='galaxy';this.unit=layer==='terrain'?15:layer==='galaxy'?14:layer==='night'?7:layer==='day'?6:9;this.format=layer==='day'||layer==='galaxy'||layer==='terrain'?gl.RGBA:gl.LUMINANCE;
     const {columns,rows,cell,interior}=this.dimensions;
@@ -247,7 +269,7 @@ export class SurfaceTiles {
     for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
     for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
     this.work.network.run(scenePriority.tile,this.abort.signal,async()=>{
-      const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.layer+'-tiles/'+'manifest.json',{signal:this.abort.signal});
+      const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+'manifest.json',{signal:this.abort.signal});
       if(!response.ok)throw new Error('Surface tile manifest unavailable');
       return response.json();
     }).then(data=>{
@@ -332,7 +354,7 @@ export class SurfaceTiles {
       const controller=new AbortController();this.pending.set(id,controller);this.requests++;
       const timeout=window.setTimeout(()=>controller.abort(),12000);
       this.work.network.run(scenePriority.tile,controller.signal,async()=>{
-        const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.layer+'-tiles/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
+        const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
         if(!response.ok)throw new Error('Surface tile unavailable');
         return response.blob();
       }).then(blob=>this.work.decode.run(scenePriority.tile,controller.signal,async()=>{

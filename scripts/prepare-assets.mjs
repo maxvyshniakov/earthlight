@@ -13,6 +13,8 @@ async function walk(dir,prefix=''){
   // Regional prepared DEM fixtures are opt-in experiments, not release assets.
   // Publish a complete versioned dataset separately before including them.
   if(name==='terrain-packed')continue;
+  // Lab regional night tiles (nightDetail=vnp46) are not a release asset.
+  if(name==='night-vnp46-tiles')continue;
   if(entry.isDirectory())files.push(...await walk(join(dir,entry.name),name+'/'));
   else if(entry.isFile()&&!excluded.has(name)&&!name.split('/').some(part=>part.startsWith('.')))files.push(name);
  }
