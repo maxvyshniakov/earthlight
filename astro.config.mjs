@@ -11,7 +11,8 @@ export default defineConfig({
       server.middlewares.use(terrainMiddleware);
     }}],
     // Agent worktrees live under .claude/; their builds and configs restarted
-    // this checkout's dev server and reloaded its pages.
-    server: {watch: {ignored: ['**/.claude/**']}},
+    // this checkout's dev server and reloaded its pages. Tailnet devices reach
+    // the dev server through `tailscale serve`, under a *.ts.net host name.
+    server: {watch: {ignored: ['**/.claude/**']}, allowedHosts: ['.ts.net']},
   },
 });
