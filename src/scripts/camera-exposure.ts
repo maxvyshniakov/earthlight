@@ -103,10 +103,19 @@ ${PRE_EXPOSURE?'      c/=preExposure;\n':''}      peak=max(c.r,max(c.g,c.b));lit
   // so a small Earth or a zoomed Moon was metered as empty sky.
   float target=clamp(log2(.055/max(measured+sunMean*.45,${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
   float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
-  // Point samples catch stars, so a subject needs 0.6-2.5% of them. Pyramid
-  // subjects already exclude stars: a lit region counts from 0.005% of the
-  // frame and fully from 0.025%, about two subject blocks.
-  target=mix(target,min(target,emissionTarget),useField>.5?smoothstep(.00005,.00025,coverage/count):smoothstep(.006,.025,coverage/count));
+  // Point samples catch stars, so a subject needs 0.6-2.5% of them.
+  if(useField<.5)target=mix(target,min(target,emissionTarget),smoothstep(.006,.025,coverage/count));
+  else{
+    // Pyramid subjects already exclude stars and count fully from 0.025% of
+    // the frame, about two subject blocks. Below that the two requests mix as
+    // light, not as EV, with weight (coverage/0.025%)²: a subject half that
+    // size is exposed two stops brighter. On a black sky the requests are up
+    // to 25 EV apart, and the former ramp, mixing EVs from 0.005%, moved the
+    // result up to 31 EV per e-fold of coverage; this moves at most 2.9
+    // (docs/lab/meter-blend-2026-10-17.md).
+    float weight=min(coverage/count/.00025,1.);weight*=weight;
+    target-=log2(1.-weight+weight*exp2(target-min(target,emissionTarget)));
+  }
   vec4 state=texture2D(previous,vec2(.5));
   float old=decodeCameraEV(state.rg);
   // EV is logarithmic; brighten more slowly than the response to daylight.

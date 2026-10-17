@@ -142,7 +142,9 @@ is 0.05 EV brighter. The point meter gives 18.871 against 18.864. The cause is t
 pyramid meter, not pre-exposure. Its subject shares are now stored in half
 floats as in the default program, and they sum 0.13% lower. Lowering the
 float32 build's shares by 0.1% moves its EV to 16.57. In this view the
-subject weighting amplifies share errors 30 to 50 times.
+subject weighting amplifies share errors 30 to 50 times. The
+[meter blend lab](meter-blend-2026-10-17.md) traces this to the coverage
+blend and changes it.
 
 ## Behaviour that changed
 

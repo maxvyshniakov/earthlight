@@ -94,6 +94,22 @@ async function verifyPyramidMeter(evaluate,exposureModule){
    moonPoints:[[0,0],[6.8,3.4]].map(([dx,dy])=>meter(moon(600+dx,400+dy),false)),
    uniform:meter(uniform),uniformPoints:meter(uniform,false),
   };
+  // A partial subject on a black sky, written straight into a meter field:
+  // one 37 x 25 cell holds a subject of radiance 0.5 covering a share of it.
+  // Its EV at 25%, 50% and 75% of full coverage, then with 1% more area.
+  const field=gl.createTexture(),fw=37,fh=25;
+  gl.bindTexture(gl.TEXTURE_2D,field);
+  for(const f of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,f,gl.NEAREST);
+  const partial=share=>{
+   const data=new Float32Array(fw*fh*4);
+   for(let i=0;i<fw*fh;i++)data.set([sky,sky,sky,0],i*4);
+   data.set([.5*share+sky,.5*share+sky,.5*share+sky,share],(12*fw+18)*4);
+   gl.bindTexture(gl.TEXTURE_2D,field);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,fw,fh,0,gl.RGBA,gl.FLOAT,data);
+   const m=new exposure.CameraExposure(gl);m.update(scene,true,false,0,[0,0,0],w/h,null,null,1.25,{texture:field,rect:[0,0,1,1],width:fw,height:fh,atlasWidth:fw,atlasHeight:fh});
+   const ev=read();m.dispose();return ev;
+  };
+  out.partial=[.25,.5,.75].map(f=>{const share=f*.00025*fw*fh;return [partial(share),partial(share*1.01)];});
+  gl.deleteTexture(field);
   const error=gl.getError();glare.dispose();gl.getExtension('WEBGL_lose_context').loseContext();
   return {...out,error};
  })()`);
@@ -103,5 +119,6 @@ async function verifyPyramidMeter(evaluate,exposureModule){
  assert.ok(Math.min(...result.moonPoints)>cameraModel.EXPOSURE_MAX_EV-.2,'point samples miss the same Moon');
  assert.ok(Math.max(...result.moon)-Math.min(...result.moon)<.25,`moving the Moon across blocks changes exposure by under 0.25 EV (${result.moon})`);
  assert.ok(Math.abs(result.uniform-result.uniformPoints)<.1,'a uniform frame meters as with point samples');
+ for(const [ev,larger] of result.partial)assert.ok(ev<cameraModel.EXPOSURE_MAX_EV-.5&&Math.abs(larger-ev)<.035,`a partial subject pulls exposure, and 1% more of it moves exposure under 0.035 EV (${result.partial})`);
  return result;
 }
