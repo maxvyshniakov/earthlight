@@ -17,6 +17,7 @@ const firstLight=firstLightAssets(assetBaseURL.replace(/\/+$/,'')+'/');
   <div class="explorer-viewport" aria-hidden="true"></div>
   <div class="explorer-fallback" aria-hidden="true" style={{backgroundImage:`url("${assetURL('preview/poster.webp',assetBaseURL)}")`}}></div>
   <canvas aria-hidden="true"></canvas>
+  <canvas class="explorer-crossfade" aria-hidden="true" hidden></canvas>
   <div class="explorer-service">
   <aside class="scene-comparison" hidden aria-label="Scene comparison">
     <label for="scene-profile">Render comparison</label>
@@ -117,6 +118,9 @@ const firstLight=firstLightAssets(assetBaseURL.replace(/\/+$/,'')+'/');
   .explorer-viewport { position: fixed; inset: 0 auto auto 0; width: 0; height: calc(100vh - var(--explorer-inset-bottom, 0px)); height: calc(100svh - var(--explorer-inset-bottom, 0px)); visibility: hidden; pointer-events: none; }
   canvas { opacity: 0; transition: opacity .6s ease; }
   earthlight-explorer[data-ready] canvas { opacity: 1; }
+  /* A night switch holds the old mode's last frame here, then dissolves it into the new one. */
+  .explorer-crossfade { transition: none; }
+  earthlight-explorer[data-ready] .explorer-crossfade[data-fading] { opacity: 0; transition: opacity .45s ease; }
   /* Startup is dark space until the live canvas fades in; the poster is only
      for an explorer that cannot draw (no WebGL, no scene, no first light). */
   .explorer-fallback { background: #020304 center / cover no-repeat; opacity: 0; transition: opacity .6s ease; }

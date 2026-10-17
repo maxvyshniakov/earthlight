@@ -3,7 +3,6 @@ import { shellCoverage, SHELL } from './scene-view-scale.ts';
 import { EARTH_RADIUS_KM, add, cross, dot, normalize, scale, type Vec3 } from './iss-orbit.ts';
 import { dayOfYear, daysInYear } from './scene-calendar.ts';
 import { GLOBE_LAND } from './globe-land.ts';
-import { PHYSICAL_NIGHT } from './physical-night.ts';
 import { celestialFrame } from './celestial-sky.ts';
 
 export type Modality='mouse'|'trackpad'|'touch';
@@ -71,8 +70,8 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   hold:(code:string,down:boolean)=>void;
   /** Bring back the horizon, as \ does. */
   resetCamera:()=>void;
-  /** Switch night mode (physical night video) on or off, as N does. */
-  night:()=>void;
+  /** Switch night mode (physical night video) on or off, as N does; and whether it is on. */
+  night:()=>void;nightOn:boolean;
   /** Turn the camera to face Earth's centre, or the Sun. */
   faceEarth:()=>void;faceSun:()=>void;faceMoon:()=>void;
   /** Exposure compensation in EV, or null under manual exposure; and setting it. */
@@ -190,8 +189,10 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   const holdUp=(event:PointerEvent)=>{o.hold((event.currentTarget as HTMLElement).dataset.hold!,false);scene();};
   const motionToggle=hud.querySelector<HTMLButtonElement>('.hud-time-toggle')!;
   const actions:Record<string,()=>void>={Space:()=>motionToggle.click(),Digit0:()=>o.lens(1),Backslash:()=>o.resetCamera(),KeyN:()=>o.night()};
-  // Night mode is read from the address when the page loads; its key stays down while on.
-  hud.querySelector<HTMLButtonElement>('[data-press="KeyN"]')?.setAttribute('aria-pressed',String(PHYSICAL_NIGHT));
+  // Night mode's key stays down while it is on; the explorer latches it as the renderer switches.
+  const nightKey=hud.querySelector<HTMLButtonElement>('[data-press="KeyN"]');
+  const setNight=(on:boolean)=>nightKey?.setAttribute('aria-pressed',String(on));
+  setNight(o.nightOn);
   const pressButtons=[...hud.querySelectorAll<HTMLButtonElement>('[data-press]')];
   const press=(event:Event)=>{
     const code=(event.currentTarget as HTMLElement).dataset.press!;
@@ -413,7 +414,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   };
   const shown={moon:'',globe:[999,0],ev:NaN as number|null,day:'',time:'',speed:NaN,altitude:-1,lens:-1,mode:'',earth:'',sun:''};
   return {
-    setModality,key,
+    setModality,key,setNight,
     get modality(){return modality;},
     toggleHelp(){help.togglePopover();},
     toggleInfo(){info.togglePopover();},

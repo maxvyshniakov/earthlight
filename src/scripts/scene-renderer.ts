@@ -34,8 +34,10 @@ import {CLOUD_PROPERTIES_OVERVIEW,CLOUD_PROPERTIES_PENDING,cloudPropertiesDate,c
 import { SceneAssets, sceneAssetPlan, vnp46NightOverview, type AssetPlan } from './scene-assets';
 import { sceneBufferSize, compactSurfaceOverview } from './scene-viewport';
 import { NOISE_TABLE_SIZE, NOISE_TABLE_UNIT, noiseTableData } from './noise-table';
-import { TemporalClouds, temporalCloudMain, temporalResolveFragment, temporalCompositeShader, TEMPORAL_FRESH_UNITS, TEMPORAL_HISTORY_UNITS, TEMPORAL_PREVIOUS_UNIT, TEMPORAL_RESOLVED_UNITS } from './cloud-temporal';
-import { vertexSource, fragmentSource, sourceTransmissionFragment, volumeFragment, halfCloudFragment, halfCloudVolumeFragment } from './scene-shader';
+import { TemporalClouds, temporalShadersFor, TEMPORAL_FRESH_UNITS, TEMPORAL_HISTORY_UNITS, TEMPORAL_PREVIOUS_UNIT, TEMPORAL_RESOLVED_UNITS } from './cloud-temporal';
+import { vertexSource, sceneShadersFor } from './scene-shader';
+import { NIGHT_EXCESS, physicalNight, readNightMode, type NightMode } from './physical-night';
+import { CameraExposure } from './camera-exposure';
 
 export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number;exposure:number;manualExposure?:number|null;lensPreset?:LensPreset};
 /** Owns the WebGL resources and passes; never reads or mutates page controls. */
@@ -75,6 +77,11 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     const sharedLighting=profile.name==='lighting';
     const state:Record<string,string>={};
     const pointReflections=new PointReflections();
+    // Physical night (`night=video|still`), a value of this renderer that can
+    // switch in place (switchNight); context restoration keeps it.
+    let nightMode:NightMode=readNightMode(params);
+    pointReflections.mode=nightMode;
+    let wideGamut=false;
     let disposed=false,lost=false,initialized=false;
     let startupAbort:AbortController|null=null;
     let initialization:Promise<boolean>|null=null;
@@ -90,6 +97,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     // keeps the sampled disk at every size. Explorer only, never background:
     // its module, shader and map load the first time a resolved Moon is in view.
     let moonSurface:MoonSurface|null=null,moonLoad:AbortController|null=null,moonBlend=false;
+    let moonModule:typeof import("./moon-surface")|null=null;
     const wantsMoonSurface=!background&&!terrainView&&params.get('moonSurface')!=='off';
     // CSS-pixel radius where the resolved disk begins (LUNAR_RESOLVED_PX[0]).
     const LUNAR_RESOLVED_FROM=5;
@@ -134,6 +142,18 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     let sourcePosition=0;
     const sourceUniforms:Record<string,WebGLUniformLocation|null>={};
     const work=new SceneWork(notify);
+    // Values the asset uploads set on the scene passes, replayed into the
+    // programs of another night mode when the renderer switches in place.
+    const sceneValues=new Map<string,number[]>(),passValues=new Map<string,number[]>();
+    const applyValue=(target:WebGLProgram,name:string,values:number[])=>{
+      const at=gl.getUniformLocation(target,name);
+      if(values.length===1)gl.uniform1f(at,values[0]);else gl.uniform2f(at,values[0],values[1]);
+    };
+    const scenePasses=()=>[program,sourceProgram,volumeProgram,cloudProgram,fallbackVolumeProgram].filter((pass):pass is WebGLProgram=>!!pass);
+    /** A value on the scene program, kept for a night switch. */
+    const setSceneValue=(name:string,...values:number[])=>{sceneValues.set(name,values);if(program){gl.useProgram(program);applyValue(program,name,values);}};
+    /** A value on every scene pass, kept for a night switch. */
+    const setPassValue=(name:string,...values:number[])=>{passValues.set(name,values);for(const pass of scenePasses()){gl.useProgram(pass);applyValue(pass,name,values);}};
     // Tile constructors enqueue optional manifests before assets.start(). Keep
     // those requests from occupying every connection ahead of the previews.
     const releasePreviewNetwork=work.network.holdBelow(scenePriority.preview);
@@ -162,6 +182,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     });
     const release = () => {
       initialized=false;startupAbort?.abort();startupAbort=null;
+      cancelNightSwitch();nightSettle=0;sceneValues.clear();passValues.clear();
       uploadAbort.abort();uploadAbort=new AbortController();
       for(const cancel of terrainDecodes)cancel();
       timer?.dispose();timer=null;
@@ -220,9 +241,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
               textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
               gl.generateMipmap(gl.TEXTURE_2D);
               gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
-              for(const pass of [program,sourceProgram,volumeProgram,cloudProgram,fallbackVolumeProgram])if(pass){
-                gl.useProgram(pass);gl.uniform1f(gl.getUniformLocation(pass,'modisReady'),1);
-              }
+              setPassValue('modisReady',1);
               state.modisReady='1';
             });
           }finally{image.close();}
@@ -263,8 +282,8 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           }
           gl.useProgram(program);gl.activeTexture(gl.TEXTURE8);gl.bindTexture(gl.TEXTURE_2D,terrainTexture);
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
-          gl.uniform1f(gl.getUniformLocation(program,'terrainWidth'),data.width);
-          gl.uniform1f(gl.getUniformLocation(program,'terrainReady'),params.get('terrain')==='0'?0:1);
+          setSceneValue('terrainWidth',data.width);
+          setSceneValue('terrainReady',params.get('terrain')==='0'?0:1);
           state.terrainReady='';return;
         }
         const limit=gl.getParameter(gl.MAX_TEXTURE_SIZE);
@@ -322,10 +341,10 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           gl.bindTexture(gl.TEXTURE_2D,unit===5?galaxyTexture:textures[unit]);
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
           if(maxAnisotropy&&unit!==5)gl.texParameterf(gl.TEXTURE_2D,TEXTURE_MAX_ANISOTROPY_EXT,maxAnisotropy);
-          if(unit===1)gl.uniform2f(gl.getUniformLocation(program,'nightMapResolution'),image.width,image.height);
-          if(unit===2)gl.uniform1f(gl.getUniformLocation(program,'cloudMapWidth'),image.width);
-          if(unit===5){gl.uniform1f(gl.getUniformLocation(program,'galaxyMapWidth'),image.width);state.galaxyMapWidth=String(image.width);}
-          gl.uniform1f(gl.getUniformLocation(program,'mapsReady'),1);
+          if(unit===1)setSceneValue('nightMapResolution',image.width,image.height);
+          if(unit===2)setSceneValue('cloudMapWidth',image.width);
+          if(unit===5){setSceneValue('galaxyMapWidth',image.width);state.galaxyMapWidth=String(image.width);}
+          setSceneValue('mapsReady',1);
           imageWidths[asset.key]=image.width;
           if(asset.key==='day')state.dayMapWidth=String(image.width);
           state[asset.key==='galaxy'?'galaxyReady':'surfaceReady']='';
@@ -338,6 +357,110 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,psfTexture);
       textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGB,optics.size,OPTICAL_PSF_ROWS,0,gl.RGB,gl.UNSIGNED_BYTE,psfData);
     };
+    /** Every program of a night mode's scene, added to one batch in the
+     * startup order. Lighting bakes only where an atlas exists to use it. */
+    const planPrograms=(batch:ShaderProgramBatch,mode:NightMode,lighting:boolean,switching=false)=>{
+      const {fragmentSource,sourceTransmissionFragment,volumeFragment,halfCloudFragment,halfCloudVolumeFragment}=sceneShadersFor(mode);
+      const {temporalCloudMain,temporalResolveFragment,temporalCompositeShader}=temporalShadersFor(mode);
+      const cloudLod=shaderLod(gl);
+      const skyGrad=cloudLod&&shaderDerivatives(gl);
+      const cloudHeader=(cloudLod?'#extension GL_EXT_shader_texture_lod : enable\n#define CLOUD_EXPLICIT_LOD 1\n':'')
+        +(skyGrad?'#extension GL_OES_standard_derivatives : enable\n#define SKY_EXPLICIT_GRAD 1\n':'')
+        // Implicit-LOD fallbacks still need derivatives at the date line.
+        +(shaderDerivatives(gl)?(skyGrad?'':'#extension GL_OES_standard_derivatives : enable\n')+'#define SKY_DERIVATIVES 1\n':'')
+        +(compactWorld?'#define COMPACT_WORLD_PASS 1\n':'')
+        +(sharedLighting?'#define SHARED_CLOUD_LIGHTING 1\n':'')
+        +(state.terrainWork==='bounded'?'#define BOUNDED_RAY_WORK 1\n':'')
+        +(state.terrainRefinement==='pixel'?'#define PIXEL_TERRAIN_REFINEMENT 1\n':'')
+        +(state.cloudSteps==='balanced'?'#define BALANCED_CLOUD_STEPS 1\n':'')
+        +(state.shaderWork==='lean'?'#define LEAN_SHADER_WORK 1\n':'')
+        +(state.terrainFetch==='shared'?'#define SHARED_TERRAIN_ENTRY 1\n':'')
+        +(clouds==='balanced'?'#define BALANCED_CLOUDS 1\n':clouds==='calibrated'?'#define CALIBRATED_CLOUDS 1\n':clouds==='off'?'#define CLOUDS_DISABLED 1\n':'')
+        +(cloudProperties?'#define CLOUD_PROPERTIES 1\n'+cloudPropertiesSwathHeader(cloudDay.date)+(params.get('cloudStudyView')==='quality'?'#define CLOUD_PROPERTIES_QUALITY 1\n':''):'')
+        +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
+        +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
+      const scene=batch.add('Scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(params.get('nightDetail')==='vnp46'?'#define NIGHT_VNP46 1\n'+(params.get('nightRange')==='extended'?'#define NIGHT_VNP46_EXTENDED 1\n':''):'')+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(dayPyramid?'#define DAY_PYRAMID 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
+      const attenuation=supportsSourceAttenuation?batch.add('Source transmission',vertexSource,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+sourceTransmissionFragment):null;
+      const bake=lighting?CloudLightingAtlas.prepare(batch,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':''),mode):null;
+      const volumes=new Map<string,WebGLProgram>();
+      const volumePasses=cloudBuffer?['cloud','volume','fallback']:temporal?['temporalCloud','volume']:['volume'];
+      const temporalComposite=volumeFragment.replace('uniform sampler2D worldScene;','uniform sampler2D worldScene;\n'+temporalCompositeShader)
+        .replace('color=cloudVolume(earthRay,groundDistance,color,atmosphereDistance)','color=temporalClouds(uv,earthRay,groundDistance,color,atmosphereDistance)');
+      const temporalCloudSource=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+temporalCloudMain;
+      const resolve=temporal?batch.add('Temporal cloud resolve',vertexSource,temporalResolveFragment):null;
+      if(separateVolume)for(const pass of volumePasses){
+        const cloudPass=pass==='cloud',fallbackPass=pass==='fallback',temporalPass=pass==='temporalCloud';
+        const header=cloudPass?'#extension GL_EXT_draw_buffers : require\n#define HALF_CLOUD_PASS 1\n':temporalPass?'#extension GL_EXT_draw_buffers : require\n':'';
+        const source=cloudPass?halfCloudFragment:temporalPass?(textureLighting?cloudLightingSource(temporalCloudSource):temporalCloudSource)
+          :cloudBuffer&&!fallbackPass?halfCloudVolumeFragment:temporal?temporalComposite:textureLighting?cloudLightingSource(volumeFragment):volumeFragment;
+        volumes.set(pass,batch.add(`Scene ${pass}`,vertexSource,header+cloudHeader+noiseHeader+(supportsSourceAttenuation?'#define CAMERA_PUPIL_STATE 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+source));
+      }
+      const catalogPrograms=CatalogStars.prepare(batch,mode),cameraPrograms=CameraFinish.prepare(batch,mode);
+      return {mode,scene,attenuation,bake,volumes,volumePasses,resolve,catalog:catalogPrograms,camera:cameraPrograms,
+        handOver:switching?CameraExposure.prepareHandOver(batch):null};
+    };
+    type ProgramPlan=ReturnType<typeof planPrograms>;
+    /** Takes the scene, source, volume and resolve programs of a plan and sets
+     * what they read: sampler units, fixed values and the values the asset
+     * uploads have set so far. Needs the camera finish of the same frame. */
+    const adoptPrograms=(batch:ShaderProgramBatch,plan:ProgramPlan)=>{
+      program=batch.take(plan.scene);
+      gl.useProgram(program);
+      scenePosition=gl.getAttribLocation(program,'position');
+      resolution = gl.getUniformLocation(program, 'resolution');
+      time = gl.getUniformLocation(program, 'time');
+      for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','solarImage','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','lunarDiskGain','cameraState','stormSources[0]']) sceneUniforms[name] = gl.getUniformLocation(program,name);
+      gl.uniform1f(gl.getUniformLocation(program, 'surfaceEnabled'),params.get('surface') === '0' ? 0 : 1);
+      gl.uniform2f(gl.getUniformLocation(program,'nightMapResolution'),1,1);
+      ['surfaceMap','nightMap','cloudMap'].forEach((name,index)=>gl.uniform1i(gl.getUniformLocation(program!,name),index));
+      gl.uniform1i(gl.getUniformLocation(program,'dayTileAtlas'),0);
+      if(supportsCloudTiles)gl.uniform1i(gl.getUniformLocation(program,'cloudTileAtlas'),0);
+      gl.uniform1i(gl.getUniformLocation(program,'starMap'),3);
+      gl.uniform1i(gl.getUniformLocation(program,'opticalPsf'),4);
+      gl.uniform1i(gl.getUniformLocation(program,'milkyWayMap'),5);
+      gl.uniform1f(gl.getUniformLocation(program,'galaxyMapWidth'),1);
+      if(supportsTerrain)gl.uniform1i(gl.getUniformLocation(program,'terrainMap'),8);
+      if(plan.attenuation){
+        sourceProgram=batch.take(plan.attenuation);
+        sourcePosition=gl.getAttribLocation(sourceProgram,'position');
+        for(const name of ['zoomExcess','resolution','time','cameraPosition','cameraBasis','sunDirection','moon','pointGhosts[0]','solarRows[0]','cloudMapWidth','cloudTileLayout'])sourceUniforms[name]=gl.getUniformLocation(sourceProgram,name);
+        gl.useProgram(sourceProgram);gl.uniform1i(gl.getUniformLocation(sourceProgram,'cloudMap'),2);
+        if(supportsCloudTiles)gl.uniform1i(gl.getUniformLocation(sourceProgram,'cloudTileAtlas'),9);
+      }
+      if(separateVolume){
+        const uniformNames=['zoomExcess','resolution','cloudResolution','time','cameraPosition','cameraBasis','sunDirection','moon','lunarIrradiance','galacticBasis','pixelRatio','stormSources[0]','galaxyAmount','solarVisibility','solarImage','cloudMapWidth','galaxyMapWidth','nightMapResolution','mapsReady','surfaceEnabled','cloudTileLayout','nightTileLayout','sceneLinear','displayP3'];
+        const samplers={surfaceMap:0,nightMap:1,cloudMap:2,opticalPsf:4,milkyWayMap:5,nightTileAtlas:7,cloudTileAtlas:9,auroraMap:11,solarTransmission:12,worldScene:14,cameraState:10,cloudRadiance:6,cloudDepth:13,noiseTable:NOISE_TABLE_UNIT,temporalRadiance:TEMPORAL_RESOLVED_UNITS[0],temporalDepth:TEMPORAL_RESOLVED_UNITS[1]};
+        for(const pass of plan.volumePasses){
+          const cloudPass=pass==='cloud';
+          const fallbackPass=pass==='fallback',temporalPass=pass==='temporalCloud';
+          const passProgram=batch.take(plan.volumes.get(pass)!);
+          if(cloudPass)cloudProgram=passProgram;else if(fallbackPass)fallbackVolumeProgram=passProgram;else if(temporalPass)temporalCloudProgram=passProgram;else volumeProgram=passProgram;
+          const uniforms=cloudPass?cloudUniforms:fallbackPass?fallbackVolumeUniforms:temporalPass?temporalCloudUniforms:volumeUniforms;
+          if(fallbackPass)fallbackVolumePosition=gl.getAttribLocation(passProgram,'position');
+          else if(cloudPass)cloudPosition=gl.getAttribLocation(passProgram,'position');
+          else if(temporalPass)temporalCloudPosition=gl.getAttribLocation(passProgram,'position');else volumePosition=gl.getAttribLocation(passProgram,'position');
+          for(const name of [...uniformNames,'cloudParity'])uniforms[name]=gl.getUniformLocation(passProgram,name);
+          gl.useProgram(passProgram);
+          for(const [name,unit] of Object.entries(samplers))gl.uniform1i(gl.getUniformLocation(passProgram,name),unit);
+        }
+        if(plan.resolve){
+          temporalResolveProgram=batch.take(plan.resolve);temporalResolvePosition=gl.getAttribLocation(temporalResolveProgram,'position');
+          for(const name of ['resolution','freshResolution','cloudParity','historyValid','zoomExcess','previousFocal','cameraPosition','previousCamera','cameraBasis','previousBasis'])temporalResolveUniforms[name]=gl.getUniformLocation(temporalResolveProgram,name);
+          gl.useProgram(temporalResolveProgram);
+          for(const [name,unit] of [['freshRadiance',TEMPORAL_FRESH_UNITS[0]],['freshDepth',TEMPORAL_FRESH_UNITS[1]],['historyRadiance',TEMPORAL_HISTORY_UNITS[0]],['historyDepth',TEMPORAL_HISTORY_UNITS[1]],['previousResolved',TEMPORAL_PREVIOUS_UNIT],['worldScene',14]] as const)
+            gl.uniform1i(gl.getUniformLocation(temporalResolveProgram,name),unit);
+        }
+      }
+      if(modisStudy)for(const pass of scenePasses()){gl.useProgram(pass);gl.uniform1i(gl.getUniformLocation(pass,'modisPatch'),9);}
+      if(noiseTable)for(const pass of [program,sourceProgram])if(pass){gl.useProgram(pass);gl.uniform1i(gl.getUniformLocation(pass,'noiseTable'),NOISE_TABLE_UNIT);}
+      if(supportsAurora)sceneUniforms.auroraMap=gl.getUniformLocation(program,'auroraMap');
+      gl.useProgram(program);
+      gl.uniform1f(gl.getUniformLocation(program,'displayP3'),wideGamut?1:0);
+      gl.uniform1f(gl.getUniformLocation(program,'sceneLinear'),finish!.linear?1:0);
+      for(const [name,values] of sceneValues)applyValue(program,name,values);
+      for(const pass of scenePasses()){gl.useProgram(pass);for(const [name,values] of passValues)applyValue(pass,name,values);}
+      gl.useProgram(program);
+    };
     const initialize = async(started=performance.now()):Promise<boolean> => {
       // Query once, while the GPU queue is still empty. Asked after each map
       // upload, getParameter waited for that upload's mipmaps: seconds of
@@ -349,6 +472,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const batch=new ShaderProgramBatch(gl);
       state.shaderStartup='compiling';state.shaderMode=batch.parallel?'parallel':'synchronous';state.textureProfile=textureProfile(params);
       state.shaderCompileMs='0';
+      state.nightMode=nightMode;
       state.cloudShape=modisStudy||params.get('cloudShape')==='texture'?'texture':'current';
       state.clouds=clouds;
       state.cloudStudy=modisStudy||cloudProperties?params.get('cloudStudy')!:'off';
@@ -375,61 +499,17 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         }
         state.cloudReuse=temporal?'temporal':'off';
         state.cloudPass=cloudBuffer?'half':profile.name==='clouds-half'?(separateVolume?'compact-fallback':'inline-fallback'):'inline';
-        const cloudLod=shaderLod(gl);
-        const oceanPlan=oceanMode?OceanField.prepare(batch,oceanMode):null;
-        const skyGrad=cloudLod&&shaderDerivatives(gl);
-        const cloudHeader=(cloudLod?'#extension GL_EXT_shader_texture_lod : enable\n#define CLOUD_EXPLICIT_LOD 1\n':'')
-          +(skyGrad?'#extension GL_OES_standard_derivatives : enable\n#define SKY_EXPLICIT_GRAD 1\n':'')
-          // Implicit-LOD fallbacks still need derivatives at the date line.
-          +(shaderDerivatives(gl)?(skyGrad?'':'#extension GL_OES_standard_derivatives : enable\n')+'#define SKY_DERIVATIVES 1\n':'')
-          +(compactWorld?'#define COMPACT_WORLD_PASS 1\n':'')
-          +(sharedLighting?'#define SHARED_CLOUD_LIGHTING 1\n':'')
-          +(state.terrainWork==='bounded'?'#define BOUNDED_RAY_WORK 1\n':'')
-          +(state.terrainRefinement==='pixel'?'#define PIXEL_TERRAIN_REFINEMENT 1\n':'')
-          +(state.cloudSteps==='balanced'?'#define BALANCED_CLOUD_STEPS 1\n':'')
-          +(state.shaderWork==='lean'?'#define LEAN_SHADER_WORK 1\n':'')
-          +(state.terrainFetch==='shared'?'#define SHARED_TERRAIN_ENTRY 1\n':'')
-          +(clouds==='balanced'?'#define BALANCED_CLOUDS 1\n':clouds==='calibrated'?'#define CALIBRATED_CLOUDS 1\n':clouds==='off'?'#define CLOUDS_DISABLED 1\n':'')
-          +(cloudProperties?'#define CLOUD_PROPERTIES 1\n'+cloudPropertiesSwathHeader(cloudDay.date)+(params.get('cloudStudyView')==='quality'?'#define CLOUD_PROPERTIES_QUALITY 1\n':''):'')
-          +(modisStudy?'#define MODIS_PATCH 1\n'+(params.get('cloudStudy')==='modis'?'#define MODIS_GUIDANCE 1\n':''):'')
-          +(modisStudy||params.get('cloudShape')==='texture'?'#define TEXTURE_SHAPED_CLOUDS 1\n':'');
-        const skyProgram=batch.add('Scene',vertexSource,cloudHeader+noiseHeader+terrainHeader+(params.get('nightDetail')==='vnp46'?'#define NIGHT_VNP46 1\n'+(params.get('nightRange')==='extended'?'#define NIGHT_VNP46_EXTENDED 1\n':''):'')+(supportsTerrainTiles?(params.get('terrainDetail')==='coarse'?'#define TERRAIN_TILES 1\n':'#define TERRAIN_STREAM 1\n'+(state.terrainBound==='regional'?'#define TERRAIN_BOUND 1\n':'')):'')+(supportsGalaxyTiles?'#define GALAXY_TILES 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsSourceAttenuation?'#define SOURCE_ATTENUATION 1\n#define CAMERA_PUPIL_STATE 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+(dayPyramid?'#define DAY_PYRAMID 1\n':'')+(supportsTerrain?'#define TERRAIN_MAP 1\n':'')+(separateVolume?'#define SEPARATE_WORLD_PASS 1\n':'')+(oceanMode?oceanPrototypeSource(fragmentSource):fragmentSource));
-        const attenuationProgram=supportsSourceAttenuation?batch.add('Source transmission',vertexSource,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+sourceTransmissionFragment):null;
-        const lightingPlan=textureLighting?CloudLightingAtlas.prepare(batch,cloudHeader+noiseHeader+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')):null;
-        const volumePlans=new Map<string,WebGLProgram>();
-        const volumePasses=cloudBuffer?['cloud','volume','fallback']:temporal?['temporalCloud','volume']:['volume'];
-        const temporalComposite=volumeFragment.replace('uniform sampler2D worldScene;','uniform sampler2D worldScene;\n'+temporalCompositeShader)
-          .replace('color=cloudVolume(earthRay,groundDistance,color,atmosphereDistance)','color=temporalClouds(uv,earthRay,groundDistance,color,atmosphereDistance)');
-        const temporalCloudSource=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+temporalCloudMain;
-        const resolvePlan=temporal?batch.add('Temporal cloud resolve',vertexSource,temporalResolveFragment):null;
-        if(separateVolume)for(const pass of volumePasses){
-          const cloudPass=pass==='cloud',fallbackPass=pass==='fallback',temporalPass=pass==='temporalCloud';
-          const header=cloudPass?'#extension GL_EXT_draw_buffers : require\n#define HALF_CLOUD_PASS 1\n':temporalPass?'#extension GL_EXT_draw_buffers : require\n':'';
-          const source=cloudPass?halfCloudFragment:temporalPass?(textureLighting?cloudLightingSource(temporalCloudSource):temporalCloudSource)
-            :cloudBuffer&&!fallbackPass?halfCloudVolumeFragment:temporal?temporalComposite:textureLighting?cloudLightingSource(volumeFragment):volumeFragment;
-          volumePlans.set(pass,batch.add(`Scene ${pass}`,vertexSource,header+cloudHeader+noiseHeader+(supportsSourceAttenuation?'#define CAMERA_PUPIL_STATE 1\n':'')+(supportsSolarTransmission?'#define SOLAR_TRANSMISSION 1\n':'')+(supportsAurora?'#define AURORA 1\n':'')+(supportsCloudTiles?'#define CLOUD_TILES 1\n':'')+source));
-        }
-        const catalogPrograms=CatalogStars.prepare(batch),cameraPrograms=CameraFinish.prepare(batch);
+        const oceanPlan=oceanMode?OceanField.prepare(batch,oceanMode,nightMode):null;
+        const plan=planPrograms(batch,nightMode,textureLighting);
         const auroraPrograms=supportsAurora?Aurora.prepare(gl,batch,state.shaderWork==='lean'):undefined;
         await batch.wait(controller.signal);
         if(disposed||lost||current!==generation||controller.signal.aborted)return false;
         state.shaderCompileMs=(performance.now()-started).toFixed(2);
         state.shaderStartup='preparing';
-        program=batch.take(skyProgram);
-        gl.useProgram(program);
         buffer = gl.createBuffer();
         if (!buffer) throw new Error('Cannot allocate sky geometry');
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
-        const position = gl.getAttribLocation(program, 'position');
-        gl.enableVertexAttribArray(position);
-        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-        scenePosition=gl.getAttribLocation(program,'position');
-        resolution = gl.getUniformLocation(program, 'resolution');
-        time = gl.getUniformLocation(program, 'time');
-        for (const name of ['zoomExcess','cameraPosition','cameraBasis','sunDirection','solarTransmission','solarVisibility','solarImage','moon','planets[0]','galacticBasis','pixelRatio','moonSamples[0]','starsLinear','galaxyAmount','lunarIrradiance','lunarResolved','lunarDiskGain','cameraState','stormSources[0]']) sceneUniforms[name] = gl.getUniformLocation(program,name);
-        gl.uniform1f(gl.getUniformLocation(program, 'surfaceEnabled'),params.get('surface') === '0' ? 0 : 1);
-        gl.uniform2f(gl.getUniformLocation(program,'nightMapResolution'),1,1);
         ['surfaceMap','nightMap','cloudMap'].forEach((name,index) => {
           const texture = gl.createTexture();
           if (!texture) throw new Error('Cannot allocate Earth map');
@@ -443,12 +523,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-          gl.uniform1i(gl.getUniformLocation(program!,name),index);
         });
-        gl.uniform1i(gl.getUniformLocation(program,'dayTileAtlas'),0);
-        if(supportsCloudTiles)gl.uniform1i(gl.getUniformLocation(program,'cloudTileAtlas'),0);
-        gl.uniform1i(gl.getUniformLocation(program,'starMap'),3);
-        gl.uniform1i(gl.getUniformLocation(program,'opticalPsf'),4);
         psfTexture=gl.createTexture();
         if(!psfTexture)throw new Error('Cannot allocate optical PSF');
         gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,psfTexture);
@@ -465,8 +540,6 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           }
         }
         uploadPsf();
-        gl.uniform1i(gl.getUniformLocation(program,'milkyWayMap'),5);
-        gl.uniform1f(gl.getUniformLocation(program,'galaxyMapWidth'),1);
         galaxyTexture=gl.createTexture();
         if(!galaxyTexture)throw new Error('Cannot allocate Milky Way map');
         gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,galaxyTexture);
@@ -482,15 +555,8 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
           for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
-          gl.uniform1i(gl.getUniformLocation(program,'terrainMap'),8);
         }
         if(supportsSourceAttenuation){
-          sourceProgram=batch.take(attenuationProgram!);
-          sourcePosition=gl.getAttribLocation(sourceProgram,'position');
-          for(const name of ['zoomExcess','resolution','time','cameraPosition','cameraBasis','sunDirection','moon','pointGhosts[0]','solarRows[0]','cloudMapWidth','cloudTileLayout'])sourceUniforms[name]=gl.getUniformLocation(sourceProgram,name);
-          gl.useProgram(sourceProgram);gl.uniform1i(gl.getUniformLocation(sourceProgram,'cloudMap'),2);
-          if(supportsCloudTiles)gl.uniform1i(gl.getUniformLocation(sourceProgram,'cloudTileAtlas'),9);
-          gl.useProgram(program);
           sourceTexture=gl.createTexture();sourceTarget=gl.createFramebuffer();
           if(!sourceTexture||!sourceTarget)throw Error('Cannot allocate source attenuation target');
           gl.activeTexture(gl.TEXTURE0+10);gl.bindTexture(gl.TEXTURE_2D,sourceTexture);
@@ -508,50 +574,17 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           gl.bindFramebuffer(gl.FRAMEBUFFER,null);
         }
         if(separateVolume){
-          const uniformNames=['zoomExcess','resolution','cloudResolution','time','cameraPosition','cameraBasis','sunDirection','moon','lunarIrradiance','galacticBasis','pixelRatio','stormSources[0]','galaxyAmount','solarVisibility','solarImage','cloudMapWidth','galaxyMapWidth','nightMapResolution','mapsReady','surfaceEnabled','cloudTileLayout','nightTileLayout','sceneLinear','displayP3'];
-          const samplers={surfaceMap:0,nightMap:1,cloudMap:2,opticalPsf:4,milkyWayMap:5,nightTileAtlas:7,cloudTileAtlas:9,auroraMap:11,solarTransmission:12,worldScene:14,cameraState:10,cloudRadiance:6,cloudDepth:13,noiseTable:NOISE_TABLE_UNIT,temporalRadiance:TEMPORAL_RESOLVED_UNITS[0],temporalDepth:TEMPORAL_RESOLVED_UNITS[1]};
-          for(const pass of volumePasses){
-            const cloudPass=pass==='cloud';
-            const fallbackPass=pass==='fallback',temporalPass=pass==='temporalCloud';
-            const passProgram=batch.take(volumePlans.get(pass)!);
-            if(cloudPass)cloudProgram=passProgram;else if(fallbackPass)fallbackVolumeProgram=passProgram;else if(temporalPass)temporalCloudProgram=passProgram;else volumeProgram=passProgram;
-            const uniforms=cloudPass?cloudUniforms:fallbackPass?fallbackVolumeUniforms:temporalPass?temporalCloudUniforms:volumeUniforms;
-            if(fallbackPass)fallbackVolumePosition=gl.getAttribLocation(passProgram,'position');
-            else if(cloudPass)cloudPosition=gl.getAttribLocation(passProgram,'position');
-            else if(temporalPass)temporalCloudPosition=gl.getAttribLocation(passProgram,'position');else volumePosition=gl.getAttribLocation(passProgram,'position');
-            for(const name of [...uniformNames,'cloudParity'])uniforms[name]=gl.getUniformLocation(passProgram,name);
-            gl.useProgram(passProgram);
-            for(const [name,unit] of Object.entries(samplers))gl.uniform1i(gl.getUniformLocation(passProgram,name),unit);
-          }
-          if(resolvePlan){
-            temporalResolveProgram=batch.take(resolvePlan);temporalResolvePosition=gl.getAttribLocation(temporalResolveProgram,'position');
-            for(const name of ['resolution','freshResolution','cloudParity','historyValid','zoomExcess','previousFocal','cameraPosition','previousCamera','cameraBasis','previousBasis'])temporalResolveUniforms[name]=gl.getUniformLocation(temporalResolveProgram,name);
-            gl.useProgram(temporalResolveProgram);
-            for(const [name,unit] of [['freshRadiance',TEMPORAL_FRESH_UNITS[0]],['freshDepth',TEMPORAL_FRESH_UNITS[1]],['historyRadiance',TEMPORAL_HISTORY_UNITS[0]],['historyDepth',TEMPORAL_HISTORY_UNITS[1]],['previousResolved',TEMPORAL_PREVIOUS_UNIT],['worldScene',14]] as const)
-              gl.uniform1i(gl.getUniformLocation(temporalResolveProgram,name),unit);
-          }
-          worldBuffer=new WorldBuffer(gl,compactWorld);gl.useProgram(program);
+          worldBuffer=new WorldBuffer(gl,compactWorld);
           // Additive blending into the world buffer; Float32 targets need EXT_float_blend.
           moonBlend=wantsMoonSurface&&(compactWorld||!!gl.getExtension('EXT_float_blend'));
         }
         state.volumePass=separateVolume?'separate':'inline';
-        state.cloudLighting='raymarch';
-        if(lightingPlan){
-          const bakeProgram=batch.take(lightingPlan);
-          gl.useProgram(bakeProgram);gl.uniform1i(gl.getUniformLocation(bakeProgram,'noiseTable'),NOISE_TABLE_UNIT);
-          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify,params.get('cloudBake')==='budget'?'budget':'fixed',cloudProperties?0:CLOUD_DRIFT);state.cloudLighting='texture';}
-          catch(error){gl.deleteProgram(bakeProgram);console.warn('Cloud lighting atlas unavailable; retaining traced lighting.',error);}
-        }
         if(modisStudy){
           modisTexture=gl.createTexture();if(!modisTexture)throw Error('Cannot allocate MODIS patch');
           gl.activeTexture(gl.TEXTURE9);gl.bindTexture(gl.TEXTURE_2D,modisTexture);
           textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));
           for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
           for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
-          for(const pass of [program,sourceProgram,volumeProgram,cloudProgram,fallbackVolumeProgram])if(pass){
-            gl.useProgram(pass);gl.uniform1i(gl.getUniformLocation(pass,'modisPatch'),9);
-          }
-          gl.useProgram(program);
         }
         if(noiseTable){
           noiseTexture=gl.createTexture();if(!noiseTexture)throw Error('Cannot allocate noise table');
@@ -559,19 +592,25 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
           textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,NOISE_TABLE_SIZE,NOISE_TABLE_SIZE,0,gl.RGBA,gl.UNSIGNED_BYTE,noiseTableData());
           for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
           for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
-          for(const pass of [program,sourceProgram])if(pass){gl.useProgram(pass);gl.uniform1i(gl.getUniformLocation(pass,'noiseTable'),NOISE_TABLE_UNIT);}
         }
-        catalog=new CatalogStars(gl,catalogPrograms);
-        const wideGamut=configureSceneColor(gl);
-        finish=new CameraFinish(gl,wideGamut,cameraPrograms);
-        if(supportsAurora){aurora=new Aurora(gl,auroraPrograms);sceneUniforms.auroraMap=gl.getUniformLocation(program,'auroraMap');}
+        catalog=new CatalogStars(gl,plan.catalog);
+        wideGamut=configureSceneColor(gl);
+        finish=new CameraFinish(gl,wideGamut,plan.camera);
+        adoptPrograms(batch,plan);
+        state.cloudLighting='raymarch';
+        if(plan.bake){
+          const bakeProgram=batch.take(plan.bake);
+          gl.useProgram(bakeProgram);gl.uniform1i(gl.getUniformLocation(bakeProgram,'noiseTable'),NOISE_TABLE_UNIT);
+          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify,params.get('cloudBake')==='budget'?'budget':'fixed',cloudProperties?0:CLOUD_DRIFT);state.cloudLighting='texture';}
+          catch(error){gl.deleteProgram(bakeProgram);console.warn('Cloud lighting atlas unavailable; retaining traced lighting.',error);}
+          gl.useProgram(program);
+        }
+        if(supportsAurora)aurora=new Aurora(gl,auroraPrograms);
         state.aurora=supportsAurora?'volume':wantsAurora?'unsupported':'off';
         state.auroraMode=auroraMode(params);
         timer=params.get('quality')==='fixed'?null:new SceneTimer(gl);
         if(timer)timer.quality.scale=seededScale;
         gl.useProgram(program);
-        gl.uniform1f(gl.getUniformLocation(program,'displayP3'),wideGamut?1:0);
-        gl.uniform1f(gl.getUniformLocation(program,'sceneLinear'),finish.linear?1:0);
         state.colorSpace=wideGamut?'display-p3':'srgb';
         if(streamDetail&&params.get('nightDetail')!=='0'){
           // Lab, nightDetail=vnp46: regional VNP46A4 radiance tiles (docs/lab/night-vnp46-2026-10-17.md).
@@ -613,31 +652,122 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         batch.dispose();
       }
     };
-
-
-
+    // Night switch: the programs of the next mode compile in the background
+    // while this renderer keeps drawing. Once they are ready, one more frame
+    // of the current mode is drawn and reported as the hand-over, so a page
+    // can hold it on screen; the next frame swaps the programs and starts the
+    // new camera from the old one's exposure.
+    let nightSwitch:{mode:NightMode;controller:AbortController;batch:ShaderProgramBatch;plan:ProgramPlan|null;moon:WebGLProgram|null;
+      started:number;compiled:number;handedOver:boolean;promise:Promise<boolean>;resolve:(swapped:boolean)=>void}|null=null;
+    let nightSettle=0,lastDaylight=1;
+    const cancelNightSwitch=()=>{
+      const pending=nightSwitch;if(!pending)return;
+      nightSwitch=null;pending.controller.abort();pending.batch.dispose();pending.resolve(false);
+      delete state.nightSwitch;
+    };
+    const switchNight=(mode:NightMode):Promise<boolean>=>{
+      if(nightSwitch?.mode===mode)return nightSwitch.promise;
+      cancelNightSwitch();
+      if(disposed||lost)return Promise.resolve(false);
+      if(mode===nightMode)return Promise.resolve(true);
+      // Before startup the next initialization simply builds this mode.
+      if(!initialization){nightMode=mode;pointReflections.mode=mode;return Promise.resolve(true);}
+      if(!initialized)return initialization.then(ready=>ready?switchNight(mode):false);
+      const controller=new AbortController(),batch=new ShaderProgramBatch(gl),current=generation;
+      let resolve!:(swapped:boolean)=>void;
+      const promise=new Promise<boolean>(done=>{resolve=done;});
+      const pending={mode,controller,batch,plan:null as ProgramPlan|null,moon:null as WebGLProgram|null,started:performance.now(),compiled:0,handedOver:false,promise,resolve};
+      nightSwitch=pending;state.nightSwitch='compiling';notify();
+      try{
+        pending.plan=planPrograms(batch,mode,!!cloudLighting,true);
+        if(moonSurface&&moonModule)pending.moon=moonModule.MoonSurface.prepare(batch,supportsSourceAttenuation,shaderLod(gl),mode);
+        state.nightSubmitMs=(performance.now()-pending.started).toFixed(1);
+      }catch(error){cancelNightSwitch();console.warn('Night mode unavailable.',error);return Promise.resolve(false);}
+      batch.wait(controller.signal).then(()=>{
+        if(nightSwitch!==pending)return;
+        if(disposed||lost||current!==generation){cancelNightSwitch();return;}
+        pending.compiled=performance.now();state.nightSwitch='ready';
+        // A paused page draws on notify; the next frame is the hand-over.
+        notify();
+      },error=>{
+        if(nightSwitch!==pending)return;
+        cancelNightSwitch();
+        if(!controller.signal.aborted&&!lost)console.warn('Night mode programs failed; keeping the current mode.',error);
+      });
+      return promise;
+    };
+    /** EV shift for the first frame of a new mode: night emitters change by
+     * the city divisor between the default program and physical night, the
+     * daylit scene not at all. The meter then takes its target at once. */
+    const nightShift=(from:NightMode,to:NightMode)=>{
+      const shift=Math.log2(NIGHT_EXCESS.city)*(1-lastDaylight);
+      return physicalNight(from)===physicalNight(to)?0:physicalNight(to)?shift:-shift;
+    };
+    const NIGHT_SETTLE_FRAMES=3;
+    const commitNightSwitch=()=>{
+      const pending=nightSwitch!;nightSwitch=null;
+      const {batch}=pending,plan=pending.plan!,from=nightMode,to=pending.mode;
+      try{
+        // Every program is linked, so nothing here allocates, waits on the GPU
+        // or can fail: targets, maps, tiles and the exposure state all stay.
+        for(const pass of [program,sourceProgram,volumeProgram,cloudProgram,fallbackVolumeProgram,temporalCloudProgram,temporalResolveProgram])if(pass)gl.deleteProgram(pass);
+        program=sourceProgram=volumeProgram=cloudProgram=fallbackVolumeProgram=temporalCloudProgram=temporalResolveProgram=null;
+        catalog!.replaceProgram(plan.catalog);
+        finish!.replacePrograms(plan.camera);
+        adoptPrograms(batch,plan);
+        if(plan.bake&&cloudLighting){
+          const bakeProgram=batch.take(plan.bake);cloudLighting.replaceProgram(bakeProgram);
+          gl.useProgram(bakeProgram);gl.uniform1i(gl.getUniformLocation(bakeProgram,'noiseTable'),NOISE_TABLE_UNIT);gl.useProgram(program);
+        }
+        // A resolved Moon keeps its map and takes the new program; one that
+        // appeared during the compile reloads in the new mode.
+        if(moonSurface&&pending.moon)moonSurface.replaceProgram(batch.take(pending.moon),to);
+        else if(moonSurface){moonSurface.dispose();moonSurface=null;moonLoad=null;}
+        // Pre-exposed history belongs to the old mode's exposure.
+        temporal?.invalidate();
+        // The state is re-encoded into the new range on the GPU, shifted for
+        // the night emitters; the new meter then takes its target at once.
+        finish!.meter.handOver(plan.handOver!,from,nightShift(from,to),NIGHT_SETTLE_FRAMES);
+        nightMode=to;pointReflections.mode=to;nightSettle=NIGHT_SETTLE_FRAMES+1;
+        const now=performance.now();
+        state.nightMode=to;state.nightSwitch='settling';
+        state.nightCompileMs=(pending.compiled-pending.started).toFixed(1);
+        state.nightSwapMs=(now-pending.started).toFixed(1);
+        pending.resolve(true);
+      }finally{batch.dispose();}
+    };
     const loadMoonSurface=()=>{
       if(moonLoad||moonSurface||!moonBlend)return;
-      const controller=new AbortController(),current=generation;moonLoad=controller;
-      import('./moon-surface').then(async({MoonSurface})=>{
+      const controller=new AbortController(),current=generation,mode=nightMode;moonLoad=controller;
+      import('./moon-surface').then(async module=>{
+        const {MoonSurface}=module;moonModule=module;
         const batch=new ShaderProgramBatch(gl);
         try{
-          const plan=MoonSurface.prepare(batch,supportsSourceAttenuation,shaderLod(gl));
+          const plan=MoonSurface.prepare(batch,supportsSourceAttenuation,shaderLod(gl),mode);
           await batch.wait(controller.signal);
           if(controller.signal.aborted||disposed||lost||current!==generation)return;
-          moonSurface=new MoonSurface(gl,batch.take(plan),work,base,notify,supportsSourceAttenuation?10:null);
+          // Night mode changed while compiling: load again in the new mode.
+          if(mode!==nightMode){if(moonLoad===controller)moonLoad=null;notify();return;}
+          moonSurface=new MoonSurface(gl,batch.take(plan),work,base,notify,supportsSourceAttenuation?10:null,mode);
           notify();
         }finally{batch.dispose();}
       }).catch(error=>{if(!controller.signal.aborted){moonBlend=false;console.warn('Resolved Moon unavailable; keeping the sampled disk.',error);}});
     };
     const render=(observer:ReturnType<typeof issFrame>&{focal?:number},width:number,height:number,cssHeight:number,sceneTime:number,grainIndex:number,look:SceneLook,focusRadius=0,playbackRate=10,inspection=false)=>{
       if(disposed||lost||!initialized||!program||!catalog||!finish)return null;
+      // The frame after the hand-over is the first of the new night mode.
+      const frameStart=performance.now(),swapping=!!nightSwitch?.handedOver;
+      if(swapping)commitNightSwitch();
+      const committed=performance.now();
       // Upgrade only after a real viewport expansion, with margin at the tier
       // boundary. Quality changes never trigger repeated downloads/downgrades.
       if(!background&&imageWidths.day===2048&&Math.max(width,height)>1408&&assets.settled)
         void assets.refine({key:'day',url:assetURL('earth-day-bmng.avif',base)});
       // Loading-only optical work must not lower the settled scene's quality.
-      if(focusRadius===0&&!inspection)timer?.begin();
+      // A night switch's first frames build GPU pipelines; they say nothing
+      // about the settled scene's cost, so quality ignores them.
+      const timed=focusRadius===0&&!inspection&&!nightSwitch&&!nightSettle;
+      if(timed)timer?.begin();
       const sky = celestialFrame(observer.date,observer.camera);
       if(!showSky){
         // The Moon behind the camera and planets far below visibility.
@@ -672,8 +802,8 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const lunarLight=currentLunarLight(observer.date,sky.moon,sky.starToFixed);
       const phaseCosine=Math.max(-1,Math.min(1,-sky.moon.slice(0,3).reduce((sum,x,i)=>sum+x*lunarLight[i],0)));
       const phaseAngle=Math.acos(phaseCosine);
-      gl.uniform1f(sceneUniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle));
-      if(sceneUniforms.lunarDiskGain)gl.uniform1f(sceneUniforms.lunarDiskGain,lunarDiskGain(phaseAngle));
+      gl.uniform1f(sceneUniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle,nightMode));
+      if(sceneUniforms.lunarDiskGain)gl.uniform1f(sceneUniforms.lunarDiskGain,lunarDiskGain(phaseAngle,physicalNight(nightMode)));
       const moonSamples=lunarSamples(sky.moon,lunarLight,observer.cameraBasis,observer.camera);
       gl.uniform4fv(sceneUniforms['moonSamples[0]'],moonSamples);
       let lunarFlux=0;
@@ -698,7 +828,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       gl.uniform2f(resolution, width, height);
       gl.uniform1f(time, sceneTime);
       gl.uniform1f(sceneUniforms.zoomExcess,zoomExcess);
-      const storms=params.get('lightning')==='0'?new Float32Array(32):stormLights(sceneTime,playbackRate,observer.camera,observer.cameraBasis,width/height,profile.fps,focal);
+      const storms=params.get('lightning')==='0'?new Float32Array(32):stormLights(sceneTime,playbackRate,observer.camera,observer.cameraBasis,width/height,profile.fps,focal,nightMode);
       gl.uniform4fv(sceneUniforms['stormSources[0]'],storms);
       gl.uniform1f(sceneUniforms.galaxyAmount,showSky?look.galaxy:0);
       gl.uniform3fv(sceneUniforms.cameraPosition,observer.camera);
@@ -728,6 +858,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
 
       const light = Math.max(0,Math.min(1,(observer.solar+.25)/.4));
       const sceneDaylight=light*light*(3-2*light);
+      lastDaylight=sceneDaylight;
       if(sourceTarget&&sourceTexture&&sourceProgram){
         gl.useProgram(sourceProgram);
         gl.uniform2f(sourceUniforms.resolution,width,height);gl.uniform1f(sourceUniforms.time,sceneTime);gl.uniform1f(sourceUniforms.zoomExcess,zoomExcess);
@@ -762,7 +893,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.uniform2f(uniforms.resolution,width,height);gl.uniform1f(uniforms.time,sceneTime);gl.uniform1f(uniforms.zoomExcess,zoomExcess);
         gl.uniform3fv(uniforms.cameraPosition,observer.camera);gl.uniformMatrix3fv(uniforms.cameraBasis,false,observer.cameraBasis);
         gl.uniform3fv(uniforms.sunDirection,observer.sun);gl.uniform4fv(uniforms.moon,sky.moon);
-        gl.uniform1f(uniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle));
+        gl.uniform1f(uniforms.lunarIrradiance,lunarPhaseIrradiance(phaseAngle,nightMode));
         gl.uniformMatrix3fv(uniforms.galacticBasis,false,sky.galacticBasis);
         gl.uniform1f(uniforms.pixelRatio,height/Math.max(1,cssHeight));
         gl.uniform4fv(uniforms['stormSources[0]'],storms);
@@ -841,7 +972,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(!terrainView)finish.render(height/Math.max(1,cssHeight),grainIndex,look.grain*1.3,look.chromatic*.8,focusRadius,{
         motion,
         reflectance:lensReflectance(look.lensPreset??'iss'),
-        moon:project(sky.moon,lunarFlux*Math.PI*(sky.moon[3]*focal)**2*lunarDiskGain(phaseAngle)*look.ghosts),
+        moon:project(sky.moon,lunarFlux*Math.PI*(sky.moon[3]*focal)**2*lunarDiskGain(phaseAngle,physicalNight(nightMode))*look.ghosts),
         moonRadius:sky.moon[3],
         glare:params.get('glare')!=='off',
         fieldReflections:params.get('fieldReflections')!=='off',
@@ -850,8 +981,15 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         points,pointAmount:look.ghosts,attenuation:sourceTexture,sunReflections:look.ghosts,focal,
       },look.exposure,look.manualExposure);
 
-      timer?.end();
-      return {scale:(timer?.quality.scale??1)*profile.scale,daylight:sceneDaylight,state,night:nightTiles?.stats(),day:dayTiles?.stats(),cloud:cloudTiles?.stats(),galaxy:galaxyTiles?.stats(),terrain:terrainTiles?.stats()};
+      if(timed)timer?.end();
+      // CPU time of the swap and of the new mode's first frame (docs/lab/night-switch-2026-10-17.md).
+      if(swapping){state.nightCommitMs=(committed-frameStart).toFixed(1);state.nightFirstFrameMs=(performance.now()-committed).toFixed(1);}
+      // 'handover': the last frame of the old night mode, for a page to hold;
+      // 'settling' while the new camera meters; 'settled' once, after it.
+      let nightSwitchFrame:'handover'|'settling'|'settled'|undefined;
+      if(nightSwitch?.compiled&&!nightSwitch.handedOver){nightSwitch.handedOver=true;nightSwitchFrame='handover';}
+      else if(nightSettle>0){nightSettle--;nightSwitchFrame=nightSettle?'settling':'settled';if(!nightSettle){delete state.nightSwitch;timer?.resetCadence();}}
+      return {scale:(timer?.quality.scale??1)*profile.scale,daylight:sceneDaylight,state,nightSwitch:nightSwitchFrame,night:nightTiles?.stats(),day:dayTiles?.stats(),cloud:cloudTiles?.stats(),galaxy:galaxyTiles?.stats(),terrain:terrainTiles?.stats()};
     };
     const bounds=canvas.getBoundingClientRect();
     const target=sceneBufferSize(bounds.width,bounds.height,devicePixelRatio,profile.scale);
@@ -888,12 +1026,16 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       return initialization;
     };
     return {render,state,assets,
-      observeAnimationFrame(now:number,cadenceFactor=1){timer?.observeAnimationFrame(now,cadenceFactor);},
+      /** Switch physical night in place: resolves true once the first frame
+       * of the new mode is drawn, false if it was superseded or failed. */
+      switchNight,
+      get nightMode(){return nightMode;},
+      observeAnimationFrame(now:number,cadenceFactor=1){if(!nightSwitch&&!nightSettle)timer?.observeAnimationFrame(now,cadenceFactor);},
       /** Start adaptation from a previously settled scale; it still adapts. */
       seedScale(scale:number){seededScale=scale;if(timer)timer.quality.scale=scale;},
       get adaptive(){return !!timer;},
       resetCadence(){timer?.resetCadence();},
-      observeCadence(milliseconds:number,now:number,allowUpscale=true){timer?.observeCadence(milliseconds,now,allowUpscale);},
+      observeCadence(milliseconds:number,now:number,allowUpscale=true){if(!nightSwitch&&!nightSettle)timer?.observeCadence(milliseconds,now,allowUpscale);},
       setCadence(target:number,refresh:number,headroom:boolean){timer?.setCadence(target,refresh,headroom);},
       load(){void start();},
       contextLost(){lost=true;generation++;initialization=null;assets.suspend();release();for(const k of Object.keys(state))delete state[k];for(const k of Object.keys(imageWidths))delete imageWidths[k];},

@@ -7,11 +7,11 @@ import { createTouchCamera } from './camera-touch';
 import { createFlightControls, type FlightCommand } from './flight-controls';
 import { createCameraController } from './camera-controller';
 import { createFlightHud, LENS_MIN, LENS_MAX, speedAt, speedFraction, type FlightHud } from './flight-hud';
-import { PHYSICAL_NIGHT } from './physical-night';
+import { readNightMode, type NightMode } from './physical-night';
 import { SceneCalendar, calendarFrame, dayOfYear, daysInYear, utcDay } from './scene-calendar';
 import { FlightNavigation, followLens, orbitPeriod, PROJECTION, ORBIT_LABELS, type Orbit, type ObserverFrame, type FlightInput } from './flight-navigation';
 import { createScenePanels } from './scene-panels';
-import { EXPOSURE_SETTLE_MS, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV } from './camera-exposure';
+import { EXPOSURE_SETTLE_MS, EXPOSURE_MIN_EV, exposureMaxEV } from './camera-exposure';
 import { SceneClock } from './scene-clock';
 import { issFrame, ISS_PERIOD_SECONDS, initialSceneSeconds, cross, dot, normalize, type Vec3 } from './iss-orbit';
 import { celestialFrame, currentLunarPhase } from './celestial-sky';
@@ -38,6 +38,8 @@ export class EarthlightExplorer extends HTMLElement {
       history.replaceState(history.state,'',preset);
     }
     const canvas = this.querySelector('canvas')!;
+    // Holds the last frame of one night mode while the next one meters.
+    const crossfade=this.querySelector<HTMLCanvasElement>('.explorer-crossfade');
     const viewport = this.querySelector<HTMLElement>('.explorer-viewport')!;
     const motionButtons = [...this.querySelectorAll<HTMLButtonElement>('.explorer-motion')];
     const controls = this.querySelector<HTMLElement>('.explorer-controls')!;
@@ -78,10 +80,15 @@ export class EarthlightExplorer extends HTMLElement {
     cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis','global','plates'].includes(params.get('cloudStudy')??'');
     exposureMode.value=params.get('exposure-mode')==='manual'?'manual':'auto';
     lensPreset.value=readLensPreset(params.get('lens-preset'));
-    // The markup is built for the default range; `night` widens it at runtime.
-    fixedExposure.min=String(EXPOSURE_MIN_EV);fixedExposure.max=String(EXPOSURE_MAX_EV);
+    // Physical night (`night=video|still`): the renderer starts in the mode
+    // the address names and N switches it in place.
+    let nightMode:NightMode=readNightMode(params);
+    this.dataset.nightMode=nightMode;
+    // The markup is built for the default range; night mode widens it.
+    const fixedRange=()=>{fixedExposure.min=String(EXPOSURE_MIN_EV);fixedExposure.max=String(exposureMaxEV(nightMode));};
+    fixedRange();
     const restoredFixed=Number(params.get('exposure-fixed'));
-    if(Number.isFinite(restoredFixed))fixedExposure.value=String(Math.max(EXPOSURE_MIN_EV,Math.min(EXPOSURE_MAX_EV,restoredFixed)));
+    if(Number.isFinite(restoredFixed))fixedExposure.value=String(Math.max(EXPOSURE_MIN_EV,Math.min(exposureMaxEV(nightMode),restoredFixed)));
     const profile=sceneProfile(params);
     this.dataset.renderProfile=profile.name;
     for(const input of [...lookInputs,speedInput]){
@@ -260,7 +267,8 @@ export class EarthlightExplorer extends HTMLElement {
     const updateExplorerLink = (sceneTime=playback.read(performance.now())+composition().offset) => {
       if(!explorerLink)return;
       const url=new URL(this.dataset.exploreUrl??'/',location.href);
-      for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudStudyView','cloudLighting','night'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
+      for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudStudyView','cloudLighting'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
+      if(nightMode!=='current')url.searchParams.set('night',nightMode);
       url.searchParams.set('t',sceneTime.toFixed(2));
       calendar.write(url.searchParams);
       if(paused)url.searchParams.set('motion','0');
@@ -341,6 +349,9 @@ export class EarthlightExplorer extends HTMLElement {
       const still=standalone&&paused&&!frameClock.interacting(performance.now());
       const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,focusLook,focusRadius,speed,inspection||still);
       if(!result)return;
+      if(result.nightSwitch==='handover')holdFrame();
+      else if(result.nightSwitch==='settled'){delete this.dataset.nightSwitch;settleFrame(true);}
+      else if(crossfade&&!crossfade.hidden&&crossfade.dataset.fading===undefined)settleFrame(false);
       const now=performance.now();
       if(standalone){
         // The flight path marker shows where keyboard flight is heading. Dragging or
@@ -795,13 +806,9 @@ export class EarthlightExplorer extends HTMLElement {
       }
       // 0 takes the lens back to 1×.
       else if(name==='reset-lens')lensTo(1);
-      // N reloads the same view with or without physical night: its shaders
-      // and exposure range are fixed when the page loads.
-      else if(name==='night'){
-        const url=new URL(pendingURL??location.href);
-        if(PHYSICAL_NIGHT)url.searchParams.delete('night');else url.searchParams.set('night','video');
-        reloadScene(url);
-      }
+      // N switches physical night in place: the next mode compiles while
+      // this one keeps drawing (switchNight below).
+      else if(name==='night')switchNight();
       else if(name==='free'){enterFree();draw();}
       else followOrbit(name.slice(6) as Orbit);
     };
@@ -851,7 +858,7 @@ export class EarthlightExplorer extends HTMLElement {
       lensZoom,
       hold:(code,down)=>flightControls?.hold(code,down),
       resetCamera:()=>command('reset-camera'),
-      night:()=>command('night'),
+      night:()=>command('night'),nightOn:nightMode!=='current',
       faceEarth:()=>face(()=>normalize(currentObserver().camera.map(v=>-v) as Vec3)),
       faceSun:()=>face(()=>normalize([...currentObserver().sun] as Vec3)),
       faceMoon:()=>face(()=>{const f=currentObserver();return normalize(celestialFrame(f.date,f.camera as Vec3).moon.slice(0,3) as Vec3);}),
@@ -863,6 +870,60 @@ export class EarthlightExplorer extends HTMLElement {
       setSpeed:target=>speedSet(target>0?Math.max(1,Math.round(speedFraction(target)*1000)):0),
       stepSpeed:notches=>speedSet((paused?0:Math.round(speedFraction(speed)*1000))+notches*10),
     }):null;
+    // Night switch. The key latches at once; the address, the manual
+    // exposure range and the link follow when the new mode draws. The last
+    // frame of the old mode stays over the canvas until the new camera has
+    // metered, then dissolves into it: no reload, poster or black frame.
+    let nightTarget:NightMode|null=null;
+    // The new mode's first frames are submitted at once, but on a cold GPU
+    // cache their pipelines take seconds to build, and that stall reaches
+    // this thread a few frames later. Dissolve only after the meter has
+    // settled and frames have kept their pace for a while (or after 4 s).
+    const NIGHT_STEADY_FRAMES=6;
+    let steadyFrames=0,steadySince=0,lastHeldFrame=0;
+    const settleFrame=(settled:boolean)=>{
+      const now=performance.now(),gap=now-lastHeldFrame;lastHeldFrame=now;
+      if(settled){steadyFrames=NIGHT_STEADY_FRAMES;steadySince=now;return;}
+      if(!steadyFrames)return;
+      steadyFrames=gap>200?NIGHT_STEADY_FRAMES:steadyFrames-1;
+      if(!steadyFrames||now-steadySince>4000){steadyFrames=0;releaseFrame();}
+    };
+    const holdFrame=()=>{
+      if(!crossfade)return;
+      crossfade.width=canvas.width;crossfade.height=canvas.height;
+      // Same task as the draw, so the drawing buffer still holds the frame.
+      crossfade.getContext('2d',{alpha:false})?.drawImage(canvas,0,0);
+      delete crossfade.dataset.fading;crossfade.hidden=false;steadyFrames=0;
+      // A paused view draws the new mode's first frames itself.
+      draw();
+    };
+    const releaseFrame=()=>{
+      if(!crossfade||crossfade.hidden)return;
+      const done=()=>{crossfade.hidden=true;delete crossfade.dataset.fading;crossfade.width=crossfade.height=0;};
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){done();return;}
+      crossfade.dataset.fading='';
+      crossfade.addEventListener('transitionend',done,{once:true});
+      window.setTimeout(()=>{if(crossfade.dataset.fading!==undefined)done();},800);
+    };
+    const switchNight=()=>{
+      const next:NightMode=(nightTarget??nightMode)==='current'?'video':'current';
+      nightTarget=next;hud?.setNight(next!=='current');
+      this.dataset.nightTarget=next;
+      exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
+      void renderer.switchNight(next).then(swapped=>{
+        if(nightTarget!==next||disposed)return;
+        nightTarget=null;delete this.dataset.nightTarget;
+        // Nothing to dissolve into: superseded, failed, or already in this mode.
+        if(!swapped||next===nightMode){hud?.setNight(nightMode!=='current');releaseFrame();delete this.dataset.nightSwitch;return;}
+        nightMode=next;this.dataset.nightMode=next;
+        const url=new URL(pendingURL??location.href);
+        if(next==='current')url.searchParams.delete('night');else url.searchParams.set('night',next);
+        updateURL(url);
+        fixedRange();
+        if(Number(fixedExposure.value)>Number(fixedExposure.max))fixedExposure.value=fixedExposure.max;
+        applyLook();updateExplorerLink();
+      });
+    };
     const panelController=createScenePanels(this,controls,settingsToggle);
     const comparison=this.querySelector<HTMLElement>('.scene-comparison')!;
     const profileSelect=comparison.querySelector<HTMLSelectElement>('select')!;

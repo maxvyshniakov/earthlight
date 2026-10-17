@@ -1,28 +1,29 @@
 import type {ShaderProgramBatch} from './shader-programs';
 import { sceneColorShader } from './scene-color';
 
-import { AUTO_EXPOSURE_MIN_EV, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, cameraModelShader } from './camera-model';
+import { AUTO_EXPOSURE_MIN_EV, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, exposureMaxEV, cameraModelShaderFor } from './camera-model';
 import { SOLAR_IRRADIANCE, SOLAR_RADIUS } from './solar-light';
 import { METER_LIT, METER_MAX_SIDE, METER_SUBJECT_EV, type MeterField } from './camera-glare';
-import { PHYSICAL_NIGHT } from './physical-night';
-import { PRE_EXPOSURE } from './pre-exposure';
-export { EXPOSURE_MIN_EV, EXPOSURE_MAX_EV };
-// 24 log-luminance bins. Physical night radiance reaches 2^-34 scene units
-// (airglow on the sea), so the lab's bins are two stops wide.
-const METER_BIN_STOPS=PHYSICAL_NIGHT?2:1;
-const METER_LOG_FLOOR=-24*METER_BIN_STOPS+8;
-// Below this the meter asks for more than the ceiling anyway.
-const METER_LUMINANCE_FLOOR=PHYSICAL_NIGHT?`exp2(${METER_LOG_FLOOR.toFixed(1)})`:'.00001';
-// The scene was rendered pre-exposed with the previous state's EV.
-const sceneRadiance=PRE_EXPOSURE?'/preExposure':'';
-// The night camera's ceiling falls at long focal lengths, where the lens
-// cannot open to f/1.4 (camera-model.ts); the meter and manual EV stop there.
-const ceiling=PHYSICAL_NIGHT?'cameraCeilingEV()':EXPOSURE_MAX_EV.toFixed(1);
+import { perNightMode, physicalNight, type NightMode } from './physical-night';
+import { preExposure } from './pre-exposure';
+export { EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, exposureMaxEV };
 export const EXPOSURE_SETTLE_MS=7000;
 
 // A one-pixel meter and two RGBA8 state targets. Exposure stays on the GPU:
 // no framebuffer readback or image-sized reduction chain on mobile.
-const fragment=`
+const fragmentFor=perNightMode(mode=>{
+// 24 log-luminance bins. Physical night radiance reaches 2^-34 scene units
+// (airglow on the sea), so the lab's bins are two stops wide.
+const METER_BIN_STOPS=physicalNight(mode)?2:1;
+const METER_LOG_FLOOR=-24*METER_BIN_STOPS+8;
+// Below this the meter asks for more than the ceiling anyway.
+const METER_LUMINANCE_FLOOR=physicalNight(mode)?`exp2(${METER_LOG_FLOOR.toFixed(1)})`:'.00001';
+// The scene was rendered pre-exposed with the previous state's EV.
+const PRE_EXPOSURE=preExposure(mode),sceneRadiance=PRE_EXPOSURE?'/preExposure':'';
+// The night camera's ceiling falls at long focal lengths, where the lens
+// cannot open to f/1.4 (camera-model.ts); the meter and manual EV stop there.
+const EXPOSURE_MAX_EV=exposureMaxEV(mode),ceiling=physicalNight(mode)?'cameraCeilingEV()':EXPOSURE_MAX_EV.toFixed(1);
+return `
 precision highp float;
 precision highp sampler2D;
 uniform sampler2D scene;
@@ -43,7 +44,7 @@ uniform vec2 meterSize;
 uniform float useField;
 #define FOCAL (1.25*(1.+zoomExcess))
 ${sceneColorShader}
-${cameraModelShader}
+${cameraModelShaderFor(mode)}
 void main(){
 ${PRE_EXPOSURE?`  float preExposure=exp2(decodeCameraEV(texture2D(previous,vec2(.5)).rg));\n  // Subject thresholds follow the exposure above EV ${METER_SUBJECT_EV} (camera-glare.ts).\n  float subject=min(1.,${(2**METER_SUBJECT_EV).toFixed(4)}/preExposure);\n`:''}  vec3 weights=displayP3>.5?vec3(.2289746,.6917385,.0792869):vec3(.2126,.7152,.0722);
   float total=0.,emission=0.,emissionWeight=0.,coverage=0.,count=0.;
@@ -138,9 +139,25 @@ ${PRE_EXPOSURE?`    // At night a subject pulls by its share of the frame, a pla
   float encodedEV=floor(clamp((ev-(${EXPOSURE_MIN_EV.toFixed(1)}))/${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)},0.,1.)*65535.+.5);
   gl_FragColor=vec4(floor(encodedEV/256.)/255.,mod(encodedEV,256.)/255.,(target-(${EXPOSURE_MIN_EV.toFixed(1)}))/${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)},age/.25);
 }`;
+});
+
+// Decodes the state with one range and encodes it with another, as the meter
+// does, with the target in B and no persistence in A.
+const handOverFragment=`
+precision highp float;
+uniform sampler2D state;
+uniform vec4 ranges;
+uniform vec2 limits;
+uniform float shift;
+void main(){
+  vec4 s=texture2D(state,vec2(.5));
+  float ev=clamp(dot(s.rg,vec2(65280.,255.))/65535.*ranges.y+ranges.x+shift,limits.x,limits.y);
+  float unit=clamp((ev-ranges.z)/ranges.w,0.,1.),encoded=floor(unit*65535.+.5);
+  gl_FragColor=vec4(floor(encoded/256.)/255.,mod(encoded,256.)/255.,unit,0.);
+}`;
 
 export class CameraExposure {
-  static prepare(batch:ShaderProgramBatch){return {batch,program:batch.add('Camera exposure','attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}',fragment)};}
+  static prepare(batch:ShaderProgramBatch,mode:NightMode){return {batch,mode,program:batch.add('Camera exposure','attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}',fragmentFor(mode))};}
 
   get texture(){return this.targets[this.index].texture;}
   /** The state before the last update: the exposure the metered scene was
@@ -153,7 +170,11 @@ export class CameraExposure {
   private position=0;
   private index=0;
   private lastTime:number|null=null;
+  /** The night mode whose range the state encodes. */
+  mode:NightMode;
   constructor(private gl:WebGLRenderingContext,prepared?:ReturnType<typeof CameraExposure.prepare>){
+    this.mode=prepared?.mode??'current';
+    const fragment=fragmentFor(this.mode);
     const program=prepared?prepared.batch.take(prepared.program):gl.createProgram(),buffer=gl.createBuffer();
     if(!program||!buffer){gl.deleteProgram(program);gl.deleteBuffer(buffer);throw Error('Cannot allocate exposure meter');}
     this.program=program;this.buffer=buffer;
@@ -169,8 +190,7 @@ export class CameraExposure {
         gl.linkProgram(program);
         if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program)??'Exposure link failed');
       }
-      this.position=gl.getAttribLocation(program,'p');
-      for(const name of ['scene','previous','sceneLinear','displayP3','elapsed','initialized','sunMeter','aspect','manualEV','automatic','sourceAttenuation','hasAttenuation','zoomExcess','meterField','meterRect','meterSize','useField'])this.uniforms[name]=gl.getUniformLocation(program,name);
+      this.locate();
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
       for(let i=0;i<2;i++){
         const texture=gl.createTexture(),framebuffer=gl.createFramebuffer();
@@ -206,9 +226,48 @@ export class CameraExposure {
     gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.enableVertexAttribArray(this.position);gl.vertexAttribPointer(this.position,2,gl.FLOAT,false,0,0);
     const dither=gl.isEnabled(gl.DITHER);gl.disable(gl.DITHER);
     gl.drawArrays(gl.TRIANGLES,0,3);if(dither)gl.enable(gl.DITHER);
-    this.index=next;this.lastTime=now;
+    this.index=next;
+    if(!(this.settle>0&&--this.settle>0))this.lastTime=now;
     return this.targets[next].texture;
   }
+  private locate(){
+    const gl=this.gl;
+    this.position=gl.getAttribLocation(this.program,'p');
+    for(const name of ['scene','previous','sceneLinear','displayP3','elapsed','initialized','sunMeter','aspect','manualEV','automatic','sourceAttenuation','hasAttenuation','zoomExcess','meterField','meterRect','meterSize','useField'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+  }
+  /** A pass that re-encodes the state into another night mode's range. */
+  static prepareHandOver(batch:ShaderProgramBatch){return {batch,program:batch.add('Camera exposure hand-over','attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}',handOverFragment)};}
+  /** Meter with the program of another night mode. The state keeps its
+   * texels; handOver re-encodes them into the new range. */
+  replaceProgram(prepared:ReturnType<typeof CameraExposure.prepare>){
+    this.gl.deleteProgram(this.program);
+    this.program=prepared.batch.take(prepared.program);this.mode=prepared.mode;this.locate();
+  }
+  /** Re-encode the state from one mode's range into this one's on the GPU,
+   * shifted by `shift` EV, without reading it back. Then, like seed, the
+   * meter takes its target at once for `settle` updates. */
+  handOver(prepared:ReturnType<typeof CameraExposure.prepareHandOver>,from:NightMode,shift:number,settle:number){
+    const gl=this.gl,program=prepared.batch.take(prepared.program);
+    const fromSpan=exposureMaxEV(from)-EXPOSURE_MIN_EV,toSpan=exposureMaxEV(this.mode)-EXPOSURE_MIN_EV;
+    gl.useProgram(program);
+    const at=(name:string)=>gl.getUniformLocation(program,name);
+    gl.uniform1i(at('state'),1);gl.uniform2f(at('limits'),AUTO_EXPOSURE_MIN_EV,exposureMaxEV(this.mode));
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);
+    const position=gl.getAttribLocation(program,'p');
+    gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
+    const dither=gl.isEnabled(gl.DITHER);gl.disable(gl.DITHER);
+    // Current state into the other target in the new range, then back.
+    for(const [source,target,ranges,offset] of [[this.index,1-this.index,[EXPOSURE_MIN_EV,fromSpan,EXPOSURE_MIN_EV,toSpan],shift],[1-this.index,this.index,[EXPOSURE_MIN_EV,toSpan,EXPOSURE_MIN_EV,toSpan],0]] as const){
+      gl.bindFramebuffer(gl.FRAMEBUFFER,this.targets[target].framebuffer);gl.viewport(0,0,1,1);
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.targets[source].texture);
+      gl.uniform4fv(at('ranges'),ranges);gl.uniform1f(at('shift'),offset);
+      gl.drawArrays(gl.TRIANGLES,0,3);
+    }
+    if(dither)gl.enable(gl.DITHER);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.deleteProgram(program);
+    this.settle=settle;this.lastTime=settle>0?null:performance.now();
+  }
+  private settle=0;
   dispose(){
     const gl=this.gl;gl.deleteProgram(this.program);gl.deleteBuffer(this.buffer);
     for(const target of this.targets){gl.deleteTexture(target.texture);gl.deleteFramebuffer(target.framebuffer);}

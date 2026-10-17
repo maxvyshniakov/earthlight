@@ -1,4 +1,5 @@
-import {fragmentSource,vertexSource} from './scene-shader';
+import {sceneShadersFor,vertexSource} from './scene-shader';
+import type {NightMode} from './physical-night';
 import {ShaderProgramBatch} from './shader-programs';
 import {shaderLod,textureImage2D} from './webgl-context';
 
@@ -117,7 +118,8 @@ export class OceanField {
  readonly bytes:number;
  private bindings=new Map<WebGLProgram,WebGLUniformLocation|null>();
  static supported(gl:WebGLRenderingContext){return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>14&&gl.getParameter(gl.MAX_TEXTURE_SIZE)>=2048&&!!shaderLod(gl);}
- static prepare(batch:ShaderProgramBatch,mode:OceanPrototype){
+ static prepare(batch:ShaderProgramBatch,mode:OceanPrototype,night:NightMode){
+  const {fragmentSource}=sceneShadersFor(night);
   const header=`#define OCEAN_STYLE ${['regions','fronts','combined','advected'].indexOf(mode)+1}\n`;
   const source=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+(mode==='advected'?transportedField:field)+`
 uniform vec2 oceanBakeSize;

@@ -1,10 +1,11 @@
 import {halfFloatTarget,textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
-import { opticalPsfSource, optics } from './optical-psf';
-import { pointBrightnessShader } from './point-photometry';
-import { PRE_EXPOSURE, PRE_EXPOSED_MAX } from './pre-exposure';
+import { opticalPsfSourceFor, optics } from './optical-psf';
+import { pointBrightnessShaderFor } from './point-photometry';
+import { preExposure, PRE_EXPOSED_MAX } from './pre-exposure';
+import { perNightMode, type NightMode } from './physical-night';
 
-const vertexSource = `
+const vertexSourceFor = perNightMode(mode=>`
 precision highp float;
 precision highp sampler2D;
 attribute vec3 direction;
@@ -24,7 +25,7 @@ varying float pixelScale;
 varying float size;
 varying vec2 sourcePosition;
 varying vec2 centerPixel;
-${pointBrightnessShader}
+${pointBrightnessShaderFor(mode)}
 void main() {
   vec3 earthDirection=starToFixed*normalize(direction+velocity*years);
   vec3 view=vec3(dot(earthDirection,cameraBasis[0]),dot(earthDirection,cameraBasis[1]),dot(earthDirection,cameraBasis[2]));
@@ -45,8 +46,8 @@ void main() {
   tint=bv<.45 ? mix(vec3(.64,.76,1.),vec3(1.),(bv+.35)/.8)
     : mix(vec3(1.),vec3(1.,.62,.35),(bv-.45)/1.55);
 }
-`;
-const fragmentSource = `
+`);
+const fragmentSourceFor = perNightMode(mode=>`
 precision highp float;
 precision highp sampler2D;
 varying vec3 tint;
@@ -57,7 +58,7 @@ varying vec2 sourcePosition;
 varying vec2 centerPixel;
 uniform float linearOutput;
 #define CAMERA_PUPIL_STATE 1
-${opticalPsfSource}
+${opticalPsfSourceFor(mode)}
 // Integral of a Gaussian across each sensor pixel. Keeping the true projected
 // center avoids point-sprite snapping as a subpixel star moves across the frame.
 vec2 gaussianCdf(vec2 x){
@@ -78,14 +79,14 @@ void main() {
   // optics, but only bright sources lift the weak wings above visibility.
   vec3 profile=vec3(core*.96)+lensPsf(delta,sourcePosition)*.04;
   vec3 radiance=pow(tint,vec3(2.2))*energy*profile*edge;
-${PRE_EXPOSURE?`  radiance=min(radiance*sceneExposure(),vec3(${PRE_EXPOSED_MAX}.));
+${preExposure(mode)?`  radiance=min(radiance*sceneExposure(),vec3(${PRE_EXPOSED_MAX}.));
 `:''}  gl_FragColor=vec4(mix(pow(radiance,vec3(1./2.2)),radiance,linearOutput),1.);
 }
-`;
+`);
 
 /** A catalog point pass; Earth's occlusion and extinction happen in the scene pass. */
 export class CatalogStars {
-  static prepare(batch:ShaderProgramBatch){return {batch,program:batch.add('Catalog stars',vertexSource,fragmentSource)};}
+  static prepare(batch:ShaderProgramBatch,mode:NightMode){return {batch,program:batch.add('Catalog stars',vertexSourceFor(mode),fragmentSourceFor(mode))};}
 
   private program:WebGLProgram|null=null;
   private buffer:WebGLBuffer|null=null;
@@ -112,7 +113,7 @@ export class CatalogStars {
       this.program=prepared?prepared.batch.take(prepared.program):gl.createProgram();
       if(!this.program)throw new Error('Cannot allocate catalog program');
       if(!prepared){
-        for(const [type,source] of [[gl.VERTEX_SHADER,vertexSource],[gl.FRAGMENT_SHADER,fragmentSource]] as const){
+        for(const [type,source] of [[gl.VERTEX_SHADER,vertexSourceFor('current')],[gl.FRAGMENT_SHADER,fragmentSourceFor('current')]] as const){
           const shader=gl.createShader(type);
           if(!shader)throw new Error('Cannot allocate catalog shader');
           shaders.push(shader);
@@ -128,9 +129,18 @@ export class CatalogStars {
       gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,texture);
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
-      for(const name of ['starToFixed','cameraBasis','resolution','years','zoomExcess','pixelRatio','maxPointSize','opticalPsf','linearOutput','cameraState'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      this.locate();
     } catch(error) { this.dispose();throw error; }
     finally { shaders.forEach(shader=>gl.deleteShader(shader)); }
+  }
+  private locate(){
+    for(const name of ['starToFixed','cameraBasis','resolution','years','zoomExcess','pixelRatio','maxPointSize','opticalPsf','linearOutput','cameraState'])this.uniforms[name]=this.gl.getUniformLocation(this.program!,name);
+  }
+  /** Draw with the program of another night mode; the stars and target stay. */
+  replaceProgram(prepared:ReturnType<typeof CatalogStars.prepare>){
+    const program=prepared.batch.take(prepared.program);
+    if(this.program)this.gl.deleteProgram(this.program);
+    this.program=program;this.locate();
   }
 
   upload(data:Float32Array) {

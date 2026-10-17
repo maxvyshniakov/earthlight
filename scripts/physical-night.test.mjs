@@ -1,14 +1,15 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {cameraProgramFor,EV100_AT_ZERO,BASE_ND_STOPS,exposureCeiling,widestFNumber,focalFromMm,NIGHT_EXPOSURE_MAX_EV} from '../src/scripts/camera-model.ts';
-import {readNightMode,NIGHT_MODE,nightScale} from '../src/scripts/physical-night.ts';
+import {readNightMode,nightScale,NIGHT_EXCESS} from '../src/scripts/physical-night.ts';
 import {lunarDiskGain,lunarPhaseLaw,FULL_MOON_IRRADIANCE,lunarLightShader} from '../src/scripts/earth-light.ts';
 import {grainSnr,photositesPerPixel} from '../src/scripts/sensor-noise.ts';
 import {SCENE_CANDELA} from '../src/scripts/radiometry.ts';
 
 test('the night lab is off unless the address asks for it',()=>{
- assert.equal(NIGHT_MODE,'current');
- assert.equal(nightScale('city'),1);
+ assert.equal(readNightMode(''),'current');
+ assert.equal(nightScale('city','current'),1);
+ assert.equal(nightScale('city','still'),1/NIGHT_EXCESS.city);
  assert.equal(readNightMode('?night=video'),'video');
  assert.equal(readNightMode('?night=still'),'still');
  assert.equal(readNightMode('?night=1'),'current');

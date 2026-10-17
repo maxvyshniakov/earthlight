@@ -61,6 +61,11 @@ called Orbit, and older lab notes still use that name.
   `physical-night.ts`). Its **night lens** opens to max(f/1.4, focal / 143 mm)
   (`NIGHT_LENS`, `exposureCeiling`), and its grain bins the **photosites** of
   a 12 MP sensor into each CSS pixel (`photositesPerPixel`, `sensor-noise.ts`).
+- **Night switch**: changing the night mode of a running renderer in place
+  (`switchNight`, the N key): the next mode's programs compile while the
+  current one draws, the **hand-over** frame is the last of the old mode,
+  and the explorer holds it in its **crossfade** (`.explorer-crossfade`)
+  until the new camera has metered. See `docs/lab/night-switch-2026-10-17.md`.
 - **Pre-exposure**: scene radiance stored multiplied by 2^ev of the exposure
   its frame is rendered with, so physical night fits half-float and RGBE
   targets; the meter, the glare pyramid and the camera finish divide it back

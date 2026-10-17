@@ -1,7 +1,7 @@
 // Selected dense cloud complexes move in the cloud atlas material frame.
 // Their electrical activity is illustrative, not inferred from cloud whiteness.
 import {stormRegions} from './storm-regions.ts';
-import {nightScale} from './physical-night.ts';
+import {nightScale,type NightMode} from './physical-night.ts';
 export const MAX_STORM_LIGHTS=8;
 const random=(seed:number)=>{const x=Math.sin(seed*127.1+311.7)*43758.5453;return x-Math.floor(x);};
 type Stroke={start:number;width:number;energy:number};
@@ -42,7 +42,7 @@ export function stormPulse(time:number,start:number,width:number,window:number){
   const interval=Math.max(.0001,window);
   return (primitive(time+interval/2)-primitive(time-interval/2))/interval;
 }
-export function stormLights(time:number,rate:number,camera:ArrayLike<number>,basis:ArrayLike<number>,aspect:number,fps=24,focal=1.25){
+export function stormLights(time:number,rate:number,camera:ArrayLike<number>,basis:ArrayLike<number>,aspect:number,fps=24,focal=1.25,mode:NightMode='current'){
  // Full-frame integration preserves short flashes at accelerated playback.
  const window=Math.max(1/48,Math.abs(rate)/fps),c=Math.cos(time*.000008),s=Math.sin(time*.000008);
  const active:Array<{point:number[];energy:number;score:number}>=[];
@@ -79,7 +79,7 @@ export function stormLights(time:number,rate:number,camera:ArrayLike<number>,bas
  active.sort((a,b)=>b.score-a.score);
  const sources=new Float32Array(MAX_STORM_LIGHTS*4);
  // Physical night divides the flash with the cities it was set against.
- const scale=nightScale('lightning');
+ const scale=nightScale('lightning',mode);
  for(let i=0;i<Math.min(active.length,MAX_STORM_LIGHTS);i++)sources.set([...active[i].point,active[i].energy*scale],i*4);
  return sources;
 }

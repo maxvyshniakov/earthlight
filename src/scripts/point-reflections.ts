@@ -1,5 +1,6 @@
 import { visibleSourceDisk } from './lens-reflections.ts';
 import { pointImageFlux } from './point-photometry.ts';
+import type { NightMode } from './physical-night.ts';
 
 type Candidate={id:number;x:number;y:number;energy:number;bv:number};
 const dot=(a:number[],b:number[])=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -13,6 +14,8 @@ export class PointReflections {
   private slots:({id:number;weight:number}|null)[]=[null,null,null];
   private previousTime=NaN;
   private previousAspect=NaN;
+  /** The night mode whose point photometry the ghosts follow. */
+  mode:NightMode='current';
   upload(data:Float32Array){
     this.stars=[];
     // A newly loaded catalog changes source identity even in a paused frame.
@@ -34,7 +37,7 @@ export class PointReflections {
       const visible=visibleSourceDisk(camera,direction,1/(pixelHeight*focal));
       // Atmospheric/cloud transmission is applied once by sourceAttenuation.
       // No saturation curve or independent boost for dim sources.
-      const energy=pointImageFlux(magnitude,cssHeight)*edge*visible;
+      const energy=pointImageFlux(magnitude,cssHeight,this.mode)*edge*visible;
       if(energy>0)candidates.push({id,x,y,energy,bv});
     };
     this.stars.forEach((star,id)=>{

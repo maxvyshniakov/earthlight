@@ -1,6 +1,6 @@
 // The visible layer and its downward illumination share one emission model.
 // Scene-relative scale, not measured spectral radiance. Gaussian widths are km.
-import {nightScaleGlsl,PHYSICAL_NIGHT} from './physical-night.ts';
+import {nightScaleGlsl,perNightMode,physicalNight} from './physical-night.ts';
 // Night lab (docs/lab/night-camera-2026-10-17.md): the layers of the nightglow
 // as photographed from the ISS, with the same zenith column luminance. OI
 // 557.7 nm at 97 km (FWHM ~10 km) gives the green edge and most of the visible
@@ -8,11 +8,12 @@ import {nightScaleGlsl,PHYSICAL_NIGHT} from './physical-night.ts';
 // The default palette put 86% of the light into a 19 km amber layer, which
 // read as a thick orange band against the thin yellow-green one of
 // ISS030-E-7397 and ISS030-E-10008. Shares here: green 60%, amber 40%.
-const layers=PHYSICAL_NIGHT
+export const airglowLightShaderFor=perNightMode(mode=>{
+const layers=physicalNight(mode)
   ?{amber:'vec3(.0346,.01658,.00433)',green:'vec3(.00802,.0749,.01605)',amberHeight:'90.',amberWidth:'5.',greenHeight:'97.',greenWidth:'4.'}
   :{amber:'vec3(.048,.023,.006)',green:'vec3(.0015,.014,.003)',amberHeight:'90.',amberWidth:'8.',greenHeight:'98.',greenWidth:'4.'};
-export const airglowLightShader=`
-const float airglowStrength=.04*${nightScaleGlsl('airglow')};
+return `
+const float airglowStrength=.04*${nightScaleGlsl('airglow',mode)};
 vec3 airglowAmber=${layers.amber};
 vec3 airglowGreen=${layers.green};
 vec2 airglowActivity(vec3 normal){
@@ -47,3 +48,6 @@ vec3 airglowIrradiance(vec3 point){
   return (airglowAmber*column.x+airglowGreen*column.y)*transmission;
 }
 `;
+});
+/** The default program's airglow. */
+export const airglowLightShader=airglowLightShaderFor('current');

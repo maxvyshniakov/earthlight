@@ -1,15 +1,29 @@
 // Lab switch `night=video|still` (docs/lab/physical-night-2026-10-17.md).
 // Night emitters at their physical radiance and a camera that reaches the
-// exposures of ISS night video and stills. Read once from the page address
-// so every shader string, the exposure state encoding and the controls agree.
+// exposures of ISS night video and stills. The mode is a value of the scene
+// renderer: every shader source and constant that depends on it is built
+// from the mode the renderer was given, so it can switch in place.
 export type NightMode='current'|'video'|'still';
-// A plain match: module sandboxes in the tests have no URLSearchParams.
-export function readNightMode(search:string):NightMode{
-  const value=/(?:^\?|&)night=([^&]*)/.exec(search)?.[1];
+export const NIGHT_MODES:readonly NightMode[]=['current','video','still'];
+/** The mode a page address asks for: `night=video|still`, otherwise the
+ * default program. A plain match: module sandboxes in the tests have no
+ * URLSearchParams. */
+export function readNightMode(search:string|{get(key:string):string|null}):NightMode{
+  const value=typeof search==='string'?/(?:^\?|&)night=([^&]*)/.exec(search)?.[1]:search.get('night');
   return value==='video'||value==='still'?value:'current';
 }
-export const NIGHT_MODE:NightMode=readNightMode(typeof location==='undefined'?'':location.search);
-export const PHYSICAL_NIGHT=NIGHT_MODE!=='current';
+/** Whether a mode renders physical night. */
+export const physicalNight=(mode:NightMode)=>mode!=='current';
+/** One build per mode: shader sources are assembled once for each mode a
+ * renderer asks for, and the default program's are the same strings as
+ * before night mode became a runtime value. */
+export function perNightMode<T>(build:(mode:NightMode)=>T):(mode:NightMode)=>T{
+  const built=new Map<NightMode,T>();
+  return mode=>{
+    if(!built.has(mode))built.set(mode,build(mode));
+    return built.get(mode)!;
+  };
+}
 
 /** Divisors that bring each night emitter to its physical radiance. The
  * excess of each is measured by the radiance ledger
@@ -36,7 +50,7 @@ export const NIGHT_EXCESS={
   lightning:2e4,
 } as const;
 export type NightEmitter=keyof typeof NIGHT_EXCESS;
-/** Scale for an emitter in the current mode: 1 unless the lab is on. */
-export const nightScale=(emitter:NightEmitter)=>PHYSICAL_NIGHT?1/NIGHT_EXCESS[emitter]:1;
+/** Scale for an emitter in a mode: 1 unless physical night is on. */
+export const nightScale=(emitter:NightEmitter,mode:NightMode)=>physicalNight(mode)?1/NIGHT_EXCESS[emitter]:1;
 /** The same scale as a GLSL float literal. */
-export const nightScaleGlsl=(emitter:NightEmitter)=>nightScale(emitter).toExponential(6).replace(/e\+?/,'e');
+export const nightScaleGlsl=(emitter:NightEmitter,mode:NightMode)=>nightScale(emitter,mode).toExponential(6).replace(/e\+?/,'e');

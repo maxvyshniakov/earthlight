@@ -4,9 +4,9 @@ import {continuousLongitudeShader} from './surface-map.ts';
 // profile and small-scale relief below are a bounded reconstruction.
 import {stormLightShader} from './storm-light.ts';
 import {modisPatchShader} from './modis-patch.ts';
-import {PHYSICAL_NIGHT} from './physical-night.ts';
+import {perNightMode,physicalNight} from './physical-night.ts';
 import {cloudPropertiesShader} from './cloud-properties.ts';
-export const cloudShader=continuousLongitudeShader+`
+export const cloudShaderFor=perNightMode(mode=>continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
@@ -395,7 +395,7 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
       vec3 light=vec3(.76,.84,1.)*ambient+sunColor*sunVisible*solarLaw*(.20+.80*shadow)*(.48+.38*max(0.,mu))*(.8+forward*.30);
       light+=nightSky;
       // Moonlight is irradiance: a cloud of albedo 0.8 returns 0.8/pi of it.
-      light+=lunarLight*${PHYSICAL_NIGHT?'(.8/3.141592654)*':''}(.20+.80*max(0.,dot(normal,lunarDirection)));
+      light+=lunarLight*${physicalNight(mode)?'(.8/3.141592654)*':''}(.20+.80*max(0.,dot(normal,lunarDirection)));
       float cloudHeight=max(0.,(length(point)-1.)*6371.);
       light+=urbanLight*exp(-cloudHeight/5.);
       // Wispy foreground cloud must not become a second luminous storm sheet.
@@ -423,4 +423,6 @@ vec3 cloudVolume(vec3 ray,float groundDistance,vec3 background,out float atmosph
 #endif
   return max(vec3(0.),background*transmission+scattered);
 }
-`;
+`);
+/** The default program's clouds. */
+export const cloudShader=cloudShaderFor('current');

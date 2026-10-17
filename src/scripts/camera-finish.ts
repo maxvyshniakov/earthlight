@@ -8,15 +8,14 @@ import { fieldReflectionShader, lensReflectionShader } from './lens-reflections'
 import { lensDirtShader } from './lens-dirt';
 import { sceneColorShader } from './scene-color';
 import { poissonQuantiles, POISSON_COLUMNS, POISSON_ROWS, GRAIN_AMOUNT, LOOK_ELECTRONS, LOOK_ISO_GAIN_MAX, SENSOR_ELECTRONS, SENSOR_ROWS } from './sensor-noise';
-import { PHYSICAL_NIGHT } from './physical-night';
+import { perNightMode, physicalNight, type NightMode } from './physical-night';
 import { CameraExposure } from './camera-exposure';
-import { cameraModelShader } from './camera-model';
-import { PRE_EXPOSURE } from './pre-exposure';
+import { cameraModelShaderFor } from './camera-model';
+import { preExposure } from './pre-exposure';
 export const CAMERA_EXPOSURE_EV=0;
 /** Camera poses of this and the previous submitted frame, for shutter blur. */
 export type ShutterMotion={shutter:number;sky:boolean;camera:ArrayLike<number>;basis:ArrayLike<number>;previousCamera:ArrayLike<number>;previousBasis:ArrayLike<number>;previousFocal:number};
 export type LensFrame={reflectance?:number;moon:[number,number,number];moonRadius?:number;glare?:boolean;fieldReflections?:boolean;pyramidMeter?:boolean;sun:[number,number,number];points:Float32Array;pointAmount:number;attenuation:WebGLTexture|null;sunReflections?:number;focal?:number;motion?:ShutterMotion|null};
-const sensor=PHYSICAL_NIGHT?'nightSensorChannel':'sensorChannel';
 const nightSensorShader=`// Equivalent RGB sensor in linear output primaries. Shot/read noise precede
 // ISO amplification and the display curve; ISO never creates extra photons.
 // Night lab (docs/lab/night-camera-2026-10-17.md): a grain cell, one CSS
@@ -52,7 +51,9 @@ float nightSensorChannel(float opticalSignal,float isoGain,vec2 seed) {
 }
 
 `;
-const fragmentSource = `
+const fragmentSourceFor=perNightMode(mode=>{
+const PRE_EXPOSURE=preExposure(mode),sensor=physicalNight(mode)?'nightSensorChannel':'sensorChannel';
+return `
 precision highp float;
 precision highp sampler2D;
 uniform sampler2D scene;
@@ -87,7 +88,7 @@ uniform vec3 motionCamera,motionPreviousCamera;
 uniform float motionPreviousFocal;
 #define FOCAL (1.25*(1.+zoomExcess))
 ${sceneColorShader}
-${cameraModelShader}
+${cameraModelShaderFor(mode)}
 float cameraOpening;
 float cameraPupilScale;
 float ghostFocalScale;
@@ -230,7 +231,7 @@ vec3 shutterImage(vec2 uv,vec2 shift,vec2 p,float aspect){
   }
   return sum/weight;
 }
-${PHYSICAL_NIGHT?nightSensorShader:''}float hash(vec2 p) {
+${physicalNight(mode)?nightSensorShader:''}float hash(vec2 p) {
   vec3 p3=fract(vec3(p.xyx)*.1031);
   p3+=dot(p3,p3.yzx+33.33);
   return fract((p3.x+p3.y)*p3.z);
@@ -309,12 +310,17 @@ ${PRE_EXPOSURE?'  float sceneScale=exp2(-decodeCameraEV(texture2D(sceneState,vec
   gl_FragColor=vec4(max(color,0.),1.);
 }
 `;
+});
 
 /** Optical channel separation precedes sensor noise; page content never enters this pass. */
 export class CameraFinish {
-  static prepare(batch:ShaderProgramBatch){return {batch,program:batch.add('Camera finish','attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',fragmentSource),exposure:CameraExposure.prepare(batch),defocus:CameraDefocus.prepare(batch),glare:CameraGlare.prepare(batch)};}
+  static prepare(batch:ShaderProgramBatch,mode:NightMode){return {batch,mode,program:batch.add('Camera finish','attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',fragmentSourceFor(mode)),exposure:CameraExposure.prepare(batch,mode),defocus:CameraDefocus.prepare(batch,mode),glare:CameraGlare.prepare(batch,mode)};}
 
   get exposureTexture(){return this.exposure!.texture;}
+  /** The exposure meter, for a hand-over between night modes. */
+  get meter(){return this.exposure!;}
+  /** The night mode its programs were built for. */
+  mode:NightMode;
   get linear(){return this.pixelType!==this.gl.UNSIGNED_BYTE;}
   private program:WebGLProgram|null=null;
   private buffer:WebGLBuffer|null=null;
@@ -331,12 +337,13 @@ export class CameraFinish {
   private glare:CameraGlare|null=null;
   constructor(private gl:WebGLRenderingContext,private displayP3=false,prepared?:ReturnType<typeof CameraFinish.prepare>){
     this.pixelType=halfFloatTarget(gl,true)??gl.UNSIGNED_BYTE;
+    this.mode=prepared?.mode??'current';
     const shaders:WebGLShader[]=[];
     try {
       this.program=prepared?prepared.batch.take(prepared.program):gl.createProgram();
       if(!this.program)throw new Error('Cannot allocate camera finish');
       if(!prepared){
-        for(const [type,source] of [[gl.VERTEX_SHADER,'attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}'],[gl.FRAGMENT_SHADER,fragmentSource]] as const){
+        for(const [type,source] of [[gl.VERTEX_SHADER,'attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}'],[gl.FRAGMENT_SHADER,fragmentSourceFor(this.mode)]] as const){
           const shader=gl.createShader(type);
           if(!shader)throw new Error('Cannot allocate camera shader');
           shaders.push(shader);gl.shaderSource(shader,source);gl.compileShader(shader);
@@ -358,8 +365,7 @@ export class CameraFinish {
       textureImage2D(gl,gl.TEXTURE_2D,0,gl.LUMINANCE,POISSON_COLUMNS,POISSON_ROWS,0,gl.LUMINANCE,gl.UNSIGNED_BYTE,poissonQuantiles());
       for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
       for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.NEAREST);
-      this.position=gl.getAttribLocation(this.program,'position');
-      for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','sceneState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','lensReflectance','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal','glare','glareAmount','glareMask','reflectionField','reflectionLevels[0]','reflectionFieldSize','reflectionLevelCount','reflectionFieldWeight'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+      this.locate();
       this.exposure=new CameraExposure(gl,prepared?.exposure);
       this.defocus=new CameraDefocus(gl,this.pixelType,prepared?.defocus);
       // RGBE scene values cannot be filtered, so the fallback keeps only the
@@ -369,6 +375,22 @@ export class CameraFinish {
       else if(glare)for(const program of [glare.down,glare.up,glare.copy])gl.deleteProgram(glare.batch.take(program));
     } catch(error){this.dispose();throw error;}
     finally {shaders.forEach(shader=>gl.deleteShader(shader));}
+  }
+  private locate(){
+    const gl=this.gl;
+    this.position=gl.getAttribLocation(this.program!,'position');
+    for(const name of ['zoomExcess','scene','resolution','pixelRatio','grainFrame','grainAmount','chromaticAmount','poisson','focusRadius','sceneLinear','exposureEV','exposureState','sceneState','moonGhost','moonGhostRadius','sunGhost','sunReflectionAmount','lensReflectance','pointGhosts[0]','pointGhostAmount','sourceAttenuation','hasAttenuation','displayP3','motionShutter','motionSky','motionBasis','motionPreviousBasis','motionCamera','motionPreviousCamera','motionPreviousFocal','glare','glareAmount','glareMask','reflectionField','reflectionLevels[0]','reflectionFieldSize','reflectionLevelCount','reflectionFieldWeight'])this.uniforms[name]=gl.getUniformLocation(this.program!,name);
+  }
+  /** Use the programs of another night mode. Targets, the sensor LUT and the
+   * exposure state stay; the caller hands the state over (handOver). */
+  replacePrograms(prepared:ReturnType<typeof CameraFinish.prepare>){
+    const gl=this.gl;
+    if(this.program)gl.deleteProgram(this.program);
+    this.program=prepared.batch.take(prepared.program);this.mode=prepared.mode;this.locate();
+    this.exposure!.replaceProgram(prepared.exposure);
+    this.defocus!.replaceProgram(prepared.defocus);
+    if(this.glare)this.glare.replacePrograms(prepared.glare);
+    else for(const program of [prepared.glare.down,prepared.glare.up,prepared.glare.copy])gl.deleteProgram(prepared.glare.batch.take(program));
   }
   begin(width:number,height:number){
     const gl=this.gl;
@@ -389,6 +411,7 @@ export class CameraFinish {
     // One pyramid of the focused scene serves the meter, glare and the
     // reflections of the whole frame, so it is built first. Loading defocus
     // blurs the picture only; glare is far broader than that blur.
+    const PRE_EXPOSURE=preExposure(this.mode);
     const built=this.glare?.build(this.texture!,this.width,this.height,glareMask,PRE_EXPOSURE?this.exposure!.texture:null)??false;
     const meter=built&&lens.pyramidMeter!==false?this.glare!.meter:null;
     const exposure=this.exposure!.update(this.texture!,this.linear,this.displayP3,performance.now(),lens.sun,this.width/this.height,lens.attenuation,manualExposure,lens.focal,meter);

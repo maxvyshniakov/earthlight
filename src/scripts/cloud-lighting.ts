@@ -1,6 +1,7 @@
 import {ShaderProgramBatch} from './shader-programs';
 import {textureImage2D} from './webgl-context';
-import {fragmentSource,vertexSource} from './scene-shader';
+import {sceneShadersFor,vertexSource} from './scene-shader';
+import {perNightMode,type NightMode} from './physical-night';
 
 // Four adjacent heights per RGBA texel, eight guttered tiles, 32 heights.
 // Two 2048 x 1024 textures cost 16 MiB, including the unfinished replacement.
@@ -59,7 +60,7 @@ export function cloudLightingSource(source:string){
  `);
 }
 
-const bakeSource=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
+const bakeSourceFor=perNightMode(mode=>{const {fragmentSource}=sceneShadersFor(mode);return fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
 uniform vec4 bakePatch;
 vec3 bakePoint(vec2 uv,float index){
  vec2 ll=bakePatch.xy+(uv-.5)*bakePatch.zw;
@@ -72,7 +73,7 @@ void main(){
  gl_FragColor=vec4(cloudShadow(bakePoint(uv,index)),cloudShadow(bakePoint(uv,index+1.)),
    cloudShadow(bakePoint(uv,index+2.)),cloudShadow(bakePoint(uv,index+3.)));
 }
-`;
+`;});
 
 type Sample={camera:number[];sun:number[];stamp:string};
 type Bake=Sample&{patch:number[];chunk:number};
@@ -126,7 +127,7 @@ export class CloudLightingSchedule {
 export class CloudLightingAtlas {
   private textures:WebGLTexture[]=[];
   private framebuffer:WebGLFramebuffer|null=null;
-  private position:number;
+  private position=0;
   private uniforms:Record<string,WebGLUniformLocation|null>={};
   private bindings=new Map<WebGLProgram,Record<string,WebGLUniformLocation|null>>();
   private schedule:CloudLightingSchedule;
@@ -137,10 +138,9 @@ export class CloudLightingAtlas {
   private budget=new CloudBakeBudget();
   private bakeDraws=0;
   static supported(gl:WebGLRenderingContext){return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&gl.getParameter(gl.MAX_TEXTURE_SIZE)>=2048;}
-  static prepare(batch:ShaderProgramBatch,header:string){return batch.add('Cloud lighting bake',vertexSource,header+bakeSource);}
+  static prepare(batch:ShaderProgramBatch,header:string,night:NightMode){return batch.add('Cloud lighting bake',vertexSource,header+bakeSourceFor(night));}
   constructor(private gl:WebGLRenderingContext,private program:WebGLProgram,private notify:()=>void,private mode:'fixed'|'budget'='fixed',drift=CLOUD_DRIFT){
     this.schedule=new CloudLightingSchedule(drift);
-    this.position=gl.getAttribLocation(program,'position');
     const unit=gl.getParameter(gl.ACTIVE_TEXTURE);gl.activeTexture(gl.TEXTURE15);
     const binding=gl.getParameter(gl.TEXTURE_BINDING_2D),target=gl.getParameter(gl.FRAMEBUFFER_BINDING);
     try{
@@ -157,10 +157,18 @@ export class CloudLightingAtlas {
       }
     }catch(error){this.releaseTextures();throw error;}
     finally{gl.bindFramebuffer(gl.FRAMEBUFFER,target);gl.bindTexture(gl.TEXTURE_2D,binding);gl.activeTexture(unit);}
+    this.locate();
+  }
+  private locate(){
+    const gl=this.gl,program=this.program;
+    this.position=gl.getAttribLocation(program,'position');
     gl.useProgram(program);
     for(const name of ['bakePatch','resolution','time','cameraPosition','sunDirection','cloudMapWidth','cloudTileLayout','zoomExcess'])this.uniforms[name]=gl.getUniformLocation(program,name);
     gl.uniform1i(gl.getUniformLocation(program,'cloudMap'),2);gl.uniform1i(gl.getUniformLocation(program,'cloudTileAtlas'),9);
   }
+  /** Bake with a program built for another night mode. Self-shadowing does
+   * not depend on the mode, so the baked atlas stays. */
+  replaceProgram(program:WebGLProgram){this.gl.deleteProgram(this.program);this.program=program;this.locate();}
   update(camera:number[],sun:number[],time:number,width:number,height:number,mapWidth:number,layout:Float32Array|number[]|undefined,stamp:string,settled:boolean,state:Record<string,string>){
     clearTimeout(this.wake);this.wake=undefined;
     const now=performance.now(),rows=this.mode==='budget'?this.budget.rows(now):STRIPE;

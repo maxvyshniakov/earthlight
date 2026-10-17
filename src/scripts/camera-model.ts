@@ -1,5 +1,5 @@
 import { SCENE_CANDELA } from './radiometry';
-import { NIGHT_MODE, type NightMode } from './physical-night';
+import { perNightMode, type NightMode } from './physical-night';
 // A virtual 24 fps camera, not a calibration of a named lens or sensor.
 // Shutter stays at 180 degrees (1/48 s), so adaptation cannot invent motion blur.
 // With `night=video|still` the program continues past f/3.2 to ISS night
@@ -7,7 +7,11 @@ import { NIGHT_MODE, type NightMode } from './physical-night';
 export const EXPOSURE_MIN_EV=-5.5;
 /** Top of the exposure state's range with `night=video|still`. */
 export const NIGHT_EXPOSURE_MAX_EV=22.1;
-export const EXPOSURE_MAX_EV=NIGHT_MODE==='current'?5.1:NIGHT_EXPOSURE_MAX_EV;
+/** Top of the exposure state's range in a mode; the state encodes EV over
+ * [EXPOSURE_MIN_EV, exposureMaxEV(mode)]. */
+export const exposureMaxEV=(mode:NightMode)=>mode==='current'?5.1:NIGHT_EXPOSURE_MAX_EV;
+/** The default program's top of range. */
+export const EXPOSURE_MAX_EV=exposureMaxEV('current');
 // Keep the full manual/storage range; automatic metering has a brighter floor.
 export const AUTO_EXPOSURE_MIN_EV=-3;
 export const CAMERA_SHUTTER_SECONDS=1/48;
@@ -98,10 +102,11 @@ export function cameraProgramFor(mode:NightMode,ev:number,focal=LENS_FOCAL_1X){
   return {fNumber,iso,opticalGain,isoGain,opening:Math.max(0,Math.min(1,correction/BASE_OPEN)),shutterSeconds,ndStops,
     ev100:Math.log2(fNumber*fNumber/shutterSeconds)-Math.log2(iso/100)+ndStops};
 }
-export function cameraProgram(ev:number,focal=LENS_FOCAL_1X){return cameraProgramFor(NIGHT_MODE,ev,focal);}
+/** The default program's settings. */
+export function cameraProgram(ev:number,focal=LENS_FOCAL_1X){return cameraProgramFor('current',ev,focal);}
 
 const baseProgramShader=`vec4 cameraProgram(float ev){
-  float correction=clamp(ev-.5,-6.,${(EXPOSURE_MAX_EV-.5).toFixed(1)});
+  float correction=clamp(ev-.5,-6.,${(exposureMaxEV('current')-.5).toFixed(1)});
   float apertureStops=correction<0.?correction*2./3.:min(correction,1.1)*.6;
   float isoStops=min(correction,1.1)-apertureStops;
   isoStops=correction-apertureStops;
@@ -112,8 +117,8 @@ const baseProgramShader=`vec4 cameraProgram(float ev){
 // takes FOCAL where the shader defines it before this source; passes without
 // it use 1×, which only the loading defocus and the PSF tile read (both the
 // same from f/1.4 to f/3.2).
-const nightProgramShader=NIGHT_MODE==='current'?'':(()=>{
-  const g=(x:number)=>x.toFixed(6),stages=nightStages(NIGHT_MODE);
+const nightProgramShader=(mode:Exclude<NightMode,'current'>)=>{
+  const g=(x:number)=>x.toFixed(6),stages=nightStages(mode);
   const fixed=stages.filter(stage=>stage.kind!=='aperture').reduce((sum,stage)=>sum+stage.stops,0);
   const steps=stages.map(stage=>`  used=min(extra,${stage.kind==='aperture'?'max(0.,lens)':g(stage.stops)});extra-=used;${stage.kind==='aperture'?'apertureStops+=used;':stage.kind==='iso'?'isoStops+=used;':stage.kind==='nd'?`close=min(0.,lens)*used/${g(stage.stops)};apertureStops+=close;extra-=close;`:''}\n`).join('');
   return `float cameraFocal(){
@@ -137,13 +142,15 @@ vec4 cameraProgram(float ev){
 ${steps}  return vec4(4./sqrt(exp2(apertureStops)),exp2(correction-isoStops),exp2(isoStops),clamp(correction/1.1,0.,1.));
 }
 `;
-})();
-export const cameraModelShader=`
+};
+export const cameraModelShaderFor=perNightMode(mode=>`
 // f-number, light on the sensor relative to f/4 at 1/48 s, ISO gain relative
 // to ISO 400, and normalized opening across the f/16-f/3.2 program.
-${NIGHT_MODE==='current'?baseProgramShader:nightProgramShader}// Fractional PSF tile for an f-number, 0 at f/3.2 to ${OPTICAL_PSF_F_NUMBERS.length-1} at f/16.
+${mode==='current'?baseProgramShader:nightProgramShader(mode)}// Fractional PSF tile for an f-number, 0 at f/3.2 to ${OPTICAL_PSF_F_NUMBERS.length-1} at f/16.
 float opticalPsfState(float fNumber){
   return clamp(log(fNumber/${OPTICAL_PSF_F_NUMBERS[0].toFixed(1)})/${Math.log(OPTICAL_PSF_F_NUMBERS.at(-1)!/OPTICAL_PSF_F_NUMBERS[0]).toFixed(6)}*${(OPTICAL_PSF_F_NUMBERS.length-1).toFixed(1)},0.,${(OPTICAL_PSF_F_NUMBERS.length-1).toFixed(1)});
 }
-float decodeCameraEV(vec2 state){return dot(state,vec2(65280.,255.))/65535.*${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)}+${EXPOSURE_MIN_EV.toFixed(1)};}
-`;
+float decodeCameraEV(vec2 state){return dot(state,vec2(65280.,255.))/65535.*${(exposureMaxEV(mode)-EXPOSURE_MIN_EV).toFixed(1)}+${EXPOSURE_MIN_EV.toFixed(1)};}
+`);
+/** The default program's camera model. */
+export const cameraModelShader=cameraModelShaderFor('current');

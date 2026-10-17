@@ -1,9 +1,15 @@
 import {textureImage2D,drawBuffersApi,halfFloatTarget} from './webgl-context.ts';
-import {PRE_EXPOSURE,PRE_EXPOSED_MAX} from './pre-exposure';
+import {preExposure,PRE_EXPOSED_MAX} from './pre-exposure';
+import {perNightMode} from './physical-night';
+
+export const TEMPORAL_FRESH_UNITS=[3,8],TEMPORAL_HISTORY_UNITS=[6,13],TEMPORAL_PREVIOUS_UNIT=5,TEMPORAL_RESOLVED_UNITS=[3,8];
 
 // Pre-exposure: fresh radiance is stored at its frame's exposure, and the EV
 // rides in the depth target's z (whole eighths) and w (the rest), exact in
 // half floats. The resolve brings the previous frame's columns to this one's.
+/** The temporal cloud passes for a night mode. */
+export const temporalShadersFor=perNightMode(mode=>{
+const PRE_EXPOSURE=preExposure(mode);
 const freshExposure=PRE_EXPOSURE?`min(scattered*sceneExposure(),vec3(${PRE_EXPOSED_MAX}.))`:'scattered';
 const freshEV=PRE_EXPOSURE?'floor(log2(sceneExposure())*8.)/8.,fract(log2(sceneExposure())*8.)':'0.,1.';
 const historyRescale=PRE_EXPOSURE?`
@@ -17,10 +23,8 @@ const historyRescale=PRE_EXPOSURE?`
 // reconstructed ones, so errors cannot accumulate. Moving or changing content
 // clamps that history to the range its freshly computed neighbours span, so
 // stale clouds cannot trail behind. A still, unchanged view reuses it exactly.
-export const TEMPORAL_FRESH_UNITS=[3,8],TEMPORAL_HISTORY_UNITS=[6,13],TEMPORAL_PREVIOUS_UNIT=5,TEMPORAL_RESOLVED_UNITS=[3,8];
-
 /** Cloud integral for this frame's columns; same encoding as the half-resolution path. */
-export const temporalCloudMain=`
+const temporalCloudMain=`
 uniform sampler2D worldScene;
 uniform float cloudParity;
 void main(){
@@ -48,7 +52,7 @@ float temporalCloudEntry(vec3 ray){
 }`;
 
 /** Full-resolution resolve: exact fresh columns, clamped reprojected history elsewhere. */
-export const temporalResolveFragment=`#extension GL_EXT_draw_buffers : require
+const temporalResolveFragment=`#extension GL_EXT_draw_buffers : require
 precision highp float;
 uniform sampler2D freshRadiance,freshDepth,historyRadiance,historyDepth,previousResolved,worldScene;
 uniform vec2 resolution,freshResolution;
@@ -125,7 +129,7 @@ void main(){
 `;
 
 /** Composite: read the resolved cloud result instead of integrating it. */
-export const temporalCompositeShader=`
+const temporalCompositeShader=`
 uniform sampler2D temporalRadiance,temporalDepth;
 ${entryShader}
 vec3 temporalClouds(vec2 uv,vec3 ray,float groundDistance,vec3 background,out float atmosphereDistance){
@@ -136,6 +140,10 @@ vec3 temporalClouds(vec2 uv,vec3 ray,float groundDistance,vec3 background,out fl
   return max(vec3(0.),background*light.a+light.rgb${PRE_EXPOSURE?'/sceneExposure()':''});
 }
 `;
+return {temporalCloudMain,temporalResolveFragment,temporalCompositeShader};
+});
+/** The default program's temporal passes. */
+export const {temporalCloudMain,temporalResolveFragment,temporalCompositeShader}=temporalShadersFor('current');
 
 type Target={framebuffer:WebGLFramebuffer;textures:WebGLTexture[]};
 /** A half-width fresh target and two full-resolution resolved targets. */

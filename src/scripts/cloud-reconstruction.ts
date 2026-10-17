@@ -1,7 +1,8 @@
-import { PRE_EXPOSURE } from './pre-exposure';
+import { perNightMode } from './physical-night';
+import { preExposure } from './pre-exposure';
 /** Depth metadata stores small residuals so Float16 does not round orbital
  * distances to kilometre steps. For sky rays the residual is opacity weighted. */
-export const cloudReconstructionShader = `
+export const cloudReconstructionShaderFor = perNightMode(mode=>`
 uniform sampler2D cloudRadiance;
 uniform sampler2D cloudDepth;
 uniform vec2 cloudResolution;
@@ -45,6 +46,8 @@ vec3 reconstructClouds(vec2 uv,vec3 ray,float groundDistance,vec3 background,out
   float opacity=1.-light.a;
   atmosphereDistance=groundDistance;
   if(opacity>.001)atmosphereDistance=groundDistance>0.?groundDistance+depth:cloudEntry(ray)+depth/opacity;
-  return max(vec3(0.),background*light.a+light.rgb${PRE_EXPOSURE?'/sceneExposure()':''});
+  return max(vec3(0.),background*light.a+light.rgb${preExposure(mode)?'/sceneExposure()':''});
 }
-`;
+`);
+/** The default program's reconstruction. */
+export const cloudReconstructionShader=cloudReconstructionShaderFor('current');

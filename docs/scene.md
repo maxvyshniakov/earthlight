@@ -496,9 +496,12 @@ whole stop near its mark, and hides under manual exposure. Each tape's keys sit
 together under it, 20 px off and on the presets' 24 px pitch, with their names on
 the inner side of the caps: Farther R and Closer F under the altitude tape; Zoom
 in +, Zoom out − and Reset zoom 0 (back to 1×) under the lens tape; Night mode
-N under the exposure tape. N is a latched key: it reloads the same view with
-`night=video` (physical night, see `lab/night-camera-2026-10-17.md`) or
-without it, and its cap stays white while on, as the orbit presets' do. + and −
+N under the exposure tape. N is a latched key: it switches physical night
+(`night=video`, see `lab/night-camera-2026-10-17.md`) on or off in place,
+without a reload, and its cap stays white while on, as the orbit presets' do.
+The address follows with `history.replaceState`; links with `night=still`
+still open the stills program, and N from there switches to the default
+program (see [Night switch](lab/night-switch-2026-10-17.md)). + and −
 replaced Z and X for the lens and no longer move the camera closer or farther;
 R, F and the wheel do. 0, − and + sit side by side on the keyboard, so 0 left
 Free, which is now 1, with the orbits on 2 to 4. The horizon gauge sits at the
@@ -793,6 +796,15 @@ brings night emitters to physical radiance; see
 [docs/lab/physical-night-2026-10-17.md](lab/physical-night-2026-10-17.md).
 Its radiance targets stay half float: they store radiance pre-exposed by the
 frame's exposure ([docs/lab/pre-exposure-2026-10-17.md](lab/pre-exposure-2026-10-17.md)).
+Night mode is a value of the scene renderer, not of the page: every shader
+source and constant that depends on it is built from the mode the renderer
+holds (`sceneShadersFor(mode)`, `cameraModelShaderFor(mode)` and the other
+`…For(mode)` builders, memoised per mode), and `switchNight(mode)` changes it
+in place. The default program's sources are byte-identical to those built
+when the mode was read at import (`scripts/night-mode.test.mjs`). The switch
+compiles the next mode's programs in the background, swaps them between two
+frames and re-encodes the exposure state into the new range on the GPU; see
+[docs/lab/night-switch-2026-10-17.md](lab/night-switch-2026-10-17.md).
 
 The same GPU exposure state drives ghost radius, rounded-blade shape, off-axis
 coma, vignetting and loading defocus. Ghost area normalization avoids adding

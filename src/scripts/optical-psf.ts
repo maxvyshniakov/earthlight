@@ -1,5 +1,6 @@
-import { cameraModelShader } from './camera-model';
-import { preExposureShader } from './pre-exposure';
+import { cameraModelShaderFor } from './camera-model';
+import { preExposureShaderFor } from './pre-exposure';
+import { perNightMode } from './physical-night';
 import optics from '../data/optical-psf.json' with { type:'json' };
 export { optics };
 /** Atlas rows: the PSF tiles, then the far-field ray profiles. */
@@ -12,13 +13,13 @@ const widestBlur=rays.levels[rays.levels.length-1],lastMean=rays.mean[rays.mean.
 // nine-blade pupil (camera-iris.ts), with small wavefront errors and
 // normalized scattering wings. One tile per f-number in OPTICAL_PSF_F_NUMBERS,
 // then that f-number's far-field angular profile (scripts/build-optical-psf.mjs).
-export const opticalPsfSource = `
+export const opticalPsfSourceFor = perNightMode(mode=>`
 uniform sampler2D opticalPsf;
-${cameraModelShader}
+${cameraModelShaderFor(mode)}
 #ifdef CAMERA_PUPIL_STATE
 uniform sampler2D cameraState;
 #endif
-${preExposureShader}// One atlas tile per tabulated f-number. Decode log radiance BEFORE
+${preExposureShaderFor(mode)}// One atlas tile per tabulated f-number. Decode log radiance BEFORE
 // interpolating tiles so flux remains constant through the exposure ramp.
 vec3 diffractionPsf(vec2 delta, float state) {
   vec2 uv=delta/${optics.span.toFixed(1)}+vec2(.5+.5/${optics.size.toFixed(1)});
@@ -94,4 +95,6 @@ vec3 lensPsf(vec2 delta, vec2 sourcePosition) {
   vec3 profile=mix(pupilPsf(delta,state),wing,min(.65,.32*strength));
   return profile/(diffractionScale*diffractionScale);
 }
-`;
+`);
+/** The default program's lens PSF. */
+export const opticalPsfSource=opticalPsfSourceFor('current');

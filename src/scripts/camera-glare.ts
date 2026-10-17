@@ -1,8 +1,9 @@
 import {textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
 import { FRAME_VEIL_COMPONENTS } from './solar-light';
-import { cameraModelShader } from './camera-model';
-import { PRE_EXPOSURE, preExposureShader } from './pre-exposure';
+import { cameraModelShaderFor } from './camera-model';
+import { preExposure, preExposureShaderFor } from './pre-exposure';
+import { perNightMode, type NightMode } from './physical-night';
 
 /** Per-axis spread of pyramid level k: σ = this · 2^k full-resolution pixels.
  * Box 4×4 downsampling (1.25 texel² per step), the 3×3 tent upsample and the
@@ -79,7 +80,7 @@ const vertexSource='attribute vec2 position;void main(){gl_Position=vec4(positio
 // the subject level keeps blocks more than half lit, and coarser levels
 // average those into the share of area in subjects. A star never fills a
 // subject block however bright it is; a Moon a few blocks wide does.
-const downSource=`
+const downSourceFor=perNightMode(mode=>{const PRE_EXPOSURE=preExposure(mode);return `
 precision highp float;
 uniform sampler2D source;
 uniform vec2 sourceSize;
@@ -88,7 +89,7 @@ uniform vec4 solarMask;
 uniform float alphaMode;
 ${PRE_EXPOSURE?`#define CAMERA_PUPIL_STATE 1
 uniform sampler2D cameraState;
-${cameraModelShader}${preExposureShader}`:''}vec4 tap(vec2 uv){
+${cameraModelShaderFor(mode)}${preExposureShaderFor(mode)}`:''}vec4 tap(vec2 uv){
   vec4 c=texture2D(source,uv);
   if(solarMask.w>.5&&length((uv-.5)*vec2(sourceSize.x/sourceSize.y,1.)-solarMask.xy)<solarMask.z)
     c.rgb=min(c.rgb,vec3(${GLARE_SOLAR_CAP.toFixed(1)})${PRE_EXPOSURE?'*sceneExposure()':''});
@@ -103,7 +104,7 @@ void main(){
   if(alphaMode>1.5)alpha=smoothstep(.3,.9,block.a);
   else if(alphaMode>.5)alpha=.25*(lit(a.rgb)+lit(b.rgb)+lit(c.rgb)+lit(e.rgb));
   gl_FragColor=vec4(block.rgb,alpha);
-}`;
+}`;});
 // Accumulate from the coarsest level: a 3×3 tent upsample of the coarser sum
 // plus this level's weighted image.
 const upSource=`
@@ -144,7 +145,7 @@ export type MeterField={texture:WebGLTexture;rect:[number,number,number,number];
  * Costs a quarter-resolution pass and a few smaller ones; it needs filtered
  * half-float targets and is absent with the RGBE fallback. */
 export class CameraGlare {
-  static prepare(batch:ShaderProgramBatch){return {batch,down:batch.add('Camera glare down',vertexSource,downSource),up:batch.add('Camera glare up',vertexSource,upSource),copy:batch.add('Camera glare atlas',vertexSource,copySource)};}
+  static prepare(batch:ShaderProgramBatch,mode:NightMode){return {batch,down:batch.add('Camera glare down',vertexSource,downSourceFor(mode)),up:batch.add('Camera glare up',vertexSource,upSource),copy:batch.add('Camera glare atlas',vertexSource,copySource)};}
 
   private down:WebGLProgram|null=null;
   private up:WebGLProgram|null=null;
@@ -162,15 +163,26 @@ export class CameraGlare {
   private uniforms:Record<string,WebGLUniformLocation|null>={};
   constructor(private gl:WebGLRenderingContext,private pixelType:number,prepared?:ReturnType<typeof CameraGlare.prepare>){
     try{
-      this.down=prepared?prepared.batch.take(prepared.down):link(gl,downSource);
+      this.down=prepared?prepared.batch.take(prepared.down):link(gl,downSourceFor('current'));
       this.up=prepared?prepared.batch.take(prepared.up):link(gl,upSource);
       this.copy=prepared?prepared.batch.take(prepared.copy):link(gl,copySource);
       this.buffer=gl.createBuffer();if(!this.buffer)throw Error('Cannot allocate glare pass');
       gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-      for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode','cameraState'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down,name);
-      for(const name of ['coarse','detail','coarseSize','targetSize','coarseScale','detailWeight'])this.uniforms[`up.${name}`]=gl.getUniformLocation(this.up,name);
-      for(const name of ['source','rect'])this.uniforms[`copy.${name}`]=gl.getUniformLocation(this.copy,name);
+      this.locate();
     }catch(error){this.dispose();throw error;}
+  }
+  private locate(){
+    const gl=this.gl;
+    for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode','cameraState'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down!,name);
+    for(const name of ['coarse','detail','coarseSize','targetSize','coarseScale','detailWeight'])this.uniforms[`up.${name}`]=gl.getUniformLocation(this.up!,name);
+    for(const name of ['source','rect'])this.uniforms[`copy.${name}`]=gl.getUniformLocation(this.copy!,name);
+  }
+  /** Use the programs of another night mode; the pyramid stays allocated. */
+  replacePrograms(prepared:ReturnType<typeof CameraGlare.prepare>){
+    const gl=this.gl;
+    for(const program of [this.down,this.up,this.copy])if(program)gl.deleteProgram(program);
+    this.down=prepared.batch.take(prepared.down);this.up=prepared.batch.take(prepared.up);this.copy=prepared.batch.take(prepared.copy);
+    this.locate();
   }
   /** Returns the glare image at half resolution, or null when the frame is
    * too small for a pyramid. solarMask: Sun centre (frame units), footprint

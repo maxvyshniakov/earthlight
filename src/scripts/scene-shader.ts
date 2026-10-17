@@ -1,29 +1,26 @@
-import { cloudReconstructionShader } from './cloud-reconstruction';
-import { pointBrightnessShader } from './point-photometry';
-import { galacticLightShader } from './galactic-light';
+import { cloudReconstructionShaderFor } from './cloud-reconstruction';
+import { pointBrightnessShaderFor } from './point-photometry';
+import { galacticLightShaderFor } from './galactic-light';
 import { surfaceMapShader } from './surface-map';
-import { airglowLightShader } from './airglow-light';
+import { airglowLightShaderFor } from './airglow-light';
 import { lunarLightShader } from './earth-light';
-import { cityLightShader } from './city-light';
+import { cityLightShaderFor } from './city-light';
 import { AURORA_RADIANCE_RANGE } from './aurora';
 import { SOLAR_IRRADIANCE, SOLAR_RADIUS, SOLAR_RADIANCE, SOLAR_SCATTER_FRACTION } from './solar-light';
 import { LUNAR_SAMPLE_COUNT } from './celestial-sky';
-import { optics, opticalPsfSource } from './optical-psf';
+import { optics, opticalPsfSourceFor } from './optical-psf';
 import { SOLAR_RESOLVED_PX, solarDiskShader } from './solar-disk';
 import { nightTileShader, dayTileShader, cloudTileShader } from './night-tiles';
 import { dayPyramidShader } from './day-pyramid';
-import { cloudShader } from './earth-clouds';
+import { cloudShaderFor } from './earth-clouds';
 import { terrainShader } from './earth-terrain';
 import { sceneColorShader } from './scene-color';
 import { atmosphericLightShader } from './atmospheric-light';
 import { solarAureoleShader } from './solar-aureole';
 import { SOLAR_ROWS } from './limb-refraction';
 import { noiseTableShader } from './noise-table';
-import { PHYSICAL_NIGHT, nightScaleGlsl } from './physical-night';
-import { PRE_EXPOSURE, PRE_EXPOSED_MAX } from './pre-exposure';
-// Scales radiance into or out of the pre-exposed targets; '' by default.
-const storePreExposed=PRE_EXPOSURE?'*sceneExposure()':'',readPreExposed=PRE_EXPOSURE?'/sceneExposure()':'';
-const stored=(value:string)=>PRE_EXPOSURE?`min(${value}${storePreExposed},vec3(${PRE_EXPOSED_MAX}.))`:value;
+import { nightScaleGlsl, perNightMode, physicalNight } from './physical-night';
+import { preExposure, PRE_EXPOSED_MAX } from './pre-exposure';
 
 // ISS trajectory and sunlight, graded like a photograph taken from orbit.
 // All distant lights share a camera rotation. Earth's limb stays stationary;
@@ -33,7 +30,14 @@ attribute vec2 position;
 void main() { gl_Position = vec4(position, 0.0, 1.0); }
 `;
 
-export const fragmentSource = `
+/** The scene passes for a night mode. The default program's sources are
+ * byte-identical to those before the mode became a runtime value. */
+export const sceneShadersFor=perNightMode(mode=>{
+const PHYSICAL_NIGHT=physicalNight(mode),PRE_EXPOSURE=preExposure(mode);
+// Scales radiance into or out of the pre-exposed targets; '' by default.
+const storePreExposed=PRE_EXPOSURE?'*sceneExposure()':'',readPreExposed=PRE_EXPOSURE?'/sceneExposure()':'';
+const stored=(value:string)=>PRE_EXPOSURE?`min(${value}${storePreExposed},vec3(${PRE_EXPOSED_MAX}.))`:value;
+const fragmentSource = `
 precision highp float;
 precision highp sampler2D;
 uniform vec2 resolution;
@@ -74,7 +78,7 @@ uniform sampler2D auroraMap;
 uniform vec4 moonSamples[${LUNAR_SAMPLE_COUNT}];
 // Share of the Moon drawn by MoonSurface's resolved pass instead of this sampled disk.
 uniform float lunarResolved;
-${PHYSICAL_NIGHT?'// The disk tied to moonlight (earth-light.ts, lunarDiskGain).\nuniform float lunarDiskGain;\n':''}${opticalPsfSource}
+${PHYSICAL_NIGHT?'// The disk tied to moonlight (earth-light.ts, lunarDiskGain).\nuniform float lunarDiskGain;\n':''}${opticalPsfSourceFor(mode)}
 ${solarDiskShader}
 ${nightTileShader}
 ${dayTileShader}
@@ -117,14 +121,14 @@ vec2 earthUV(vec3 n) {
 }
 
 ${terrainShader}
-${pointBrightnessShader}
+${pointBrightnessShaderFor(mode)}
 ${surfaceMapShader}
 ${atmosphericLightShader}
 ${lunarLightShader}
-${airglowLightShader}
-${galacticLightShader}
-${cityLightShader}
-${cloudShader}
+${airglowLightShaderFor(mode)}
+${galacticLightShaderFor(mode)}
+${cityLightShaderFor(mode)}
+${cloudShaderFor(mode)}
 
 // Shared exposure-normalized sunlight for diffuse ground and clear air.
 // E / pi gives the ground's Lambertian response; E also feeds scattering.
@@ -274,7 +278,7 @@ void main() {
   vec3 catalogLight=mix(pow(stars,vec3(2.2)),stars,starsLinear)${readPreExposed};
   // Add emitted light; the galactic image has no opacity or extinction mask
   // for foreground stars. Camera exposure handles both daytime and nighttime.
-  color=pow(vec3(.0015,.002,.0035),vec3(2.2))*${nightScaleGlsl('sky')}+galacticLight+catalogLight;
+  color=pow(vec3(.0015,.002,.0035),vec3(2.2))*${nightScaleGlsl('sky',mode)}+galacticLight+catalogLight;
   for(int i=0;i<5;i++) {
     vec3 body=planets[i].xyz;
     float brightness=pointBrightness(planets[i].w);
@@ -487,7 +491,7 @@ void main() {
   color+=airglow;
   vec3 auroralLight=vec3(0.);
   #ifdef AURORA
-  auroralLight=pow(texture2D(auroraMap,uv).rgb,vec3(2.))*${AURORA_RADIANCE_RANGE.toFixed(1)}*${nightScaleGlsl('aurora')};
+  auroralLight=pow(texture2D(auroraMap,uv).rgb,vec3(2.))*${AURORA_RADIANCE_RANGE.toFixed(1)}*${nightScaleGlsl('aurora',mode)};
   color+=auroralLight;
   #endif
 
@@ -510,7 +514,7 @@ void main() {
 // The Sun's texel is the mean transmission of its visible refracted rows:
 // near the limb the top of the disk is far clearer than its centre, and
 // cloud tops hide the lower rows first.
-export const sourceTransmissionFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
+const sourceTransmissionFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
 uniform vec4 solarRows[${SOLAR_ROWS}];
 void main(){
   float source=floor(gl_FragCoord.x);
@@ -535,7 +539,7 @@ void main(){
 
 // Compile the same volume/optics code independently from terrain and surface
 // shading. The intermediate buffer carries linear radiance and exact distance.
-export const volumeFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
+const volumeFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
 uniform sampler2D worldScene;
 void main(){
   vec2 uv=gl_FragCoord.xy/resolution;
@@ -556,7 +560,7 @@ void main(){
 
 // One MRT cloud integral per half-resolution pixel. Snap to the sampled world
 // texel so terrain depth and the ray agree, including odd framebuffer sizes.
-export const halfCloudFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
+const halfCloudFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
 uniform sampler2D worldScene;
 uniform vec2 cloudResolution;
 void main(){
@@ -576,8 +580,12 @@ void main(){
   gl_FragData[1]=vec4(depth,world.a,0.,1.);
 }
 `;
-export const halfCloudVolumeFragment=volumeFragment
-  .replace('uniform sampler2D worldScene;', 'uniform sampler2D worldScene;\n'+cloudReconstructionShader)
+const halfCloudVolumeFragment=volumeFragment
+  .replace('uniform sampler2D worldScene;', 'uniform sampler2D worldScene;\n'+cloudReconstructionShaderFor(mode))
   .replace('color=cloudVolume(earthRay,groundDistance,color,atmosphereDistance)',
     'color=reconstructClouds(uv,earthRay,groundDistance,color,atmosphereDistance)')
 ;
+return {fragmentSource,sourceTransmissionFragment,volumeFragment,halfCloudFragment,halfCloudVolumeFragment};
+});
+/** The default program's scene passes. */
+export const {fragmentSource,sourceTransmissionFragment,volumeFragment,halfCloudFragment,halfCloudVolumeFragment}=sceneShadersFor('current');

@@ -1,9 +1,9 @@
-import { PHYSICAL_NIGHT } from './physical-night';
+import { physicalNight, type NightMode } from './physical-night';
 /** Lunar irradiance relative to full Moon at a phase angle in radians. The
  * night lab uses the measured law of Krisciunas & Schaefer (1991), which
  * has the opposition surge: a quarter Moon gives 9%, not a Lambert sphere's 32%. */
-export function lunarPhaseIrradiance(angle:number){
-  if(!PHYSICAL_NIGHT)return lambertPhase(angle);
+export function lunarPhaseIrradiance(angle:number,mode:NightMode='current'){
+  if(!physicalNight(mode))return lambertPhase(angle);
   return lunarPhaseLaw(angle);
 }
 /** Krisciunas & Schaefer (1991): m(α) = −12.73 + 0.026|α| + 4 × 10⁻⁹ α⁴, relative to full. */
@@ -21,7 +21,7 @@ const MEAN_LUNAR_RADIUS=1737.4/384400;
  * FULL_MOON_IRRADIANCE × lunarPhaseIrradiance, so a full disk has
  * E/(π r²) ≈ 0.086 scene units, 5 200 cd/m² (Schmidt 2009: 4 900–5 400). A
  * Lambert disk's mean cos(incidence) is 2/3 of the Lambert phase function. */
-export function lunarDiskGain(angle:number,physical=PHYSICAL_NIGHT){
+export function lunarDiskGain(angle:number,physical=false){
   if(!physical)return 18;
   return FULL_MOON_IRRADIANCE*lunarPhaseLaw(angle)/(Math.PI*MEAN_LUNAR_RADIUS**2*2/3*Math.max(lambertPhase(angle),1e-6));
 }

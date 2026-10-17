@@ -1,10 +1,11 @@
 import {textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
 import { sceneColorShader } from './scene-color';
-import { cameraModelShader } from './camera-model';
+import { cameraModelShaderFor } from './camera-model';
+import { perNightMode, type NightMode } from './physical-night';
 import { sceneImageShader } from './scene-image';
 import { IRIS_BLADES, IRIS_ROTATION, cameraIrisShader } from './camera-iris';
-const fragmentSource=`
+const fragmentSourceFor=perNightMode(mode=>`
 precision highp float;
 uniform sampler2D scene;
 uniform sampler2D exposureState;
@@ -14,7 +15,7 @@ uniform float focusRadius;
 uniform float sceneLinear;
 float cameraPupilScale;
 ${sceneColorShader}
-${cameraModelShader}
+${cameraModelShaderFor(mode)}
 ${cameraIrisShader}
 ${sceneImageShader}
 vec3 defocusedImage(vec2 uv){
@@ -42,12 +43,12 @@ void main(){
   vec3 color=defocusedImage(gl_FragCoord.xy/resolution);
   gl_FragColor=sceneLinear>.5?vec4(color,1.):packSceneRadiance(color);
 }
-`;
+`);
 /** A temporary optical image reused by all three chromatic channels. Full
  * scene resolution avoids a soft last frame; the scene already scales while
  * loading. Once focused there is no pass or retained defocus render target. */
 export class CameraDefocus {
- static prepare(batch:ShaderProgramBatch){return {batch,program:batch.add('Camera defocus','attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',fragmentSource)};}
+ static prepare(batch:ShaderProgramBatch,mode:NightMode){return {batch,program:batch.add('Camera defocus','attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',fragmentSourceFor(mode))};}
 
  private program:WebGLProgram|null=null;
  private buffer:WebGLBuffer|null=null;
@@ -65,7 +66,7 @@ export class CameraDefocus {
    this.program=prepared?prepared.batch.take(prepared.program):gl.createProgram();this.buffer=gl.createBuffer();
    if(!this.program||!this.buffer)throw Error('Cannot allocate defocus pass');
    if(!prepared){
-     for(const [type,source] of [[gl.VERTEX_SHADER,'attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}'],[gl.FRAGMENT_SHADER,fragmentSource]] as const){
+     for(const [type,source] of [[gl.VERTEX_SHADER,'attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}'],[gl.FRAGMENT_SHADER,fragmentSourceFor('current')]] as const){
       const shader=gl.createShader(type);if(!shader)throw Error('Cannot allocate defocus shader');
       shaders.push(shader);gl.shaderSource(shader,source);gl.compileShader(shader);
       if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(shader)??'Defocus compilation failed');
@@ -75,9 +76,18 @@ export class CameraDefocus {
      if(!gl.getProgramParameter(this.program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(this.program)??'Defocus link failed');
    }
    gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-   this.position=gl.getAttribLocation(this.program,'position');
-   for(const name of ['scene','exposureState','resolution','pixelRatio','focusRadius','sceneLinear'])this.uniforms[name]=gl.getUniformLocation(this.program,name);
+   this.locate();
   }catch(error){this.dispose();throw error;}finally{for(const shader of shaders)gl.deleteShader(shader);}
+ }
+ private locate(){
+  const gl=this.gl;
+  this.position=gl.getAttribLocation(this.program!,'position');
+  for(const name of ['scene','exposureState','resolution','pixelRatio','focusRadius','sceneLinear'])this.uniforms[name]=gl.getUniformLocation(this.program!,name);
+ }
+ /** Use the program of another night mode. */
+ replaceProgram(prepared:ReturnType<typeof CameraDefocus.prepare>){
+  if(this.program)this.gl.deleteProgram(this.program);
+  this.program=prepared.batch.take(prepared.program);this.locate();
  }
  render(scene:WebGLTexture,exposure:WebGLTexture,width:number,height:number,pixelRatio:number,radius:number){
   if(radius<.01){this.releaseTarget();return scene;}
