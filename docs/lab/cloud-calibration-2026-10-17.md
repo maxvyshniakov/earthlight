@@ -47,6 +47,34 @@ Top: `/?orbit=high&t=1800&epoch=2026-10-08T12:00:00Z&motion=0`. Bottom:
   attenuation and lens transmission, and slant rays integrate the same column.
 - Balanced stays the default; Original and Off are unchanged.
 
+## Artifacts the denser preset exposed
+
+Owner review of Calibrated found straight edges that Balanced had hidden. None
+is new; denser thin cloud made them visible.
+
+- **Plate joins.** Across the W/E join the mean step between columns 21599 (W)
+  and 0 (E) is 7.0 levels at 10–20° N against 0.6 inside the plates, 70 at
+  70–80° N, and 14–35 at the date line from 10° N to 20° S. The existing seam
+  blend only ran south of 50° S. It now runs at every latitude, with a band
+  of constant ground width (±4.3° of longitude at the equator, widening as
+  1/cos latitude up to ±17°). This removes the radial "fold" seen from above
+  the North Pole and the straight Sahel line.
+- **Terminator.** Clouds took sunlight as a geometric step, so the Earth's
+  shadow cut the cloud field along a straight line near the equinox. Cloud
+  sunlight now passes a Chapman air column at the sunward ray's lowest point
+  (550 nm extinction, half-column ahead approximated by a logistic fit of
+  erfc). Daylit clouds are unchanged (mean full-disc difference 0.26 levels);
+  near the terminator they dim over about 20 km of tangent height, and self
+  shadows are traced while any light remains.
+- **Not the lighting cache.** An early comparison blamed the 30° cloud
+  lighting patch, but `localhost` then reached two different servers. On one
+  server the line persisted with `cloudLighting=raymarch`, `cloudDetail=0` and
+  `terrain=0`; the cache is unchanged.
+- **Flicker near the limb** is the same in both presets: a sub-pixel camera
+  turn changes limb pixels by 3.2–3.3 levels and the disc by 1.9–2.0.
+  Foreshortened cloud and surface detail is under-filtered at grazing view.
+  This needs anisotropic footprints and is not addressed here.
+
 ## Limits and judgement
 
 At full-disc scale Calibrated restores connected bands and veils close to the

@@ -30,12 +30,15 @@ float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed)
   float texels=footprint*max(1.,cloudMapWidth)/(6.283185307*latitudeScale);
   float lod=max(0.,log2(max(1.,texels)));
   float mapped=cloudMapSample(uv,lod,texels,detailed);
-  // The NASA W/E photographic plates disagree south of 50 degrees at their
-  // joins at Greenwich AND the date line. Blend paired geography only inside
-  // these narrow seam bands;
+  // The NASA W/E photographic plates disagree at their joins at Greenwich AND
+  // the date line, at most latitudes: across the join the mean step is up to
+  // 35 levels where the plates themselves step 1-3 (equatorial Pacific, the
+  // Sahel, both polar caps; the eastern plate reaches farther north). Blend
+  // paired geography only inside these seam bands, of constant ground width;
   // all density, shadow and lens-transmission paths share the correction.
   float seam=mod(uv.x+.25,.5)-.25;
-  float repair=(1.-smoothstep(.20,.23,uv.y))*(1.-smoothstep(0.,.012,abs(seam)));
+  float band=.012/max(.25,cos((uv.y-.5)*3.141592654));
+  float repair=1.-smoothstep(0.,band,abs(seam));
   if(repair>0.){
     float paired=cloudMapSample(vec2(fract(uv.x-2.*seam),uv.y),lod,texels,detailed);
     mapped=mix(mapped,(mapped+paired)*.5,repair);
@@ -272,15 +275,21 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
 #endif
       vec3 normal=normalize(point);
       float mu=dot(normal,sunDirection),sb=dot(point,sunDirection);
-      float earthDisc=sb*sb-dot(point,point)+1.;
-      float sunVisible=(sb>=0. || earthDisc<0.)?1.:0.;
+      // Sunlight reaching a cloud near the terminator grazes the air: a
+      // Chapman column at the ray's lowest point, of which .5*erfc(sb/sqrt(2H))
+      // lies ahead (logistic fit). A geometric cut drew a hard line across
+      // the cloud field; the 550 nm extinction ramps it over ~20 km of
+      // tangent height and reaches zero where the ray meets the ground.
+      float lowest=sb<0.?sqrt(max(0.,dot(point,point)-sb*sb)):length(point);
+      float grazing=exp(-max(-20.,(lowest-1.)*6371./8.))/(1.+exp(min(40.,sb*45.)));
+      float sunVisible=exp(-86.0085*.0888*grazing);
       float dusk=1.-smoothstep(.01,.22,mu);
       vec3 sunColor=mix(vec3(1.,.98,.94),vec3(1.,.46,.20),dusk*.8);
       float shadow=1.;
 #ifdef SHARED_CLOUD_LIGHTING
       // Preserve every density sample. Reuse the expensive light integral
       // between four view samples, interpolating at their actual positions.
-      if(sunVisible>.5){
+      if(sunVisible>.01){
         float block=floor(float(i)/4.);
         if(block!=shadowBlock){
           float end=entry+(min(block*4.+4.,viewSteps-1.)+.5)*stepLength;
@@ -295,7 +304,7 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
         shadow=mix(shadowStart,shadowEnd,(float(i)-block*4.)/span);
       }
 #else
-      shadow=sunVisible>.5?cloudShadow(point):1.;
+      shadow=sunVisible>.01?cloudShadow(point):1.;
 #endif
       // Twilight belongs to the Sun; no source-independent night fill.
       float ambient=smoothstep(-.15,.20,mu)*.09;

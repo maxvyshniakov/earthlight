@@ -115,7 +115,8 @@ vec2 earthUV(vec3 n){return vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592
 float detailedCloud(vec2 uv,float footprint,float fallback){return fallback;}
 ${cloudShader.slice(0,cloudShader.indexOf('// Once an octave'))}
 void main(){
- float longitude=(gl_FragCoord.x/256.-.5)*.032*6.283185307+ev;
+ // The seam band widens as 1/cos(latitude): at 60 degrees it spans +-.024 of the map.
+ float longitude=(gl_FragCoord.x/256.-.5)*.064*6.283185307+ev;
  vec3 n=vec3(cos(longitude)*.5,sin(longitude)*.5,-.866025404);
  gl_FragColor=vec4(vec3(cloudCoverage(n,.00001,true)),1.);
 }`;
