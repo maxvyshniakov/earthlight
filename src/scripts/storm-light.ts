@@ -1,6 +1,7 @@
 // Selected dense cloud complexes move in the cloud atlas material frame.
 // Their electrical activity is illustrative, not inferred from cloud whiteness.
 import {stormRegions} from './storm-regions.ts';
+import {nightScale} from './physical-night.ts';
 export const MAX_STORM_LIGHTS=8;
 const random=(seed:number)=>{const x=Math.sin(seed*127.1+311.7)*43758.5453;return x-Math.floor(x);};
 type Stroke={start:number;width:number;energy:number};
@@ -77,7 +78,9 @@ export function stormLights(time:number,rate:number,camera:ArrayLike<number>,bas
  }
  active.sort((a,b)=>b.score-a.score);
  const sources=new Float32Array(MAX_STORM_LIGHTS*4);
- for(let i=0;i<Math.min(active.length,MAX_STORM_LIGHTS);i++)sources.set([...active[i].point,active[i].energy],i*4);
+ // Physical night divides the flash with the cities it was set against.
+ const scale=nightScale('lightning');
+ for(let i=0;i<Math.min(active.length,MAX_STORM_LIGHTS);i++)sources.set([...active[i].point,active[i].energy*scale],i*4);
  return sources;
 }
 

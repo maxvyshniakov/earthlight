@@ -29,6 +29,11 @@ export const NIGHT_EXCESS={
   /** The constant sky floor under the Milky Way. */
   sky:600,
   aurora:2.4e4,
+  /** Lightning was set by eye against the default program's cities, so it
+   * shares their divisor: the flash-to-city ratio of the accepted view
+   * stays. Left out, flashes bloomed 2 × 10⁴ times too bright. Not yet
+   * calibrated against LIS/GLM optical energies. */
+  lightning:2e4,
 } as const;
 export type NightEmitter=keyof typeof NIGHT_EXCESS;
 /** Scale for an emitter in the current mode: 1 unless the lab is on. */

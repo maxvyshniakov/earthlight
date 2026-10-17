@@ -195,3 +195,13 @@ timing check in three runs, each at a different one: the passive cadence at
 22.9 fps, then at 40.0 fps, then a loop over the top during flight. Default
 shader sources are byte-identical to the parent (19 and 21 programs), so the
 default program is not what changed there; rerun it on an idle machine.
+
+## Follow-up: lightning
+
+Owner review of the limb view at `night=video` found huge blooms where
+thunderstorms flashed. Lightning was not among the night emitters: its
+energy had been set by eye against the default program's cities, which
+this mode divides by 2 × 10⁴. It now shares the city divisor
+(`NIGHT_EXCESS.lightning`), so the flash-to-city ratio of the accepted
+default view is kept. This is not a calibration against LIS/GLM optical
+energies.
