@@ -17,7 +17,7 @@ const short = splits(scale.map(({ km, split }) => ({ at: position(km), split }))
 // ticks follow the 1-2-5 series, nearly even on a log scale with both ends
 // labelled; short ticks keep one pitch along the whole tape, about a sixth of an octave.
 const lensPosition = (zoom: number) => (1 - Math.log(zoom / LENS_MIN) / Math.log(LENS_MAX / LENS_MIN)) * 100;
-const lensScale = [{ zoom: LENS_MIN, split: 6 }, { zoom: 1, split: 6 }, { zoom: 2, split: 8 }, { zoom: 5, split: 6 }, { zoom: 10, split: 6 }, { zoom: LENS_MAX, split: 0 }];
+const lensScale = [{ zoom: LENS_MIN, split: 6 }, { zoom: 1, split: 6 }, { zoom: 2, split: 8 }, { zoom: 5, split: 6 }, { zoom: 10, split: 6 }, { zoom: 20, split: 8 }, { zoom: LENS_MAX, split: 0 }];
 const lensShort = splits(lensScale.map(({ zoom, split }) => ({ at: lensPosition(zoom), split })));
 // Exposure compensation, a short linear tape over the lens tape: whole stops
 // labelled, thirds between.

@@ -139,3 +139,33 @@ for(const layer of ['night','day','cloud','galaxy','terrain'])test(`${layer} atl
 });
 
 afterEach(()=>{mock.restore();});
+
+test('magnified tiles reconstruct a cubic B-spline from four bilinear taps',()=>{
+  // The shader's tap positions and weights, applied to a random grid with
+  // ideal bilinear filtering, must equal the direct sixteen-texel B-spline.
+  const n=12,grid=Array.from({length:n*n},()=>Math.random());
+  const texel=(x,y)=>grid[Math.min(n-1,Math.max(0,y))*n+Math.min(n-1,Math.max(0,x))];
+  const bilinear=(u,v)=>{const x=u-.5,y=v-.5,i=Math.floor(x),j=Math.floor(y),fx=x-i,fy=y-j;
+    return (texel(i,j)*(1-fx)+texel(i+1,j)*fx)*(1-fy)+(texel(i,j+1)*(1-fx)+texel(i+1,j+1)*fx)*fy;};
+  const weights=f=>[(1-f)**3/6,(4-6*f*f+3*f**3)/6,(1+3*f+3*f*f-3*f**3)/6,f**3/6];
+  for(let k=0;k<200;k++){
+    const u=4+Math.random()*4,v=4+Math.random()*4;
+    const tx=u-.5,ty=v-.5,ix=Math.floor(tx),iy=Math.floor(ty),wx=weights(tx-ix),wy=weights(ty-iy);
+    let direct=0;for(let b=0;b<4;b++)for(let a=0;a<4;a++)direct+=wx[a]*wy[b]*texel(ix-1+a,iy-1+b);
+    const ax=wx[0]+wx[1],ay=wy[0]+wy[1],bx=1-ax,by=1-ay;
+    const x0=ix-.5+wx[1]/ax,y0=iy-.5+wy[1]/ay,x1=ix+1.5+wx[3]/bx,y1=iy+1.5+wy[3]/by;
+    const taps=ay*(ax*bilinear(x0,y0)+bx*bilinear(x1,y0))+by*(ax*bilinear(x0,y1)+bx*bilinear(x1,y1));
+    assert.ok(Math.abs(taps-direct)<1e-12,`${taps} vs ${direct}`);
+  }
+});
+
+test('only colour and night layers smooth magnified detail; night uses its 30" grid',async()=>{
+  const {nightTileShader,dayTileShader,galaxyTileShader,terrainTileShader,cloudTileShader}=await import('../src/scripts/night-tiles.ts');
+  for(const shader of [nightTileShader,dayTileShader,galaxyTileShader])assert.match(shader,/Smooth\(vec2 local,float slot\)/);
+  for(const shader of [terrainTileShader,cloudTileShader])assert.doesNotMatch(shader,/Smooth\(/);
+  // Black Marble repeats each 30" value in 2 x 2 blocks: smooth level 1.
+  assert.match(nightTileShader,/nightOrigin\(slot\+1\.\)\+vec2\(8\.\)\+local\*270\./);
+  assert.match(nightTileShader,/smoothstep\(1\.0,2\.0,footprint\)/);
+  assert.match(dayTileShader,/dayOrigin\(slot\)\+vec2\(16\.\)\+local\*540\./);
+  assert.match(dayTileShader,/smoothstep\(0\.5,1\.0,footprint\)/);
+});
