@@ -58,6 +58,25 @@ test('measured columns are lit by what lies beyond their own layer',()=>{
   assert.ok(ice>liquid,'the same retrieved tau of ice reflects more');
 });
 
+test('measured columns dim with the Sun like plane-parallel clouds',()=>{
+  // Mirror of cloudPropertiesSolarLaw on the shared .48+.38 cos θ0 term.
+  const law=mu=>{const m=Math.min(1,Math.max(.1,mu));return .86*m**1.19/(.48+.38*m);};
+  const radiance=mu=>law(mu)*(.48+.38*mu)/.86;
+  assert.match(cloudPropertiesShader,/return \.86\*pow\(m,1\.19\)\/\(\.48\+\.38\*m\);/);
+  assert.match(cloudShader,/solarLaw=cloudPropertiesSolarLaw\(mu\);\n#endif/);
+  assert.match(cloudShader,/sunColor\*sunVisible\*solarLaw\*\(\.20\+\.80\*shadow\)\*\(\.48\+\.38\*max\(0\.,mu\)\)/);
+  // Overhead light is unchanged; below, the law only dims and falls steadily.
+  assert.ok(Math.abs(law(1)-1)<1e-12);
+  for(let mu=.1;mu<1;mu+=.05)assert.ok(law(mu)<1&&law(mu)<law(mu+.05));
+  // Nadir radiance relative to an overhead Sun, μ0 R(μ0)/R(1), of Henyey-
+  // Greenstein slabs of τ 32 and 64 over a black sea (g 0.85 liquid, 0.75
+  // ice), from docs/lab/cloud-properties-sun-zenith-2026-10-17.md.
+  for(const [mu,target] of [[.8,.791],[.5,.452],[.5,.436],[.3,.239],[.3,.226],[.5,.444],[.3,.232],[.5,.435],[.3,.228]])
+    assert.ok(Math.abs(Math.log(radiance(mu)/target))<.07,`${mu}: ${radiance(mu)} vs ${target}`);
+  // The default renderer has no solar law.
+  assert.match(cloudShader,/float solarLaw=1\.;\n#ifdef CLOUD_PROPERTIES\n/);
+});
+
 test('the overview alpha carries observed and sea ice without crossing branches',()=>{
   // Mirrors of prepare-cloud-properties.mjs and cloudPropertiesSeaIce.
   const encode=(observed,ice)=>Math.round((observed?.3+.7*ice:.15*ice)*255);

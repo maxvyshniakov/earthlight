@@ -85,6 +85,10 @@ cloud, the dark column at 180° and stepped polar veils. The study also lays
 that day's sea ice (GHRSST MUR concentration) on the sea under its clouds,
 which the day map lacks; see
 [sea ice under measured clouds](lab/cloud-properties-sea-ice-2026-10-17.md).
+Its columns' sunlight falls as cos θ₀^1.19, like a plane-parallel cloud's,
+instead of the shared 0.48 + 0.38 cos θ₀, which let clouds outshine ice and
+snow two to three times at low Sun; see
+[surfaces against clouds at low Sun](lab/cloud-properties-sun-zenith-2026-10-17.md).
 
 
 Build scripts and official source URLs are in `public/media/earthlight/README.md`.

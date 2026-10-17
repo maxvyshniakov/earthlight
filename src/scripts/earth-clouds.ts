@@ -381,12 +381,14 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
 #else
       shadow=sunVisible>.01?cloudShadow(point):1.;
 #endif
+      float solarLaw=1.;
 #ifdef CLOUD_PROPERTIES
       if(sunVisible>.5)shadow=cloudPropertiesIllumination(point,footprint,shadow);
+      solarLaw=cloudPropertiesSolarLaw(mu);
 #endif
       // Twilight belongs to the Sun; no source-independent night fill.
       float ambient=smoothstep(-.15,.20,mu)*.09;
-      vec3 light=vec3(.76,.84,1.)*ambient+sunColor*sunVisible*(.20+.80*shadow)*(.48+.38*max(0.,mu))*(.8+forward*.30);
+      vec3 light=vec3(.76,.84,1.)*ambient+sunColor*sunVisible*solarLaw*(.20+.80*shadow)*(.48+.38*max(0.,mu))*(.8+forward*.30);
       light+=nightSky;
       // Moonlight is irradiance: a cloud of albedo 0.8 returns 0.8/pi of it.
       light+=lunarLight*${PHYSICAL_NIGHT?'(.8/3.141592654)*':''}(.20+.80*max(0.,dot(normal,lunarDirection)));

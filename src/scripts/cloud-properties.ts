@@ -134,6 +134,19 @@ float cloudPropertiesIllumination(vec3 point,float footprint,float transmission)
   float mu=max(.2,dot(normalize(point),sunDirection));
   return min(1.,transmission*exp(above/mu));
 }
+// How measured columns follow the Sun. The shared cloud light falls as
+// .48+.38 cos θ0, only to 0.80 of its overhead value at cos θ0 = 0.5, while
+// a lit surface falls as cos θ0: at low Sun the clouds outshone sea ice and
+// snow 2 to 3 times against VIIRS and EPIC. A plane-parallel cloud that
+// multiple scattering makes bright falls as cos θ0^1.19 (Monte Carlo of
+// Henyey-Greenstein slabs, τ 32 to 64; 12% brighter at τ 16). EPIC shows
+// thin and mid columns dimming the same way, so one law serves all. It is 1
+// overhead, where the EPIC comparison was made. Below cos θ0 = 0.1 the tops'
+// relief, not their plane, faces the Sun.
+float cloudPropertiesSolarLaw(float mu){
+  float m=clamp(mu,.1,1.);
+  return .86*pow(m,1.19)/(.48+.38*m);
+}
 #ifdef CLOUD_PROPERTIES_QUALITY
 // Diagnostic colours: low (top < 3.2 km) green, middle amber, high violet;
 // ground that NOAA-20 did not observe in daylight is hatched purple.
