@@ -343,3 +343,19 @@ illumination-dependent; height/tau are broadly filtered quantized retrieval
 previews. Missing properties are not interpreted as clear sky. Vertical layers
 are illustrative. Generate with `scripts/prepare-modis-orbit.mjs` after the
 MODIS demo importer. This texture is not part of default Orbit loading.
+
+`cloud-properties/2026-09-22/` holds measured cloud properties for the opt-in
+lab study `cloudStudy=global`: `overview.avif` (4,096 × 2,048 RGBA: opacity,
+cloud-top height / 16 km, ice fraction, observed fraction), `tiles/` (2.4 km
+opacity in the cloud-atlas layout) and `manifest.json` (every GIBS layer, URL,
+palette, encoding, coverage and byte count). Opacity is the albedo
+0.13τ / (1 + 0.13τ) of NOAA-20 VIIRS optical thickness
+(`VIIRS_NOAA20_Cloud_Optical_Thickness`), with top heights from
+`VIIRS_NOAA20_Cloud_Top_Height_Day` and phase from Aqua and Terra MODIS
+(`MODIS_*_Cloud_Phase_Optical_Properties`), all NASA GIBS for that date and
+decoded from the published palettes. Clouds with a height but no retrieved
+thickness take that day's median MODIS Aqua partly cloudy thickness. Nothing
+fills unobserved areas. Credit: NASA GIBS (ESDIS) and the NASA Atmosphere SIPS
+cloud products; NASA data carry no restriction on use. Build with
+`bun scripts/prepare-cloud-properties.mjs [cache]`. `assets:prepare` skips
+this directory; it is not part of a release.

@@ -23,6 +23,13 @@ const { standalone = true, assetBaseURL = import.meta.env.PUBLIC_EARTHLIGHT_ASSE
     <select id="cloud-shape"><option value="current">Current</option><option value="texture">Texture-shaped · experiment</option></select>
     <p>Same satellite map; compare shape and shadows. Height and cloud types are still illustrative.</p>
   </aside>
+  <aside class="cloud-properties-study scene-comparison" hidden aria-label="Measured cloud comparison">
+    <label for="cloud-properties-mode">Облака по измерениям · 22 сентября 2026</label>
+    <select id="cloud-properties-mode"><option value="plates">A · Снимок 2001 г., Calibrated</option><option value="global">B · NOAA-20 VIIRS: высота, толщина, фаза</option></select>
+    <p>Сравни типы облаков: перистые вуали, низкие слоисто-кучевые поля, глубокую конвекцию. Камера при переключении сохраняется.</p>
+    <nav aria-label="Measured cloud views"><a data-cloud-properties-view="disc" href={exploreURL}>Диск, как EPIC</a> · <a data-cloud-properties-view="region" href={exploreURL}>2000 км</a> · <a data-cloud-properties-view="iss" href={exploreURL}>МКС над Чадом</a> · <a data-cloud-properties-quality href={exploreURL}>Диагностика</a></nav>
+    <details><summary>Об этом сравнении</summary><p>Облака B — дневной пролёт NOAA-20 (около 13:30 местного времени) за одни сутки: оптическая толщина задаёт непрозрачность, высота — верх облака, фаза MODIS — тип. Основание и профиль выведены. Где спутник не видел облака днём, облаков нет; в диагностике такие места заштрихованы. <a href={assetURL('cloud-properties/2026-09-22/manifest.json',assetBaseURL)} target="_blank" rel="noopener">Данные и источник</a></p></details>
+  </aside>
   <aside class="modis-study scene-comparison" hidden aria-label="MODIS comparison">
     <label for="modis-study-mode">Тихий океан · MODIS, 1 июня 2025</label>
     <select id="modis-study-mode"><option value="photo">A · Снимок + прежняя форма</option><option value="modis">B · Тот же снимок + данные MODIS</option></select>
@@ -85,10 +92,10 @@ const { standalone = true, assetBaseURL = import.meta.env.PUBLIC_EARTHLIGHT_ASSE
   .scene-comparison label { display: block; color: #ffffff99; font-size: 11px; }
   .scene-comparison select { width: 100%; min-height: 36px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; color-scheme: dark; }
   .scene-comparison p { margin: 4px 0 0; color: #ffffffb3; }
-  .modis-study { top: 70px; left: 24px; right: auto; }
-  .modis-study nav { margin-top: 10px; }
-  .modis-study a { color: #d1e6ff; }
-  .modis-study details { margin-top: 8px; color: #ffffffa8; }
+  :is(.modis-study, .cloud-properties-study) { top: 70px; left: 24px; right: auto; }
+  :is(.modis-study, .cloud-properties-study) nav { margin-top: 10px; }
+  :is(.modis-study, .cloud-properties-study) a { color: #d1e6ff; }
+  :is(.modis-study, .cloud-properties-study) details { margin-top: 8px; color: #ffffffa8; }
   earthlight-explorer:is([data-cloud-study="photo"], [data-cloud-study="modis"]) :global(:is(.hud-verbs, .hud-time)) { display: none; }
   /* Diagnostics: render comparisons and the `perf=1` readout. The explorer stacks them top left. */
   .explorer-service { display: contents; }
@@ -96,8 +103,8 @@ const { standalone = true, assetBaseURL = import.meta.env.PUBLIC_EARTHLIGHT_ASSE
   earthlight-explorer[data-composition="explorer"] .explorer-service { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 108px); left: max(12px, env(safe-area-inset-left)); z-index: 6; display: grid; justify-items: start; gap: 8px; max-width: calc(100vw - 24px); pointer-events: none; }
   earthlight-explorer[data-composition="explorer"] .explorer-service > *, earthlight-explorer[data-composition="explorer"] :global(.explorer-perf) { position: static; inset: auto; }
   @media (max-width: 700px) {
-    .modis-study { top: max(68px, calc(env(safe-area-inset-top) + 60px)); left: 16px; right: 16px; width: calc(100vw - 32px); }
-    .modis-study > p { display: none; }
+    :is(.modis-study, .cloud-properties-study) { top: max(68px, calc(env(safe-area-inset-top) + 60px)); left: 16px; right: 16px; width: calc(100vw - 32px); }
+    :is(.modis-study, .cloud-properties-study) > p { display: none; }
   }
   /* Browser bars reveal more of this stable surface without resizing GPU targets. */
   /* --explorer-inset-bottom is the explorer's docked controls panel: the scene ends above it. */

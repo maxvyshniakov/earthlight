@@ -465,7 +465,7 @@ while it is open. The panel's text and key caps share one size and a 16 KB
 subset of Inter (`public/fonts`, OFL, weights 400–700) for its arrows and ⇧ ⌥;
 inline keys sit on the text baseline. Info and
 Settings are centred dialogs that scroll inside: Info carries a short note on
-what the scene shows and the image credits. Diagnostics (`compare=1`, the MODIS study, `perf=1`) stack in
+what the scene shows and the image credits. Diagnostics (`compare=1`, the MODIS study, the measured cloud study, `perf=1`) stack in
 the top-left corner, under the presets. The altitude tape stands alone at the middle of the right
 edge, without a card and without an axis line: the right ends of its ticks form
 the line. Long ticks sit at 1, 2, 3 and 5 of each decade from the 150 km floor

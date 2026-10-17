@@ -62,6 +62,11 @@ and their shadows. Old `clouds=broken` links use Balanced: the earlier .32
 coverage cutoff was rejected because it left only sparse bright cores.
 The MODIS study keeps its own input by default. See the
 [full-disc revision](lab/2026-10-11-cloud-balanced.md).
+`cloudStudy=global` (lab) replaces the plates with measured cloud properties
+for 22 September 2026: NOAA-20 VIIRS optical thickness and top height, MODIS
+phase. Opacity is the plane-parallel albedo of the optical thickness; bases
+and profiles are inferred per type, and unobserved places stay clear. See
+[measured cloud properties](lab/cloud-properties-2026-10-17.md).
 
 
 Build scripts and official source URLs are in `public/media/earthlight/README.md`.
