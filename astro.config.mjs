@@ -1,5 +1,6 @@
 import {defineConfig} from 'astro/config';
 import {terrainMiddleware} from './server/terrain-middleware.mjs';
+import {clientLogMiddleware} from './server/client-log-middleware.mjs';
 
 export default defineConfig({
   site: process.env.SITE_URL || 'https://earthlight.maxvyshniakov.com',
@@ -9,6 +10,7 @@ export default defineConfig({
   vite: {
     plugins: [{name: 'terrain-source', configureServer: server => {
       server.middlewares.use(terrainMiddleware);
+      server.middlewares.use(clientLogMiddleware);
     }}],
     // Agent worktrees live under .claude/; their builds and configs restarted
     // this checkout's dev server and reloaded its pages. Tailnet devices reach

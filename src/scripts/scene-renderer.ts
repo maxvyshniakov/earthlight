@@ -1,3 +1,4 @@
+import { reportToDevServer } from './dev-report';
 import {cropTextureBitmap} from './texture-bitmap.ts';
 import { lunarPhaseIrradiance, lunarDiskGain } from './earth-light';
 import {assetURL,type SceneSources} from './asset-location';
@@ -637,16 +638,16 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         release();
         if(retryTemporal){
           disableTemporal=true;
-          console.warn('Temporal cloud shaders unavailable; retaining compact rendering.',error);
+          console.warn('Temporal cloud shaders unavailable; retaining compact rendering.',error);reportToDevServer('temporal-retry',error,gl);
           return initialize(started);
         }
         if(retryCompact){
           disableHalfClouds=true;
-          console.warn('Half-resolution cloud shaders unavailable; retaining compact rendering.',error);
+          console.warn('Half-resolution cloud shaders unavailable; retaining compact rendering.',error);reportToDevServer('half-retry',error,gl);
           return initialize(started);
         }
         state.shaderStartup='failed';state.shaderCompileMs=(performance.now()-started).toFixed(2);notify();
-        console.warn('The scene uses its static fallback.', error);
+        console.warn('The scene uses its static fallback.', error);reportToDevServer('shader-failure',error,gl);
         return false;
       } finally {
         batch.dispose();
