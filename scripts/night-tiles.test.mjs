@@ -165,7 +165,11 @@ test('magnified tiles reconstruct a cubic B-spline from four bilinear taps',()=>
 test('only colour and night layers smooth magnified detail; night uses its 30" grid',async()=>{
   const {nightTileShader,dayTileShader,galaxyTileShader,terrainTileShader,cloudTileShader}=await import('../src/scripts/night-tiles.ts');
   for(const shader of [nightTileShader,dayTileShader,galaxyTileShader])assert.match(shader,/Smooth\(vec2 local,float slot\)/);
-  for(const shader of [terrainTileShader,cloudTileShader])assert.doesNotMatch(shader,/Smooth\(/);
+  assert.doesNotMatch(terrainTileShader,/Smooth\(/);
+  // The plates' cloud tiles stay bilinear; only measured clouds (CLOUD_PROPERTIES) smooth.
+  const measured=/\n#ifdef CLOUD_PROPERTIES\n[\s\S]*?\n#endif\n/g;
+  assert.match(cloudTileShader,/#ifdef CLOUD_PROPERTIES\n[^#]*float cloudSmooth\(vec2 local,float slot\)/);
+  assert.doesNotMatch(cloudTileShader.replace(measured,'\n'),/Smooth\(/);
   // Black Marble repeats each 30" value in 2 x 2 blocks: smooth level 1.
   assert.match(nightTileShader,/nightOrigin\(slot\+1\.\)\+vec2\(8\.\)\+local\*270\./);
   assert.match(nightTileShader,/smoothstep\(1\.0,2\.0,footprint\)/);

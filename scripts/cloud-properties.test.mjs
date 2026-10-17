@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_OVERVIEW,CLOUD_PROPERTIES_PENDING,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 import {fragmentSource} from '../src/scripts/scene-shader.ts';
+import {cloudTileShader} from '../src/scripts/night-tiles.ts';
 
 test('measured clouds are an opt-in study',()=>{
   assert.equal(cloudPropertiesEnabled(new URLSearchParams('')),false);
@@ -121,6 +122,29 @@ test('the measured day follows the scene epoch and falls back to the default day
   for(const view of ['disc','region','iss','deck'])assert.equal(cloudPropertiesDate(cloudPropertiesURL('http://localhost/',view).searchParams).measured,true);
 });
 
+// The source as the default renderer compiles it: #ifdef CLOUD_PROPERTIES*
+// blocks removed, their #else kept.
+const defaultSource=source=>{
+  const out=[],stack=[];
+  for(const line of source.split('\n')){
+    const t=line.trim();
+    if(/^#if/.test(t)){const measured=/^#ifdef\s+CLOUD_PROPERTIES\w*/.test(t);stack.push({measured,live:!measured});if(!measured)out.push(line);continue;}
+    if(t.startsWith('#else')&&stack.at(-1)?.measured){stack.at(-1).live=true;continue;}
+    if(t.startsWith('#endif')&&stack.length){if(!stack.pop().measured)out.push(line);continue;}
+    if(stack.every(s=>s.live))out.push(line);
+  }
+  return out.join('\n');
+};
+
+test('the default renderer compiles none of the measured clouds',()=>{
+  // Directives aside (the plates' own #ifndef CLOUD_PROPERTIES), nothing measured remains.
+  for(const source of [fragmentSource,cloudShader,cloudTileShader])assert.doesNotMatch(defaultSource(source).split('\n').filter(line=>!line.trim().startsWith('#')).join('\n'),/cloudProperties|CLOUD_PROPERTIES/);
+  // The plates' cloud tiles keep bilinear magnification.
+  assert.doesNotMatch(defaultSource(cloudTileShader),/cloudSmooth/);
+  assert.match(defaultSource(cloudTileShader),/float smooth=0\.;/);
+  assert.match(cloudTileShader,/#ifdef CLOUD_PROPERTIES\n  float smooth=1\.-smoothstep\(\.5,1\.,footprint\);/);
+});
+
 test('measured clouds load clear, never as sea ice',()=>{
   // Mirrors of cloudPropertiesObserved and cloudPropertiesSeaIce on the placeholder texel.
   const [r,,,a]=CLOUD_PROPERTIES_PENDING.map(x=>x/255),ice=x=>Math.min(1,Math.max(0,x<.225?x/.15:(x-.3)/.7));
@@ -132,4 +156,50 @@ test('measured clouds load clear, never as sea ice',()=>{
   assert.match(renderer,/new Uint8Array\(cloudProperties&&name==='cloudMap'\?CLOUD_PROPERTIES_PENDING:\[0,0,0,255\]\)/);
   // Tiles wait for the overview, which carries the measured heights.
   assert.match(cloudPropertiesShader,/if\(detailed&&cloudMapWidth>1\.\)field\.r=detailedCloud/);
+});
+
+test('a view-ray step reads the column where the ray crosses the layer',()=>{
+  assert.match(cloudShader,/#ifdef CLOUD_PROPERTIES\n    float rho=cloudPropertiesStep\(point,ray\*stepLength\*sign\(along\),footprint,stepLength\*3185\.5\*abs\(along\)\);\n#else/);
+  assert.match(cloudPropertiesShader,/point\+=stride\*\(\(centroid-height\)\/\(2\.\*halfSpan\)\);\n      field=cloudPropertiesAt\(point,footprint,true\);\n      column=cloudPropertiesColumn\(field\);/);
+  // A 2-D mirror of cloudPropertiesStep: a 0.4 km deck whose optical depth
+  // ends at a cloud edge one 2.4 km texel wide, crossed 12 degrees above the
+  // horizon by 1 km steps (balanced), level or with its top rising 80 m per km.
+  const angle=12*Math.PI/180,rise=Math.sin(angle),run=Math.cos(angle),half=.5*rise;
+  const s=t=>t*t*(3-2*t),clamp=t=>Math.min(1,Math.max(0,t)),depth=x=>.2+1.5*s(clamp((x+.7)/2.4));
+  for(const slope of [0,.08]){
+    const column=x=>[1.2+slope*x,1.6+slope*x];
+    const mass=([base,top],height)=>s(clamp((height+half-base)/(top-base)))-s(clamp((height-half-base)/(top-base)));
+    const integrate=(x0,phase,centroid)=>{
+      let tau=0;
+      for(let i=-8;i<8;i++){
+        const along=i+.5+phase,height=1.4+along*rise;
+        let x=x0+along*run,col=column(x);
+        const [base,top]=col,a=clamp((height-half-base)/(top-base)),b=clamp((height+half-base)/(top-base)),m=s(b)-s(a);
+        if(centroid&&m>1e-6){x+=(base+(top-base)*(b*b*b*(2-1.5*b)-a*a*a*(2-1.5*a))/m-height)*run/rise;col=column(x);}
+        tau+=depth(x)*mass(col,height)/rise;
+      }
+      return tau;
+    };
+    // Exact: the density along the ray itself.
+    const exact=x0=>{let t=0;for(let k=-40000;k<40000;k++){const along=(k+.5)/5000,x=x0+along*run,[base,top]=column(x),z=(1.4+along*rise-base)/(top-base);if(z>0&&z<1)t+=depth(x)*6*z*(1-z)/(top-base)/5000;}return t;};
+    // Error against the exact depth, and its spread over the step phase: the
+    // ripple neighbouring pixels draw.
+    const worst={centre:[0,0],centroid:[0,0]};
+    for(const x0 of [-2,-1,-.5,0,.5,1,2]){
+      const e=exact(x0);
+      for(const [name,centroid] of [['centre',false],['centroid',true]]){
+        const tau=[];for(let p=0;p<1;p+=.05)tau.push(integrate(x0,p,centroid));
+        worst[name][0]=Math.max(worst[name][0],...tau.map(t=>Math.abs(t-e)/e));
+        worst[name][1]=Math.max(worst[name][1],(Math.max(...tau)-Math.min(...tau))/e);
+      }
+    }
+    if(!slope){
+      assert.ok(worst.centroid[1]<worst.centre[1]/2.5,`level: phase spread ${worst.centroid[1]} against the centre read's ${worst.centre[1]}`);
+      assert.ok(worst.centroid[0]<worst.centre[0],`level: error ${worst.centroid[0]} against ${worst.centre[0]}`);
+    }else{
+      // A deck read as level within the step: steadier, a little shallower.
+      assert.ok(worst.centroid[1]<worst.centre[1],`sloping: phase spread ${worst.centroid[1]} against ${worst.centre[1]}`);
+      assert.ok(worst.centroid[0]<.25,`sloping: error ${worst.centroid[0]}`);
+    }
+  }
 });

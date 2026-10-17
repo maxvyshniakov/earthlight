@@ -24,6 +24,19 @@ function tileShader(layer:Layer){
   // 30" Black Marble 2016 plates (see the note below), 1 for VNP46A4 radiance
   // (lab, nightDetail=vnp46), which has independent 15" samples.
   const spaced=(code:(spacing:number)=>string)=>layer==='night'?`\n#ifdef NIGHT_VNP46\n${code(1)}\n#else\n${code(2)}\n#endif\n`:code(1);
+  // Code only the measured clouds (cloudStudy=global) compile; the plates' cloud
+  // tiles keep their bilinear magnification.
+  const measured=(code:string)=>layer==='cloud'?`\n#ifdef CLOUD_PROPERTIES\n${code}\n#endif\n`:'';
+  const smoothSource=`${valueType} ${layer}Smooth(vec2 local,float slot){
+  ${spaced(spacing=>`vec2 t=${spacing>1?`${layer}Origin(slot+1.)+vec2(8.)+local*${interior/2}.`:`${layer}Origin(slot)+vec2(16.)+local*${interior}.`}-.5;`)}
+  vec2 i=floor(t),f=t-i,g=f*f,c=g*f;
+  vec2 w0=(1.-3.*f+3.*g-c)/6.,w1=(4.-6.*g+3.*c)/6.,w3=c/6.;
+  vec2 a=w0+w1,b=1.-a;
+  vec2 p0=(i-.5+w1/a)/${layer}TileLayout.x,p1=(i+1.5+w3/b)/${layer}TileLayout.x;
+  return a.y*(a.x*texture2D(${layer}TileAtlas,p0).${channel}+b.x*texture2D(${layer}TileAtlas,vec2(p1.x,p0.y)).${channel})
+        +b.y*(a.x*texture2D(${layer}TileAtlas,vec2(p0.x,p1.y)).${channel}+b.x*texture2D(${layer}TileAtlas,p1).${channel});
+}
+`;
   return `
 uniform sampler2D ${layer}TileAtlas;
 uniform vec2 ${layer}TileLayout;
@@ -53,21 +66,15 @@ ${smooth?`
 // resolution. Black Marble's 15" plates repeat each 30" value in 2 x 2 blocks
 // aligned to the tile, so night lights interpolate their level 1 instead;
 // VNP46A4 tiles (lab) have independent 15" samples and use level 0.
-${valueType} ${layer}Smooth(vec2 local,float slot){
-  ${spaced(spacing=>`vec2 t=${spacing>1?`${layer}Origin(slot+1.)+vec2(8.)+local*${interior/2}.`:`${layer}Origin(slot)+vec2(16.)+local*${interior}.`}-.5;`)}
-  vec2 i=floor(t),f=t-i,g=f*f,c=g*f;
-  vec2 w0=(1.-3.*f+3.*g-c)/6.,w1=(4.-6.*g+3.*c)/6.,w3=c/6.;
-  vec2 a=w0+w1,b=1.-a;
-  vec2 p0=(i-.5+w1/a)/${layer}TileLayout.x,p1=(i+1.5+w3/b)/${layer}TileLayout.x;
-  return a.y*(a.x*texture2D(${layer}TileAtlas,p0).${channel}+b.x*texture2D(${layer}TileAtlas,vec2(p1.x,p0.y)).${channel})
-        +b.y*(a.x*texture2D(${layer}TileAtlas,vec2(p0.x,p1.y)).${channel}+b.x*texture2D(${layer}TileAtlas,p1).${channel});
-}
-`:''}
+${smoothSource}`:measured(`// Measured clouds (cloudStudy=global) magnify their 2.4 km opacity the same
+// way: bilinear ramps between texels read as squares through -log(1 - R)
+// and the lighting once a texel spans tens of pixels.
+${smoothSource}`)}
 // Explicit trilinear filtering of isolated mip levels; smooth > 0 only while
 // magnifying, where lod is zero.
 ${valueType} ${layer}Sample(vec2 local,float slot,float lod,float smooth){
   ${valueType} light=smooth<1.?${layer}Level(local,slot,floor(lod)):${valueType}(0.);
-  ${smooth?`if(smooth>0.)light=mix(light,${layer}Smooth(local,slot),smooth);`:''}
+  ${smooth?`if(smooth>0.)light=mix(light,${layer}Smooth(local,slot),smooth);`:measured(`  if(smooth>0.)light=mix(light,${layer}Smooth(local,slot),smooth);`)}
   if(fract(lod)>0.)light=mix(light,${layer}Level(local,slot,min(4.,floor(lod)+1.)),fract(lod));
   return light;
 }
@@ -121,7 +128,7 @@ ${valueType} detailed${layer==='night'?'Night':layer==='day'?'Day':layer==='gala
   // Mip gutters contain actual neighboring geography, including across the
   // NASA source plates. Smoothing reaches full weight at two pixels per
   // source sample.
-  ${smooth?spaced(spacing=>`float smooth=1.-smoothstep(${(spacing*.5).toFixed(1)},${spacing.toFixed(1)},footprint);`):'float smooth=0.;'}
+  ${smooth?spaced(spacing=>`float smooth=1.-smoothstep(${(spacing*.5).toFixed(1)},${spacing.toFixed(1)},footprint);`):layer==='cloud'?'\n#ifdef CLOUD_PROPERTIES\n  float smooth=1.-smoothstep(.5,1.,footprint);\n#else\n  float smooth=0.;\n#endif\n':'float smooth=0.;'}
   ${valueType} light=${layer}Sample(local,slot,lod,smooth);
   ${layer==='day'||layer==='cloud'?`
   // Independently compressed photos disagree even when both tiles are loaded.

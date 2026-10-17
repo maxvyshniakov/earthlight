@@ -125,6 +125,41 @@ float cloudPropertiesDensity(vec3 point,float footprint,bool detailed,float half
   // Column optical depth ln(1 + 0.13 tau): nadir opacity equals the albedo.
   return -log(1.-min(field.r,.995))*cloudPropertiesLayer(column.x,column.y,height,halfSpan);
 }
+// A view-ray step through a measured column. The step's interval average is
+// exact in height, but the column was read at the step's centre, which lies
+// up to half a step (about 0.5 km at balanced steps) beside where the ray
+// actually crosses the layer. At oblique views the ground distance, and with
+// it the step grid, shifts by a step every pixel or two, so a centre read
+// drew that grid's phase as rippled contours wherever the column changes:
+// broken cloud, whose deck thickness follows its opacity, and tops ramping
+// between low and high cloud. The column, geometry and opacity, is read again
+// at the height centroid of its 6z(1-z) layer inside the interval, moved
+// along the ray (stride: the whole step, pointing up), and the point moves
+// there for lighting. Reading only the opacity there left the ripples; the
+// geometry is what aliased. The step then treats the deck as level, which a
+// steeply sloping deck pays for in depth (docs/lab/cloud-properties-ripples-
+// 2026-10-17.md). Top height is extended to clear sky, so the first read
+// places thin edges as well.
+float cloudPropertiesStep(inout vec3 point,vec3 stride,float footprint,float halfSpan){
+  float height=(length(point)-1.)*6371.;
+  if(height<.6-halfSpan||height>12.+halfSpan)return 0.;
+  vec4 field=cloudPropertiesAt(point,footprint,true);
+  vec2 column=cloudPropertiesColumn(field);
+  float span=column.y-column.x;
+  if(halfSpan>.0001){
+    float a=clamp((height-halfSpan-column.x)/span,0.,1.),b=clamp((height+halfSpan-column.x)/span,0.,1.);
+    float mass=b*b*(3.-2.*b)-a*a*(3.-2.*a);
+    float moment=b*b*b*(2.-1.5*b)-a*a*a*(2.-1.5*a);
+    if(mass>1e-6){
+      float centroid=column.x+span*moment/mass;
+      point+=stride*((centroid-height)/(2.*halfSpan));
+      field=cloudPropertiesAt(point,footprint,true);
+      column=cloudPropertiesColumn(field);
+    }
+  }
+  if(field.r<.002)return 0.;
+  return -log(1.-min(field.r,.995))*cloudPropertiesLayer(column.x,column.y,height,halfSpan);
+}
 // Sunlight reaching a point inside a measured column. The stored opacity is
 // the column's plane-parallel albedo, which already includes its own multiple
 // scattering. Self-shadowing that column again along the sun ray, then

@@ -341,7 +341,11 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
     // |point| is 1 within 0.2% in the shell: no normalization per step.
     float along=dot(point,ray);
     vec4 ellipse=vec4(ray-point*along,pixelFootprint/max(.05,abs(along)));
+#ifdef CLOUD_PROPERTIES
+    float rho=cloudPropertiesStep(point,ray*stepLength*sign(along),footprint,stepLength*3185.5*abs(along));
+#else
     float rho=cloudIntegratedDensity(point,footprint,true,stepLength*3185.5*abs(along),ellipse);
+#endif
     if(rho>.001){
 #ifdef MODIS_GUIDANCE
       // Light the cloud mass inside the interval, not its possibly empty
