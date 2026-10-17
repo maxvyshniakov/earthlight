@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import {cloudMode} from '../src/scripts/scene-effects.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 
-test('cloud presets parse, and calibrated is opt-in',()=>{
+test('cloud presets parse, and calibrated is the default',()=>{
   const mode=query=>cloudMode(new URLSearchParams(query));
-  assert.equal(mode(''),'balanced');
+  assert.equal(mode(''),'calibrated');
   assert.equal(mode('clouds=calibrated'),'calibrated');
+  assert.equal(mode('clouds=balanced'),'balanced');
   assert.equal(mode('clouds=original'),'original');
   assert.equal(mode('clouds=off'),'off');
-  assert.equal(mode('clouds=broken'),'balanced');
+  assert.equal(mode('clouds=broken'),'calibrated');
 });
 
 test('calibrated column opacity follows NASA composite alpha over dark ocean',()=>{

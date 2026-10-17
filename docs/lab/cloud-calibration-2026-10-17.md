@@ -45,7 +45,8 @@ Top: `/?orbit=high&t=1800&epoch=2026-10-08T12:00:00Z&motion=0`. Bottom:
   every bin). Coverage, heights, relief and lighting are unchanged. The density
   is shared by view integration, shadows, the lighting cache, source
   attenuation and lens transmission, and slant rays integrate the same column.
-- Balanced stays the default; Original and Off are unchanged.
+- Balanced stays selectable; Original and Off are unchanged. After owner
+  review the same day, Calibrated became the default.
 
 ## Artifacts the denser preset exposed
 
@@ -93,8 +94,7 @@ Next candidates:
   optical thickness and phase, globally, extending the regional MODIS study.
   This is the only honest route to distinct cirrus, stratocumulus decks and
   deep convection.
-- Whether to make Calibrated the default is an owner decision after viewing
-  both on desktop and phone.
+- Made the default after owner review on 2026-10-17.
 
 ## Reproduce
 

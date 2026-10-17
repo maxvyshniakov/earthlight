@@ -19,7 +19,7 @@ const results=[];await mkdir(out,{recursive:true});
 try{
  for(const [scene,pose] of Object.entries(poses)){
   await run('set','viewport',...(['india','globe'].includes(scene)?['412','797']:['1200','800']));
-  for(const mode of ['original','balanced','off']){
+  for(const mode of ['original','balanced','calibrated','off']){
    const url=new URL(base);for(const [k,v] of Object.entries({...common,...pose,clouds:mode}))url.searchParams.set(k,String(v));
    await run('open',url.href);await wait();const value=await checked(mode);
    await ev(`(()=>{const s=document.createElement('style');s.textContent='earthlight-explorer > :not(canvas){visibility:hidden!important}';document.head.append(s);return true})()`);
@@ -30,20 +30,20 @@ try{
  for(const api of ['webgl','webgl2']){
   const url=new URL(base);for(const [k,v] of Object.entries({...common,...poses.india,api,clouds:'original'}))url.searchParams.set(k,String(v));
   await run('set','viewport','390','844');await run('open',url.href);await wait();const before=await checked('original');
-  for(const mode of ['off','balanced','original']){
+  for(const mode of ['off','balanced','calibrated','original']){
    await ev(`(()=>{const s=document.querySelector('#explorer-clouds');s.value='${mode}';s.dispatchEvent(new Event('change'));return true})()`);await wait();
    const after=await checked(mode);assert.equal(after.state.cameraPosition,before.state.cameraPosition);assert.equal(after.state.cameraBasis,before.state.cameraBasis);assert.equal(new URL(after.url).searchParams.get('motion'),'0');
    assert.equal(new URL(after.url).searchParams.get('ocean'),'advected');
    if(mode==='off'){assert.equal(after.state.cloudTiles,undefined);assert.notEqual(after.state.cloudLighting,'texture');}
   }
-  await ev(`(()=>{const s=document.querySelector('#explorer-clouds');s.value='balanced';s.dispatchEvent(new Event('change'));return true})()`);await wait();
+  await ev(`(()=>{const s=document.querySelector('#explorer-clouds');s.value='calibrated';s.dispatchEvent(new Event('change'));return true})()`);await wait();
   await ev(`(()=>{const g=document.querySelector('canvas').getContext('${api}'),ext=g.getExtension('WEBGL_lose_context');window.restoreClouds=()=>ext.restoreContext();ext.loseContext();return true})()`);
-  await new Promise(r=>setTimeout(r,400));await ev('window.restoreClouds();true');await wait();await checked('balanced');
+  await new Promise(r=>setTimeout(r,400));await ev('window.restoreClouds();true');await wait();await checked('calibrated');
   await ev(`document.querySelector('#explorer-settings').showPopover();true`);
   assert.equal(await ev('document.documentElement.scrollWidth>innerWidth'),false);
   await run('screenshot',`${out}/${api}-settings.png`);
   await ev(`(()=>{const s=document.querySelector('#explorer-clouds');s.value='off';s.dispatchEvent(new Event('change'));return true})()`);await wait();await checked('off');
-  await ev(`document.querySelector('.reset-all').click();true`);await wait();await checked('balanced');
+  await ev(`document.querySelector('.reset-all').click();true`);await wait();await checked('calibrated');
   assert.equal(new URL((await inspect()).url).searchParams.has('clouds'),false);
   console.log(api,'control, camera preservation, context recovery, settings and reset passed');
  }

@@ -52,17 +52,17 @@ support, a global 8K desktop / 4K mobile map remains available. The former full
 The large maps have missing polar coverage; this is not fabricated. These are
 historical illustrative cloud patterns, not weather at the replay timestamp.
 
-The default `clouds=balanced` preset (Clouds → Balanced) retains the original
+The `clouds=balanced` preset (Clouds → Balanced) retains the original
 photographic coverage and illustrative height profile. It scales weak-column
 optical thickness by .72, smoothly returning to 1 for dense cores. Faint sheets
 and soft edges remain visible at full-disc scale. This is an artistic density
 adjustment, not retrieved optical thickness or weather matching the UI date.
 `clouds=original` restores the previous density, and `clouds=off` removes clouds
-and their shadows. Old `clouds=broken` links use Balanced: the earlier .32
+and their shadows. Old `clouds=broken` links use the default: the earlier .32
 coverage cutoff was rejected because it left only sparse bright cores.
 The MODIS study keeps its own input by default. See the
 [full-disc revision](lab/2026-10-11-cloud-balanced.md).
-`clouds=calibrated` (Clouds → Calibrated, opt-in) sets each column's optical
+The default `clouds=calibrated` (Clouds → Calibrated, since 2026-10-17) sets each column's optical
 depth to `−ln(1 − 0.998·coverage^0.7)`. That reproduces the opacity of NASA's
 own Blue Marble composite of these plates over dark ocean; Balanced is two to
 three times more transparent for thin cloud. The 43,200-pixel plates add

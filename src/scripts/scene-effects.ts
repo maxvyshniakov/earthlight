@@ -5,10 +5,11 @@ export type CloudMode = 'balanced' | 'calibrated' | 'original' | 'off';
 export function cloudMode(params:URLSearchParams):CloudMode {
  const value=params.get('clouds');
  if(value==='off'||value==='0')return 'off';
- if(value==='calibrated')return 'calibrated';
+ if(value==='balanced')return 'balanced';
  if(value==='original'||['photo','modis'].includes(params.get('cloudStudy')??''))return 'original';
- // Old clouds=broken links now use the corrected, full-disc-safe preset.
- return 'balanced';
+ // Calibrated matches NASA's own composite of the plates; old clouds=broken
+ // links use the default as well.
+ return 'calibrated';
 }
 
 /** Effect policy is independent of graphics API capability. Legacy links stay valid. */
