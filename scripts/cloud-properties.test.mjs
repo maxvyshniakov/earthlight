@@ -1,7 +1,7 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_OVERVIEW,CLOUD_PROPERTIES_PENDING,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
+import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_DATES,CLOUD_PROPERTIES_OVERVIEW,CLOUD_PROPERTIES_PENDING,CLOUD_PROPERTIES_SWATH_BLEND,CLOUD_PROPERTIES_SWATHS,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesSwathDay,cloudPropertiesSwathEdge,cloudPropertiesSwathHeader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 import {fragmentSource} from '../src/scripts/scene-shader.ts';
 import {cloudTileShader} from '../src/scripts/night-tiles.ts';
@@ -202,4 +202,39 @@ test('a view-ray step reads the column where the ray crosses the layer',()=>{
       assert.ok(worst.centroid[0]<.25,`sloping: error ${worst.centroid[0]}`);
     }
   }
+});
+
+const unit=(lat,lon)=>{const a=lat*Math.PI/180,o=lon*Math.PI/180;return [Math.cos(a)*Math.cos(o),Math.cos(a)*Math.sin(o),Math.sin(a)];};
+test('swath edges follow the day\'s orbit fit',()=>{
+  for(const date of CLOUD_PROPERTIES_DATES)assert.ok(CLOUD_PROPERTIES_SWATHS[date],`${date} has a swath fit`);
+  const day=cloudPropertiesSwathDay(CLOUD_PROPERTIES_DATE);
+  assert.equal(cloudPropertiesSwathDay('2026-09-23'),null);
+  assert.equal(cloudPropertiesSwathHeader('2026-09-23'),'');
+  // The shader receives the same fit.
+  const header=cloudPropertiesSwathHeader(CLOUD_PROPERTIES_DATE);
+  const [lon,minutes]=header.match(/CLOUD_PROPERTIES_SWATHS vec2\(([-\d.]+),([-\d.]+)\)/).slice(1).map(Number);
+  assert.ok(Math.abs(lon-day.longitude)<1e-7&&Math.abs(minutes-day.minutes)<1e-7);
+  assert.deepEqual(header.match(/CLOUD_PROPERTIES_EDGE_OFFSET vec3\(([^)]*)\)/)[1].split(',').map(Number),[...day.edgeOffset]);
+  assert.match(header,new RegExp(`#define CLOUD_PROPERTIES_SWATH_BLEND ${CLOUD_PROPERTIES_SWATH_BLEND}\\.0\\n`));
+  assert.match(cloudPropertiesShader,/#ifdef CLOUD_PROPERTIES_SWATHS\n\/\/ Mirror of cloudPropertiesSwathEdge/);
+  // The edge in the owner's Botswana view: the opacity steps at about 24.45 E, 23.6 S.
+  const west=cloudPropertiesSwathEdge(unit(-23.6,24.3),day),east=cloudPropertiesSwathEdge(unit(-23.6,24.6),day);
+  assert.ok(west.valid&&east.valid&&west.distance<0&&east.distance>0);
+  let near=0;
+  for(let lat=-66;lat<=66;lat+=6)for(let lon=-179;lon<180;lon+=1.3){
+    const n=unit(lat,lon),e=cloudPropertiesSwathEdge(n,day);
+    if(!e.valid)continue;
+    if(Math.abs(e.distance)<300)near++;
+    // `across` is the distance's gradient: 2 km along it adds 2 km.
+    const q=n.map((x,i)=>x+e.across[i]*2/6371),f=cloudPropertiesSwathEdge(q.map(x=>x/Math.hypot(...q)),day);
+    if(Math.abs(e.distance)<300)assert.ok(Math.abs(f.distance-e.distance-2)<.1,`${lat} ${lon}: ${f.distance-e.distance}`);
+    // The later pass belongs to the local solar day the composite keeps, near 13:25.
+    const local=e.minutes/60+lon/15;
+    assert.ok(local>=101.44/60&&local<24);
+    if(Math.abs(lat)<=48&&Math.abs(e.distance)<300)assert.ok(Math.abs(local-13.42)<2.5,`${lat} ${lon}: ${local} h`);
+  }
+  assert.ok(near>150);
+  // No edge among the turning polar passes; no mirror across the date line, 24 h apart.
+  assert.equal(cloudPropertiesSwathEdge(unit(75,10),day).valid,false);
+  assert.match(cloudPropertiesShader,/if\(n\.x<0\.&&n\.y\*mirror\.y<0\.\)return vec4\(0\.\);/);
 });

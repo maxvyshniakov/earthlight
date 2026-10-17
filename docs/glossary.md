@@ -26,6 +26,12 @@ called Orbit, and older lab notes still use that name.
   date through `epoch`.
 - **Sky**: the celestial sky only: stars, the Milky Way, Sun, Moon and planets
   (`celestial-sky.ts`). It never names the page or its controls.
+- **Measured clouds**: the lab study `cloudStudy=global`, clouds drawn from one
+  day's measured cloud properties instead of the photographic plates
+  (`cloud-properties.ts`, `CLOUD_PROPERTIES` in shaders).
+- **Swath edge**: in a measured day, the straight line where GIBS drew a later
+  NOAA-20 pass over an earlier one (`cloudPropertiesSwathEdge`). The date
+  line, where the composite joins two local days, is a seam, not a swath edge.
 - **Observer**: the camera's state at one scene time: position, basis, Sun
   direction, date, latitude, longitude and altitude (`ObserverFrame`).
 
