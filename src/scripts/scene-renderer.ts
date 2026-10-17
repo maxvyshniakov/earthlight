@@ -4,7 +4,7 @@ import {halfFloatTarget,shaderDerivatives,shaderLod,textureImage2D,textureSubIma
 import {ShaderProgramBatch} from './shader-programs';
 import {textureProfile} from './texture-profile';
 import {CloudBuffer} from './cloud-buffer';
-import {CloudLightingAtlas, cloudLightingSource} from './cloud-lighting';
+import {CLOUD_DRIFT, CloudLightingAtlas, cloudLightingSource} from './cloud-lighting';
 import {OceanField,oceanPrototype,oceanPrototypeSource} from './ocean-prototype';
 import {WorldBuffer} from './world-buffer';
 import { SceneWork, scenePriority } from './scene-work';
@@ -56,7 +56,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
     const compactWorld=['compact','clouds-half'].includes(profile.name);
     const separateVolume=!terrainView&&['split','compact','clouds-half'].includes(profile.name)&&WorldBuffer.supported(gl,compactWorld);
     const textureLighting=clouds!=='off'&&separateVolume&&profile.name==='compact'&&params.get('cloudLighting')!=='raymarch'
-      &&!['photo','modis','global'].includes(params.get('cloudStudy')??'')&&CloudLightingAtlas.supported(gl);
+      &&!['photo','modis'].includes(params.get('cloudStudy')??'')&&CloudLightingAtlas.supported(gl);
     let cloudLighting:CloudLightingAtlas|null=null;
     let cloudBuffer:CloudBuffer|null=null,cloudProgram:WebGLProgram|null=null;
     // Lab switch: integrate clouds for alternate columns and reuse clamped history.
@@ -530,7 +530,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         if(lightingPlan){
           const bakeProgram=batch.take(lightingPlan);
           gl.useProgram(bakeProgram);gl.uniform1i(gl.getUniformLocation(bakeProgram,'noiseTable'),NOISE_TABLE_UNIT);
-          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify,params.get('cloudBake')==='budget'?'budget':'fixed');state.cloudLighting='texture';}
+          try{cloudLighting=new CloudLightingAtlas(gl,bakeProgram,notify,params.get('cloudBake')==='budget'?'budget':'fixed',cloudProperties?0:CLOUD_DRIFT);state.cloudLighting='texture';}
           catch(error){gl.deleteProgram(bakeProgram);console.warn('Cloud lighting atlas unavailable; retaining traced lighting.',error);}
         }
         if(modisStudy){
@@ -702,7 +702,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(params.get('surface')!=='0')nightTiles?.update(observer,width,height,program);
       if(params.get('surface')!=='0')dayTiles?.update(terrainView?{...observer,sun:observer.camera}:observer,width,height,program);
       if(params.get('surface')!=='0'&&cloudTiles){
-        const angle=cloudProperties?0:sceneTime*.000008,c=Math.cos(angle),s=Math.sin(angle);
+        const angle=sceneTime*(cloudProperties?0:CLOUD_DRIFT),c=Math.cos(angle),s=Math.sin(angle);
         const rotate=(v:number[])=>[c*v[0]+s*v[1],-s*v[0]+c*v[1],v[2]];
         cloudTiles.update({...observer,camera:rotate(observer.camera),cameraBasis:[0,3,6].flatMap(i=>rotate(observer.cameraBasis.slice(i,i+3)))},width,height,program);
       }

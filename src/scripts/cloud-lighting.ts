@@ -76,8 +76,11 @@ void main(){
 
 type Sample={camera:number[];sun:number[];stamp:string};
 type Bake=Sample&{patch:number[];chunk:number};
-function cloudFrame(vector:number[],time:number){
-  const angle=time*.000008,c=Math.cos(angle),s=Math.sin(angle);
+/** Rotation rate of the plate clouds (radians per scene millisecond). Measured
+ * clouds (cloudStudy=global) stay where they were observed: drift 0. */
+export const CLOUD_DRIFT=.000008;
+function cloudFrame(vector:number[],time:number,drift:number){
+  const angle=time*drift,c=Math.cos(angle),s=Math.sin(angle);
   return [c*vector[0]+s*vector[1],-s*vector[0]+c*vector[1],vector[2]];
 }
 function location(camera:number[]){return [Math.atan2(camera[1],camera[0]),Math.asin(camera[2]/Math.hypot(...camera))];}
@@ -95,8 +98,9 @@ export class CloudLightingSchedule {
   generation=0;
   private stamp='';
   private changedAt=0;
+  constructor(private drift=CLOUD_DRIFT){}
   update(camera:number[],sun:number[],time:number,stamp:string,settled:boolean,now:number){
-    const sample={camera:cloudFrame(camera,time),sun:cloudFrame(sun,time),stamp};
+    const sample={camera:cloudFrame(camera,time,this.drift),sun:cloudFrame(sun,time,this.drift),stamp};
     if(stamp!==this.stamp){this.stamp=stamp;this.changedAt=now;}
     // At polar coordinates the longitude patch degenerates. Retain the traced
     // path there and at high orbit, where this local cache has little coverage.
@@ -125,7 +129,7 @@ export class CloudLightingAtlas {
   private position:number;
   private uniforms:Record<string,WebGLUniformLocation|null>={};
   private bindings=new Map<WebGLProgram,Record<string,WebGLUniformLocation|null>>();
-  private schedule=new CloudLightingSchedule();
+  private schedule:CloudLightingSchedule;
   private active=0;
   private bakeResolution=[1,1];
   private ready=false;
@@ -134,7 +138,8 @@ export class CloudLightingAtlas {
   private bakeDraws=0;
   static supported(gl:WebGLRenderingContext){return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>15&&gl.getParameter(gl.MAX_TEXTURE_SIZE)>=2048;}
   static prepare(batch:ShaderProgramBatch,header:string){return batch.add('Cloud lighting bake',vertexSource,header+bakeSource);}
-  constructor(private gl:WebGLRenderingContext,private program:WebGLProgram,private notify:()=>void,private mode:'fixed'|'budget'='fixed'){
+  constructor(private gl:WebGLRenderingContext,private program:WebGLProgram,private notify:()=>void,private mode:'fixed'|'budget'='fixed',drift=CLOUD_DRIFT){
+    this.schedule=new CloudLightingSchedule(drift);
     this.position=gl.getAttribLocation(program,'position');
     const unit=gl.getParameter(gl.ACTIVE_TEXTURE);gl.activeTexture(gl.TEXTURE15);
     const binding=gl.getParameter(gl.TEXTURE_BINDING_2D),target=gl.getParameter(gl.FRAMEBUFFER_BINDING);

@@ -64,9 +64,13 @@ The MODIS study keeps its own input by default. See the
 [full-disc revision](lab/2026-10-11-cloud-balanced.md).
 `cloudStudy=global` (lab) replaces the plates with measured cloud properties
 for 22 September 2026: NOAA-20 VIIRS optical thickness and top height, MODIS
-phase. Opacity is the plane-parallel albedo of the optical thickness; bases
-and profiles are inferred per type, and unobserved places stay clear. See
-[measured cloud properties](lab/cloud-properties-2026-10-17.md).
+phase. Opacity is the plane-parallel albedo of the optical thickness, by phase;
+partly cloudy pixels take the albedo of their own reflectance. Bases and
+profiles are inferred per type, unobserved places stay clear, and each column
+is lit without re-shadowing its own albedo. The clouds do not drift, so the
+cloud lighting atlas runs in its no-drift mode. See
+[measured cloud properties](lab/cloud-properties-2026-10-17.md) and
+[its second iteration](lab/cloud-properties-iteration-2026-10-17.md).
 
 
 Build scripts and official source URLs are in `public/media/earthlight/README.md`.

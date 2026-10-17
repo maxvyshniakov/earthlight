@@ -301,6 +301,9 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
 #else
       shadow=sunVisible>.5?cloudShadow(point):1.;
 #endif
+#ifdef CLOUD_PROPERTIES
+      if(sunVisible>.5)shadow=cloudPropertiesIllumination(point,footprint,shadow);
+#endif
       // Twilight belongs to the Sun; no source-independent night fill.
       float ambient=smoothstep(-.15,.20,mu)*.09;
       vec3 light=vec3(.76,.84,1.)*ambient+sunColor*sunVisible*(.20+.80*shadow)*(.48+.38*max(0.,mu))*(.8+forward*.30);

@@ -179,6 +179,9 @@ the plates:
 5. Choosing the date should follow the scene's `epoch`, with this day as the
    default, and swath edges and the date-line seam need a review in motion.
 
+Items 1 to 4 are taken up in the
+[second iteration](cloud-properties-iteration-2026-10-17.md).
+
 ## Reproduce
 
 ```bash

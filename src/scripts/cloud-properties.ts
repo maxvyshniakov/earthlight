@@ -1,22 +1,25 @@
 // Lab study `cloudStudy=global`: clouds from measured properties of one day
 // (scripts/prepare-cloud-properties.mjs). The cloud map is then an RGBA
 // overview: R opacity (plane-parallel albedo of the retrieved optical
-// thickness), G cloud-top height / 16 km, B ice fraction, A observed. Cloud
-// tiles refine opacity only. Bases and vertical profiles are inferred here.
+// thickness, phase-aware), G cloud-top height / 16 km, B ice fraction,
+// A observed. Cloud tiles refine opacity only. Bases and vertical profiles
+// are inferred here.
 export const CLOUD_PROPERTIES_DATE='2026-09-22';
 export const cloudPropertiesPath=(date=CLOUD_PROPERTIES_DATE)=>`cloud-properties/${date}`;
 
 export function cloudPropertiesEnabled(params:URLSearchParams){return params.get('cloudStudy')==='global';}
 
-export type CloudPropertiesView='disc'|'region'|'iss';
+export type CloudPropertiesView='disc'|'region'|'iss'|'deck';
 // Matched comparison views for 22 September 2026: the DSCOVR EPIC frame of
 // 11:20 UTC (centroid 5.9 N, 7.3 E, here from 50,000 km with a long lens),
-// 2,000 km over the Angola stratocumulus deck and Congo convection, and the
-// ISS photo ISS075-E-150512 (11:13 UTC, 50 mm, nadir 11.9 N 18.6 E, north).
+// 2,000 km over the Angola stratocumulus deck and Congo convection, the
+// ISS photo ISS075-E-150512 (11:13 UTC, 50 mm, nadir 11.9 N 18.6 E, north),
+// and 420 km over the deck looking north, within the cloud lighting atlas.
 const views:Record<CloudPropertiesView,{lat:number;lon:number;km:number;elevation:number;lens:number;epoch:string}>={
   disc:{lat:5.9,lon:7.3,km:50000,elevation:-90,lens:2.9,epoch:'2026-09-22T11:20:00Z'},
   region:{lat:-8,lon:12,km:2000,elevation:-90,lens:1,epoch:'2026-09-22T11:20:00Z'},
   iss:{lat:11.9,lon:18.6,km:420,elevation:-27,lens:1.67,epoch:'2026-09-22T11:13:13Z'},
+  deck:{lat:-14,lon:8,km:420,elevation:-35,lens:1,epoch:'2026-09-22T11:20:00Z'},
 };
 export function cloudPropertiesURL(base:string,view:CloudPropertiesView,study:'global'|'off'='global'){
   const url=new URL('/',base),v=views[view],rad=Math.PI/180;
@@ -63,7 +66,8 @@ vec4 cloudPropertiesAt(vec3 point,float footprint,bool detailed){
 // Unknown and uncertain phase mix the two by the ice fraction.
 vec2 cloudPropertiesColumn(vec4 field){
   float opacity=min(field.r,.995);
-  float tau=opacity/(.13*(1.-opacity));
+  // Albedo coefficient (1 - g) sqrt(3) / 2: liquid g = 0.85, ice g = 0.75.
+  float tau=opacity/(mix(.13,.2165,field.b)*(1.-opacity));
   float top=clamp(field.g*16.,.9,11.8);
   float liquid=clamp(.25+.04*tau,.25,2.5);
   float ice=mix(1.5,max(1.5,top-1.5),smoothstep(6.,30.,tau)*smoothstep(6.,9.,top));
@@ -77,6 +81,21 @@ float cloudPropertiesDensity(vec3 point,float footprint,bool detailed,float half
   vec2 column=cloudPropertiesColumn(field);
   // Column optical depth ln(1 + 0.13 tau): nadir opacity equals the albedo.
   return -log(1.-min(field.r,.995))*cloudPropertiesLayer(column.x,column.y,height,halfSpan);
+}
+// Sunlight reaching a point inside a measured column. The stored opacity is
+// the column's plane-parallel albedo, which already includes its own multiple
+// scattering. Self-shadowing that column again along the sun ray, then
+// attenuating the view ray by the same depth, caps a thick column near half
+// its albedo. Only attenuation beyond what a horizontally uniform layer of
+// this column would cause (gaps, towers, other clouds) shades the point.
+float cloudPropertiesIllumination(vec3 point,float footprint,float transmission){
+  vec4 field=cloudPropertiesAt(point,footprint,true);
+  if(field.r<.002)return transmission;
+  vec2 column=cloudPropertiesColumn(field);
+  float z=clamp(((length(point)-1.)*6371.-column.x)/(column.y-column.x),0.,1.);
+  float above=-log(1.-min(field.r,.995))*(1.-z*z*(3.-2.*z));
+  float mu=max(.2,dot(normalize(point),sunDirection));
+  return min(1.,transmission*exp(above/mu));
 }
 #ifdef CLOUD_PROPERTIES_QUALITY
 // Diagnostic colours: low (top < 3.2 km) green, middle amber, high violet;

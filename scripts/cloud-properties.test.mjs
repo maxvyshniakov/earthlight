@@ -19,12 +19,12 @@ const layer=(base,top,height,halfSpan)=>{
 };
 const column=(opacity,top,ice)=>{
   const smooth=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
-  const tau=Math.min(opacity,.995)/(.13*(1-Math.min(opacity,.995)));top=Math.min(11.8,Math.max(.9,top));
+  const tau=Math.min(opacity,.995)/((.13+(.2165-.13)*ice)*(1-Math.min(opacity,.995)));top=Math.min(11.8,Math.max(.9,top));
   const liquid=Math.min(2.5,Math.max(.25,.25+.04*tau));
   const glaciated=1.5+(Math.max(1.5,top-1.5)-1.5)*smooth(6,30,tau)*smooth(6,9,top);
   return [Math.max(.6,top-(liquid+(glaciated-liquid)*ice)),top];
 };
-const albedo=tau=>.13*tau/(1+.13*tau);
+const albedo=(tau,ice=0)=>{const c=.13+(.2165-.13)*ice;return c*tau/(1+c*tau);};
 
 test('every ray step preserves the measured column optical depth',()=>{
   assert.match(cloudPropertiesShader,/-log\(1\.-min\(field\.r,\.995\)\)\*cloudPropertiesLayer/);
@@ -32,20 +32,29 @@ test('every ray step preserves the measured column optical depth',()=>{
     let sum=0;for(let h=0;h<13;h+=step)sum+=layer(base,top,h+step/2,step/2)*step;
     assert.ok(Math.abs(sum-1)<1e-9,`${base}-${top} km at ${step} km: ${sum}`);
   }
-  for(const tau of [1,5,20,80])assert.ok(Math.abs(-Math.log(1-albedo(tau))-Math.log(1+.13*tau))<1e-12);
+  for(const tau of [1,5,20,80])for(const [ice,c] of [[0,.13],[1,.2165]])assert.ok(Math.abs(-Math.log(1-albedo(tau,ice))-Math.log(1+c*tau))<1e-12);
 });
 
 test('cloud types take distinct depths from measured properties',()=>{
   const [scBase,scTop]=column(albedo(10),1.4,0);
   assert.ok(scTop-scBase<.8,'a stratocumulus deck stays shallow');
-  const [ciBase,ciTop]=column(albedo(1),10.5,1);
+  const [ciBase,ciTop]=column(albedo(1,1),10.5,1);
   assert.ok(Math.abs(ciTop-ciBase-1.5)<1e-9,'thin cirrus is a 1.5 km sheet');
-  const [cbBase]=column(albedo(60),11.8,1);
+  const [cbBase]=column(albedo(60,1),11.8,1);
   assert.ok(cbBase<=1.6,'deep convection reaches down to the boundary layer');
 });
 
+test('measured columns are lit by what lies beyond their own layer',()=>{
+  // A uniform layer's own sun-path depth is compensated; anything more shades.
+  assert.match(cloudPropertiesShader,/float above=-log\(1\.-min\(field\.r,\.995\)\)\*\(1\.-z\*z\*\(3\.-2\.\*z\)\);/);
+  assert.match(cloudPropertiesShader,/return min\(1\.,transmission\*exp\(above\/mu\)\);/);
+  assert.match(cloudShader,/#ifdef CLOUD_PROPERTIES\n      if\(sunVisible>\.5\)shadow=cloudPropertiesIllumination\(point,footprint,shadow\);/);
+  const ice=albedo(10,1),liquid=albedo(10,0);
+  assert.ok(ice>liquid,'the same retrieved tau of ice reflects more');
+});
+
 test('comparison views sit at their altitudes and dates',()=>{
-  for(const [view,km,epoch] of [['disc',50000,'2026-09-22T11:20:00Z'],['region',2000,'2026-09-22T11:20:00Z'],['iss',420,'2026-09-22T11:13:13Z']]){
+  for(const [view,km,epoch] of [['disc',50000,'2026-09-22T11:20:00Z'],['region',2000,'2026-09-22T11:20:00Z'],['iss',420,'2026-09-22T11:13:13Z'],['deck',420,'2026-09-22T11:20:00Z']]){
     const url=cloudPropertiesURL('http://localhost/',view);
     const position=url.searchParams.get('position').split(',').map(Number);
     assert.ok(Math.abs((Math.hypot(...position)-1)*6371-km)<1e-6);

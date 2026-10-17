@@ -1,8 +1,12 @@
 // Measured cloud properties (cloudStudy=global) against the photographic
 // plates at matched views of 22 September 2026, at a fixed pixel budget.
 //   bun scripts/compare-cloud-properties.mjs http://127.0.0.1:4411 /tmp/cloud-properties
-// CLOUD_VIEWS=disc,region,iss and CLOUD_VARIANTS=global,calibrated,balanced,quality
-// narrow the run. Frames are for viewing; do not commit them.
+// CLOUD_VIEWS=disc,region,iss,deck and
+// CLOUD_VARIANTS=global,atlas,calibrated,balanced,quality narrow the run.
+// `atlas` lights the measured clouds from the cached self-shadow atlas
+// (no-drift mode) instead of raymarching; the atlas covers views below about
+// 1,500 km, so only the ISS and deck views use it. Frames are for viewing;
+// do not commit them.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -17,13 +21,14 @@ await run('set','viewport','1200','800');
 const wait=async()=>{
  const deadline=Date.now()+180000;
  while(Date.now()<deadline){
-  if(await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','cloudTiles','nightTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`))return;
+  if(await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&(s.dataset.cloudLighting!=='texture'||s.dataset.cloudLightingReady==='1'||Math.hypot(...(new URL(location.href).searchParams.get('position')??'0').split(',').map(Number))>1.24)&&['dayTiles','cloudTiles','nightTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`))return;
   await new Promise(r=>setTimeout(r,500));
  }
  throw Error('Scene did not settle: '+JSON.stringify(await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');return {ready:s?.hasAttribute('data-ready'),focus:s?.dataset.focus,exposure:s?.dataset.exposure,assets:s?.dataset.assetPhase,startup:s?.dataset.shaderStartup}})()`)));
 };
 const variants={
  global:url=>url,
+ atlas:url=>url,
  quality:url=>{url.searchParams.set('cloudStudyView','quality');return url;},
  calibrated:url=>{url.searchParams.delete('cloudStudy');url.searchParams.set('clouds','calibrated');return url;},
  balanced:url=>{url.searchParams.delete('cloudStudy');return url;},
@@ -33,9 +38,11 @@ try{
  for(const view of process.env.CLOUD_VIEWS?.split(',')??['disc','region','iss']){
   for(const variant of process.env.CLOUD_VARIANTS?.split(',')??['global','calibrated','balanced']){
    console.log(view,variant);
-   // Both paths raymarch self-shadows: the lighting cache follows the plates' drift.
+   // Every variant but `atlas` raymarches self-shadows, so plates and measured
+   // clouds are lit the same way.
    const url=variants[variant](cloudPropertiesURL(base,view));
    for(const [key,value] of Object.entries({api:'webgl',quality:'fixed',cloudLighting:'raymarch','exposure-mode':'manual','exposure-fixed':'0','look-grain':'0',aurora:'0'}))url.searchParams.set(key,value);
+   if(variant==='atlas')url.searchParams.delete('cloudLighting');
    await run('open',url.href);await wait();
    const frame=await evaluate(`(async()=>{
     const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas'),gl=c.getContext('webgl');
@@ -55,10 +62,10 @@ try{
      const gpuMs=ext&&!gl.getParameter(ext.GPU_DISJOINT_EXT)?ext.getQueryObjectEXT(query,ext.QUERY_RESULT_EXT)/1e6:null;if(ext)ext.deleteQueryEXT(query);
      if(i>=2)samples.push(gpuMs);
     }}finally{gl.bindFramebuffer=bind;gl.drawArrays=draw;}
-    return {png,samples,width:c.width,height:c.height,cloudStudy:s.dataset.cloudStudy,clouds:s.dataset.clouds,cloudTiles:s.dataset.cloudTiles,assetBytes:s.dataset.assetBytes,assetFailures:s.dataset.assetFailures,error:gl.getError()};
+    return {png,samples,width:c.width,height:c.height,cloudStudy:s.dataset.cloudStudy,clouds:s.dataset.clouds,cloudLighting:s.dataset.cloudLighting,cloudLightingReady:s.dataset.cloudLightingReady,cloudTiles:s.dataset.cloudTiles,assetBytes:s.dataset.assetBytes,assetFailures:s.dataset.assetFailures,error:gl.getError()};
    })()`);
    assert.equal(frame.error,0);assert.equal(frame.assetFailures,'0');
-   assert.equal(frame.cloudStudy,variant==='global'||variant==='quality'?'global':'off');
+   assert.equal(frame.cloudStudy,['global','atlas','quality'].includes(variant)?'global':'off');
    await writeFile(`${out}/${view}-${variant}.png`,Buffer.from(frame.png.split(',')[1],'base64'));delete frame.png;
    const gpu=frame.samples.filter(x=>x!==null).sort((a,b)=>a-b);frame.medianGpuMs=gpu.length?gpu[gpu.length>>1]:null;
    results.push({view,variant,...frame});console.log(JSON.stringify(results.at(-1)));
