@@ -1,7 +1,8 @@
 // The visible layer and its downward illumination share one emission model.
 // Scene-relative scale, not measured spectral radiance. Gaussian widths are km.
+import {nightScaleGlsl} from './physical-night.ts';
 export const airglowLightShader=`
-const float airglowStrength=.04;
+const float airglowStrength=.04*${nightScaleGlsl('airglow')};
 vec3 airglowAmber=vec3(.048,.023,.006);
 vec3 airglowGreen=vec3(.0015,.014,.003);
 vec2 airglowActivity(vec3 normal){

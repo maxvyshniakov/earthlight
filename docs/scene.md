@@ -740,14 +740,18 @@ log mean to target 0.055 linear radiance. Within-bin log sums avoid rounding
 uniform scenes to a stop boundary. A coverage-weighted strongest-channel
 measurement protects extended coloured highlights; isolated stars may clip.
 The pyramid's alpha marks subjects: blocks about 1/70 of the frame height
-that are mostly lit. A star never fills one, so a lit region counts from
-0.005% of the frame and fully from 0.025%, and a 40 px Moon is metered
-wherever it falls; its radiance is the cell's light over its subject share.
+that are mostly lit. A star never fills one, so a subject counts fully from
+0.025% of the frame, and a 40 px Moon is metered wherever it falls; its
+radiance is the cell's light over its subject share. Smaller subjects mix
+with the frame's request as light, with weight (coverage/0.025%)²: half the
+area exposes two stops brighter, and the metered EV moves at most 2.9 EV per
+e-fold of coverage however far apart the requests are.
 Point samples cannot tell a star's core from a subject and need 0.6–2.5% of
-samples. Both targets are limited to the automatic range before coverage
+samples, blended in EV. Both targets are limited to the automatic range before coverage
 blends them: blended unbounded, a black sky's +15 EV outweighed any smaller
-bright subject. See [the zoom metering lab note](lab/auto-exposure-zoom-2026-10-16.md)
-and [the pyramid metering lab note](lab/pyramid-metering-2026-10-16.md).
+bright subject. See [the zoom metering lab note](lab/auto-exposure-zoom-2026-10-16.md),
+[the pyramid metering lab note](lab/pyramid-metering-2026-10-16.md) and
+[the meter blend lab note](lab/meter-blend-2026-10-17.md).
 An analytic disk-area measurement catches the Sun between taps, including
 occultation and atmospheric transmission. The meter does not receive Earth
 position or object labels. All automatic views use one -3.0 to +5.1 EV range; manual exposure retains -5.5 to +5.1 EV.
@@ -781,6 +785,11 @@ the aperture stays at f/3.18 and ISO continues to approximately 6150 at +5.1 EV.
 video exposure program, not a claim about every camera's auto mode. Below the day
 baseline, two thirds of the correction closes the iris and one third lowers
 ISO, reaching f/16 and ISO 100 at −5.5 EV. The shutter remains 1/48 s.
+The `night=video|still` lab continues this program to ISS night exposures and
+brings night emitters to physical radiance; see
+[docs/lab/physical-night-2026-10-17.md](lab/physical-night-2026-10-17.md).
+Its radiance targets stay half float: they store radiance pre-exposed by the
+frame's exposure ([docs/lab/pre-exposure-2026-10-17.md](lab/pre-exposure-2026-10-17.md)).
 
 The same GPU exposure state drives ghost radius, rounded-blade shape, off-axis
 coma, vignetting and loading defocus. Ghost area normalization avoids adding

@@ -18,6 +18,11 @@ import { atmosphericLightShader } from './atmospheric-light';
 import { solarAureoleShader } from './solar-aureole';
 import { SOLAR_ROWS } from './limb-refraction';
 import { noiseTableShader } from './noise-table';
+import { PHYSICAL_NIGHT, nightScaleGlsl } from './physical-night';
+import { PRE_EXPOSURE, PRE_EXPOSED_MAX } from './pre-exposure';
+// Scales radiance into or out of the pre-exposed targets; '' by default.
+const storePreExposed=PRE_EXPOSURE?'*sceneExposure()':'',readPreExposed=PRE_EXPOSURE?'/sceneExposure()':'';
+const stored=(value:string)=>PRE_EXPOSURE?`min(${value}${storePreExposed},vec3(${PRE_EXPOSED_MAX}.))`:value;
 
 // ISS trajectory and sunlight, graded like a photograph taken from orbit.
 // All distant lights share a camera rotation. Earth's limb stays stationary;
@@ -264,10 +269,10 @@ void main() {
   float cssHeight=resolution.y/pixelRatio;
   // The same LVLH camera projects the ground, Sun and inertial sky.
   vec3 stars=texture2D(starMap,uv).rgb;
-  vec3 catalogLight=mix(pow(stars,vec3(2.2)),stars,starsLinear);
+  vec3 catalogLight=mix(pow(stars,vec3(2.2)),stars,starsLinear)${readPreExposed};
   // Add emitted light; the galactic image has no opacity or extinction mask
   // for foreground stars. Camera exposure handles both daytime and nighttime.
-  color=pow(vec3(.0015,.002,.0035),vec3(2.2))+galacticLight+catalogLight;
+  color=pow(vec3(.0015,.002,.0035),vec3(2.2))*${nightScaleGlsl('sky')}+galacticLight+catalogLight;
   for(int i=0;i<5;i++) {
     vec3 body=planets[i].xyz;
     float brightness=pointBrightness(planets[i].w);
@@ -293,7 +298,7 @@ void main() {
       lunarLight+=lensPsf(delta,lunarCenter)*moonSamples[i].w;
     }
     float area=3.141592654*radiusPixels*radiusPixels;
-    color+=lunarLight*area/${optics.integral.toFixed(8)}*18.*(1.-lunarResolved);
+    color+=lunarLight*area/${optics.integral.toFixed(8)}*18.*${nightScaleGlsl('moonDisk')}*(1.-lunarResolved);
   }
   // Legacy composition encoding, decoded before the linear HDR output.
   color=pow(max(color,vec3(0.)),vec3(1./2.2));
@@ -397,8 +402,10 @@ void main() {
     bool skyDiffuseNeeded=solar<.08;
     vec3 nightSky=skyDiffuseNeeded?airglowIrradiance(surfacePoint)+galacticIrradiance(geo)*nightSkyTransmission(surfacePoint):vec3(0.);
     float skyShadow=skyDiffuseNeeded?cloudShadowAlong(surfacePoint,geo):1.;
-    vec3 skyDiffuse=pow(albedo,vec3(2.2))*nightSky*skyShadow/3.141592654
-      *max(0.,dot(normal,geo))*(1.-water);
+    // With physical night light the sea returns ~6% of the diffuse sky
+    // (Fresnel reflection of a uniform sky plus water-leaving light).
+    vec3 skyDiffuse=${PHYSICAL_NIGHT?'mix(pow(albedo,vec3(2.2)),vec3(.06),water)':'pow(albedo,vec3(2.2))'}*nightSky*skyShadow/3.141592654
+      *max(0.,dot(normal,geo))${PHYSICAL_NIGHT?'':'*(1.-water)'};
     vec3 reflected=vec3(0.);
     if(water>.001){
 #ifdef LEAN_SHADER_WORK
@@ -453,9 +460,9 @@ void main() {
   // Store the terrain correction, not the full orbital distance. Its small
   // magnitude retains ground precision even when the camera is far away.
   float baseDistance=-b-sqrt(max(0.,discriminant));
-  gl_FragColor=vec4(color,groundDistance>0.?groundDistance-baseDistance:-2.);
+  gl_FragColor=vec4(${stored('color')},groundDistance>0.?groundDistance-baseDistance:-2.);
 #else
-  gl_FragColor=vec4(color,groundDistance);
+  gl_FragColor=vec4(${stored('color')},groundDistance);
 #endif
 #else
   float atmosphereDistance=groundDistance;
@@ -471,7 +478,7 @@ void main() {
   color+=airglow;
   vec3 auroralLight=vec3(0.);
   #ifdef AURORA
-  auroralLight=pow(texture2D(auroraMap,uv).rgb,vec3(2.))*${AURORA_RADIANCE_RANGE.toFixed(1)};
+  auroralLight=pow(texture2D(auroraMap,uv).rgb,vec3(2.))*${AURORA_RADIANCE_RANGE.toFixed(1)}*${nightScaleGlsl('aurora')};
   color+=auroralLight;
   #endif
 
@@ -482,7 +489,7 @@ void main() {
   color=sceneToOutputLinear(color);
   color+=atmosphericChroma(scattering,.25)+atmosphericChroma(airglow,.40)+atmosphericChroma(auroralLight,.18);
   color=fitOutputGamut(color);
-  gl_FragColor=sceneLinear>.5?vec4(clamp(color,0.,65000.),1.):packSceneRadiance(color);
+  gl_FragColor=sceneLinear>.5?vec4(clamp(color${storePreExposed},0.,65000.),1.):packSceneRadiance(color${storePreExposed});
 #endif
 
 }
@@ -526,7 +533,7 @@ void main(){
   vec2 p=(uv-.5)*vec2(resolution.x/resolution.y,1.);
   vec3 earthRay=normalize(cameraBasis*normalize(vec3(p,FOCAL)));
   vec4 world=texture2D(worldScene,uv);
-  vec3 color=world.rgb;
+  vec3 color=world.rgb${readPreExposed};
   float groundDistance=world.a;
 #ifdef COMPACT_WORLD_PASS
   float b=dot(cameraPosition,earthRay);
@@ -556,7 +563,7 @@ void main(){
   float entry=max(0.,-b-sqrt(max(0.,b*b-c+1.0018835*1.0018835)));
   float depth=groundDistance>0.?atmosphereDistance-groundDistance:
     (transmission<.999?(atmosphereDistance-entry)*(1.-transmission):0.);
-  gl_FragData[0]=vec4(scattered,transmission);
+  gl_FragData[0]=vec4(${stored('scattered')},transmission);
   gl_FragData[1]=vec4(depth,world.a,0.,1.);
 }
 `;

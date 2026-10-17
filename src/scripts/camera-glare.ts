@@ -1,6 +1,8 @@
 import {textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
 import { FRAME_VEIL_COMPONENTS } from './solar-light';
+import { cameraModelShader } from './camera-model';
+import { PRE_EXPOSURE, preExposureShader } from './pre-exposure';
 
 /** Per-axis spread of pyramid level k: σ = this · 2^k full-resolution pixels.
  * Box 4×4 downsampling (1.25 texel² per step), the 3×3 tent upsample and the
@@ -78,13 +80,15 @@ uniform vec2 sourceSize;
 uniform vec2 targetSize;
 uniform vec4 solarMask;
 uniform float alphaMode;
-vec4 tap(vec2 uv){
+${PRE_EXPOSURE?`#define CAMERA_PUPIL_STATE 1
+uniform sampler2D cameraState;
+${cameraModelShader}${preExposureShader}`:''}vec4 tap(vec2 uv){
   vec4 c=texture2D(source,uv);
   if(solarMask.w>.5&&length((uv-.5)*vec2(sourceSize.x/sourceSize.y,1.)-solarMask.xy)<solarMask.z)
-    c.rgb=min(c.rgb,vec3(${GLARE_SOLAR_CAP.toFixed(1)}));
+    c.rgb=min(c.rgb,vec3(${GLARE_SOLAR_CAP.toFixed(1)})${PRE_EXPOSURE?'*sceneExposure()':''});
   return vec4(max(c.rgb,vec3(0.)),c.a);
 }
-float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b)));}
+float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b))${PRE_EXPOSURE?'/sceneExposure()':''});}
 void main(){
   vec2 uv=gl_FragCoord.xy/targetSize,d=1./sourceSize;
   vec4 a=tap(uv-d),b=tap(uv+d),c=tap(uv+vec2(d.x,-d.y)),e=tap(uv+vec2(-d.x,d.y));
@@ -157,7 +161,7 @@ export class CameraGlare {
       this.copy=prepared?prepared.batch.take(prepared.copy):link(gl,copySource);
       this.buffer=gl.createBuffer();if(!this.buffer)throw Error('Cannot allocate glare pass');
       gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-      for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down,name);
+      for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode','cameraState'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down,name);
       for(const name of ['coarse','detail','coarseSize','targetSize','coarseScale','detailWeight'])this.uniforms[`up.${name}`]=gl.getUniformLocation(this.up,name);
       for(const name of ['source','rect'])this.uniforms[`copy.${name}`]=gl.getUniformLocation(this.copy,name);
     }catch(error){this.dispose();throw error;}
@@ -169,8 +173,9 @@ export class CameraGlare {
     return this.build(image,width,height,solarMask)?this.scatter(focal):null;
   }
   /** Downsamples the scene into its levels and atlas; false when the frame
-   * is too small for a pyramid. Exposure reads these before anything else. */
-  build(image:WebGLTexture,width:number,height:number,solarMask:[number,number,number,number]){
+   * is too small for a pyramid. Exposure reads these before anything else.
+   * cameraState: the exposure a pre-exposed image was rendered with. */
+  build(image:WebGLTexture,width:number,height:number,solarMask:[number,number,number,number],cameraState:WebGLTexture|null=null){
     const gl=this.gl;
     if(width!==this.width||height!==this.height)this.allocate(width,height);
     const levels=this.images.length;
@@ -182,6 +187,7 @@ export class CameraGlare {
     const position=gl.getAttribLocation(this.down!,'position');
     gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
     gl.uniform1i(this.uniforms['down.source'],4);
+    if(cameraState){gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,cameraState);gl.uniform1i(this.uniforms['down.cameraState'],7);}
     let source=image,sourceWidth=width,sourceHeight=height;
     for(const [k,level] of this.images.entries()){
       gl.bindFramebuffer(gl.FRAMEBUFFER,level.target);gl.viewport(0,0,level.width,level.height);

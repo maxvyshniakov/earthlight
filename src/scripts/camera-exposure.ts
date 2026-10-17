@@ -4,7 +4,17 @@ import { sceneColorShader } from './scene-color';
 import { AUTO_EXPOSURE_MIN_EV, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, cameraModelShader } from './camera-model';
 import { SOLAR_IRRADIANCE, SOLAR_RADIUS } from './solar-light';
 import { METER_LIT, METER_MAX_SIDE, type MeterField } from './camera-glare';
+import { PHYSICAL_NIGHT } from './physical-night';
+import { PRE_EXPOSURE } from './pre-exposure';
 export { EXPOSURE_MIN_EV, EXPOSURE_MAX_EV };
+// 24 log-luminance bins. Physical night radiance reaches 2^-34 scene units
+// (airglow on the sea), so the lab's bins are two stops wide.
+const METER_BIN_STOPS=PHYSICAL_NIGHT?2:1;
+const METER_LOG_FLOOR=-24*METER_BIN_STOPS+8;
+// Below this the meter asks for more than the ceiling anyway.
+const METER_LUMINANCE_FLOOR=PHYSICAL_NIGHT?`exp2(${METER_LOG_FLOOR.toFixed(1)})`:'.00001';
+// The scene was rendered pre-exposed with the previous state's EV.
+const sceneRadiance=PRE_EXPOSURE?'/preExposure':'';
 export const EXPOSURE_SETTLE_MS=7000;
 
 // A one-pixel meter and two RGBA8 state targets. Exposure stays on the GPU:
@@ -32,7 +42,7 @@ uniform float useField;
 ${sceneColorShader}
 ${cameraModelShader}
 void main(){
-  vec3 weights=displayP3>.5?vec3(.2289746,.6917385,.0792869):vec3(.2126,.7152,.0722);
+${PRE_EXPOSURE?'  float preExposure=exp2(decodeCameraEV(texture2D(previous,vec2(.5)).rg));\n':''}  vec3 weights=displayP3>.5?vec3(.2289746,.6917385,.0792869):vec3(.2126,.7152,.0722);
   float total=0.,emission=0.,emissionWeight=0.,coverage=0.,count=0.;
   // Point samples on a 32 x 32 grid, or every texel of the pyramid level once.
   vec2 grid=useField>.5?meterSize:vec2(32.);
@@ -50,16 +60,16 @@ void main(){
       // a subject falls. Alpha is the share of the cell in subjects, which
       // hold nearly all of its light on a dark sky.
       vec4 cell=texture2D(meterField,meterRect.xy+uv*meterRect.zw);
-      c=cell.rgb;lit=cell.a;peak=max(c.r,max(c.g,c.b))/max(lit,.05);
+      c=cell.rgb${sceneRadiance};lit=cell.a;peak=max(c.r,max(c.g,c.b))/max(lit,.05);
     }else{
       vec4 pixel=texture2D(scene,uv);
       c=sceneLinear>.5?pixel.rgb:unpackSceneRadiance(pixel);
-      peak=max(c.r,max(c.g,c.b));lit=smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},peak);
+${PRE_EXPOSURE?'      c/=preExposure;\n':''}      peak=max(c.r,max(c.g,c.b));lit=smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},peak);
     }
     float w=1.+exp(-dot(uv-.5,uv-.5)*8.);
     float luminance=dot(c,weights);
-    float logL=clamp(log2(max(luminance,exp2(-16.))),-16.,7.999);
-    float bucket=floor(logL+16.);
+    float logL=clamp(log2(max(luminance,exp2(${METER_LOG_FLOOR.toFixed(1)}))),${METER_LOG_FLOOR.toFixed(1)},7.999);
+    float bucket=floor((logL-(${METER_LOG_FLOOR.toFixed(1)}))/${METER_BIN_STOPS.toFixed(1)});
     for(int bin=0;bin<24;bin++){
       float included=1.-step(.5,abs(float(bin)-bucket));
       mass[bin]+=w*included;logs[bin]+=w*included*logL;
@@ -91,12 +101,21 @@ void main(){
   // Blend within the metering range. A black sky asks for about +15 EV; mixed
   // before clamping, it outweighed any bright subject under 2.5% of the frame,
   // so a small Earth or a zoomed Moon was metered as empty sky.
-  float target=clamp(log2(.055/max(measured+sunMean*.45,.00001)),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
-  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),.00001)),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
-  // Point samples catch stars, so a subject needs 0.6-2.5% of them. Pyramid
-  // subjects already exclude stars: a lit region counts from 0.005% of the
-  // frame and fully from 0.025%, about two subject blocks.
-  target=mix(target,min(target,emissionTarget),useField>.5?smoothstep(.00005,.00025,coverage/count):smoothstep(.006,.025,coverage/count));
+  float target=clamp(log2(.055/max(measured+sunMean*.45,${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
+  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${EXPOSURE_MAX_EV.toFixed(1)});
+  // Point samples catch stars, so a subject needs 0.6-2.5% of them.
+  if(useField<.5)target=mix(target,min(target,emissionTarget),smoothstep(.006,.025,coverage/count));
+  else{
+    // Pyramid subjects already exclude stars and count fully from 0.025% of
+    // the frame, about two subject blocks. Below that the two requests mix as
+    // light, not as EV, with weight (coverage/0.025%)²: a subject half that
+    // size is exposed two stops brighter. On a black sky the requests are up
+    // to 25 EV apart, and the former ramp, mixing EVs from 0.005%, moved the
+    // result up to 31 EV per e-fold of coverage; this moves at most 2.9
+    // (docs/lab/meter-blend-2026-10-17.md).
+    float weight=min(coverage/count/.00025,1.);weight*=weight;
+    target-=log2(1.-weight+weight*exp2(target-min(target,emissionTarget)));
+  }
   vec4 state=texture2D(previous,vec2(.5));
   float old=decodeCameraEV(state.rg);
   // EV is logarithmic; brighten more slowly than the response to daylight.
@@ -116,6 +135,9 @@ export class CameraExposure {
   static prepare(batch:ShaderProgramBatch){return {batch,program:batch.add('Camera exposure','attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}',fragment)};}
 
   get texture(){return this.targets[this.index].texture;}
+  /** The state before the last update: the exposure the metered scene was
+   * rendered with, and so its pre-exposure. */
+  get previousTexture(){return this.targets[1-this.index].texture;}
   private program:WebGLProgram;
   private buffer:WebGLBuffer;
   private targets:{texture:WebGLTexture;framebuffer:WebGLFramebuffer}[]=[];
