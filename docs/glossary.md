@@ -66,9 +66,13 @@ called Orbit, and older lab notes still use that name.
   release manifest lists paths relative to that directory.
 - **DEM proxy**: `/media/earthlight/dem90/`, the explorer's same-origin route
   for Copernicus GLO-90 tiles.
-- **Day pyramid**: lab levels below the 500 m day tiles (`day-pyramid.ts`,
-  `dayDetail=sentinel`), level *L* splitting each day tile into 2^L × 2^L
-  tiles. Local only; see `docs/lab/day-pyramid-2026-10-17.md`.
+- **Day pyramid**: three levels below the 500 m day tiles (250, 125 and
+  62.5 m; `day-pyramid.ts`, `dayDetail=sentinel`), level *L* splitting each
+  day tile into 2^L × 2^L tiles, from the WorldCover Sentinel-2 composite.
+  See `docs/lab/day-pyramid-global-2026-10-17.md`.
+- **Pack**: one file per day tile holding its day-pyramid tiles, read with
+  HTTP range requests; the **pack index** (`day-pyramid/index.bin`) lists
+  which tiles exist (`day-pyramid-pack.ts`).
 
 ## Words to avoid
 

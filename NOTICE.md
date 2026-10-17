@@ -32,6 +32,13 @@ team. Surface detail uses Blue Marble Next Generation October 2004 imagery;
 cloud coverage uses the July 2001 composite. Derivatives are resized, tiled
 and encoded. Cloud volumes are illustrative, not historical weather data.
 
+Surface detail below 500 m (`dayDetail=sentinel`): ESA WorldCover project
+2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA
+WorldCover consortium. The WorldCover 2021 v200 Sentinel-2 composite and
+land-cover map ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
+[doi:10.5281/zenodo.7254221](https://doi.org/10.5281/zenodo.7254221)) are
+resampled, colour-matched to and blended with Blue Marble, and encoded.
+
 Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio,
 Ernie Wright, [Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851/).
 Gaia DR2: ESA/Gaia/DPAC. Maps are converted, graded and tiled.
