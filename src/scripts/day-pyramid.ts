@@ -3,8 +3,11 @@
 //
 // Level L splits each 2.25° day tile into 2^L × 2^L tiles of the same 540 px
 // interior and 16 px gutters: 250, 125 and 62.5 m per texel (7.5″, 3.75″ and
-// 1.875″). Each day tile's deep tiles are one pack, read with HTTP range
-// requests; index.bin says which tiles exist (day-pyramid-pack.ts).
+// 1.875″). Tiles come in packs of one level each, fetched whole because the
+// media host ignores HTTP ranges, and kept in a byte-bounded LRU cache;
+// index.bin says which tiles exist and which pack holds them
+// (day-pyramid-pack.ts; docs/lab/day-pyramid-global-2026-10-17.md, "Whole
+// packs").
 //
 // The tiles share the day atlas (unit 6) and its slot allocator: every
 // fragment sampler is already taken. Slot 0 of that atlas holds the page
@@ -22,7 +25,7 @@
 // a cell with none falls back to BMNG. Requests follow the same ground-ray
 // footprint as the BMNG tiles: nothing deep is wanted until a BMNG texel
 // covers more than two pixels, so startup is unchanged.
-import { decodeIndex, decodePackHeader, packSlot, PACK_HEADER } from './day-pyramid-pack.ts';
+import { daySlot, decodeIndex, decodePackHeader, packOf, type IndexEntry } from './day-pyramid-pack.ts';
 
 export const PYRAMID_DEPTH=3;
 const COLUMNS=160,ROWS=80,CELLS=1<<PYRAMID_DEPTH;
@@ -35,10 +38,10 @@ export function pyramidTile(key:number){
   const level=Math.floor(key/1e8),rest=key-level*1e8,columns=COLUMNS*2**level;
   return {level,x:rest%columns,y:Math.floor(rest/columns)};
 }
-/** The pack (day tile id) and slot within it that hold a deep tile. */
-export function pyramidPack(key:number){
-  const {level,x,y}=pyramidTile(key),side=1<<level;
-  return {pack:Math.floor(y/side)*COLUMNS+Math.floor(x/side),slot:packSlot(level,x%side,y%side)};
+/** The day tile (BMNG id) above a deep tile, and the tile's slot in its index mask. */
+export function pyramidDayTile(key:number){
+  const {level,x,y}=pyramidTile(key);
+  return {id:(y>>level)*COLUMNS+(x>>level),slot:daySlot(level,x&(1<<level)-1,y&(1<<level)-1)};
 }
 
 export const dayPyramidShader=`
@@ -80,7 +83,7 @@ vec3 pyramidDay(vec2 uv,float footprint,vec3 base){return base;}
 
 type View={camera:ArrayLike<number>;cameraBasis:ArrayLike<number>;sun:ArrayLike<number>;focal?:number};
 type Resident={slot:number;loaded:number};
-type Pack={entries:[number,number][]}|{whole:ArrayBuffer};
+type Waiter={slot:number;resolve:(blob:Blob)=>void;reject:(error:Error)=>void};
 
 /** The level that gives one to two texels per pixel at this BMNG footprint
  * (BMNG texels per pixel), or 0 while BMNG resolves the pixel itself. */
@@ -88,39 +91,67 @@ export function pyramidLevel(footprint:number){
   return footprint>=2?0:Math.max(1,Math.min(PYRAMID_DEPTH,Math.ceil(Math.log2(1/footprint))));
 }
 
-/** A byte range of `url`. Static hosts that ignore Range answer 200 with the
- * whole object; that body is returned whole and the caller slices it. */
-export async function fetchRange(url:string,start:number,end:number,signal:AbortSignal){
-  let response:Response;
-  try{response=await fetch(url,{headers:{Range:`bytes=${start}-${end-1}`},signal,priority:'low'} as RequestInit);}
-  catch(error){
-    // A cross-origin host that rejects Range in its CORS preflight: ask for the whole pack.
-    if(signal.aborted||!(error instanceof TypeError))throw error;
-    response=await fetch(url,{signal,priority:'low'} as RequestInit);
+/** One pack, fetched whole. Its bytes arrive as a stream and each tile
+ * resolves as soon as its own bytes are in, so the first detail does not
+ * wait for the rest of the pack. */
+class Pack {
+  controller=new AbortController();
+  header:ReturnType<typeof decodePackHeader>=null;
+  bytes:Uint8Array<ArrayBuffer>|null=null;
+  received=0;
+  error:Error|null=null;
+  waiters=new Set<Waiter>();
+  constructor(readonly path:string){}
+
+  private ready(slot:number):Blob|Error|null{
+    if(this.header){
+      const [offset,length]=this.header.entries[slot]??[0,0];
+      if(!length)return new Error('Day pyramid tile absent');
+      if(this.received>=offset+length)return new Blob([this.bytes!.subarray(offset,offset+length)],{type:'image/avif'});
+    }
+    return this.error;
   }
-  if(response.status===206){
-    const bytes=await response.arrayBuffer();
-    if(bytes.byteLength!==end-start)throw new Error('Day pyramid range mismatch');
-    return {bytes,whole:false};
+
+  tile(slot:number,signal:AbortSignal){
+    const ready=this.ready(slot);
+    if(ready)return ready instanceof Blob?Promise.resolve(ready):Promise.reject(ready);
+    if(signal.aborted)return Promise.reject(new Error('aborted'));
+    return new Promise<Blob>((resolve,reject)=>{
+      const abort=()=>{this.waiters.delete(waiter);reject(new Error('aborted'));};
+      const waiter:Waiter={slot,resolve:blob=>{signal.removeEventListener('abort',abort);resolve(blob);},reject:error=>{signal.removeEventListener('abort',abort);reject(error);}};
+      signal.addEventListener('abort',abort,{once:true});
+      this.waiters.add(waiter);
+    });
   }
-  if(response.status===200)return {bytes:await response.arrayBuffer(),whole:true};
-  throw new Error(`Day pyramid pack unavailable (${response.status})`);
+
+  settle(){
+    for(const waiter of this.waiters){
+      const ready=this.ready(waiter.slot);if(!ready)continue;
+      this.waiters.delete(waiter);
+      if(ready instanceof Blob)waiter.resolve(ready);else waiter.reject(ready);
+    }
+  }
 }
 
 export class DayPyramid {
-  /** Day tile id → mask of its pack's 84 tiles (index.bin). */
-  packs=new Map<number,Uint8Array>();
+  /** Day tile id → its tile mask and each level's pack block size (index.bin). */
+  packs=new Map<number,IndexEntry>();
   directory=new Uint8Array(COLUMNS*ROWS);
   table=new Uint8Array(PYRAMID_TABLE.width*PYRAMID_TABLE.height*4);
   wanted=0;
+  /** Packs fetched, bytes received (whole packs and aborted parts), bytes cached. */
   requests=0;
-  private headers=new Map<number,Promise<Pack>>();
-  private wholes:number[]=[];
+  received=0;
+  cached=0;
+  /** Completed packs, least recently used first. */
+  private cache=new Map<string,Pack>();
+  private loading=new Map<string,Pack>();
   private signature='';
   private root:string;
 
-  constructor(baseURL:string,signal:AbortSignal,notify:()=>void){
+  constructor(baseURL:string,signal:AbortSignal,notify:()=>void,private cacheBytes=48*2**20){
     this.root=baseURL.replace(/\/+$/,'')+'/day-pyramid/';
+    signal.addEventListener('abort',()=>{for(const pack of this.loading.values())pack.controller.abort();this.loading.clear();},{once:true});
     fetch(this.root+'index.bin',{signal}).then(response=>{
       if(!response.ok)throw new Error('Day pyramid index unavailable');
       return response.arrayBuffer();
@@ -129,54 +160,82 @@ export class DayPyramid {
   }
 
   has(key:number){
-    const {pack,slot}=pyramidPack(key),mask=this.packs.get(pack);
+    const {id,slot}=pyramidDayTile(key),mask=this.packs.get(id)?.mask;
     return !!mask&&(mask[slot>>3]&(1<<(slot&7)))!==0;
   }
 
-  private header(pack:number,signal:AbortSignal):Promise<Pack>{
-    let entry=this.headers.get(pack);
-    if(entry){this.headers.delete(pack);this.headers.set(pack,entry);}
-    else{
-      const url=`${this.root}${pack}.pack`;
-      // Shared by every tile of the pack, so one caller's abort must not end it.
-      entry=fetchRange(url,0,PACK_HEADER,new AbortController().signal).then(({bytes,whole}):Pack=>{
-        this.requests++;
-        if(!whole)return {entries:decodePackHeader(new Uint8Array(bytes))};
-        // A host without ranges sent the whole pack: keep the latest eight.
-        this.wholes=[...this.wholes.filter(id=>id!==pack),pack];
-        while(this.wholes.length>8)this.headers.delete(this.wholes.shift()!);
-        return {whole:bytes};
-      });
-      entry.catch(()=>this.headers.delete(pack));
-      this.headers.set(pack,entry);
-      while(this.headers.size>256)this.headers.delete(this.headers.keys().next().value!);
-    }
-    if(signal.aborted)return Promise.reject(new Error('aborted'));
-    return Promise.race([entry,new Promise<never>((_,reject)=>signal.addEventListener('abort',()=>reject(new Error('aborted')),{once:true}))]);
+  /** The pack that holds a deep tile, and the tile's slot in it. */
+  locate(key:number){
+    const {level,x,y}=pyramidTile(key),entry=this.packs.get((y>>level)*COLUMNS+(x>>level));
+    return entry?packOf(level,x,y,entry.k[level-1]):null;
   }
 
-  /** The tile's AVIF bytes: the pack's header once, then one range. */
-  async load(key:number,signal:AbortSignal){
-    const {pack,slot}=pyramidPack(key),header=await this.header(pack,signal);
-    if('whole' in header){
-      const [offset,length]=decodePackHeader(new Uint8Array(header.whole,0,PACK_HEADER))[slot];
-      if(!length)throw new Error('Day pyramid tile absent');
-      return new Blob([new Uint8Array(header.whole,offset,length)],{type:'image/avif'});
-    }
-    const [offset,length]=header.entries[slot];
-    if(!length)throw new Error('Day pyramid tile absent');
-    const {bytes,whole}=await fetchRange(`${this.root}${pack}.pack`,offset,offset+length,signal);
-    this.requests++;
-    return new Blob([whole?new Uint8Array(bytes,offset,length):bytes],{type:'image/avif'});
+  /** Whether a tile costs no further download: its pack is cached or loading. */
+  private held(path:string){return this.cache.has(path)||this.loading.has(path);}
+
+  private async stream(pack:Pack,expected:ReturnType<typeof packOf>){
+    try{
+      const response=await fetch(this.root+pack.path,{signal:pack.controller.signal,priority:'low'} as RequestInit);
+      if(!response.ok||!response.body)throw new Error(`Day pyramid pack unavailable (${response.status})`);
+      this.requests++;
+      const reader=response.body.getReader();
+      let head=new Uint8Array(0);
+      for(;;){
+        const {done,value}=await reader.read();
+        if(done)break;
+        this.received+=value.length;
+        if(pack.bytes){
+          if(pack.received+value.length>pack.bytes.length)throw new Error('Day pyramid pack too long');
+          pack.bytes.set(value,pack.received);pack.received+=value.length;
+        }else{
+          const joined=new Uint8Array(head.length+value.length);joined.set(head);joined.set(value,head.length);head=joined;
+          const header=decodePackHeader(head);
+          if(!header)continue;
+          if(header.level!==expected.level||header.k!==expected.k||header.x!==expected.x||header.y!==expected.y)throw new Error('Day pyramid pack mismatch');
+          if(head.length>header.bytes)throw new Error('Day pyramid pack too long');
+          pack.bytes=new Uint8Array(header.bytes);pack.bytes.set(head);pack.received=head.length;pack.header=header;
+        }
+        pack.settle();
+      }
+      if(!pack.bytes||pack.received!==pack.bytes.length)throw new Error('Truncated day pyramid pack');
+      if(this.loading.get(pack.path)!==pack)return;
+      this.loading.delete(pack.path);
+      this.cache.set(pack.path,pack);this.cached+=pack.bytes.length;
+      // Least recently used first; the newest pack stays even if it alone is over budget.
+      for(const [path,old] of this.cache){
+        if(this.cached<=this.cacheBytes||old===pack)break;
+        this.cache.delete(path);this.cached-=old.bytes!.length;
+      }
+    }catch(error){
+      pack.error=error instanceof Error?error:new Error(String(error));
+      if(this.loading.get(pack.path)===pack)this.loading.delete(pack.path);
+    }finally{pack.settle();}
   }
 
-  /** Deep tiles under the ground rays, coarse parents first, then the visible
-   * level, then a one-tile guard band at that level. */
+  /** The tile's AVIF bytes, from its pack: cached, loading, or fetched now. */
+  load(key:number,signal:AbortSignal){
+    const at=this.locate(key);
+    if(!at||!this.has(key))return Promise.reject(new Error('Day pyramid tile absent'));
+    let pack=this.cache.get(at.path);
+    if(pack){this.cache.delete(at.path);this.cache.set(at.path,pack);}
+    else if(!(pack=this.loading.get(at.path))){
+      pack=new Pack(at.path);this.loading.set(at.path,pack);
+      void this.stream(pack,at);
+    }
+    return pack.tile(at.slot,signal);
+  }
+
+  /** Deep tiles under the ground rays: the tiles drawn at each ray's level,
+   * centre first, then their coarser parents and a one-tile guard band at
+   * the drawn level. Packs come whole, so a parent or guard tile is wanted
+   * only when its pack costs nothing more: already cached or loading, or
+   * needed by a drawn tile anyway. Loading packs that no wanted tile needs
+   * any more are aborted. */
   select(view:View,width:number,height:number,limit:number){
-    if(!this.packs.size||limit<1)return [];
+    if(!this.packs.size||limit<1){this.retain([]);return [];}
     const c=view.camera,m=view.cameraBasis,sun=view.sun,focal=view.focal??1.25;
     const camera2=c[0]*c[0]+c[1]*c[1]+c[2]*c[2];
-    const scores=new Map<number,number>();
+    const scores=new Map<number,number>(),drawn=new Set<number>();
     const consider=(key:number,score:number)=>{if(this.has(key))scores.set(key,Math.min(scores.get(key)??Infinity,score));};
     for(let iy=0;iy<28;iy++)for(let ix=0;ix<64;ix++){
       const vx=((ix+.5)/64-.5)*width/height,vy=.5-(iy+.5)/28,vz=focal;
@@ -200,13 +259,29 @@ export class DayPyramid {
         if(this.has(pyramidKey(level,tx,ty)))break;
       }
       if(!level)continue;
-      if(level>1)consider(pyramidKey(level-1,tx>>1,ty>>1),centre);
-      consider(pyramidKey(level,tx,ty),1+centre);
-      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if((dx||dy)&&ty+dy>=0&&ty+dy<ROWS<<level)consider(pyramidKey(level,(tx+dx+(COLUMNS<<level))%(COLUMNS<<level),ty+dy),2+centre+Math.hypot(dx,dy));
+      const key=pyramidKey(level,tx,ty);
+      drawn.add(key);
+      if(level>1)consider(pyramidKey(level-1,tx>>1,ty>>1),2+centre);
+      consider(key,centre);
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if((dx||dy)&&ty+dy>=0&&ty+dy<ROWS<<level)consider(pyramidKey(level,(tx+dx+(COLUMNS<<level))%(COLUMNS<<level),ty+dy),3+centre+Math.hypot(dx,dy));
     }
-    const wanted=[...scores].sort((a,b)=>a[1]-b[1]).slice(0,limit).map(([key])=>key);
+    const ranked=[...scores].sort((a,b)=>a[1]-b[1]).map(([key])=>key);
+    const wanted=ranked.filter(key=>drawn.has(key)).slice(0,limit);
+    const needed=new Set(wanted.map(key=>this.locate(key)!.path));
+    for(const key of ranked){
+      if(wanted.length>=limit)break;
+      const path=this.locate(key)!.path;
+      if(!drawn.has(key)&&(needed.has(path)||this.held(path)))wanted.push(key);
+    }
+    this.retain(wanted);
     this.wanted=wanted.length;
     return wanted;
+  }
+
+  /** Abort loading packs that none of these tiles needs. */
+  private retain(keys:number[]){
+    const keep=new Set(keys.map(key=>this.locate(key)?.path));
+    for(const [path,pack] of this.loading)if(!keep.has(path)){this.loading.delete(path);pack.controller.abort();}
   }
 
   /** Rebuild the directory and cell blocks; returns whether a texel changed.

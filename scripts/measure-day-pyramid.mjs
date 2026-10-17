@@ -1,5 +1,5 @@
 // Day pyramid photometry and seams (docs/lab/day-pyramid-global-2026-10-17.md),
-// in 8-bit sRGB steps per channel, from the packs as published:
+// in 8-bit sRGB steps per channel, from the release packs and index as published:
 //
 //   bmng      each level box-averaged in linear light onto the 500 m grid,
 //             against the day tile the renderer would otherwise show;
@@ -11,10 +11,12 @@
 //             of a neighbouring day tile that has no pack.
 //
 //   bun scripts/measure-day-pyramid.mjs <pyramid-dir> <day-tiles-dir> [--packs=id,id|--sample=200]
+//
+// --packs and --sample choose day tiles (BMNG ids) with detail.
 import sharp from 'sharp';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { decodePackHeader, packSlot, PACK_HEADER } from '../src/scripts/day-pyramid-pack.ts';
+import { daySlot, decodeIndex, decodePackHeader, packOf } from '../src/scripts/day-pyramid-pack.ts';
 
 const [dir,dayTiles]=process.argv.slice(2).filter(a=>!a.startsWith('--'));
 if(!dir||!dayTiles)throw new Error('Usage: measure-day-pyramid.mjs <pyramid-dir> <day-tiles-dir> [--packs=…|--sample=N]');
@@ -23,26 +25,31 @@ const INTERIOR=540,GUTTER=16,CELL=572,COLUMNS=160;
 const linear=new Float32Array(256).map((_,i)=>{const v=i/255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;});
 const encode=v=>255*(v<=.0031308?12.92*v:1.055*v**(1/2.4)-.055);
 
-const all=(await readdir(dir)).filter(n=>/^\d+\.pack$/.test(n)).map(n=>Number(n.slice(0,-5))).sort((a,b)=>a-b);
+// Day tiles with detail, from the release index.
+const index=decodeIndex(new Uint8Array(await readFile(join(dir,'index.bin'))));
+const all=[...index.keys()].sort((a,b)=>a-b);
 const present=new Set(all);
 let chosen=option('packs')?.split(',').map(Number)??all;
 if(option('sample')){const n=Number(option('sample')),step=Math.max(1,Math.floor(all.length/n));chosen=all.filter((_,i)=>i%step===0).slice(0,n);}
 
 const packCache=new Map();
-async function pack(id){
-  if(!packCache.has(id)){
-    const bytes=await readFile(join(dir,`${id}.pack`));
-    packCache.set(id,{bytes,entries:decodePackHeader(bytes.subarray(0,PACK_HEADER)),tiles:new Map()});
-    while(packCache.size>24)packCache.delete(packCache.keys().next().value);
+async function pack(path){
+  if(!packCache.has(path)){
+    const bytes=new Uint8Array(await readFile(join(dir,path)));
+    packCache.set(path,{bytes,header:decodePackHeader(bytes),tiles:new Map()});
+    while(packCache.size>48)packCache.delete(packCache.keys().next().value);
   }
-  return packCache.get(id);
+  return packCache.get(path);
 }
+// Tile (level, x, y) of day tile `id`, decoded.
 async function tile(id,level,x,y){
-  if(!present.has(id))return null;
-  const p=await pack(id),slot=packSlot(level,x,y),[offset,length]=p.entries[slot];
+  const entry=index.get(id),slot=daySlot(level,x,y);
+  if(!entry||!(entry.mask[slot>>3]&1<<(slot&7)))return null;
+  const side=1<<level,at=packOf(level,id%COLUMNS*side+x,Math.floor(id/COLUMNS)*side+y,entry.k[level-1]);
+  const p=await pack(at.path),[offset,length]=p.header.entries[at.slot];
   if(!length)return null;
-  if(!p.tiles.has(slot))p.tiles.set(slot,await sharp(p.bytes.subarray(offset,offset+length)).removeAlpha().raw().toBuffer());
-  return p.tiles.get(slot);
+  if(!p.tiles.has(at.slot))p.tiles.set(at.slot,await sharp(p.bytes.subarray(offset,offset+length)).removeAlpha().raw().toBuffer());
+  return p.tiles.get(at.slot);
 }
 const bmngCache=new Map();
 async function bmng(id){

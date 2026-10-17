@@ -98,14 +98,17 @@ Sources and credits:
 
 - `day-pyramid/`: three levels below `day-tiles/` (7.5″, 3.75″ and 1.875″;
   about 250, 125 and 62.5 m), over land from 82° N to 60° S, behind
-  `dayDetail=sentinel`. One `<day tile>.pack` per day tile holds its deep
-  AVIF tiles (Q50, 4:4:4) and is read with HTTP range requests;
-  `index.bin` lists the packs and their tiles (layout in
-  `src/scripts/day-pyramid-pack.ts`). Sentinel-2 detail carries BMNG's
-  colour as a smooth per-channel gain; BMNG stays under snow and ice, empty
-  composite and cloud or snow left in the median. `provenance.json` records
-  method, totals and bytes read; `sources.json` lists every object read with
-  its ETag and byte range.
+  `dayDetail=sentinel`. The deep AVIF tiles (Q50, 4:4:4) come in packs of
+  one level each, `<level>/<x>-<y>.pack`: an aligned block of tiles from
+  2 × 2 day tiles at level 1 and one day tile at levels 2 and 3, merged with
+  its neighbours up to 0.9 MB where land is sparse (5,646 packs, largest
+  1.6 MiB). The media host ignores HTTP ranges, so the renderer fetches a
+  pack whole and caches it. `index.bin` lists every day tile's tiles and
+  pack sizes (layout in `src/scripts/day-pyramid-pack.ts`). Sentinel-2
+  detail carries BMNG's colour as a smooth per-channel gain; BMNG stays
+  under snow and ice, empty composite and cloud or snow left in the median.
+  `provenance.json` records method, totals, bytes read and the pack layout;
+  `sources.json` lists every object read with its ETag and byte range.
   Sources: ESA WorldCover 10m 2021 v200 Sentinel-2 median L2A RGBNIR
   composite (internal 1500 px overviews of the 1° files) and the WorldCover
   2021 v200 land-cover map (2250 px overviews of the 3° files, class 70
@@ -114,10 +117,13 @@ Sources and credits:
   https://doi.org/10.5281/zenodo.7254221. Attribution: "ESA WorldCover
   project 2021 / Contains modified Copernicus Sentinel data (2021) processed
   by ESA WorldCover consortium". Changes: resampled, colour-matched to and
-  blended with BMNG, AVIF-encoded. Build with
-  `scripts/build-day-pyramid.mjs all` (which reads the overviews through
-  `scripts/fetch-worldcover.mjs`), then `scripts/build-day-pyramid.mjs
-  index`; see `docs/lab/day-pyramid-global-2026-10-17.md`.
+  blended with BMNG, AVIF-encoded, repacked by level. Build day tile packs
+  outside the release with `scripts/build-day-pyramid.mjs all` (which reads
+  the overviews through `scripts/fetch-worldcover.mjs`) and
+  `scripts/build-day-pyramid.mjs provenance`, then write the release packs
+  with `scripts/build-day-pyramid-packs.mjs repack`, which checks every
+  tile's SHA-256 against the day tile packs; see
+  `docs/lab/day-pyramid-global-2026-10-17.md`.
 
 Build: `bun scripts/build-day-tiles.mjs /path/to/day` and
 `bun scripts/build-day-cloud-maps.mjs /path/to/orbital-reference` (with `day/`

@@ -2,13 +2,13 @@ import {readFile,writeFile,mkdir,copyFile,rm} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {checkMediaLimits} from './media-limits.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const manifest=JSON.parse(await readFile(join(root,'assets-manifest.json'),'utf8'));
-if(manifest.files.length+1>19000)throw Error('Static Assets free file budget exceeded (19,000 safety limit)');
+checkMediaLimits(manifest.files);
 const output=join(root,'.media',manifest.version),prefix=`earthlight/${manifest.version}`;
 await rm(output,{recursive:true,force:true});
 for(const file of manifest.files){
- if(file.bytes>25*1024*1024)throw Error(`Static Assets file exceeds 25 MiB: ${file.path}`);
  const input=join(root,'public/media/earthlight',file.path),bytes=await readFile(input);
  if(createHash('sha256').update(bytes).digest('hex')!==file.sha256)throw Error(`Asset changed: ${file.path}; run assets:prepare`);
  const target=join(output,prefix,file.path);await mkdir(dirname(target),{recursive:true});await copyFile(input,target);

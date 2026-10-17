@@ -5,12 +5,15 @@
 //   bun scripts/build-day-pyramid.mjs all <sources> <day-tiles> <output> [--rows=3-66] [--jobs=10] [--fetch-jobs=24] [--keep]
 //   bun scripts/build-day-pyramid.mjs row <sources> <day-tiles> <output> <row> [--jobs=10] [--lon=w,e]
 //   bun scripts/build-day-pyramid.mjs pack <sources> <day-tiles> <output> <row> --tiles=id,id [--debug=dir]
-//   bun scripts/build-day-pyramid.mjs index <sources> <output>
+//   bun scripts/build-day-pyramid.mjs provenance <sources> <output>
 //
 // `all` fetches one row of day tiles at a time with fetch-worldcover.mjs (the
 // next row downloads while this one builds), builds it, deletes the overviews
 // no later row needs, and pauses while less than 60 GB are free. Outputs are
-// <output>/<day tile>.pack and, from `index`, index.bin and provenance.json.
+// day tile packs, <output>/<day tile>.pack with all three levels, and, from
+// `provenance`, provenance.json and sources.json. Keep <output> outside the
+// release: scripts/build-day-pyramid-packs.mjs repacks it into the release
+// packs and index.bin under public/media/earthlight/day-pyramid.
 //
 // Photometry stays BMNG's (as in docs/lab/day-pyramid-2026-10-17.md), per
 // channel in linear light on the day-tile grid:
@@ -47,7 +50,7 @@ import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { loadInventory, rowCells, s2Key, mapKey, cellName, S2_OVERVIEW, MAP_OVERVIEW } from './fetch-worldcover.mjs';
-import { encodePack, encodeIndex, decodePackHeader, packMask, packSlot, PACK_HEADER } from '../src/scripts/day-pyramid-pack.ts';
+import { encodeDayPack, decodeDayPack, slotMask, daySlot } from '../src/scripts/day-pyramid-pack.ts';
 
 const here=dirname(fileURLToPath(import.meta.url));
 const INTERIOR=540,GUTTER=16,CELL=572,DEPTH=3,P0=240,COLUMNS=160,ROWS=80;
@@ -434,7 +437,7 @@ async function buildPack(ctx,id,debug){
       if(detail<.02)continue;
       const base=resample(bmng,CELL,3,bx,by,CELL,CELL),g=resample(gain,CELL,3,lx,ly,CELL,CELL),shift=resample(offset,CELL,3,lx,ly,CELL,CELL);
       const pixels=composeTile(base,g,shift,w,level.data,level.size,ox,oy);
-      const slot=packSlot(L,cx,cy);
+      const slot=daySlot(L,cx,cy);
       jobs.push(sharp(pixels,{raw:{width:CELL,height:CELL,channels:3}}).avif({quality:QUALITY,effort:2,chromaSubsampling:'4:4:4',bitdepth:8}).toBuffer().then(bytes=>{
         tiles.set(slot,new Uint8Array(bytes));stats.tiles[L]++;stats.bytes[L]+=bytes.length;
       }));
@@ -452,7 +455,7 @@ async function buildPack(ctx,id,debug){
     await sharp(rgb(s2Mean),{raw:{width:CELL,height:CELL,channels:3}}).png().toFile(join(debug,`${id}-s2.png`));
   }
   if(!tiles.size)return {id,empty:true,reason,typical};
-  const pack=encodePack(tiles);
+  const pack=encodeDayPack(tiles);
   await writeFile(join(ctx.output,`${id}.pack`),pack);
   return {id,ms:clock.slice(1).map((t,i)=>Math.round(t-clock[i])),tiles:stats.tiles,bytes:pack.length,levelBytes:stats.bytes,trust:stats.trust/(INTERIOR*8)**2,reason,typical,gainClamped:clamped/Math.max(1,gains),sources};
 }
@@ -530,25 +533,24 @@ async function buildAll(sources,dayTiles,output,[first,last],jobs,fetchJobs,keep
   await next;
 }
 
-async function writeIndex(sources,output){
+async function writeProvenance(sources,output){
   const packs=[];let bytes=0,tiles=0;const levels=[0,0,0,0];
   // Only packs the row builds reported; anything else (a trial) is removed.
   const built=new Set();
   for(const name of await readdir(join(sources,'rows')))for(const result of JSON.parse(await readFile(join(sources,'rows',name),'utf8')).results)if(!result.empty)built.add(result.id);
   for(const name of (await readdir(output)).filter(n=>/^\d+\.pack$/.test(n)&&!built.has(Number(n.slice(0,-5)))))await rm(join(output,name));
   for(const name of (await readdir(output)).filter(n=>/^\d+\.pack$/.test(n))){
-    const file=await readFile(join(output,name)),entries=decodePackHeader(file.subarray(0,PACK_HEADER));
-    packs.push({id:Number(name.slice(0,-5)),mask:packMask(entries)});bytes+=file.length;
+    const file=await readFile(join(output,name)),entries=decodeDayPack(file);
+    packs.push({id:Number(name.slice(0,-5)),mask:slotMask(entries)});bytes+=file.length;
     entries.forEach(([,length],i)=>{if(length){tiles++;levels[i<4?1:i<20?2:3]++;}});
   }
   packs.sort((a,b)=>a.id-b.id);
-  await writeFile(join(output,'index.bin'),encodeIndex(packs));
   const ledger=(await readFile(join(sources,'ledger.jsonl'),'utf8')).trim().split('\n').map(line=>JSON.parse(line));
   const seen=new Map();for(const entry of ledger)seen.set(entry.key,entry);
   const inv=await loadInventory(sources);
   const rows=(await readFile(join(sources,'build.jsonl'),'utf8').catch(()=>'')).trim().split('\n').filter(Boolean).map(line=>JSON.parse(line));
   const provenance={
-    version:1,depth:DEPTH,interior:INTERIOR,gutter:GUTTER,quality:QUALITY,format:'AVIF 4:4:4 8-bit, effort 2; packs: src/scripts/day-pyramid-pack.ts',
+    version:1,depth:DEPTH,interior:INTERIOR,gutter:GUTTER,quality:QUALITY,format:'AVIF 4:4:4 8-bit, effort 2; day tile packs: src/scripts/day-pyramid-pack.ts',
     texels:{1:'7.5″ (231 m north–south)',2:'3.75″ (116 m)',3:'1.875″ (58 m)'},
     packs:packs.length,tiles,levels:{1:levels[1],2:levels[2],3:levels[3]},bytes,
     method:'Sentinel-2 × smooth per-channel gain plus offset to BMNG in linear light, so the 500 m low-pass is BMNG\'s; BMNG kept, with a smooth blend, under snow and ice (land-cover class 70), empty composite, open water more than 3 km from land, cloud or snow left in the median, and BMNG\'s October 2004 snow over the summer composite. See docs/lab/day-pyramid-global-2026-10-17.md.',
@@ -571,7 +573,7 @@ async function writeIndex(sources,output){
   await writeFile(join(output,'sources.json'),JSON.stringify({buckets:{s2:inv.s2.bucket,map:inv.map.bucket},files:list})+'\n');
   provenance.sourcesSha256=createHash('sha256').update(await readFile(join(output,'sources.json'))).digest('hex');
   await writeFile(join(output,'provenance.json'),JSON.stringify(provenance,null,1)+'\n');
-  console.log(`index: ${packs.length} packs, ${tiles} tiles (${levels.slice(1).join(' / ')}), ${(bytes/2**30).toFixed(2)} GiB`);
+  console.log(`provenance: ${packs.length} day tile packs, ${tiles} tiles (${levels.slice(1).join(' / ')}), ${(bytes/2**30).toFixed(2)} GiB`);
 }
 
 if(import.meta.main){
@@ -586,6 +588,6 @@ if(import.meta.main){
   else if(command==='all'){
     const [a,b]=option('rows',`${ROW_FIRST}-${ROW_LAST}`).split('-').map(Number);
     await buildAll(rest[0],rest[1],rest[2],[a,b??a],jobs,Number(option('fetch-jobs',24)),process.argv.includes('--keep'));
-  }else if(command==='index')await writeIndex(rest[0],rest[1]);
-  else throw new Error('Usage: build-day-pyramid.mjs all|row|pack|index … (see the header)');
+  }else if(command==='provenance')await writeProvenance(rest[0],rest[1]);
+  else throw new Error('Usage: build-day-pyramid.mjs all|row|pack|provenance … (see the header)');
 }

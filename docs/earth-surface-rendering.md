@@ -31,8 +31,8 @@ All native plates remain outside the repository; the manifest records SHA-256.
 
 Below the day tiles, `dayDetail=sentinel` adds the day pyramid: three levels
 (250, 125 and 62.5 m) from the ESA WorldCover 2021 Sentinel-2 composite over
-land from 60° S to 83° N, 4,266 packs and 2.90 GiB, read with HTTP ranges and
-listed by `day-pyramid/index.bin`. Low frequencies and colour stay BMNG's;
+land from 60° S to 83° N, 2.90 GiB in 5,646 single-level packs that are
+fetched whole and cached, listed by `day-pyramid/index.bin`. Low frequencies and colour stay BMNG's;
 BMNG stays under snow and ice, open water and composite failures. It shares
 the day atlas and is off by default. See
 `lab/day-pyramid-global-2026-10-17.md`.
