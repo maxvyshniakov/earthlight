@@ -42,7 +42,7 @@ and LRO LOLA elevation. Maps are resampled, desaturated and encoded.
 
 See [NASA media usage guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/)
 and [SVS usage terms](https://svs.gsfc.nasa.gov/help/). NASA, ESA and the named
-contributors do not endorse Earthlight. Previews and the rendered poster
+contributors do not endorse Earthlight. Previews and the rendered posters
 contain derivatives of these credited scene inputs.
 
 ## Terrain

@@ -11,6 +11,11 @@ resolution and pauses while hidden or while the first ancestor with a box is off
 screen. Put it inside the element that shows the scene, such as the hero section. Reduced motion uses the poster. Both modes
 use the same renderer and `scene-defaults.ts` grade.
 
+The component preloads the scene's first light (about 77 KB) and picks its
+poster for the Sun's current position with a small inline script, before any
+module loads. A page with a Content Security Policy must allow that script
+(by hash) and fetches from the asset origin.
+
 ## Develop and update the consumer
 
 Every verified push to Earthlight `main` runs `.github/workflows/personal-site-dev.yml`.

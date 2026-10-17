@@ -10,3 +10,7 @@ for(const [name,source,width] of [
  await sharp('public/media/earthlight/'+source).resize(width,width/2).removeAlpha()
    .webp({quality:75,effort:5}).toFile(`${out}/${name}.webp`);
 }
+// The first light's cloud layer: under the loading defocus a 512-wide map is
+// indistinguishable from the 1024 preview, at a fifth of its bytes.
+await sharp('public/media/earthlight/earth-clouds-nasa-16384.avif').resize(512,256).removeAlpha().greyscale()
+  .avif({quality:55,effort:9}).toFile(`${out}/clouds-512.avif`);

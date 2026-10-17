@@ -43,18 +43,29 @@ tile implementations were rejected or revised before retaining this version.
 
 ## Loading and ownership
 
-1. A 5.1 KiB WebP renderer capture provides a static fallback.
-2. Four tiny map previews total about 119 KiB. The compact star catalog and PSF
-   load alongside them. The live canvas appears with 6 CSS pixels of defocus.
+1. A background poster covers the page before any script runs: the renderer's
+   own opening frame at the loading defocus, without the celestial sky, chosen
+   for the Sun's current position from a grid of 1.5–4 KiB WebP captures
+   (`background-poster.ts`, `scripts/render-posters.mjs`). The live canvas
+   fades in over the same picture and brings in the sky.
+2. The first light, 75 KiB, is everything a defocused frame needs: three
+   map previews, a 512-wide cloud map and the stars to magnitude 5. Pages
+   preload it, so it downloads beside the scene script instead of after shader
+   startup. The live canvas appears with 6 CSS pixels of defocus.
 3. Global refinements and visible tile caches share four network slots, two
    decode slots and one upload budget (`scene-work.ts`). Decode slots cover the
    complete decoded-input lifetime through upload. Preview work comes first,
    followed by visible tiles and overview refinements. Waiting work ages to
    prevent starvation. Each upload turn submits at most four jobs / 3 ms, then
    yields for 16 ms. Large individual driver allocations are not preemptible.
-4. After detail has settled, focus eases to sharp over 1.3 seconds. A six-second
-   waiting deadline prevents slow optional maps from leaving permanent blur.
-   Failed refinements preserve working previews. Reduced motion skips defocus.
+4. Focus follows the refinements: the full star catalog, the PSF and the
+   overview maps. After a 450 ms hold the blur closes towards
+   6 × √(share still missing) and pulls in with the last refinement, so no map
+   is replaced in sharp view. Pending visible tiles keep at least 1.9 px.
+   A full pull takes about 1.3 seconds. From five seconds the allowed blur
+   shrinks, reaching sharp focus by ten seconds even if detail never arrives.
+   Failed refinements count as arrived and preserve working previews. Reduced
+   motion skips defocus.
 
 Focus runs in a temporary optical prepass, not a CSS canvas filter.
 Forty-eight fixed area samples approximate the rounded nine-blade iris with
@@ -287,11 +298,15 @@ sRGB path of the isolated browser.
 The 24 FPS cap is retained after comparing uncapped scrolling. Telemetry is
 always white, so the synchronous background-color GPU readback has been removed.
 
-During loading, render dimensions use 60% scale above 3 CSS px defocus and 80%
-above 1 px; full resolution returns before focus settles. These two target
-upgrades are independent of sustained GPU quality and do not lower settled
-texture detail. This avoids paying full-resolution optical convolution cost
-while the preview is deliberately blurred.
+During loading, render dimensions use the smallest of 35%, 50%, 60% and 70%
+scale at which the blur radius still spans 2.5 buffer pixels. At the widest
+blur the background renders at 50% on displays at 1.5× and above and at 60%
+at 1×; the explorer, whose settled buffer is denser, at 35% (all were 60%).
+Below 0.8 CSS px of blur the full buffer returns. Grain is scaled with the
+reduced buffer, keeping the settled noise per CSS area. These target upgrades
+are independent of sustained GPU quality and do not lower settled texture
+detail. On an M2 Max a defocused background frame costs 3–5 ms at these sizes,
+mostly fixed per-frame work; the saving matters on phone GPUs.
 
 Large overview refinements upload into replacement textures in 256-row strips,
 yielding between strips and swapping only after mipmaps are complete. Context

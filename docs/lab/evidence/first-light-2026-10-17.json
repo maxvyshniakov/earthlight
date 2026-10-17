@@ -1,0 +1,490 @@
+{
+ "conditions": {
+  "network": "1600 kbps down, 150 ms RTT (CDP)",
+  "cpu": "4x slowdown",
+  "viewports": [
+   "1440x900 at 1x",
+   "iPhone 14 emulation, 390x844 at 3x"
+  ],
+  "lighthouse": "12.6.1, hardware GL, Apple M2 Max, simulated throttling",
+  "assets": "local server, same files"
+ },
+ "lighthouse": {
+  "highPriorityPreload": {
+   "after-desktop-1": {
+    "score": 100,
+    "fcp": 465,
+    "lcp": 785,
+    "tbt": 11,
+    "si": 670,
+    "bytes": 2684701
+   },
+   "after-desktop-2": {
+    "score": 100,
+    "fcp": 469,
+    "lcp": 729,
+    "tbt": 12,
+    "si": 563,
+    "bytes": 2684701
+   },
+   "after-desktop-3": {
+    "score": 100,
+    "fcp": 447,
+    "lcp": 767,
+    "tbt": 4,
+    "si": 447,
+    "bytes": 2684701
+   },
+   "after-mobile-1": {
+    "score": 67,
+    "fcp": 2009,
+    "lcp": 3584,
+    "tbt": 920,
+    "si": 2801,
+    "bytes": 2678411
+   },
+   "after-mobile-2": {
+    "score": 80,
+    "fcp": 1956,
+    "lcp": 4008,
+    "tbt": 270,
+    "si": 2294,
+    "bytes": 2678411
+   },
+   "after-mobile-3": {
+    "score": 91,
+    "fcp": 1967,
+    "lcp": 3017,
+    "tbt": 167,
+    "si": 1967,
+    "bytes": 2678411
+   },
+   "before-desktop-1": {
+    "score": 100,
+    "fcp": 492,
+    "lcp": 752,
+    "tbt": 15,
+    "si": 648,
+    "bytes": 2731862
+   },
+   "before-desktop-2": {
+    "score": 100,
+    "fcp": 452,
+    "lcp": 712,
+    "tbt": 0,
+    "si": 571,
+    "bytes": 2731862
+   },
+   "before-desktop-3": {
+    "score": 100,
+    "fcp": 449,
+    "lcp": 709,
+    "tbt": 2,
+    "si": 595,
+    "bytes": 2731862
+   },
+   "before-mobile-1": {
+    "score": 88,
+    "fcp": 1959,
+    "lcp": 3459,
+    "tbt": 132,
+    "si": 1959,
+    "bytes": 2725572
+   },
+   "before-mobile-2": {
+    "score": 84,
+    "fcp": 1966,
+    "lcp": 3541,
+    "tbt": 265,
+    "si": 1966,
+    "bytes": 2725572
+   },
+   "before-mobile-3": {
+    "score": 87,
+    "fcp": 1954,
+    "lcp": 3529,
+    "tbt": 157,
+    "si": 1954,
+    "bytes": 2725572
+   },
+   "after-mobile-1b": {
+    "score": 78,
+    "fcp": 1960,
+    "lcp": 3985,
+    "tbt": 364,
+    "si": 1960,
+    "bytes": 2678411
+   },
+   "after-mobile-2b": {
+    "score": 84,
+    "fcp": 1957,
+    "lcp": 3982,
+    "tbt": 150,
+    "si": 1957,
+    "bytes": 2678411
+   },
+   "after-mobile-3b": {
+    "score": 62,
+    "fcp": 2047,
+    "lcp": 6822,
+    "tbt": 515,
+    "si": 2047,
+    "bytes": 2678411
+   },
+   "after-mobile-4b": {
+    "score": 81,
+    "fcp": 1958,
+    "lcp": 3983,
+    "tbt": 251,
+    "si": 2398,
+    "bytes": 2678411
+   },
+   "after-mobile-5b": {
+    "score": 89,
+    "fcp": 1983,
+    "lcp": 3033,
+    "tbt": 218,
+    "si": 2170,
+    "bytes": 2678411
+   },
+   "before-mobile-1b": {
+    "score": 64,
+    "fcp": 1860,
+    "lcp": 3667,
+    "tbt": 883,
+    "si": 5154,
+    "bytes": 2725572
+   },
+   "before-mobile-2b": {
+    "score": 84,
+    "fcp": 1980,
+    "lcp": 3555,
+    "tbt": 255,
+    "si": 1980,
+    "bytes": 2725572
+   },
+   "before-mobile-3b": {
+    "score": 61,
+    "fcp": 1958,
+    "lcp": 7066,
+    "tbt": 541,
+    "si": 2374,
+    "bytes": 2725572
+   },
+   "before-mobile-4b": {
+    "score": 83,
+    "fcp": 1965,
+    "lcp": 3540,
+    "tbt": 274,
+    "si": 2343,
+    "bytes": 2725572
+   },
+   "before-mobile-5b": {
+    "score": 79,
+    "fcp": 1983,
+    "lcp": 3558,
+    "tbt": 409,
+    "si": 2745,
+    "bytes": 2725572
+   }
+  },
+  "lowPriorityPreload": {
+   "after-desktop-1": {
+    "score": 97,
+    "fcp": 466,
+    "lcp": 1262,
+    "tbt": 0,
+    "si": 692,
+    "bytes": 2687389
+   },
+   "after-desktop-2": {
+    "score": 100,
+    "fcp": 448,
+    "lcp": 788,
+    "tbt": 0,
+    "si": 448,
+    "bytes": 2687389
+   },
+   "after-desktop-3": {
+    "score": 100,
+    "fcp": 481,
+    "lcp": 821,
+    "tbt": 6,
+    "si": 497,
+    "bytes": 2687389
+   },
+   "after-mobile-1": {
+    "score": 81,
+    "fcp": 1981,
+    "lcp": 4006,
+    "tbt": 241,
+    "si": 2256,
+    "bytes": 2680595
+   },
+   "after-mobile-2": {
+    "score": 77,
+    "fcp": 2171,
+    "lcp": 2977,
+    "tbt": 552,
+    "si": 3362,
+    "bytes": 2680595
+   },
+   "after-mobile-3": {
+    "score": 79,
+    "fcp": 1970,
+    "lcp": 4070,
+    "tbt": 308,
+    "si": 2655,
+    "bytes": 2680595
+   },
+   "after-mobile-4": {
+    "score": 80,
+    "fcp": 2099,
+    "lcp": 3524,
+    "tbt": 372,
+    "si": 2099,
+    "bytes": 2680595
+   },
+   "after-mobile-5": {
+    "score": 96,
+    "fcp": 1235,
+    "lcp": 2360,
+    "tbt": 161,
+    "si": 1235,
+    "bytes": 2680595
+   },
+   "after-mobile-6": {
+    "score": 85,
+    "fcp": 1957,
+    "lcp": 3007,
+    "tbt": 330,
+    "si": 1957,
+    "bytes": 2680595
+   },
+   "before-desktop-1": {
+    "score": 100,
+    "fcp": 446,
+    "lcp": 706,
+    "tbt": 29,
+    "si": 474,
+    "bytes": 2731862
+   },
+   "before-desktop-2": {
+    "score": 96,
+    "fcp": 484,
+    "lcp": 1354,
+    "tbt": 44,
+    "si": 699,
+    "bytes": 2731862
+   },
+   "before-desktop-3": {
+    "score": 94,
+    "fcp": 455,
+    "lcp": 1648,
+    "tbt": 10,
+    "si": 725,
+    "bytes": 2731862
+   },
+   "before-mobile-1": {
+    "score": 76,
+    "fcp": 2023,
+    "lcp": 3421,
+    "tbt": 532,
+    "si": 2747,
+    "bytes": 2725572
+   },
+   "before-mobile-2": {
+    "score": 75,
+    "fcp": 1973,
+    "lcp": 3548,
+    "tbt": 546,
+    "si": 2517,
+    "bytes": 2725572
+   },
+   "before-mobile-3": {
+    "score": 97,
+    "fcp": 852,
+    "lcp": 1602,
+    "tbt": 186,
+    "si": 1904,
+    "bytes": 2725572
+   },
+   "before-mobile-4": {
+    "score": 59,
+    "fcp": 1958,
+    "lcp": 14279,
+    "tbt": 539,
+    "si": 2914,
+    "bytes": 2725572
+   },
+   "before-mobile-5": {
+    "score": 83,
+    "fcp": 1970,
+    "lcp": 3545,
+    "tbt": 287,
+    "si": 1970,
+    "bytes": 2725572
+   },
+   "before-mobile-6": {
+    "score": 86,
+    "fcp": 1954,
+    "lcp": 3529,
+    "tbt": 186,
+    "si": 1954,
+    "bytes": 2725572
+   }
+  }
+ },
+ "filmstrips": {
+  "desktopPaired": {
+   "before": {
+    "tReady": 4186,
+    "tSharp": 10950,
+    "tSettled": 13142,
+    "earthHandoffJump": 2.03,
+    "handoffJump": 1.53,
+    "postSharpPop": 1.51,
+    "medianFrameChange": 0.98,
+    "sceneBytes": 2157162,
+    "firstSceneRequest": 172,
+    "scene": [
+     "172-351 2K /_astro/max-portrait.DZ-n2LRT_We5Ie.webp",
+     "503-759 5K /preview/poster.webp",
+     "628-4680 308K /media/cases/earthlight/cover.webp",
+     "3256-4186 11K /preview/day.webp",
+     "3256-3608 8K /preview/night.webp",
+     "3256-4897 87K /preview/clouds.webp",
+     "3256-4186 14K /preview/galaxy.webp",
+     "3609-5710 150K /optical-psf-v3.bin",
+     "4186-6291 226K /stars-hyg-v2.bin",
+     "6298-9049 296K /mobile/galaxy-2048.avif",
+     "6298-7644 120K /mobile/day-2048.avif",
+     "7663-8867 105K /earth-night.avif",
+     "8940-12982 774K /earth-clouds-nasa-4096.avif"
+    ]
+   },
+   "after": {
+    "tReady": 3886,
+    "tSharp": 13773,
+    "tSettled": 13319,
+    "earthHandoffJump": 2.33,
+    "handoffJump": 4.59,
+    "postSharpPop": 1.07,
+    "medianFrameChange": 0.97,
+    "sceneBytes": 2108445,
+    "firstSceneRequest": 181,
+    "scene": [
+     "181-408 2K /_astro/max-portrait.DZ-n2LRT_We5Ie.webp",
+     "186-767 11K /preview/day.webp",
+     "186-665 8K /preview/night.webp",
+     "186-848 14K /preview/galaxy.webp",
+     "186-945 17K /preview/clouds-512.avif",
+     "186-1082 25K /stars-hyg-m5-v2.bin",
+     "766-981 2K /posters/31.webp",
+     "945-4541 308K /media/cases/earthlight/cover.webp",
+     "3815-6267 226K /stars-hyg-v2.bin",
+     "3815-5676 150K /optical-psf-v3.bin",
+     "5690-8415 296K /mobile/galaxy-2048.avif",
+     "6296-7644 120K /mobile/day-2048.avif",
+     "7704-8699 105K /earth-night.avif",
+     "8471-12537 774K /earth-clouds-nasa-4096.avif"
+    ]
+   }
+  },
+  "phone": {
+   "before": {
+    "tReady": 4252,
+    "tSharp": 10980,
+    "tSettled": 13327,
+    "earthHandoffJump": 5.66,
+    "handoffJump": 3.91,
+    "postSharpPop": 0.72,
+    "medianFrameChange": 0.65,
+    "sceneBytes": 2157162,
+    "firstSceneRequest": 175,
+    "scene": [
+     "175-333 2K /_astro/max-portrait.DZ-n2LRT_We5Ie.webp",
+     "436-710 5K /preview/poster.webp",
+     "463-4699 308K /media/cases/earthlight/cover.webp",
+     "3237-4252 11K /preview/day.webp",
+     "3238-3593 8K /preview/night.webp",
+     "3238-4859 87K /preview/clouds.webp",
+     "3238-4252 14K /preview/galaxy.webp",
+     "3600-5679 150K /optical-psf-v3.bin",
+     "4254-6288 226K /stars-hyg-v2.bin",
+     "6301-9066 296K /mobile/galaxy-2048.avif",
+     "6301-7680 120K /mobile/day-2048.avif",
+     "7709-8914 105K /earth-night.avif",
+     "8998-13019 774K /earth-clouds-nasa-4096.avif"
+    ]
+   },
+   "after": {
+    "tReady": 4188,
+    "tSharp": 14307,
+    "tSettled": 13701,
+    "earthHandoffJump": 0.87,
+    "handoffJump": 1.16,
+    "postSharpPop": 1.15,
+    "medianFrameChange": 0.77,
+    "sceneBytes": 2108445,
+    "firstSceneRequest": 214,
+    "scene": [
+     "214-393 2K /_astro/max-portrait.DZ-n2LRT_We5Ie.webp",
+     "214-810 11K /preview/day.webp",
+     "222-692 8K /preview/night.webp",
+     "222-1112 14K /preview/galaxy.webp",
+     "222-1112 17K /preview/clouds-512.avif",
+     "222-1113 25K /stars-hyg-m5-v2.bin",
+     "800-1112 2K /posters/31.webp",
+     "1112-4174 308K /media/cases/earthlight/cover.webp",
+     "4174-6434 226K /stars-hyg-v2.bin",
+     "4174-5865 150K /optical-psf-v3.bin",
+     "5894-8537 296K /mobile/galaxy-2048.avif",
+     "6476-7844 120K /mobile/day-2048.avif",
+     "7906-8939 105K /earth-night.avif",
+     "8605-12802 774K /earth-clouds-nasa-4096.avif"
+    ]
+   }
+  }
+ },
+ "handoff": {
+  "note": "mean absolute grey-level change between the poster frame (ready-300 ms) and the live frame (ready+1000 ms), right of the text column",
+  "desktopPaired": {
+   "before": {
+    "earth": 13.52,
+    "sky": 6.12
+   },
+   "after": {
+    "earth": 6.76,
+    "sky": 8.29
+   }
+  },
+  "phone": {
+   "before": {
+    "earth": 6.78,
+    "sky": 4.05
+   },
+   "after": {
+    "earth": 1.98,
+    "sky": 2.41
+   }
+  }
+ },
+ "defocusFrameMs": {
+  "note": "median of 40 frames at radius 6, each synchronised by a one-pixel read; /lab/poster?bench",
+  "desktop1x": {
+   "1": 11.7,
+   "0.7": 6.5,
+   "0.6": 5,
+   "0.5": 4.2,
+   "0.35": 3.1
+  },
+  "phone3x": {
+   "1": 8.9,
+   "0.7": 4.6,
+   "0.6": 3.6,
+   "0.5": 4.1,
+   "0.35": 3.3
+  }
+ }
+}

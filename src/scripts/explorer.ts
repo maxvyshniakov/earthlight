@@ -17,7 +17,7 @@ import { celestialFrame, currentLunarPhase } from './celestial-sky';
 import { createSceneRenderer, type SceneLook } from './scene-renderer';
 import { readLensPreset } from './lens-reflections';
 import { SceneFocus } from './scene-assets';
-import { sceneBufferSize, sceneComposition, focusRenderScale } from './scene-viewport';
+import { sceneBufferSize, sceneComposition, focusRenderScale, focusGrainScale, bufferDensity } from './scene-viewport';
 import { sceneProfile } from './scene-profile';
 import {auroraMode as readAuroraMode,cloudMode as readCloudMode} from './scene-effects';
 import {isWebGL2,sceneContext} from './webgl-context';
@@ -201,7 +201,7 @@ export class EarthlightExplorer extends HTMLElement {
     let focusTimer=0;
     let exposureTimer=0,exposureUntil=0;
     let exposureSceneTime:number|null=null;
-    let focusRadius=6;
+    let focusRadius=6,focusDensity=1.5;
     let qualityScale:number=profile.scale;
     let qualitySince=0,qualitySaved=0;
     let inspection=false;
@@ -219,11 +219,11 @@ export class EarthlightExplorer extends HTMLElement {
       const stats=[this.dataset.dayTiles,this.dataset.nightTiles,this.dataset.cloudTiles].filter(Boolean).map(x=>JSON.parse(x!));
       const tilesSettled=stats.every(x=>x.pending===0&&x.resident>=x.wanted);
       const ready=this.hasAttribute('data-ready');
-      const blur=matchMedia('(prefers-reduced-motion: reduce)').matches&&ready?0:focus.value(performance.now(),ready,renderer.assets.settled,tilesSettled);
+      const blur=matchMedia('(prefers-reduced-motion: reduce)').matches&&ready?0:focus.value(performance.now(),ready,renderer.assets.detailProgress,tilesSettled);
       const changed=Math.abs(focusRadius-blur)>.0001;
-      const previousScale=focusRenderScale(focusRadius);
+      const previousScale=focusRenderScale(focusRadius,focusDensity);
       focusRadius=blur<.01?0:blur;
-      if(previousScale!==focusRenderScale(focusRadius)){
+      if(previousScale!==focusRenderScale(focusRadius,focusDensity)){
         cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);
       }
       this.dataset.focusRadius=focusRadius.toFixed(3);
@@ -326,7 +326,14 @@ export class EarthlightExplorer extends HTMLElement {
       const view=composition();
       const sceneTime=playback.read(performance.now())+view.offset;
       const observer=observerAt(sceneTime);
-      const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,look,focusRadius,speed,inspection);
+      // Grain cells are buffer pixels: keep the settled noise per CSS area.
+      const focusLook=focusRadius>0?{...look,grain:look.grain*focusGrainScale(focusRadius,focusDensity)}:look;
+      // A paused view at rest has no frame rate to protect: its frames only
+      // carry exposure toward inspection, so they are not timed either. Timed,
+      // a busy GPU stepped the scale, and each resize's tiles restarted the
+      // settle window, deferring inspection indefinitely.
+      const still=standalone&&paused&&!frameClock.interacting(performance.now());
+      const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,focusLook,focusRadius,speed,inspection||still);
       if(!result)return;
       const now=performance.now();
       if(standalone){
@@ -357,7 +364,7 @@ export class EarthlightExplorer extends HTMLElement {
         const target=Math.min(viewScaleFor(coverage,viewSky),Math.max(1,1/qualityScale));
         if(viewScale.update(target,now,frameClock.interacting(now))){cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
       }
-      this.dataset.renderScale=(Math.min(1,result.scale*viewScale.factor)*focusRenderScale(focusRadius)).toFixed(2);
+      this.dataset.renderScale=(Math.min(1,result.scale*viewScale.factor)*focusRenderScale(focusRadius,focusDensity)).toFixed(2);
       if(perf){
         perfFrames.push(now);while(perfFrames.length>1&&perfFrames[0]<now-2000)perfFrames.shift();
         if(now-perfShown>500){
@@ -398,7 +405,8 @@ export class EarthlightExplorer extends HTMLElement {
       // keeps the normal mobile pixel budget; only desktop inspection gets
       // the larger Retina target. Motion resumes at the adaptive scale.
       const desktopInspection=inspection&&!matchMedia('(pointer: coarse)').matches;
-      const size=sceneBufferSize(width,height,devicePixelRatio,(inspection?1:bufferScale())*focusRenderScale(focusRadius),desktopInspection);
+      focusDensity=bufferDensity(width,height,devicePixelRatio,inspection?1:bufferScale());
+      const size=sceneBufferSize(width,height,devicePixelRatio,(inspection?1:bufferScale())*focusRenderScale(focusRadius,focusDensity),desktopInspection);
       const changed=canvas.width!==size.width||canvas.height!==size.height||cssHeight!==height||smallHeight!==nextSmall;
       cssHeight=height;smallHeight=nextSmall;
       // Assigning even an unchanged dimension clears the drawing buffer.

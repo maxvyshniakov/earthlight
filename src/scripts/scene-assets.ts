@@ -5,17 +5,33 @@ export type AssetKey=ImageLayer|'stars'|'psf'|'terrain'|'modis';
 export type AssetPlan={key:AssetKey;url:string;preview?:boolean};
 export type AssetUpload=(asset:AssetPlan,blob:Blob)=>Promise<void>;
 
+/** Stars to magnitude 5 (scripts/pack-startup-assets.mjs): 25 KB of the
+ * 231 KB catalog, and every star that reads as a distinct disc under the
+ * loading defocus. The fainter ones arrive as a haze while it is still wide. */
+export const FIRST_LIGHT_STARS='stars-hyg-m5-v2.bin';
+export function firstLightAssets(root:string):AssetPlan[]{
+ return [
+  ...(['day','night','galaxy'] as ImageLayer[]).map(key=>({key,url:`${root}preview/${key}.webp`,preview:true})),
+  // Clouds are the costliest overview to compress; 18 KB instead of 87 KB.
+  {key:'clouds',url:root+'preview/clouds-512.avif',preview:true},
+  {key:'stars',url:root+FIRST_LIGHT_STARS,preview:true},
+ ];
+}
+
 export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean,saveData=false,compactSurface=false,compactTextures=false,assetBaseURL='/media/earthlight/'):AssetPlan[]{
  saveData ||= maxTexture<4096;
  const root=assetBaseURL.replace(/\/+$/, '')+'/';
  const large=desktop&&!saveData&&maxTexture>=8192;
  return [
-  ...(['day','night','clouds','galaxy'] as ImageLayer[]).map(key=>({key,url:`${root}preview/${key}.webp`,preview:true})),
-  // Gzipped transfer copies (scripts/pack-startup-assets.mjs) of the
-  // nine-blade PSF and the catalog; both decode to the original bytes.
-  {key:'psf',url:root+'optical-psf-v3.bin',preview:true},
-  {key:'stars',url:root+'stars-hyg-v2.bin',preview:true},
-  ...(saveData?[]:[
+  // First light: everything a defocused frame needs, about 77 KB. Pages
+  // preload these URLs (firstLightAssets) while the scene script downloads.
+  ...firstLightAssets(root),
+  // Gzipped transfer copies (scripts/pack-startup-assets.mjs). Defocus hides
+  // faint stars and the PSF's fine structure, so both refine the first light:
+  // the full catalog replaces the bright stars, the PSF its analytic stand-in.
+  {key:'stars',url:root+'stars-hyg-v2.bin'},
+  {key:'psf',url:root+'optical-psf-v3.bin'},
+  ...(saveData?[{key:'clouds' as const,url:root+'preview/clouds.webp'}]:[
    {key:'galaxy' as const,url:galaxyOverview(compactTextures,assetBaseURL)},
    {key:'day' as const,url:root+(compactSurface?'mobile/day-2048.avif':'earth-day-bmng.avif')},
    {key:'night' as const,url:root+`earth-night${large?'-8k':''}.avif`},
@@ -40,6 +56,7 @@ export class SceneAssets {
  previewSettled=false;
  settled=false;
  failures:string[]=[];
+ private detailDone=0;
  private work:SceneWork;
  private plan:AssetPlan[];private upload:AssetUpload;private notify:()=>void;
  constructor(plan:AssetPlan[],upload:AssetUpload,notify:()=>void,work=new SceneWork()){this.work=work;this.plan=plan;this.upload=upload;this.notify=notify;}
@@ -78,7 +95,13 @@ export class SceneAssets {
    // must not discard the working preview used on context restoration.
    await this.accept(asset,blob);
   }catch(error){if(!this.disposed){this.failures.push(asset.url);console.warn('Scene layer unavailable; retaining available detail.',asset.key,error);}}
-  finally{this.abort.signal.removeEventListener('abort',cancel);this.notify();}
+  finally{this.abort.signal.removeEventListener('abort',cancel);if(!asset.preview&&!this.settled)this.detailDone++;this.notify();}
+ }
+ /** Share of the initial refinements that have arrived or failed, 0..1. */
+ get detailProgress(){
+  if(this.settled)return 1;
+  const total=this.plan.filter(x=>!x.preview).length;
+  return this.previewSettled?total?Math.min(1,this.detailDone/total):1:0;
  }
  async start(){
   await Promise.all(this.plan.filter(x=>x.preview).map(x=>this.load(x)));
@@ -116,15 +139,35 @@ export class SceneAssets {
  dispose(){this.disposed=true;this.active=false;this.generation++;this.abort.abort();this.compressed.clear();this.waiting.clear();}
 }
 
-/** Focus is a one-way reveal. Slow/failed optional detail never holds it forever. */
+/** Loading defocus that follows the detail on screen. The lens holds its
+ * widest blur over the first light, closes as refinements arrive and pulls
+ * into focus with the last one, so a texture is never replaced in sharp view.
+ * It never refocuses; slow or failed detail cannot hold it past FOCUS_LIMIT_MS.
+ */
+export const FOCUS_RADIUS=6,FOCUS_HOLD_MS=450,FOCUS_LIMIT_MS=10000;
+export function focusTarget(elapsed:number,progress:number){
+ if(elapsed<FOCUS_HOLD_MS)return FOCUS_RADIUS;
+ // A refinement shrinks the blur that hides the missing detail; the square
+ // root keeps the last missing layer at 40% of the blur, not 17%.
+ const detail=FOCUS_RADIUS*Math.sqrt(Math.max(0,1-progress));
+ const limit=FOCUS_RADIUS*Math.max(0,Math.min(1,(FOCUS_LIMIT_MS-elapsed)/(FOCUS_LIMIT_MS/2)));
+ return Math.min(detail,limit);
+}
 export class SceneFocus {
  private start=NaN;
- private released=NaN;
- value(now:number,ready:boolean,detailSettled:boolean,tilesSettled:boolean){
-  if(!ready)return 6;
-  if(!Number.isFinite(this.start))this.start=now;
-  if(!Number.isFinite(this.released)&&((detailSettled&&tilesSettled&&now-this.start>=450)||now-this.start>=6000))this.released=now;
-  const t=Number.isFinite(this.released)?Math.min(1,(now-this.released)/1300):0;
-  return 6*(1-t*t*(3-2*t));
+ private at=NaN;
+ private radius=FOCUS_RADIUS;
+ /** progress: refinements arrived (SceneAssets.detailProgress); tiles: whether
+  * the first visible tiles are resident. Pending tiles keep a residual blur. */
+ value(now:number,ready:boolean,progress:number,tilesSettled=true){
+  if(!ready)return FOCUS_RADIUS;
+  if(!Number.isFinite(this.start))this.start=this.at=now;
+  const target=focusTarget(now-this.start,tilesSettled?progress:Math.min(progress,.9));
+  const dt=Math.max(0,Math.min(250,now-this.at));this.at=now;
+  // A focus ring: eases out towards each new target, at most a full pull in 0.9 s.
+  const step=Math.min((this.radius-target)*(1-Math.exp(-dt/250)),FOCUS_RADIUS*dt/900);
+  if(step>0)this.radius-=step;
+  if(target===0&&this.radius<.15)this.radius=0;
+  return this.radius;
  }
 }
