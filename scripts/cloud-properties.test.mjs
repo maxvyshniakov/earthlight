@@ -8,7 +8,11 @@ test('measured clouds are an opt-in study',()=>{
   assert.equal(cloudPropertiesEnabled(new URLSearchParams('cloudStudy=modis')),false);
   assert.equal(cloudPropertiesEnabled(new URLSearchParams('cloudStudy=global')),true);
   assert.ok(cloudShader.includes(cloudPropertiesShader));
-  assert.match(cloudShader,/#ifdef CLOUD_PROPERTIES\n  return cloudPropertiesDensity\(point,footprint,detailed,halfSpan\);/);
+  // Every density entry point, including the view ray's ellipse-filtered one,
+  // returns the measured column: the plates' column must never draw them.
+  const entries=[...cloudShader.matchAll(/float cloudIntegratedDensity\([^)]*\)\{([\s\S]*?)\n\}/g)];
+  assert.ok(entries.length>=2);
+  for(const [,body] of entries)assert.match(body,/#ifdef CLOUD_PROPERTIES\n  return cloudPropertiesDensity\(point,footprint,detailed,halfSpan\);/);
 });
 
 // JavaScript mirrors of the shader's column and layer functions.

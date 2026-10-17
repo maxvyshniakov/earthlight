@@ -186,10 +186,14 @@ float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float half
   return cloudBaseDensity(point,footprint,detailed);
 #endif
 }
-// The view integral's density, filtered over the pixel's ellipse.
+// The view integral's density, filtered over the pixel's ellipse. Measured
+// columns keep their own density (the ellipse filters plate coverage only).
 float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan,vec4 ellipse){
 #ifdef CLOUDS_DISABLED
   return 0.;
+#endif
+#ifdef CLOUD_PROPERTIES
+  return cloudPropertiesDensity(point,footprint,detailed,halfSpan);
 #endif
 #ifdef MODIS_GUIDANCE
   float weight;vec4 field=modisSample(point,footprint,weight);
