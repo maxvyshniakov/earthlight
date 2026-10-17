@@ -232,7 +232,9 @@ export class SurfaceTiles {
   requests=0;
   bytes=0;
 
-  constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork(),private assetBaseURL='/media/earthlight/'){
+  // `directory` (below the asset base) replaces `<layer>-tiles` for lab data
+  // in the same layout, such as measured cloud properties.
+  constructor(gl:WebGLRenderingContext,mobile:boolean,notify:()=>void,layer:Layer='night',work=new SceneWork(),private assetBaseURL='/media/earthlight/',private directory=layer+'-tiles'){
     this.work=work;
     this.gl=gl;this.notify=notify;this.layer=layer;this.dimensions=dimensions(layer);this.prepacked=layer==='terrain'||layer==='galaxy';this.unit=layer==='terrain'?15:layer==='galaxy'?14:layer==='night'?7:layer==='day'?6:9;this.format=layer==='day'||layer==='galaxy'||layer==='terrain'?gl.RGBA:gl.LUMINANCE;
     const {columns,rows,cell,interior}=this.dimensions;
@@ -247,7 +249,7 @@ export class SurfaceTiles {
     for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
     for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
     this.work.network.run(scenePriority.tile,this.abort.signal,async()=>{
-      const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.layer+'-tiles/'+'manifest.json',{signal:this.abort.signal});
+      const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/manifest.json',{signal:this.abort.signal});
       if(!response.ok)throw new Error('Surface tile manifest unavailable');
       return response.json();
     }).then(data=>{
@@ -332,7 +334,7 @@ export class SurfaceTiles {
       const controller=new AbortController();this.pending.set(id,controller);this.requests++;
       const timeout=window.setTimeout(()=>controller.abort(),12000);
       this.work.network.run(scenePriority.tile,controller.signal,async()=>{
-        const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.layer+'-tiles/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
+        const response=await fetch(this.assetBaseURL.replace(/\/+$/, '')+'/'+this.directory+'/'+id+(this.layer==='terrain'?'.png':'.avif'),{signal:controller.signal,priority:'low'});
         if(!response.ok)throw new Error('Surface tile unavailable');
         return response.blob();
       }).then(blob=>this.work.decode.run(scenePriority.tile,controller.signal,async()=>{

@@ -68,6 +68,14 @@ test('cloud rotation moves both the sampling coordinates and the cached sun',()=
   assert.deepEqual(schedule.update(rotate(camera()),rotate(sun),time,'a',true,900),{ready:true,work:false});
 });
 
+test('measured clouds use a no-drift frame: the atlas stays valid as time passes',()=>{
+  const schedule=new CloudLightingSchedule(0);bake(schedule);
+  // Hours of scene time would rotate plate clouds by tens of degrees.
+  assert.deepEqual(schedule.update(camera(),sun,3.6e6*6,'a',true,900),{ready:true,work:false});
+  const drifting=new CloudLightingSchedule();bake(drifting);
+  assert.equal(drifting.update(camera(),sun,3.6e6*6,'a',true,900).ready,false);
+});
+
 test('low texture limits and sampler counts leave traced lighting available',()=>{
   const gl={MAX_TEXTURE_IMAGE_UNITS:1,MAX_TEXTURE_SIZE:2,getParameter:key=>key===1?16:2048};
   assert.equal(CloudLightingAtlas.supported(gl),true);

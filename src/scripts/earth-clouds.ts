@@ -5,14 +5,19 @@ import {continuousLongitudeShader} from './surface-map.ts';
 import {stormLightShader} from './storm-light.ts';
 import {modisPatchShader} from './modis-patch.ts';
 import {PHYSICAL_NIGHT} from './physical-night.ts';
+import {cloudPropertiesShader} from './cloud-properties.ts';
 export const cloudShader=continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
 uniform float cloudMapWidth;
 ${modisPatchShader}
+${cloudPropertiesShader}
 vec3 cloudCoordinates(vec3 point){
+#ifndef CLOUD_PROPERTIES
+  // Measured clouds stay where they were observed.
   point.xy=rotate(time*.000008)*point.xy;
+#endif
   return point;
 }
 float cloudMapSample(vec2 uv,float lod,float texels,bool detailed){
@@ -31,6 +36,10 @@ float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed)
   float texels=footprint*max(1.,cloudMapWidth)/(6.283185307*latitudeScale);
   float lod=max(0.,log2(max(1.,texels)));
   float mapped=cloudMapSample(uv,lod,texels,detailed);
+#ifdef CLOUD_PROPERTIES
+  // Measured opacity is the coverage; there are no plate seams to repair.
+  return mapped;
+#endif
   // The NASA W/E photographic plates disagree at their joins at Greenwich AND
   // the date line, at most latitudes: across the join the mean step is up to
   // 35 levels where the plates themselves step 1-3 (equatorial Pacific, the
@@ -164,6 +173,9 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed,vec4 ellipse){
 float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
 #ifdef CLOUDS_DISABLED
   return 0.;
+#endif
+#ifdef CLOUD_PROPERTIES
+  return cloudPropertiesDensity(point,footprint,detailed,halfSpan);
 #endif
 #ifdef MODIS_GUIDANCE
   float weight;vec4 field=modisSample(point,footprint,weight);
@@ -365,6 +377,9 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
 #else
       shadow=sunVisible>.01?cloudShadow(point):1.;
 #endif
+#ifdef CLOUD_PROPERTIES
+      if(sunVisible>.5)shadow=cloudPropertiesIllumination(point,footprint,shadow);
+#endif
       // Twilight belongs to the Sun; no source-independent night fill.
       float ambient=smoothstep(-.15,.20,mu)*.09;
       vec3 light=vec3(.76,.84,1.)*ambient+sunColor*sunVisible*(.20+.80*shadow)*(.48+.38*max(0.,mu))*(.8+forward*.30);
@@ -375,6 +390,9 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
       light+=urbanLight*exp(-cloudHeight/5.);
       // Wispy foreground cloud must not become a second luminous storm sheet.
       light+=(stormCloudLight(point,stormA)+stormCloudLight(point,stormB))*smoothstep(.025,.07,rho);
+#ifdef CLOUD_PROPERTIES_QUALITY
+      light*=cloudPropertiesTint(point);
+#endif
       float opacity=1.-exp(-rho*stepLength*6371.);
       weightedDistance+=transmission*opacity*(entry+(float(i)+.5)*stepLength);
       scattered+=transmission*opacity*light;
@@ -390,6 +408,9 @@ vec3 cloudIntegral(vec3 ray,float groundDistance,out float transmission,out floa
 vec3 cloudVolume(vec3 ray,float groundDistance,vec3 background,out float atmosphereDistance){
   float transmission;
   vec3 scattered=cloudIntegral(ray,groundDistance,transmission,atmosphereDistance);
+#ifdef CLOUD_PROPERTIES_QUALITY
+  if(groundDistance>0.)background=cloudPropertiesGround(cameraPosition+ray*groundDistance,background);
+#endif
   return max(vec3(0.),background*transmission+scattered);
 }
 `;
