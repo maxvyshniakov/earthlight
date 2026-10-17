@@ -69,14 +69,17 @@ three times more transparent for thin cloud. The 43,200-pixel plates add
 almost no structure beyond the 16K tiles. See
 [cloud calibration](lab/cloud-calibration-2026-10-17.md).
 `cloudStudy=global` (lab) replaces the plates with measured cloud properties
-for 22 September 2026: NOAA-20 VIIRS optical thickness and top height, MODIS
+for the UTC day of the scene's epoch when that day is built, otherwise for
+22 September 2026, the only day built so far: NOAA-20 VIIRS optical thickness and top height, MODIS
 phase. Opacity is the plane-parallel albedo of the optical thickness, by phase;
 partly cloudy pixels take the albedo of their own reflectance. Bases and
 profiles are inferred per type, unobserved places stay clear, and each column
 is lit without re-shadowing its own albedo. The clouds do not drift, so the
 cloud lighting atlas runs in its no-drift mode. See
 [measured cloud properties](lab/cloud-properties-2026-10-17.md) and
-[its second iteration](lab/cloud-properties-iteration-2026-10-17.md).
+[its second iteration](lab/cloud-properties-iteration-2026-10-17.md); the
+[third](lab/cloud-properties-seams-2026-10-17.md) reviews the date-line and
+swath seams and thin cirrus.
 
 
 Build scripts and official source URLs are in `public/media/earthlight/README.md`.

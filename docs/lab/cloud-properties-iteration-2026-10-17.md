@@ -222,6 +222,8 @@ be too bright; and the owner should compare the measured clouds with
 Calibrated on desktop and phone. The mean opacity, 0.259, is 11% above
 Calibrated's 0.233.
 
+These are taken up in the [third iteration](cloud-properties-seams-2026-10-17.md).
+
 ## Reproduce
 
 ```bash
