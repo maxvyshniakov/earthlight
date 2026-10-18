@@ -30,9 +30,11 @@ export async function verifyTouch({run,evaluate,wait,base}){
   await touch('touchStart',[[1,140,300],[2,250,300]]);await glide([[1,140,300],[2,250,300]],[[1,175,340],[2,285,340]]);await run('wait','200');
   const turned=await read();assert.notEqual(turned.basis,looked.basis);assert.equal(turned.position,looked.position);assert.equal(turned.mode,'follow');
   assert.equal(await evaluate("document.querySelector('.flight-hud').dataset.modality"),'touch','the gesture hints switch to touch');
-  // Spreading them zooms in toward their centre, which starts free flight.
+  // Spreading them clearly, past the threshold a looking pair needs, zooms
+  // the lens: the camera stays put and the orbit keeps following.
+  const lens=()=>evaluate("document.querySelector('.lens-output').value");
   await glide([[1,175,340],[2,285,340]],[[1,145,340],[2,315,340]]);await run('wait','300');
-  const pinched=await read();assert.notEqual(pinched.position,turned.position);assert.equal(pinched.mode,'free');
+  const pinched=await read();assert.equal(pinched.position,turned.position);assert.equal(pinched.mode,'follow');assert.notEqual(await lens(),'1×','a pinch zooms the lens');
   // Lifting one finger rebases without a jump, and that finger carries on
   // alone. One finger moves over Earth wherever it is, the sky included.
   await touch('touchEnd',[[2,315,340]]);await run('wait','150');assert.deepEqual(await read(),pinched);
@@ -44,6 +46,9 @@ export async function verifyTouch({run,evaluate,wait,base}){
   for(let i=1;i<=10;i++){const a=i*.06;await touch('touchMove',[[1,195-55*Math.cos(a),400-55*Math.sin(a)],[2,195+55*Math.cos(a),400+55*Math.sin(a)]]);await run('wait','16');}
   await touch('touchEnd',[]);await run('wait','300');
   const twisted=await read();assert.equal(twisted.position,single.position);assert.notEqual(twisted.roll,single.roll);
+  // Back to 1×, so the pinhole below matches the shaders'.
+  await evaluate("document.querySelector('.explorer-view').dispatchEvent(new KeyboardEvent('keydown',{code:'Digit0',bubbles:true}));document.querySelector('.explorer-view').dispatchEvent(new KeyboardEvent('keyup',{code:'Digit0',bubbles:true}));true");await run('wait','800');
+  assert.equal(await lens(),'1×');
   // Look down first, here with a hardware keyboard as on an iPad.
   await evaluate("document.querySelector('.explorer-view').dispatchEvent(new KeyboardEvent('keydown',{code:'ArrowDown',bubbles:true}));true");await run('wait','600');
   await evaluate("document.querySelector('.explorer-view').dispatchEvent(new KeyboardEvent('keyup',{code:'ArrowDown',bubbles:true}));true");await run('wait','300');
