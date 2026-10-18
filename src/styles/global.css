@@ -18,6 +18,7 @@
 }
 
 @layer explorer {
-  .explorer-page { color-scheme: dark; --paper: #080a0c; --ink: #f0ede6; --muted: #a5a5a3; --line: #ffffff24; --accent: #dfa77e; --page-gutter: clamp(20px, 3.333vw, 48px); background: #020304; }
-  .explorer-page body { isolation: isolate; }
+  .explorer-page { color-scheme: dark; --paper: #080a0c; --ink: #f0ede6; --muted: #a5a5a3; --line: #ffffff24; --accent: #dfa77e; --page-gutter: clamp(20px, 3.333vw, 48px); background: #000; }
+  /* Black, so browser bars that take their colour from the page match it. */
+  .explorer-page body { isolation: isolate; background: #000; }
 }

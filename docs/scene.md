@@ -642,10 +642,15 @@ plus wheel dollies along the viewing direction, rather than changing the field
 of view. Pan and zoom detach a following camera automatically. Gesture deltas
 are coalesced per animation frame, retaining fractional motion.
 
-On a touchscreen, one finger looks, two fingers pan, and pinch dollies. Touch
+On a touchscreen, one finger looks, two fingers pan, and pinch zooms the lens. Touch
 capture belongs to a separate full-scene layer with `touch-action: none`; settings
 and links sit above it and retain native scrolling and taps. Adding or lifting a
 finger rebases the gesture without jumping, and cancellation discards pending input.
+
+Since 2026-10-18 a two-finger pinch zooms the lens instead of moving the camera;
+double-tap and slide still approaches. Two fingers mostly look around, and their
+spread drifts while they do, so the lens waits for a clear pinch: 15% change of
+spread from the start, or 35% once the fingers already look or roll.
 
 Since 2026-10-13 one finger on Earth turns the globe about its centre like a
 trackpad scroll, 2.5 times faster than the finger and without running out at

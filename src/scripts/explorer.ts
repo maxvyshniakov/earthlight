@@ -59,7 +59,6 @@ export class EarthlightExplorer extends HTMLElement {
     const auroraMode=this.querySelector<HTMLSelectElement>('#explorer-aurora')!;
     const cloudsMode=this.querySelector<HTMLSelectElement>('#explorer-clouds')!;
     const lensPreset=this.querySelector<HTMLSelectElement>('#explorer-lens-preset')!;
-    const auroraStatus=this.querySelector<HTMLElement>('#explorer-aurora-status')!;
     const fixedExposure=this.querySelector<HTMLInputElement>('#explorer-fixed-exposure')!;
     const viewInputs=[...this.querySelectorAll<HTMLInputElement>('[data-view]')];
     const resetAll = this.querySelector<HTMLButtonElement>('.reset-all')!;
@@ -911,19 +910,24 @@ export class EarthlightExplorer extends HTMLElement {
       nightTarget=next;hud?.setNight(next!=='current');
       this.dataset.nightTarget=next;
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
-      void renderer.switchNight(next).then(swapped=>{
+      // The switch starts once the latched key has painted: building the next
+      // mode's programs can hold this thread, and the press must show at once.
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
         if(nightTarget!==next||disposed)return;
-        nightTarget=null;delete this.dataset.nightTarget;
-        // Nothing to dissolve into: superseded, failed, or already in this mode.
-        if(!swapped||next===nightMode){hud?.setNight(nightMode!=='current');releaseFrame();delete this.dataset.nightSwitch;return;}
-        nightMode=next;this.dataset.nightMode=next;
-        const url=new URL(pendingURL??location.href);
-        if(next==='current')url.searchParams.delete('night');else url.searchParams.set('night',next);
-        updateURL(url);
-        fixedRange();
-        if(Number(fixedExposure.value)>Number(fixedExposure.max))fixedExposure.value=fixedExposure.max;
-        applyLook();updateExplorerLink();
-      });
+        void renderer.switchNight(next).then(swapped=>{
+          if(nightTarget!==next||disposed)return;
+          nightTarget=null;delete this.dataset.nightTarget;
+          // Nothing to dissolve into: superseded, failed, or already in this mode.
+          if(!swapped||next===nightMode){hud?.setNight(nightMode!=='current');releaseFrame();delete this.dataset.nightSwitch;return;}
+          nightMode=next;this.dataset.nightMode=next;
+          const url=new URL(pendingURL??location.href);
+          if(next==='current')url.searchParams.delete('night');else url.searchParams.set('night',next);
+          updateURL(url);
+          fixedRange();
+          if(Number(fixedExposure.value)>Number(fixedExposure.max))fixedExposure.value=fixedExposure.max;
+          applyLook();updateExplorerLink();
+        });
+      }));
     };
     const panelController=createScenePanels(this,controls,settingsToggle);
     const comparison=this.querySelector<HTMLElement>('.scene-comparison')!;
@@ -1009,13 +1013,6 @@ export class EarthlightExplorer extends HTMLElement {
       url.searchParams.set('clouds',cloudsMode.value);
       reloadScene(url);
     };
-    const updateAuroraStatus=()=>{
-      auroraStatus.textContent=this.dataset.aurora==='unsupported'?'Aurora is unavailable on this device.':auroraMode.value==='auto'?'Auto turns aurora off on phones and tablets.':'';
-      auroraStatus.hidden=!auroraStatus.textContent;
-    };
-    const auroraObserver=new MutationObserver(updateAuroraStatus);
-    auroraObserver.observe(this,{attributes:true,attributeFilter:['data-aurora']});
-    updateAuroraStatus();
     auroraMode.addEventListener('change',changeAurora);
     cloudsMode.addEventListener('change',changeClouds);
     profileSelect.addEventListener('change',changeProfile);
@@ -1115,7 +1112,7 @@ export class EarthlightExplorer extends HTMLElement {
       propertiesMode.removeEventListener('change',changeProperties);
       lookInputs.forEach(input=>input.removeEventListener('input',changeLook));
       exposureMode.removeEventListener('change',changeLook);fixedExposure.removeEventListener('input',changeLook);lensPreset.removeEventListener('change',changeLook);
-      auroraObserver.disconnect();auroraMode.removeEventListener('change',changeAurora);
+      auroraMode.removeEventListener('change',changeAurora);
       cloudsMode.removeEventListener('change',changeClouds);
       resetAll.removeEventListener('click',restoreAll);
       resetValueButtons.forEach(button=>button.removeEventListener('click',restoreValue));

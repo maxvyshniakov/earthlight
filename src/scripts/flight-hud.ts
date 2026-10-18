@@ -4,6 +4,7 @@ import { EARTH_RADIUS_KM, add, cross, dot, normalize, scale, type Vec3 } from '.
 import { dayOfYear, daysInYear } from './scene-calendar.ts';
 import { GLOBE_LAND } from './globe-land.ts';
 import { celestialFrame } from './celestial-sky.ts';
+import { haptic } from './haptics.ts';
 
 export type Modality='mouse'|'trackpad'|'touch';
 const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
@@ -117,23 +118,64 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   let modality:Modality=fine?'mouse':'touch';
   const setModality=(next:Modality)=>{seen(next==='touch'?'touch':'pointer');if(next!==modality){modality=next;hud.dataset.modality=help.dataset.modality=next;}};
   hud.dataset.modality=help.dataset.modality=modality;
+  // Only a real key press shows a keyboard: the on-screen caps light keys too.
+  const keyboardSeen=(event:KeyboardEvent)=>{if(event.isTrusted)seen('keyboard');};
   const key=(code:string,down:boolean)=>{
-    if(down)seen('keyboard');
     for(const scope of [hud,help])scope.querySelectorAll(`kbd[data-key="${code}"]`).forEach(k=>k.toggleAttribute('data-pressed',down));
   };
 
+  // How far +, − and × sit below the middle of the digits in the labels' font,
+  // which is whatever monospace the device has.
+  const signLift=()=>{
+    const label=hud.querySelector<HTMLElement>('.hud-ev .hud-tick b');
+    const context=document.createElement('canvas').getContext('2d');
+    if(!label||!context)return;
+    const style=getComputedStyle(label);context.font=`${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const middle=(text:string)=>{const m=context.measureText(text);return (m.actualBoundingBoxAscent-m.actualBoundingBoxDescent)/2;};
+    hud.style.setProperty('--hud-sign-lift',`${(middle('0')-middle('+')).toFixed(2)}px`);
+  };
+  void document.fonts.ready.then(signLift);
+  // A finger dragged along a tape clicks at each tick it passes, like a detent.
+  const detents=(tape:HTMLElement,across=false)=>{
+    const ticks=[...tape.querySelectorAll<HTMLElement>('.hud-tick')].map(tick=>parseFloat(across?tick.style.left:tick.style.top)/100);
+    const notch=(event:PointerEvent)=>{const r=tape.getBoundingClientRect(),f=across?(event.clientX-r.left)/r.width:(event.clientY-r.top)/r.height;return ticks.filter(at=>at<=f).length;};
+    let last=-1;
+    return {down:(event:PointerEvent)=>{last=notch(event);},move:(event:PointerEvent)=>{
+      if(event.pointerType!=='touch')return;
+      const at=notch(event);if(at!==last){last=at;haptic(12);}
+    }};
+  };
   // The tape is logarithmic, like the climb itself.
   const span=Math.log(MAX_ALTITUDE/MIN_ALTITUDE);
   const kmAt=(clientY:number)=>{const r=tape.getBoundingClientRect();return MIN_ALTITUDE*Math.exp(span*clamp(1-(clientY-r.top)/r.height,0,1));};
-  let tapePointer:number|null=null;
+  // Readings are optimistic: a tape shows the value under the finger at once,
+  // and frames leave it there while the finger is down and the camera or lens
+  // catches up, for at most 1.5 s after release.
+  type Goal={value:number;until:number}|null;
+  const goals:{altitude:Goal;lens:Goal}={altitude:null,lens:null};
+  const aim=(key:keyof typeof goals,value:number)=>{goals[key]={value,until:Infinity};};
+  const release=(key:keyof typeof goals)=>{const goal=goals[key];if(goal)goal.until=performance.now()+1500;};
+  const holding=(key:keyof typeof goals,value:number)=>{
+    const goal=goals[key];
+    if(goal&&performance.now()<goal.until&&Math.abs(Math.log(value/goal.value))>.002)return true;
+    goals[key]=null;return false;
+  };
+  const paintAltitude=(km:number)=>{
+    shown.altitude=km;
+    tape.style.setProperty('--at',`${(1-clamp(Math.log(km/MIN_ALTITUDE)/span,0,1))*100}%`);
+    const label=`${Math.round(km).toLocaleString('en-US')} km`;
+    if(output.value!==label){output.value=label;tape.setAttribute('aria-valuenow',String(Math.round(km)));tape.setAttribute('aria-valuetext',label);}
+  };
+  const altitudeTo=(km:number)=>{aim('altitude',km);paintAltitude(km);o.altitude(km);};
+  let tapePointer:number|null=null;const tapeDetents=detents(tape);
   const tapeDown=(event:PointerEvent)=>{
     if(!event.isPrimary||event.button!==0)return;
     tapePointer=event.pointerId;tape.setPointerCapture(event.pointerId);event.preventDefault();
-    o.altitude(kmAt(event.clientY));
+    tapeDetents.down(event);altitudeTo(kmAt(event.clientY));
   };
-  const tapeMove=(event:PointerEvent)=>{if(event.pointerId===tapePointer)o.altitude(kmAt(event.clientY));};
+  const tapeMove=(event:PointerEvent)=>{if(event.pointerId===tapePointer){tapeDetents.move(event);altitudeTo(kmAt(event.clientY));}};
   // A pointer leaves no focus on a tape, so flight keys keep working; Tab still reaches it.
-  const tapeUp=(event:PointerEvent)=>{if(event.pointerId===tapePointer){tapePointer=null;if(tape.hasPointerCapture(event.pointerId))tape.releasePointerCapture(event.pointerId);scene();}};
+  const tapeUp=(event:PointerEvent)=>{if(event.pointerId===tapePointer){tapePointer=null;release('altitude');if(tape.hasPointerCapture(event.pointerId))tape.releasePointerCapture(event.pointerId);scene();}};
   const tapeKey=(event:KeyboardEvent)=>{
     const factor:Record<string,number>={ArrowUp:1.15,ArrowRight:1.15,ArrowDown:1/1.15,ArrowLeft:1/1.15,PageUp:2,PageDown:.5};
     const km=event.key==='Home'?MIN_ALTITUDE:event.key==='End'?MAX_ALTITUDE:factor[event.key]?o.current()*factor[event.key]:null;
@@ -155,14 +197,14 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     const r=lensTape.getBoundingClientRect(),y=(zoom:number)=>r.top+(1-Math.log(zoom/LENS_MIN)/lensSpan)*r.height;
     return lensMarks.find(zoom=>Math.abs(y(zoom)-clientY)<5)??LENS_MIN*Math.exp(lensSpan*clamp(1-(clientY-r.top)/r.height,0,1));
   };
-  let lensPointer:number|null=null;
+  let lensPointer:number|null=null;const lensDetents=detents(lensTape);
   const lensDown=(event:PointerEvent)=>{
     if(!event.isPrimary||event.button!==0)return;
     lensPointer=event.pointerId;lensTape.setPointerCapture(event.pointerId);event.preventDefault();
-    o.lens(zoomAt(event.clientY));
+    lensDetents.down(event);lensTo(zoomAt(event.clientY));
   };
-  const lensMove=(event:PointerEvent)=>{if(event.pointerId===lensPointer)o.lens(zoomAt(event.clientY),false);};
-  const lensUp=(event:PointerEvent)=>{if(event.pointerId===lensPointer){lensPointer=null;if(lensTape.hasPointerCapture(event.pointerId))lensTape.releasePointerCapture(event.pointerId);scene();}};
+  const lensMove=(event:PointerEvent)=>{if(event.pointerId===lensPointer){lensDetents.move(event);lensTo(zoomAt(event.clientY),false);}};
+  const lensUp=(event:PointerEvent)=>{if(event.pointerId===lensPointer){lensPointer=null;release('lens');if(lensTape.hasPointerCapture(event.pointerId))lensTape.releasePointerCapture(event.pointerId);scene();}};
   const lensKey=(event:KeyboardEvent)=>{
     const factor:Record<string,number>={ArrowUp:1.15,ArrowRight:1.15,ArrowDown:1/1.15,ArrowLeft:1/1.15,PageUp:2,PageDown:.5};
     const zoom=event.key==='Home'?LENS_MIN:event.key==='End'?LENS_MAX:factor[event.key]?o.lensZoom()*factor[event.key]:null;
@@ -170,6 +212,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     event.preventDefault();o.lens(clamp(zoom,LENS_MIN,LENS_MAX));
   };
   const lensWheel=(event:WheelEvent)=>{event.preventDefault();o.lens(o.lensZoom()*Math.exp(-(event.deltaY||event.deltaX)*.004),false);};
+  const lensTo=(zoom:number,animate=true)=>{aim('lens',zoom);shown.lens=zoom;paintLens(zoom);o.lens(zoom,animate);};
   const paintLens=(zoom:number)=>{
     const label=`${lensLabel(zoom)}×`;
     lensTape.style.setProperty('--at',`${(1-clamp(Math.log(zoom/LENS_MIN)/lensSpan,0,1))*100}%`);
@@ -181,12 +224,15 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   // Focus goes back to the scene, so the keyboard keeps working.
   const scene=()=>root.closest<HTMLElement>('.explorer-view')?.focus({preventScroll:true});
   const holdButtons=[...hud.querySelectorAll<HTMLButtonElement>('[data-hold]')];
+  // A roll arrow held under a finger clicks as it turns, like a ratchet.
+  let ratchet=0;
   const holdDown=(event:PointerEvent)=>{
     if(!event.isPrimary||event.button!==0)return;
     const button=event.currentTarget as HTMLButtonElement;
     event.preventDefault();button.setPointerCapture(event.pointerId);o.hold(button.dataset.hold!,true);
+    if(event.pointerType==='touch'&&button.classList.contains('hud-roll')){clearInterval(ratchet);ratchet=window.setInterval(()=>haptic(12),110);}
   };
-  const holdUp=(event:PointerEvent)=>{o.hold((event.currentTarget as HTMLElement).dataset.hold!,false);scene();};
+  const holdUp=(event:PointerEvent)=>{clearInterval(ratchet);o.hold((event.currentTarget as HTMLElement).dataset.hold!,false);scene();};
   const motionToggle=hud.querySelector<HTMLButtonElement>('.hud-time-toggle')!;
   const actions:Record<string,()=>void>={Space:()=>motionToggle.click(),Digit0:()=>o.lens(1),Backslash:()=>o.resetCamera(),KeyN:()=>o.night()};
   // Night mode's key stays down while it is on; the explorer latches it as the renderer switches.
@@ -202,18 +248,18 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   // Exposure compensation: a short linear tape over the lens tape. A press or
   // drag sets it to a tenth of a stop, and near a whole stop takes the stop.
   const evMeter=hud.querySelector<HTMLElement>('.hud-ev')!,evTape=evMeter.querySelector<HTMLElement>('.hud-tape')!,evOutput=evTape.querySelector<HTMLOutputElement>('output')!;
-  const evSet=(ev:number)=>o.setExposure(clamp(Math.round(ev*10)/10,EV_MIN,EV_MAX));
+  const evSet=(ev:number)=>{const value=clamp(Math.round(ev*10)/10,EV_MIN,EV_MAX);o.setExposure(value);paintEv(value);};
   const evAt=(clientY:number)=>{
     const r=evTape.getBoundingClientRect(),ev=EV_MAX-(EV_MAX-EV_MIN)*clamp((clientY-r.top)/r.height,0,1),stop=Math.round(ev);
     return Math.abs(r.top+(EV_MAX-stop)/(EV_MAX-EV_MIN)*r.height-clientY)<5?stop:ev;
   };
-  let evPointer:number|null=null,evWheelRest=0;
+  let evPointer:number|null=null,evWheelRest=0;const evDetents=detents(evTape);
   const evDown=(event:PointerEvent)=>{
     if(!event.isPrimary||event.button!==0)return;
     evPointer=event.pointerId;evTape.setPointerCapture(event.pointerId);event.preventDefault();
-    evSet(evAt(event.clientY));
+    evDetents.down(event);evSet(evAt(event.clientY));
   };
-  const evMove=(event:PointerEvent)=>{if(event.pointerId===evPointer)evSet(evAt(event.clientY));};
+  const evMove=(event:PointerEvent)=>{if(event.pointerId===evPointer){evDetents.move(event);evSet(evAt(event.clientY));}};
   const evUp=(event:PointerEvent)=>{if(event.pointerId===evPointer){evPointer=null;if(evTape.hasPointerCapture(event.pointerId))evTape.releasePointerCapture(event.pointerId);scene();}};
   const evKey=(event:KeyboardEvent)=>{
     const step:Record<string,number>={ArrowUp:.1,ArrowRight:.1,ArrowDown:-.1,ArrowLeft:-.1,PageUp:1,PageDown:-1},now=o.exposure()??0;
@@ -228,17 +274,24 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     if(tenths){evWheelRest-=tenths;evSet((o.exposure()??0)+tenths);}
   };
 
+  const paintEv=(ev:number)=>{
+    shown.ev=ev;
+    const label=`${ev>0?'+':ev<0?'−':''}${Math.abs(ev).toFixed(1)} EV`;
+    evTape.style.setProperty('--at',`${(EV_MAX-ev)/(EV_MAX-EV_MIN)*100}%`);
+    evOutput.value=label;evTape.setAttribute('aria-valuenow',String(ev));evTape.setAttribute('aria-valuetext',label);
+  };
+
   // The top tapes run sideways: press or drag along one, scroll over it, or use
   // the arrow keys. A press near a labelled mark takes the mark.
   const sideways=(tape:HTMLElement,set:(fraction:number)=>void,step:(steps:number)=>void)=>{
     const marks=[...tape.querySelectorAll<HTMLElement>('[data-at]')].map(e=>Number(e.dataset.at));
     const at=(clientX:number)=>{const r=tape.getBoundingClientRect(),f=clamp((clientX-r.left)/r.width,0,1);return marks.find(m=>Math.abs(m-f)*r.width<5)??f;};
-    let pointer:number|null=null,rest=0;
+    let pointer:number|null=null,rest=0;const clicks=detents(tape,true);
     const down=(event:PointerEvent)=>{
       if(!event.isPrimary||event.button!==0)return;
-      pointer=event.pointerId;tape.setPointerCapture(event.pointerId);event.preventDefault();set(at(event.clientX));
+      pointer=event.pointerId;tape.setPointerCapture(event.pointerId);event.preventDefault();clicks.down(event);set(at(event.clientX));
     };
-    const move=(event:PointerEvent)=>{if(event.pointerId===pointer)set(at(event.clientX));};
+    const move=(event:PointerEvent)=>{if(event.pointerId===pointer){clicks.move(event);set(at(event.clientX));}};
     const up=(event:PointerEvent)=>{if(event.pointerId===pointer){pointer=null;if(tape.hasPointerCapture(event.pointerId))tape.releasePointerCapture(event.pointerId);scene();}};
     const key=(event:KeyboardEvent)=>{
       const steps:Record<string,number>={ArrowRight:1,ArrowUp:1,ArrowLeft:-1,ArrowDown:-1,PageUp:10,PageDown:-10};
@@ -266,6 +319,16 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     sideways(minuteTape,f=>o.setMinute(Math.min(1439,Math.round(f*1440))),n=>o.setMinute(clamp(Math.floor(today.minute)+n*5,0,1439))),
     sideways(speedTape,f=>o.setSpeed(speedAt(f)),n=>o.stepSpeed(n)),
   ];
+  // Narrow, the date, the time and the time scale are each a button that drops
+  // its own tape under the row; pressed again, or a touch anywhere else, puts it away.
+  const clockRow=hud.querySelector<HTMLElement>('.hud-time')!,picks=[...clockRow.querySelectorAll<HTMLButtonElement>('.hud-pick')];
+  const openClock=(id:string|null)=>{
+    clockRow.toggleAttribute('data-clock-open',!!id);
+    for(const pick of picks){const open=pick.dataset.tape===id;pick.setAttribute('aria-expanded',String(open));hud.querySelector(`#${pick.dataset.tape}`)!.toggleAttribute('data-open',open);}
+  };
+  const clockClick=(event:Event)=>{const pick=event.currentTarget as HTMLButtonElement;openClock(pick.getAttribute('aria-expanded')==='true'?null:pick.dataset.tape!);refocus(event);};
+  const clockAway=(event:PointerEvent)=>{if(clockRow.hasAttribute('data-clock-open')&&!clockRow.contains(event.target as Node))openClock(null);};
+  picks.forEach(pick=>pick.addEventListener('click',clockClick));window.addEventListener('pointerdown',clockAway,{capture:true,passive:true});
   const clockDate=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
   const paintClock=(date:Date)=>{
     const day=dayOfYear(date),minute=(date.getTime()-Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()))/60000;
@@ -345,6 +408,8 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   };
   const showPin=(anchor:Vec3,until:number)=>{const now=performance.now();pinned={anchor,since:now,until};cancelAnimationFrame(pinFrame);drawPin(now);};
 
+  // A tapped button, or a target on the gauge, answers with a click of its own.
+  const buttonTapped=(event:MouseEvent)=>{if(modality==='touch'&&(event.target as Element).closest('button,[role="button"]'))haptic(15);};
   const touchSeen=(event:PointerEvent)=>{if(event.pointerType==='touch')setModality('touch');else if(event.pointerType==='pen'||modality==='touch')setModality('mouse');else seen('pointer');};
 
   tape.addEventListener('pointerdown',tapeDown);tape.addEventListener('pointermove',tapeMove);
@@ -397,7 +462,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   const helpGrid=help.querySelector<HTMLElement>('.help-grid')!;
   const helpWheel=(event:WheelEvent)=>{if(Math.abs(event.deltaY)>Math.abs(event.deltaX)&&helpGrid.scrollWidth>helpGrid.clientWidth&&helpGrid.scrollHeight<=helpGrid.clientHeight){event.preventDefault();helpGrid.scrollLeft+=event.deltaY;}};
   help.addEventListener('toggle',helpToggled);window.addEventListener('keydown',helpEscape);helpGrid.addEventListener('wheel',helpWheel,{passive:false});
-  window.addEventListener('pointerdown',touchSeen,{passive:true});
+  window.addEventListener('pointerdown',touchSeen,{passive:true});window.addEventListener('keydown',keyboardSeen);hud.addEventListener('click',buttonTapped,true);
 
   let dialRoll=0;
   // The Earth arc eases to each new extent, so it closes and opens visibly
@@ -433,26 +498,14 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
       }
       fpm.hidden=!marked;
       const zoom=focal/PROJECTION;
-      if(Math.abs(zoom-shown.lens)>1e-4){shown.lens=zoom;paintLens(zoom);}
+      if(!holding('lens',zoom)&&Math.abs(zoom-shown.lens)>1e-4){shown.lens=zoom;paintLens(zoom);}
       paintClock(frame.date);
       // The globe redraws only once the camera has moved a tenth of a degree.
       if(Math.abs(frame.latitude-shown.globe[0])>.1||Math.abs(((frame.longitude-shown.globe[1])%360+540)%360-180)>.1){shown.globe=[frame.latitude,frame.longitude];paintGlobe(frame.latitude,frame.longitude);}
       const ev=o.exposure();
-      if(ev!==shown.ev){
-        shown.ev=ev;evMeter.hidden=ev===null;
-        if(ev!==null){
-          const label=`${ev>0?'+':ev<0?'−':''}${Math.abs(ev).toFixed(1)} EV`;
-          evTape.style.setProperty('--at',`${(EV_MAX-ev)/(EV_MAX-EV_MIN)*100}%`);
-          evOutput.value=label;evTape.setAttribute('aria-valuenow',String(ev));evTape.setAttribute('aria-valuetext',label);
-        }
-      }
+      if(ev!==shown.ev){evMeter.hidden=ev===null;if(ev!==null)paintEv(ev);else shown.ev=null;}
       const km=frame.altitude;
-      if(Math.abs(km-shown.altitude)>.05){
-        shown.altitude=km;
-        tape.style.setProperty('--at',`${(1-clamp(Math.log(km/MIN_ALTITUDE)/span,0,1))*100}%`);
-        const label=`${Math.round(km).toLocaleString('en-US')} km`;
-        if(output.value!==label){output.value=label;tape.setAttribute('aria-valuenow',String(Math.round(km)));tape.setAttribute('aria-valuetext',label);}
-      }
+      if(!holding('altitude',km)&&Math.abs(km-shown.altitude)>.05)paintAltitude(km);
       const a=attitude(frame);
       // Roll runs on past ±180°, so the dial's short transition never spins the
       // long way round when the view turns over.
@@ -512,7 +565,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
       ring.style.left=`${clientX}px`;ring.style.top=`${clientY}px`;hud.append(ring);later(()=>ring.remove(),800);
     },
     dispose(){
-      timers.forEach(id=>clearTimeout(id));timers.clear();cancelAnimationFrame(pinFrame);
+      timers.forEach(id=>clearTimeout(id));timers.clear();clearInterval(ratchet);cancelAnimationFrame(pinFrame);
       tape.removeEventListener('pointerdown',tapeDown);tape.removeEventListener('pointermove',tapeMove);
       for(const type of ['pointerup','pointercancel','lostpointercapture'])tape.removeEventListener(type,tapeUp as EventListener);
       tape.removeEventListener('keydown',tapeKey);tape.removeEventListener('wheel',tapeWheel);
@@ -525,12 +578,13 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
       for(const type of ['pointerup','pointercancel','lostpointercapture'])evTape.removeEventListener(type,evUp as EventListener);
       evTape.removeEventListener('keydown',evKey);evTape.removeEventListener('wheel',evWheel);
       clockTapes.forEach(dispose=>dispose());
+      picks.forEach(pick=>pick.removeEventListener('click',clockClick));window.removeEventListener('pointerdown',clockAway,{capture:true});
       for(const button of holdButtons){
         button.removeEventListener('pointerdown',holdDown);
         for(const type of ['pointerup','pointercancel','lostpointercapture'])button.removeEventListener(type,holdUp as EventListener);
       }
       pressButtons.forEach(button=>button.removeEventListener('click',press));
-      window.removeEventListener('pointerdown',touchSeen);
+      window.removeEventListener('pointerdown',touchSeen);window.removeEventListener('keydown',keyboardSeen);hud.removeEventListener('click',buttonTapped,true);
       help.removeEventListener('toggle',helpToggled);window.removeEventListener('keydown',helpEscape);helpGrid.removeEventListener('wheel',helpWheel);
       dockSize.disconnect();cancelAnimationFrame(dockFrame);cancelAnimationFrame(earth.frame);root.style.removeProperty('--explorer-inset-bottom');root.style.removeProperty('--hud-dock-lift');root.removeAttribute('data-controls-open');
     },

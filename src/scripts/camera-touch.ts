@@ -7,10 +7,12 @@ const TAP_MS=260,DOUBLE_MS=320,SLOP=10;
  * touch behaviour. One finger moves over Earth wherever it starts: it grabs the
  * point it touches, or with `spin`, and always off the planet, turns the globe
  * like a trackpad scroll, which never runs out at the limb. Two fingers move together
- * to look, pinch to approach and twist to roll; each starts past a small
- * threshold so a pinch does not also roll. Double-tap flies in,
+ * to look, pinch to zoom the lens and twist to roll; each starts past a
+ * threshold so a pinch does not also roll. Two fingers mostly look, and their
+ * spread never holds still, so the lens waits for a clear pinch: 15% from the
+ * start, or 35% once they look or roll. Double-tap flies in,
  * double-tap-and-drag approaches with one thumb, and a two-finger tap flies
- * out. Touch has no Shift, so the HUD's lens buttons zoom the lens. */
+ * out. */
 export function createTouchCamera(surface:HTMLElement,camera:CameraController,touched:()=>void,gain=1,spin=false){
   const pointers=new Map<number,Point>();
   let previous:Point[]=[],frame=0;
@@ -39,10 +41,10 @@ export function createTouchCamera(surface:HTMLElement,camera:CameraController,to
         if(travel>SLOP||spread>.04||twist>.08)pair.moved=true;
         const other=pair.zoom||pair.roll;
         pair.look||=travel>(other?30:12);
-        pair.zoom||=spread>.08;
+        pair.zoom||=spread>(pair.look||pair.roll?.3:.14);
         pair.roll||=twist>(pair.zoom?.3:.18);
         if(pair.look)camera.look(c0.x,c0.y,c1.x,c1.y);
-        if(pair.zoom&&d0>8&&d1>8)camera.zoom(-Math.log(d1/d0),c1.x,c1.y);
+        if(pair.zoom&&d0>8&&d1>8)camera.lens(Math.log(d1/d0),c1.x,c1.y,false);
         if(pair.roll)camera.roll(turn(angle(current)-angle(previous)));
       }
     }

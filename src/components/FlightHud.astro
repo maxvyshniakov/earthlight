@@ -15,9 +15,10 @@ const splits = (marks: { at: number; split: number }[]) => marks.slice(0, -1).fl
 const short = splits(scale.map(({ km, split }) => ({ at: position(km), split })));
 // The lens tape mirrors it on the left: LENS_MIN× to LENS_MAX×, logarithmic. Long
 // ticks follow the 1-2-5 series, nearly even on a log scale with both ends
-// labelled; short ticks keep one pitch along the whole tape, about a sixth of an octave.
+// labelled; short ticks keep about one pitch along the whole tape, a fifth of
+// an octave, so they come about as often as the altitude tape's.
 const lensPosition = (zoom: number) => (1 - Math.log(zoom / LENS_MIN) / Math.log(LENS_MAX / LENS_MIN)) * 100;
-const lensScale = [{ zoom: LENS_MIN, split: 6 }, { zoom: 1, split: 6 }, { zoom: 2, split: 8 }, { zoom: 5, split: 6 }, { zoom: 10, split: 6 }, { zoom: 20, split: 8 }, { zoom: LENS_MAX, split: 0 }];
+const lensScale = [{ zoom: LENS_MIN, split: 5 }, { zoom: 1, split: 5 }, { zoom: 2, split: 8 }, { zoom: 5, split: 5 }, { zoom: 10, split: 5 }, { zoom: 20, split: 8 }, { zoom: LENS_MAX, split: 0 }];
 const lensShort = splits(lensScale.map(({ zoom, split }) => ({ at: lensPosition(zoom), split })));
 // Exposure compensation, a short linear tape over the lens tape: whole stops
 // labelled, thirds between.
@@ -68,9 +69,9 @@ const groups: Group[] = [
   { name: 'Roll', keys: [[[key('KeyQ', 'Q'), 'Left'], [key('KeyE', 'E'), 'Right'], [key('KeyH', 'H'), 'Level or flip']]], faster: 'roll',
     how: { pointer: [`Drag around the centre with ${option}<span data-only="gesture">, or rotate two fingers</span>.`], touch: ['Twist two fingers.'] } },
   { name: 'Altitude', keys: [[[key('KeyF', 'F'), 'Closer'], [key('KeyR', 'R'), 'Farther']]], faster: 'move',
-    how: { pointer: ['Wheel or pinch.', 'Double-click a point to fly in.', `Double-click with ${shift} to back off.`], touch: ['Pinch, or double-tap and slide.', 'Double-tap to fly in.', 'Tap with two fingers to back off.'] } },
+    how: { pointer: ['Wheel or pinch.', 'Double-click a point to fly in.', `Double-click with ${shift} to back off.`], touch: ['Double-tap and slide.', 'Double-tap to fly in.', 'Tap with two fingers to back off.'] } },
   { name: 'Zoom', keys: [[[key('Equal', '+'), 'In'], [key('Minus', '−'), 'Out'], [key('Digit0', '0'), 'Reset']]], faster: 'zoom',
-    how: { pointer: [`Wheel or pinch with ${shift}.`] } },
+    how: { pointer: [`Wheel or pinch with ${shift}.`], touch: ['Pinch.'] } },
   { name: 'Orbits', keys: [[[key('Digit1', '1'), 'Free flight'], [key('Digit2', '2'), 'ISS'], [key('Digit3', '3'), 'Polar'], [key('Digit4', '4'), 'High']]] },
   { name: 'Time', keys: [[[key('Space', 'Space'), 'Pause or play']]] },
   { name: 'Night', keys: [[[key('KeyN', 'N'), 'Night mode']]] },
@@ -79,8 +80,8 @@ const groups: Group[] = [
 <div class="flight-hud" data-modality="mouse">
   <div class="hud-time" role="group" aria-label="Time">
     <button class="explorer-motion hud-time-toggle" type="button" aria-label="Pause" title="Pause"><svg class="motion-play" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" data-hidden><path d="m5 3 8 5-8 5z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg><svg class="motion-pause" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 3v10M11 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></button>
-    <time class="explorer-time"><span class="explorer-date">—</span><span class="explorer-clock">—</span></time>
-    <span class="hud-time-scale" data-time-scale title="Time scale; change it in Settings">10×</span>
+    <div class="hud-picks"><time class="explorer-time"><button class="hud-pick" type="button" data-tape="explorer-day" aria-expanded="false" aria-controls="explorer-day" title="Date"><span class="explorer-date">—</span></button><button class="hud-pick" type="button" data-tape="explorer-minute" aria-expanded="false" aria-controls="explorer-minute" title="Time of day in UTC"><span class="explorer-clock">—</span></button></time>
+    <button class="hud-pick" type="button" data-tape="explorer-speed" aria-expanded="false" aria-controls="explorer-speed" title="Time scale"><span class="hud-time-scale" data-time-scale>10×</span></button></div>
     <span class="time-hint" aria-hidden="true"><button type="button" class="time-key" data-press="Space" tabindex="-1" title="Stop or start time (Space)"><kbd data-key="Space">Space</kbd></button><span>Time</span></span>
     <div class="hud-clock">
       <div id="explorer-speed" class="hud-tape hud-htape" style="--span: clamp(140px, 13cqw, 160px)" role="slider" tabindex="0" aria-label="Time scale" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax={SPEED_MAX} aria-valuenow="10">
@@ -109,10 +110,10 @@ const groups: Group[] = [
 
   <div class="hud-altimeter hud-meter" style={`--longest: ${Math.max(...scale.map(({ km }) => label(km).length))}`}>
     <nav class="hud-modes hud-list" aria-label="Camera">
-      <button type="button" data-flight-mode="free" aria-pressed="false" title="Fly from here"><kbd data-key="Digit1">1</kbd>Free</button>
-      <button type="button" data-orbit="iss" aria-pressed="true"><kbd data-key="Digit2">2</kbd>ISS</button>
-      <button type="button" data-orbit="polar" aria-pressed="false"><kbd data-key="Digit3">3</kbd>Polar</button>
-      <button type="button" data-orbit="high" aria-pressed="false"><kbd data-key="Digit4">4</kbd>High</button>
+      <button type="button" data-flight-mode="free" aria-pressed="false" title="Fly from here"><kbd data-key="Digit1">1</kbd><span class="hud-name">Free</span></button>
+      <button type="button" data-orbit="iss" aria-pressed="true"><kbd data-key="Digit2">2</kbd><span class="hud-name">ISS</span></button>
+      <button type="button" data-orbit="polar" aria-pressed="false"><kbd data-key="Digit3">3</kbd><span class="hud-name">Polar</span></button>
+      <button type="button" data-orbit="high" aria-pressed="false"><kbd data-key="Digit4">4</kbd><span class="hud-name">High</span></button>
     </nav>
     <div id="explorer-altitude" class="hud-tape" role="slider" tabindex="0" aria-label="Altitude" aria-orientation="vertical" aria-valuemin={MIN_ALTITUDE} aria-valuemax={MAX_ALTITUDE} aria-valuenow="420" aria-valuetext="420 km">
       <div class="hud-scale" aria-hidden="true">
@@ -134,7 +135,7 @@ const groups: Group[] = [
         </div>
         <div class="hud-now" aria-hidden="true"><output class="ev-output">0.0 EV</output></div>
       </div>
-      <button type="button" class="hud-key" data-press="KeyN" aria-pressed="false" tabindex="-1" title="Night mode (N)"><kbd data-key="KeyN">N</kbd><span>Night mode</span></button>
+      <button type="button" class="hud-key hud-night" data-press="KeyN" aria-pressed="false" tabindex="-1" title="Night mode (N)" aria-label="Night mode"><kbd data-key="KeyN">N</kbd><span class="hud-glyph"><svg class="hud-moon" viewBox="-4 -4 8 8" width="17" height="17" aria-hidden="true"><path d={crescent} /></svg></span><span>Night mode</span></button>
     </div>
     <div class="hud-zoom hud-meter" style={`--longest: ${Math.max(...lensScale.map(({ zoom }) => `${zoom}×`.length))}`}>
       <div id="explorer-lens" class="hud-tape" role="slider" tabindex="0" aria-label="Lens" aria-orientation="vertical" aria-valuemin={LENS_MIN} aria-valuemax={LENS_MAX} aria-valuenow="1" aria-valuetext="1×, 30 mm">
@@ -152,7 +153,7 @@ const groups: Group[] = [
 
   <div class="hud-dock">
     <div class="hud-attitude">
-      <button type="button" class="hud-roll" data-hold="KeyQ" tabindex="-1" aria-label="Roll left" title="Roll left (Q)"><kbd data-key="KeyQ">Q</kbd><svg class="hud-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12A8 8 0 1 0 6.34 6.34" /><path d="M10.34 6.34H6.34V2.34" /></svg></button>
+      <button type="button" class="hud-roll" data-hold="KeyQ" tabindex="-1" aria-label="Roll left" title="Roll left (Q)"><kbd data-key="KeyQ">Q</kbd><span class="hud-glyph"><svg class="hud-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12A8 8 0 1 0 6.34 6.34" /><path d="M10.34 6.34H6.34V2.34" /></svg></span></button>
       <div class="hud-gauge">
       <svg class="gauge" viewBox="-24 -24 48 48" width="64" height="64">
         <defs><mask id="hud-gauge-mask" maskUnits="userSpaceOnUse" x="-24" y="-24" width="48" height="48">
@@ -185,7 +186,7 @@ const groups: Group[] = [
         </g>
       </svg>
       </div>
-      <button type="button" class="hud-roll" data-hold="KeyE" tabindex="-1" aria-label="Roll right" title="Roll right (E)"><kbd data-key="KeyE">E</kbd><svg class="hud-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12A8 8 0 1 1 17.66 6.34" /><path d="M13.66 6.34H17.66V2.34" /></svg></button>
+      <button type="button" class="hud-roll" data-hold="KeyE" tabindex="-1" aria-label="Roll right" title="Roll right (E)"><kbd data-key="KeyE">E</kbd><span class="hud-glyph"><svg class="hud-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12A8 8 0 1 1 17.66 6.34" /><path d="M13.66 6.34H17.66V2.34" /></svg></span></button>
     </div>
   </div>
 
@@ -206,8 +207,8 @@ const groups: Group[] = [
     </div>
 
   <div class="explorer-controls hud-corner hud-list" hidden>
-    <button class="hud-info" type="button" popovertarget="explorer-info" title="Info (i)"><kbd data-key="KeyI">i</kbd>Info</button>
-    <button type="button" popovertarget="flight-help" title="Help (? or F1)"><kbd data-key="Slash">?</kbd>Help</button>
+    <button class="hud-info" type="button" popovertarget="explorer-info" title="Info (i)" aria-label="Info"><kbd data-key="KeyI">i</kbd><span class="hud-name">Info</span><span class="hud-cap hud-touch-cap"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25" /><path d="M10.5 10.75h1.75v6" /><circle cx="12" cy="7.6" r="1.1" fill="currentColor" stroke="none" /></svg></span></button>
+    <button type="button" popovertarget="flight-help" title="Help (? or F1)" aria-label="Help"><kbd data-key="Slash">?</kbd><span class="hud-name">Help</span><span class="hud-cap hud-touch-cap"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.25-.9.75-.9 1.4v.55" /><circle cx="12" cy="16.6" r="1.1" fill="currentColor" stroke="none" /></svg></span></button>
     <button class="explorer-settings-toggle" type="button" popovertarget="explorer-settings" title="Settings" aria-label="Settings"><span class="hud-cap"><svg class="hud-gear" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg></span></button>
   </div>
 
@@ -244,7 +245,7 @@ const groups: Group[] = [
   /* The HUD box ends above the docked controls panel; contain: layout makes it
      the containing block of its fixed parts, so they all move up with it, and as
      a size container its height (cqh) sizes the tape instead of the screen's. */
-  .flight-hud { --hud-glass: rgb(8 10 14 / 62%); --hud-dim: rgb(255 255 255 / 58%); --hud-accent: #d3a784; --hud-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; --hud-top: max(12px, env(safe-area-inset-top)); --hud-left: max(12px, env(safe-area-inset-left)); --hud-right: max(12px, env(safe-area-inset-right)); --hud-bottom: max(12px, env(safe-area-inset-bottom)); position: fixed; inset: 0 0 var(--explorer-inset-bottom, 0px); contain: layout; container-type: size; z-index: 4; pointer-events: none; color: #fff; font: 11px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: opacity .5s ease; }
+  .flight-hud { --hud-glass: rgb(8 10 14 / 62%); --hud-dim: rgb(255 255 255 / 58%); --hud-accent: #d3a784; --hud-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; --hud-top: max(12px, env(safe-area-inset-top)); --hud-left: max(12px, env(safe-area-inset-left)); --hud-right: max(12px, env(safe-area-inset-right)); --hud-bottom: max(12px, env(safe-area-inset-bottom)); --hud-cap: 24px; --hud-round-r: 5px; --hud-pill-r: 4px; --hud-round: var(--hud-round-r); --hud-pill: var(--hud-pill-r); position: fixed; inset: 0 0 var(--explorer-inset-bottom, 0px); contain: layout; container-type: size; z-index: 4; pointer-events: none; color: #fff; font: 11px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: opacity .5s ease; }
   :global(earthlight-explorer:not([data-ready])) .flight-hud { opacity: 0; }
   .hud-time, .hud-list, .hud-attitude, .hud-meter, .hud-pad { pointer-events: auto; }
   .flight-hud { user-select: none; -webkit-user-select: none; }
@@ -257,21 +258,29 @@ const groups: Group[] = [
   /* ⌫ is wider than the rest; without padding it stays square too. */
   .flight-hud :global(kbd[data-key="Backspace"]), .flight-help :global(kbd[data-key="Backspace"]) { padding: 0; }
   /* A key that is a button takes a faint fill under the pointer. */
-  .flight-hud button:not([aria-pressed="true"]):hover :global(kbd:not([data-pressed])) { background: rgb(255 255 255 / 16%); }
+  .flight-hud[data-pointer] button:not([aria-pressed="true"]):hover :global(kbd:not([data-pressed])) { background: rgb(255 255 255 / 16%); }
   /* A held key, and the active camera preset, look pressed. */
   .flight-hud :global(kbd[data-pressed]), .hud-list [aria-pressed="true"] kbd { background: #fff; border-color: #fff; color: #000; transform: translateY(1px); }
-  /* Without a keyboard, key caps mean nothing. */
-  .flight-hud:not([data-keyboard]) :is(.hud-key, .hud-pad), .flight-hud:not([data-keyboard]) .time-hint, .flight-hud:not([data-keyboard]) :is(.hud-list, .hud-roll) kbd { display: none; }
+  /* Without a keyboard, key caps mean nothing. Night mode stays, as a crescent. */
+  .flight-hud:not([data-keyboard]) :is(.hud-key:not(.hud-night), .hud-pad), .flight-hud:not([data-keyboard]) .time-hint, .flight-hud:not([data-keyboard]) :is(.hud-list, .hud-roll, .hud-night) kbd { display: none; }
   /* Plain translucent fills; a backdrop blur over the live canvas costs frames and leaves artefacts. */
   button { font: inherit; color: inherit; cursor: pointer; }
+  /* Hover lights things only where there is a pointer: a tap on a phone leaves
+     its target hovered, and the gauge or a button would stay lit. */
   /* Focus shows as a fill, never a frame. */
   :is(button, [role="slider"]):focus-visible { outline: none; }
 
   /* Replay clock: Space or the button pauses it. */
-  .hud-time { position: fixed; top: var(--hud-top); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; height: 24px; padding: 0; box-sizing: border-box; font: 500 10px/1 var(--hud-mono); color: #fff; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  /* Play and pause sit in a key cap's frame, like the Settings gear, and never shrink. */
-  .hud-time-toggle { flex: none; padding: 0; background: none; color: #fff; }
-  .explorer-time { display: flex; gap: 14px; }
+  /* Centred by its margins, not a transform, so the play button can stand fixed in the corner. */
+  .hud-time { position: fixed; top: var(--hud-top); left: 0; right: 0; width: max-content; margin-inline: auto; display: flex; align-items: center; gap: 14px; height: var(--hud-cap); padding: 0; box-sizing: border-box; font: 500 10px/1 var(--hud-mono); color: #fff; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* Play and pause sit in a key cap's frame in the top-left corner, mirroring the Settings gear. */
+  .hud-time-toggle { position: fixed; top: var(--hud-top); left: var(--hud-left); padding: 0; background: none; color: #fff; }
+  /* Date, time and time scale are each a button that opens its tape under the
+     row; the open one sits on a white plate, like the chosen orbit. Their
+     padding is part of the gap between them. */
+  .hud-picks, .explorer-time { display: flex; align-items: center; gap: 4px; }
+  .hud-pick { padding: 5px; border: 0; border-radius: var(--hud-pill); background: none; color: inherit; letter-spacing: inherit; text-transform: inherit; }
+  .hud-pick[aria-expanded="true"] { background: #fff; color: #000; }
   .hud-time-toggle svg[data-hidden] { display: none; }
   /* Never squeezed: the cap keeps its word inside its frame at any width. */
   .time-hint { flex: none; display: flex; align-items: center; gap: 5px; color: var(--hud-dim); font-weight: 500; white-space: nowrap; }
@@ -291,11 +300,18 @@ const groups: Group[] = [
   @container (min-width: 820px) {
     /* As wide as its tapes: centred from the middle, it would otherwise squeeze them. */
     .hud-time { width: max-content; align-items: flex-start; gap: 24px; height: auto; padding: 0; background: none; }
-    .hud-time :is(.explorer-time, .hud-time-scale, .hud-time-toggle) { display: none; }
+    .hud-time :is(.hud-picks, .hud-time-toggle) { display: none; }
     /* Space sits at the top; the tapes hang 6 px lower, so their short ticks
        share an axis with its name. */
     .time-hint { align-self: flex-start; }
     .hud-clock { display: flex; margin-top: 6px; }
+  }
+  /* Narrower, a pick drops its own tape under the row, as wide as the screen
+     allows, until it is pressed again or anything else is touched. */
+  @container (max-width: 819.98px) {
+    .hud-time[data-clock-open] .hud-clock { position: fixed; top: calc(var(--hud-top) + var(--hud-cap) + 18px); left: 0; right: 0; display: flex; justify-content: center; }
+    .hud-time[data-clock-open] .hud-htape { width: min(300px, calc(100cqw - 72px)); }
+    .hud-time[data-clock-open] .hud-htape:not([data-open]) { display: none; }
   }
   .hud-tape.hud-htape { --tick-end: 0px; --reach: 32px; width: var(--span); height: 30px; cursor: ew-resize; }
   .hud-htape .hud-tick { top: var(--tick-end); right: auto; width: 1px; height: 6px; }
@@ -312,8 +328,14 @@ const groups: Group[] = [
   .hud-modes { justify-self: end; }
   /* Settings alone top right, a gear in a key cap's frame; Info, then Help, in the lower-right corner. */
   .hud-corner .explorer-settings-toggle { position: fixed; top: var(--hud-top); right: var(--hud-right); padding: 0; }
-  .hud-cap, .hud-time-toggle { display: grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1px solid rgb(255 255 255 / 30%); border-bottom-width: 2px; border-radius: 5px 5px 5px 5px / 5px 5px 6px 6px; transition: background-color .08s; }
-  :is(.explorer-settings-toggle:is(:hover, :focus-visible) .hud-cap, .hud-time-toggle:is(:hover, :focus-visible)) { background: rgb(255 255 255 / 16%); }
+  /* Corners: round, or squircles at 1.5 times the radius where the browser
+     draws them, so both read as equally rounded. */
+  @supports (corner-shape: superellipse(1.5)) {
+    .flight-hud { --hud-round: calc(var(--hud-round-r) * 1.5); --hud-pill: calc(var(--hud-pill-r) * 1.5); }
+    :is(.hud-cap, .hud-time-toggle, .hud-glyph, .hud-pick, .hud-name) { corner-shape: superellipse(1.5); }
+  }
+  .hud-cap, .hud-time-toggle { display: grid; place-items: center; width: var(--hud-cap); height: var(--hud-cap); box-sizing: border-box; border: 1px solid rgb(255 255 255 / 30%); border-bottom-width: 2px; border-radius: var(--hud-round) var(--hud-round) var(--hud-round) var(--hud-round) / var(--hud-round) var(--hud-round) calc(var(--hud-round) + 1px) calc(var(--hud-round) + 1px); transition: background-color .08s; }
+  :is(.explorer-settings-toggle:focus-visible .hud-cap, .hud-time-toggle:focus-visible), .flight-hud[data-pointer] :is(.explorer-settings-toggle:hover .hud-cap, .hud-time-toggle:hover) { background: rgb(255 255 255 / 16%); }
   /* Info alone in the lower-left corner, mirrored: key at the edge, name inside. */
   .hud-corner .hud-info { position: fixed; left: var(--hud-left); bottom: var(--hud-bottom); flex-direction: row; padding: 0 12px 0 0; }
   /* Settings, help and info in the lower-right corner, set like the presets; settings has no key, so a gear. */
@@ -321,9 +343,9 @@ const groups: Group[] = [
   .hud-corner[hidden] { display: none; }
   /* White like the key caps beside it, whatever the label does. */
   .hud-gear { flex: 0 0 16px; color: #fff; }
-  .hud-list button { display: flex; flex-direction: row-reverse; align-items: center; gap: 8px; height: 24px; padding: 0 0 0 12px; border: 0; background: none; color: var(--hud-dim); font: 600 10px/1 var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; }
+  .hud-list button { display: flex; flex-direction: row-reverse; align-items: center; gap: 8px; height: var(--hud-cap); padding: 0 0 0 12px; border: 0; background: none; color: var(--hud-dim); font: 600 10px/1 var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; }
   /* Not a segmented control: no fills; the active preset's key looks pressed and its name turns white. */
-  .hud-list button:is(:hover, :focus-visible, [aria-pressed="true"]) { color: #fff; }
+  .hud-list button:is(:focus-visible, [aria-pressed="true"]), .flight-hud[data-pointer] .hud-list button:hover { color: #fff; }
   /* A held roll key lights its name too. */
   .hud-list button:has(kbd[data-pressed]) { color: #fff; }
 
@@ -342,11 +364,19 @@ const groups: Group[] = [
      left and E's clockwise on the right. They read as the names did: dim, white
      under the pointer or while held. */
   .hud-roll { display: flex; align-items: center; gap: 8px; height: 24px; padding: 0; border: 0; background: none; color: var(--hud-dim); touch-action: none; }
-  .hud-roll:is(:hover, :has(kbd[data-pressed])) { color: #fff; }
+  .hud-roll:has(kbd[data-pressed]), .flight-hud[data-pointer] .hud-roll:hover { color: #fff; }
   .hud-roll[data-hold="KeyQ"] { flex-direction: row-reverse; }
   /* Down on the row's bottom edge, level with the crosses' bottom keys. */
   .hud-roll { align-self: flex-end; }
   .hud-icon { flex: 0 0 16px; }
+  /* An icon that becomes a cap of its own without a keyboard (below). */
+  .hud-glyph { display: grid; place-items: center; }
+  .hud-night .hud-glyph, .hud-touch-cap { display: none; }
+  /* The gauge's own crescent at the gauge's scale, drawn with its 1 px line. */
+  /* vector-effect does not inherit, so it goes on the path itself. */
+  .hud-moon { overflow: visible; }
+  .hud-moon path { fill: none; stroke: currentColor; stroke-width: 1px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+  
   /* WASD and the arrows as crosses along the bottom, at a quarter and three
      quarters of the width, rows on the presets' 24 px pitch and keys in a row
      the same 6 px apart as the rows. W and ↑ on top; a globe, set like the roll
@@ -382,7 +412,7 @@ const groups: Group[] = [
   /* Sky and ground stay faint until the pointer or focus is on the gauge. */
   .gauge-fill { opacity: .45; }
   /* Each part answers the pointer alone: the dial brightens its own fill. */
-  .gauge-dial:is(:hover, :focus-visible) .gauge-fill { opacity: 1; }
+  .gauge-dial:focus-visible .gauge-fill, .flight-hud[data-pointer] .gauge-dial:hover .gauge-fill { opacity: 1; }
   .gauge-cut { fill: none; stroke: #000; stroke-width: 1px; vector-effect: non-scaling-stroke; }
   /* Earth arc, Sun ring and wings: 1 px whatever the dial's size. The arc and
      ring match the tapes' ticks, half-white, until the gauge is hovered. */
@@ -396,8 +426,8 @@ const groups: Group[] = [
   .gauge-dial .gauge-hit, :is(.gauge-sun, .gauge-moon) .gauge-hit { pointer-events: fill; }
   .gauge-earth .gauge-hit { stroke: transparent; stroke-width: 10px; vector-effect: non-scaling-stroke; pointer-events: stroke; }
   /* Under the pointer the arc turns white and 2 px; the Sun and Moon fill in. */
-  .gauge-earth:is(:hover, :focus-visible) .gauge-stroke { stroke: #fff; stroke-width: 2px; }
-  :is(.gauge-sun, .gauge-moon):is(:hover, :focus-visible) .gauge-stroke { stroke: #fff; fill: #fff; }
+  .gauge-earth:focus-visible .gauge-stroke, .flight-hud[data-pointer] .gauge-earth:hover .gauge-stroke { stroke: #fff; stroke-width: 2px; }
+  :is(.gauge-sun, .gauge-moon):focus-visible .gauge-stroke, .flight-hud[data-pointer] :is(.gauge-sun, .gauge-moon):hover .gauge-stroke { stroke: #fff; fill: #fff; }
   .gauge [role="button"]:focus { outline: none; }
   /* The Sun flies outside the Earth arc and the Moon along it; each cuts its
      own shape, and a clear gap round it, out of all it crosses: the dial's fill
@@ -423,7 +453,7 @@ const groups: Group[] = [
   .hud-left { position: fixed; left: var(--hud-left); top: 50%; transform: translateY(-50%); display: grid; gap: 44px; justify-items: start; }
   .hud-left > .hud-meter { position: static; transform: none; }
   /* Shorter tapes on the left keep their ticks about as close as the altitude
-     tape's: the lens 32 gaps to 46, exposure 21 thirds of a stop. */
+     tape's: the lens 36 gaps to 46, exposure 21 thirds of a stop. */
   .hud-zoom { --tape-share: .7; }
   .hud-ev { --tape-share: .45; }
   /* Manual exposure has no compensation. */
@@ -432,7 +462,7 @@ const groups: Group[] = [
      the name on the inner side of the cap. Backspace, back to 1×, sits under −
      on the presets' 24 px pitch. */
   .hud-meter .hud-key { display: flex; align-items: center; gap: 8px; color: var(--hud-dim); font: 600 10px/1 var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
-  .hud-meter .hud-key:is(:hover, :has(kbd[data-pressed])) { color: #fff; }
+  .hud-meter .hud-key:has(kbd[data-pressed]), .flight-hud[data-pointer] .hud-meter .hud-key:hover { color: #fff; }
   .hud-altimeter .hud-key { flex-direction: row-reverse; justify-self: end; }
   .hud-zoom .hud-key, .hud-ev .hud-key { justify-self: start; }
   /* A latched key, like the orbit keys: night mode stays down while on. */
@@ -453,8 +483,8 @@ const groups: Group[] = [
   .hud-now { position: absolute; left: 0; right: 0; top: var(--at); height: 0; color: #fff; }
   .hud-now::before { content: ''; position: absolute; right: var(--tick-end); top: 0; width: calc(var(--reach) - var(--tick-end)); height: 1px; background: currentColor; }
   .hud-now output { position: absolute; right: var(--reach); top: -9px; padding: 2px 6px; border-radius: 4px; color: inherit; font: 700 10px/14px var(--hud-mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .hud-tape:is(:hover, :focus-visible) .hud-now { color: var(--hud-accent); }
-  .hud-tape:is(:hover, :focus-visible) .hud-now output { background: var(--hud-accent); color: #000; text-shadow: none; }
+  .hud-tape:focus-visible .hud-now, .flight-hud[data-pointer] .hud-tape:hover .hud-now { color: var(--hud-accent); }
+  .hud-tape:focus-visible .hud-now output, .flight-hud[data-pointer] .hud-tape:hover .hud-now output { background: var(--hud-accent); color: #000; text-shadow: none; }
   /* The left tapes, mirrored. */
   .hud-left .hud-tick { right: auto; left: var(--tick-end); }
   .hud-left .hud-tick b { right: auto; left: 17px; }
@@ -485,13 +515,72 @@ const groups: Group[] = [
   /* Phones: compact instruments. */
   @media (max-width: 640px) {
     .hud-time { gap: 10px; }
-    .explorer-time { gap: 10px; }
     .gauge { width: 50px; height: 50px; }
     .hud-attitude { gap: 12px; }
     /* Centred in the room the corner buttons leave. */
     .hud-dock { left: calc(var(--hud-left) + 64px); right: calc(var(--hud-right) + 64px); }
     .hud-meter { --tape: clamp(150px, 26cqh, 240px); }
   }
+  /* Touch alone: only what a finger can use, at a finger's size. Play,
+     Settings, night mode, Info and Help are caps 32 px square; the roll arrows
+     are bare icons, drawn like the gauge's Sun and Moon, that flash white when
+     tapped. Each reaches 6 px past what it draws. The orbits stay names, the
+     chosen one on a white plate. The gauge doubles so the Sun and Moon can be
+     tapped, and the tapes grow into the room the keys leave. The tapes take a
+     finger only on a strip along the screen edge, over their ticks, so a swipe
+     across the scene never catches a label or a reading. */
+  .flight-hud:not([data-keyboard]) { --hud-cap: 32px; --hud-round-r: 7px; --hud-pill-r: 5px; }
+  .flight-hud:not([data-keyboard]) :is(.hud-roll, .hud-night, .hud-corner button:not(.hud-info, .explorer-settings-toggle)) { position: relative; }
+  .flight-hud:not([data-keyboard]) .hud-corner .hud-info { position: fixed; padding: 0; }
+  .flight-hud:not([data-keyboard]) :is(.hud-roll, .hud-night, .hud-time-toggle, .explorer-settings-toggle, .hud-corner button, .hud-modes button)::after { content: ''; position: absolute; inset: -6px; }
+  .flight-hud:not([data-keyboard]) :is(.hud-night > span:last-child, .hud-corner .hud-name) { display: none; }
+  .flight-hud:not([data-keyboard]) .hud-touch-cap { display: grid; }
+  /* The four corner icons are as faint as the roll arrows and flash white the same way. */
+  .flight-hud:not([data-keyboard]) :is(.hud-time-toggle, .hud-cap) { border: 0; background: none; color: rgb(255 255 255 / 50%); transition: color .35s ease-out; }
+  .flight-hud:not([data-keyboard]) .hud-gear { color: inherit; }
+  .flight-hud:not([data-keyboard]) :is(.hud-time-toggle:active, :is(.explorer-settings-toggle, .hud-corner button):active .hud-cap) { color: #fff; transition: none; }
+  .flight-hud:not([data-keyboard]) .hud-gear { width: 20px; height: 20px; }
+  .flight-hud:not([data-keyboard]) .hud-time-toggle svg { width: 16px; height: 16px; }
+  .flight-hud:not([data-keyboard]) :is(.hud-roll, .hud-night) .hud-glyph { display: grid; width: var(--hud-cap); height: var(--hud-cap); box-sizing: border-box; }
+  /* Night mode is a bare crescent like the other icons; on, it turns white and fills in. */
+  .flight-hud:not([data-keyboard]) .hud-night .hud-glyph { color: rgb(255 255 255 / 50%); transition: color .35s ease-out; }
+  .flight-hud:not([data-keyboard]) .hud-roll { height: auto; color: rgb(255 255 255 / 50%); transition: color .35s ease-out; }
+  .flight-hud:not([data-keyboard]) .hud-roll .hud-icon { width: 20px; height: 20px; stroke-width: 1.2px; }
+  .flight-hud:not([data-keyboard]) .hud-roll:is(:active, :has(kbd[data-pressed])) { color: #fff; transition: none; }
+  /* A pressed cap fills faintly, in place of the browser's tap highlight. */
+  .flight-hud:not([data-keyboard]) .hud-night:active .hud-glyph { color: #fff; transition: none; }
+  .flight-hud:not([data-keyboard]) .hud-night[aria-pressed="true"] .hud-glyph { color: #fff; }
+  .flight-hud:not([data-keyboard]) .hud-night[aria-pressed="true"] .hud-moon path { fill: currentColor; }
+  .flight-hud:not([data-keyboard]) .hud-gauge { margin-inline: 12px; }
+  .flight-hud:not([data-keyboard]) .gauge { width: 104px; height: 104px; }
+  .flight-hud:not([data-keyboard]) .gauge-sun .gauge-hit { r: 8px; }
+  .flight-hud:not([data-keyboard]) .gauge-moon .gauge-hit { r: 7.5px; }
+  .flight-hud:not([data-keyboard]) .hud-modes button { position: relative; padding: 0; }
+  .flight-hud:not([data-keyboard]) .hud-modes .hud-name { padding: 5px; border-radius: var(--hud-pill); }
+  .flight-hud:not([data-keyboard]) .hud-modes [aria-pressed="true"] .hud-name { background: #fff; color: #000; }
+  .flight-hud:not([data-keyboard]) .hud-meter { --tape: clamp(200px, 42cqh, 440px); pointer-events: none; }
+  .flight-hud:not([data-keyboard]) .hud-zoom { --tape-share: .85; }
+  .flight-hud:not([data-keyboard]) .hud-meter > button { pointer-events: auto; }
+  /* A finger never lights a reading, so it needs no plate and no room for one:
+     the rule ends at the labels and the reading follows 5 px on. */
+  .flight-hud:not([data-keyboard]) .hud-meter { --reach: calc(var(--tick-end) + 17px + var(--longest, 3) * 6px); }
+  /* Labels and the clock row are set like the orbit names: 10 px, the clock as heavy. */
+  .flight-hud:not([data-keyboard]) .hud-tick b { font-size: 10px; }
+  .flight-hud:not([data-keyboard]) .hud-picks { font-weight: 600; }
+  .flight-hud:not([data-keyboard]) .hud-now output { padding-inline: 5px; font-weight: 600; letter-spacing: .06em; }
+  /* Readings and labels sit on their line by the middle of their capitals and
+     digits, whatever monospace the device substitutes: the text box is trimmed
+     to the cap height and centred on the line. Without text-box, a one-line box
+     centred on it comes close. */
+  .flight-hud:not([data-keyboard]) .hud-meter :is(.hud-now output, .hud-tick b) { top: 0; padding-block: 0; line-height: 1; transform: translateY(-50%); text-box: trim-both cap alphabetic; }
+  /* Exposure and lens labels carry +, − or ×, which sit on the font's maths
+     axis below the middle of the digits; --hud-sign-lift (flight-hud.ts
+     measures it) raises them so the sign is level with its tick. */
+  .flight-hud:not([data-keyboard]) :is(.hud-ev, .hud-zoom) .hud-tick b { transform: translateY(calc(-50% - var(--hud-sign-lift, 0px))); }
+  .flight-hud:not([data-keyboard]) .hud-tape .hud-now { color: #fff; }
+  .flight-hud:not([data-keyboard]) .hud-tape .hud-now output { background: none; color: inherit; text-shadow: 0 0 3px rgb(0 0 0 / 85%), 0 0 1px rgb(0 0 0 / 90%); }
+  .flight-hud:not([data-keyboard]) .hud-meter .hud-tape::after { content: ''; position: absolute; top: -8px; bottom: -8px; right: calc(-1 * var(--hud-right)); width: calc(var(--hud-right) + 30px); pointer-events: auto; }
+  .flight-hud:not([data-keyboard]) .hud-left .hud-tape::after { right: auto; left: calc(-1 * var(--hud-left)); width: calc(var(--hud-left) + 30px); }
   /* The clock row shares the top edge with the gear until it would reach it:
      with Space and its name below 420 px, without them below 330 px. */
   @container (max-width: 420px) { .flight-hud[data-keyboard] .hud-corner .explorer-settings-toggle { top: calc(var(--hud-top) + 36px); } }
@@ -503,7 +592,9 @@ const groups: Group[] = [
     /* The tapes sit low, level with each other: the right one, under its
        presets, above the corner buttons. No keys. */
     :is(.hud-meter, .hud-left) { top: auto; bottom: calc(var(--hud-bottom) + 84px); transform: none; }
-    .hud-meter .hud-key { display: none; }
+    .hud-meter .hud-key:not(.hud-night) { display: none; }
+    .flight-hud[data-keyboard] .hud-night { display: none; }
+    .flight-hud:not([data-keyboard]) .gauge { width: 80px; height: 80px; }
     .hud-attitude { gap: 12px; }
     .gauge { width: 50px; height: 50px; }
     .hud-meter { --tape: clamp(112px, 34cqh, 170px); }
