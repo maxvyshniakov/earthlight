@@ -1,0 +1,3 @@
+interface:
+  display_name: "earthlight-visual-experiment"
+  short_description: "Compare Earthlight changes in the actual scene"

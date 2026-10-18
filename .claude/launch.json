@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "earthlight-dev",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "--bun",
+        "astro",
+        "dev",
+        "--ignore-lock",
+        "--port",
+        "4388",
+        "--host",
+        "127.0.0.1"
+      ],
+      "port": 4388
+    }
+  ]
+}

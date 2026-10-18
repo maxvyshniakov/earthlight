@@ -1,0 +1,3 @@
+interface:
+  display_name: "earthlight-reference-driven-rendering"
+  short_description: "Diagnose Earthlight effects against real imagery"

@@ -1,0 +1,3 @@
+interface:
+  display_name: "earthlight-rendering-optimization"
+  short_description: "Optimize Earthlight with paired GPU and motion checks"

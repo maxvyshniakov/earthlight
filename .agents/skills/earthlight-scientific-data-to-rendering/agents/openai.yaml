@@ -1,0 +1,3 @@
+interface:
+  display_name: "earthlight-scientific-data-to-rendering"
+  short_description: "Validate Earthlight raster data and reconstruction"
