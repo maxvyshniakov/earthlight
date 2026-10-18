@@ -1,6 +1,6 @@
 // Research reconstruction: measured cloud top/tau, assumed vertical profile.
 // No photograph, procedural shape noise, or pre-lit cloud color in this shader.
-export const modisDemoFragment=`#version 300 es
+export const modisDemoPrelude=`#version 300 es
 precision highp float;
 out vec4 fragColor;
 uniform sampler2D lowMap,middleMap,highMap,qualityMap;
@@ -36,7 +36,8 @@ float opticalDepth(vec3 p){
  return tau;
 }
 vec3 display(vec3 c){c=1.-exp(-c*exposure);return mix(c*12.92,1.055*pow(max(c,vec3(0.)),vec3(1./2.4))-.055,step(vec3(.0031308),c));}
-void main(){
+`;
+export const modisDemoFragment=modisDemoPrelude+`void main(){
  vec2 xy=(gl_FragCoord.xy-.5*resolution)/resolution.y;vec3 ray=normalize(basis*vec3(xy,1.5));
  vec2 hit=sphere(eye,ray,R);float ground=hit.x>0.?hit.x:1.e5;
  vec3 color=vec3(.015,.035,.07);

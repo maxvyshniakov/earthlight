@@ -193,7 +193,7 @@ export function followLens(frame:Pose,view:CameraView,x:number,y:number,from:num
 export class FlightNavigation {
  orbit:Orbit='iss';
  free:FreePose|null=null;
- /** Lens focal length in viewport heights; PROJECTION is 1×, and the lens runs from half that to twenty times it. */
+ /** Lens focal length in viewport heights; PROJECTION is 1×, and the lens runs from half that to fifty times it. */
  focal=PROJECTION;
  // Rig angular velocity about Earth's centre (rad/s) and its decay without input.
  private velocity:Vec3=[0,0,0];

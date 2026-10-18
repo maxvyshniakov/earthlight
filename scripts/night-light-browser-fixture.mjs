@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {sceneColorShader} from '../src/scripts/scene-color.ts';
-import {cityLightShader} from '../src/scripts/city-light.ts';
+import {cityLightShader,cityActivationShader} from '../src/scripts/city-light.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 
 export async function verifyNightLight(evaluate,explicitLod=true){
@@ -12,7 +12,7 @@ export async function verifyNightLight(evaluate,explicitLod=true){
    vec3 light=gl_FragCoord.y<1.?sceneToOutputLinear(a):sceneToOutputLinear(a+b)-sceneToOutputLinear(b);
    gl_FragColor=vec4(light/energy,1.);
  }`;
- const haze=`#extension GL_EXT_shader_texture_lod : enable
+ const cityPrelude=`#extension GL_EXT_shader_texture_lod : enable
  ${explicitLod?'#define CLOUD_EXPLICIT_LOD 1':''}
  precision highp float;
  uniform sampler2D nightMap;uniform vec3 sunDirection;uniform float blocked;uniform float aerosolField;
@@ -21,19 +21,20 @@ export async function verifyNightLight(evaluate,explicitLod=true){
  float noise(vec3 p){return aerosolField;}
  vec2 earthUV(vec3 n){return vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592654+.5);}
  ${cityLightShader}
- void main(){
+`;
+ const haze=cityPrelude+` void main(){
    vec3 ray=normalize(vec3(-1.,(gl_FragCoord.x/256.-.5)*.6,0.));
    float b=dot(cameraPosition,ray),c=dot(cameraPosition,cameraPosition);
    float radius=1.+blocked*12./6371.;
    float ground=-b-sqrt(b*b-c+radius*radius);
    gl_FragColor=vec4(cityHaze(ray,ground)*50.,1.);
  }`;
- const uplight=haze.slice(0,haze.indexOf(' void main(){'))+`
+ const uplight=cityPrelude+`
  uniform float sampleHeight;
  void main(){
    vec3 n=normalize(vec3(1.,(gl_FragCoord.x/256.-.5)*.06,0.));
-   float direct=cityLightEnergy(texture2D(nightMap,earthUV(n)).r);
-   float scattered=cityUplightEnergy(n*(1.+sampleHeight/6371.));
+   float direct=cityLightSignal(texture2D(nightMap,earthUV(n)).r);
+   float scattered=cityUplightSignal(n*(1.+sampleHeight/6371.));
    float energy=mix(direct,scattered,step(1.,gl_FragCoord.y));
    gl_FragColor=vec4(vec3(energy*2.),1.);
  }`;
@@ -68,7 +69,7 @@ export async function verifyNightLight(evaluate,explicitLod=true){
  uniform float district;
  vec3 sunDirection;
  float noise(vec3 p){return district;}
- ${cityLightShader.slice(0,cityLightShader.indexOf('float blurredCitySample('))}
+ ${cityActivationShader}
  void main(){sunDirection=vec3(-.12+gl_FragCoord.x/256.*.16,0.,0.);gl_FragColor=vec4(vec3(cityActivation(vec3(1.,0.,0.))),1.);}`;
  const result=await evaluate(`(()=>{
  const canvas=document.createElement('canvas');canvas.width=256;canvas.height=2;

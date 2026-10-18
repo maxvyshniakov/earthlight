@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {cloudShader} from '../src/scripts/earth-clouds.ts';
+import {cloudShadowShader} from '../src/scripts/earth-clouds.ts';
 
 // Compare production light integration with a 512-sample independent integral.
 // Constant horizontal coverage isolates vertical sampling and shell geometry.
@@ -14,7 +14,7 @@ const vec2 resolution=vec2(1200.,800.);
 float noise(vec3 p){return length(p)<100.?regional:sampleNoise;}
 vec3 cloudCoordinates(vec3 p){return p;}
 float cloudCoverage(vec3 p,float footprint,bool detailed){return overview>=0.&&footprint>=.0025?overview:coverage;}
-${cloudShader.slice(cloudShader.indexOf('float filteredCloudNoise('),cloudShader.indexOf('// Five source rays'))}
+${cloudShadowShader}
 void main(){
  if(continuity>.5){
   float tau=0.;

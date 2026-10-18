@@ -1,18 +1,18 @@
 import assert from 'node:assert/strict';
 import {sceneColorShader} from '../src/scripts/scene-color.ts';
-import {cityLightShader} from '../src/scripts/city-light.ts';
+import {citySignalShaderFor} from '../src/scripts/city-light.ts';
 
 // Atlas samples enter the shared source calibration in their raw 0..1 range.
-// The former detail-only 0.55 multiplier is already inside cityLightEnergy.
+// The former detail-only 0.55 multiplier is already inside cityLightSignal.
 const source=`precision highp float;
 ${sceneColorShader}
-${cityLightShader.slice(cityLightShader.indexOf('float cityLightEnergy('),cityLightShader.indexOf('float cityActivation('))}
+${citySignalShaderFor('current')}
 void main(){
  if(gl_FragCoord.y<1.){
    float scale=exp2(floor(gl_FragCoord.x)/8.-20.);
    vec3 value=gl_FragCoord.x<1.?vec3(0.):vec3(.37,.61,1.)*scale;
    gl_FragColor=vec4(unpackSceneRadiance(floor(packSceneRadiance(value)*255.+.5)/255.)/scale,1.);
- }else gl_FragColor=vec4(vec3(cityLightEnergy(floor(gl_FragCoord.x)/255.)*2.),1.);
+ }else gl_FragColor=vec4(vec3(cityLightSignal(floor(gl_FragCoord.x)/255.)*2.),1.);
 }`;
 
 export async function verifyCityRadiance(evaluate){

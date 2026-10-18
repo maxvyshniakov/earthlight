@@ -1,3 +1,4 @@
+import {tileDimensions,tileManifest,tileAddress} from '../src/scripts/tile-layout.ts';
 // A 16K coverage map with true neighbor gutters; stream the visible region.
 import sharp from 'sharp';
 import {createHash} from 'node:crypto';
@@ -10,10 +11,10 @@ const sourceHashes={};
 for(const h of ['W','E'])sourceHashes[h]=createHash('sha256').update(await readFile(`${root}/clouds/cloud.${h}.2001210.21600x21600.png`)).digest('hex');
 const halves=[];
 for(const h of ['W','E'])halves.push(await sharp(`${root}/clouds/cloud.${h}.2001210.21600x21600.png`,{limitInputPixels:false}).resize(8192,8192).removeAlpha().toColourspace('b-w').raw().toBuffer());
-const interior=512,gutter=16,cell=544,columns=32,rows=16;
-const manifest={version:1,width:16384,height:8192,interior,gutter,columns,rows,quality:65,sourceHashes,tiles:[],bytes:0};
+const {interior,gutter,cell,columns,rows}=tileDimensions('cloud');
+const manifest={...tileManifest('cloud',[]),width:columns*interior,height:rows*interior,quality:65,sourceHashes,tiles:[],bytes:0};
 for(let ty=0;ty<rows;ty++)for(let tx=0;tx<columns;tx++){
- const id=ty*columns+tx;
+ const id=tileAddress(tileDimensions('cloud'),tx,ty);
  const pixels=Buffer.alloc(cell*cell);
  for(let y=0;y<cell;y++)for(let x=0;x<cell;x++){
   const px=(tx*interior+x-gutter+16384)%16384,py=Math.max(0,Math.min(8191,ty*interior+y-gutter));

@@ -1,6 +1,7 @@
 ---
 import { MIN_ALTITUDE, MAX_ALTITUDE } from '../scripts/flight-navigation';
-import { GAUGE, LENS_MIN, LENS_MAX, EV_MIN, EV_MAX, SPEED_MAX, speedFraction } from '../scripts/flight-hud';
+import { GAUGE } from '../scripts/flight-hud';
+import { LENS_MIN, LENS_MAX, EV_MIN, EV_MAX, MAX_TIME_SCALE, timeScaleFraction } from '../scripts/scene-control-model';
 import SceneCredits from './SceneCredits.astro';
 // Altitude tape positions are logarithmic, matching how the camera climbs.
 const position = (km: number) => (1 - Math.log(km / MIN_ALTITUDE) / Math.log(MAX_ALTITUDE / MIN_ALTITUDE)) * 100;
@@ -29,8 +30,8 @@ const evLabel = (ev: number) => ev === 0 ? '0' : `${ev > 0 ? '+' : '−'}${Math.
 // Time scale, date and time of day as tapes along the top. The time scale runs
 // from 0× (stopped) to 1000× in five equal stretches, each labelled, with a
 // tick every sixth of one.
-const speedMarks = [0, .1, 1, 10, 100, SPEED_MAX];
-const speedTicks = Array.from({ length: 29 }, (_, i) => i + 1).filter(i => i % 6).map(i => i / 30);
+const timeScaleMarks = [0, .1, 1, 10, 100, MAX_TIME_SCALE];
+const timeScaleTicks = Array.from({ length: 29 }, (_, i) => i + 1).filter(i => i % 6).map(i => i / 30);
 // The date runs over a common year, January to January: month starts long, the
 // 11th and 21st short, every third month labelled, about evenly. The closing
 // January belongs to the next year, so a press snaps to the first one only.
@@ -67,11 +68,11 @@ const groups: Group[] = [
   { name: 'Fly', keys: [[[cluster(key('KeyW', 'W'), key('KeyA', 'A'), key('KeyS', 'S'), key('KeyD', 'D')), '']]], faster: 'fly',
     how: { pointer: ['Drag, or scroll on a trackpad.', 'Flick to coast.'], touch: ['Drag.', 'Flick to coast.'] } },
   { name: 'Roll', keys: [[[key('KeyQ', 'Q'), 'Left'], [key('KeyE', 'E'), 'Right'], [key('KeyH', 'H'), 'Level or flip']]], faster: 'roll',
-    how: { pointer: [`Drag around the centre with ${option}<span data-only="gesture">, or rotate two fingers</span>.`], touch: ['Twist two fingers.'] } },
+    how: { pointer: [`Drag around the centre or pinch with ${option}<span data-only="gesture">, or rotate two fingers</span>.`], touch: ['Twist two fingers.'] } },
   { name: 'Altitude', keys: [[[key('KeyF', 'F'), 'Closer'], [key('KeyR', 'R'), 'Farther']]], faster: 'move',
-    how: { pointer: ['Wheel or pinch.', 'Double-click a point to fly in.', `Double-click with ${shift} to back off.`], touch: ['Double-tap and slide.', 'Double-tap to fly in.', 'Tap with two fingers to back off.'] } },
+    how: { pointer: [`Wheel, or pinch with ${shift}.`, 'Double-click a point to fly in.', `Double-click with ${shift} to back off.`], touch: ['Double-tap and slide.', 'Double-tap to fly in.', 'Tap with two fingers to back off.'] } },
   { name: 'Zoom', keys: [[[key('Equal', '+'), 'In'], [key('Minus', '−'), 'Out'], [key('Digit0', '0'), 'Reset']]], faster: 'zoom',
-    how: { pointer: [`Wheel or pinch with ${shift}.`], touch: ['Pinch.'] } },
+    how: { pointer: ['Pinch.', `Wheel with ${shift}.`], touch: ['Pinch.'] } },
   { name: 'Orbits', keys: [[[key('Digit1', '1'), 'Free flight'], [key('Digit2', '2'), 'ISS'], [key('Digit3', '3'), 'Polar'], [key('Digit4', '4'), 'High']]] },
   { name: 'Time', keys: [[[key('Space', 'Space'), 'Pause or play']]] },
   { name: 'Night', keys: [[[key('KeyN', 'N'), 'Night mode']]] },
@@ -84,10 +85,10 @@ const groups: Group[] = [
     <button class="hud-pick" type="button" data-tape="explorer-speed" aria-expanded="false" aria-controls="explorer-speed" title="Time scale"><span class="hud-time-scale" data-time-scale>10×</span></button></div>
     <span class="time-hint" aria-hidden="true"><button type="button" class="time-key" data-press="Space" tabindex="-1" title="Stop or start time (Space)"><kbd data-key="Space">Space</kbd></button><span>Time</span></span>
     <div class="hud-clock">
-      <div id="explorer-speed" class="hud-tape hud-htape" style="--span: clamp(140px, 13cqw, 160px)" role="slider" tabindex="0" aria-label="Time scale" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax={SPEED_MAX} aria-valuenow="10">
+      <div id="explorer-speed" class="hud-tape hud-htape" style="--span: clamp(140px, 13cqw, 160px)" role="slider" tabindex="0" aria-label="Time scale" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax={MAX_TIME_SCALE} aria-valuenow="10">
         <div class="hud-scale" aria-hidden="true">
-          {speedTicks.map(at => <span class="hud-tick" style={`left:${(at * 100).toFixed(3)}%`}></span>)}
-          {speedMarks.map(speed => <span class="hud-tick major" data-at={speedFraction(speed)} style={`left:${(speedFraction(speed) * 100).toFixed(3)}%`}><b>{speed}×</b></span>)}
+          {timeScaleTicks.map(at => <span class="hud-tick" style={`left:${(at * 100).toFixed(3)}%`}></span>)}
+          {timeScaleMarks.map(timeScale => <span class="hud-tick major" data-at={timeScaleFraction(timeScale)} style={`left:${(timeScaleFraction(timeScale) * 100).toFixed(3)}%`}><b>{timeScale}×</b></span>)}
         </div>
         <div class="hud-now" aria-hidden="true"><output data-time-scale>10×</output></div>
       </div>

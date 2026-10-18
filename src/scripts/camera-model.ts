@@ -1,7 +1,8 @@
 import { SCENE_CANDELA } from './radiometry';
 import { perNightMode, type NightMode } from './physical-night';
 // A virtual 24 fps camera, not a calibration of a named lens or sensor.
-// Shutter stays at 180 degrees (1/48 s), so adaptation cannot invent motion blur.
+// The default program keeps a 180-degree shutter (1/48 s), so its adaptation
+// cannot invent motion blur.
 // With `night=video|still` the program continues past f/3.2 to ISS night
 // settings (docs/lab/physical-night-2026-10-17.md, docs/lab/night-camera-2026-10-17.md).
 export const EXPOSURE_MIN_EV=-5.5;

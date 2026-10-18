@@ -4,7 +4,7 @@ import {promisify} from 'node:util';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import sharp from 'sharp';
-import {modisDemoFragment} from '../src/scripts/modis-demo-shader.ts';
+import {modisDemoPrelude} from '../src/scripts/modis-demo-shader.ts';
 const [base='http://127.0.0.1:4322',out='/tmp/modis-proof']=process.argv.slice(2);
 await mkdir(out,{recursive:true});const exec=promisify(execFile),session='modis-proof-'+process.pid;
 const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:120000,maxBuffer:16e6})).stdout;
@@ -51,7 +51,7 @@ try{
  await run('wait','--fn',`document.querySelector('#modis-demo').dataset.ready==='true'`);assert.equal(hash(await render({})),saved);result.contextRestoration=true;
  // Actual shader, uniform synthetic cloud: both ray integration and sunlight
  // must agree with Beer-Lambert transmission for its encoded vertical tau.
- const probe=modisDemoFragment.slice(0,modisDemoFragment.indexOf('void main()'))+`void main(){float t=segment(vec3(0.,0.,4.),vec3(0.,0.,-1.),12.);float s=opticalDepth(vec3(0.));fragColor=vec4(exp(-t),exp(-s),0.,1.);}`;
+ const probe=modisDemoPrelude+`void main(){float t=segment(vec3(0.,0.,4.),vec3(0.,0.,-1.),12.);float s=opticalDepth(vec3(0.));fragColor=vec4(exp(-t),exp(-s),0.,1.);}`;
  result.transmission=await evaluate(`(()=>{const c=document.createElement('canvas');c.width=c.height=1;const gl=c.getContext('webgl2');gl.disable(gl.DITHER);const p=gl.createProgram();
  for(const [type,source] of [[gl.VERTEX_SHADER,${JSON.stringify('#version 300 es\nin vec2 p;void main(){gl_Position=vec4(p,0.,1.);}')}],[gl.FRAGMENT_SHADER,${JSON.stringify(probe)}]]){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));gl.attachShader(p,s);gl.deleteShader(s);}gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));gl.useProgram(p);
  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);const a=gl.getAttribLocation(p,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);

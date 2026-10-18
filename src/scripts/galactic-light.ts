@@ -1,6 +1,6 @@
 import {continuousLongitudeShader} from './surface-map.ts';
 import {galaxyOverviewShader} from './texture-profile.ts';
-import {galaxyTileShader} from './night-tiles.ts';
+import {galaxyTileShader} from './surface-tile-shader.ts';
 import {nightScaleGlsl,perNightMode} from './physical-night.ts';
 // Shared diffuse sky radiance for the camera and reflected night illumination.
 export const galacticLightShaderFor=perNightMode(mode=>continuousLongitudeShader+`

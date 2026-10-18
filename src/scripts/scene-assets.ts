@@ -2,14 +2,14 @@ import { galaxyOverview } from './texture-profile.ts';
 import { SceneWork, scenePriority } from './scene-work.ts';
 export type ImageLayer='day'|'night'|'clouds'|'galaxy';
 export type AssetKey=ImageLayer|'stars'|'psf'|'terrain'|'modis';
-export type AssetPlan={key:AssetKey;url:string;preview?:boolean};
-export type AssetUpload=(asset:AssetPlan,blob:Blob)=>Promise<void>;
+export type AssetRequest={key:AssetKey;url:string;preview?:boolean};
+export type AssetUpload=(asset:AssetRequest,blob:Blob)=>Promise<void>;
 
 /** Stars to magnitude 5 (scripts/pack-startup-assets.mjs): 25 KB of the
  * 231 KB catalog, and every star that reads as a distinct disc under the
  * loading defocus. The fainter ones arrive as a haze while it is still wide. */
 export const FIRST_LIGHT_STARS='stars-hyg-m5-v2.bin';
-export function firstLightAssets(root:string):AssetPlan[]{
+export function firstLightAssets(root:string):AssetRequest[]{
  return [
   ...(['day','night','galaxy'] as ImageLayer[]).map(key=>({key,url:`${root}preview/${key}.webp`,preview:true})),
   // Clouds are the costliest overview to compress; 18 KB instead of 87 KB.
@@ -18,7 +18,7 @@ export function firstLightAssets(root:string):AssetPlan[]{
  ];
 }
 
-export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean,saveData=false,compactSurface=false,compactTextures=false,assetBaseURL='/media/earthlight/'):AssetPlan[]{
+export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean,saveData=false,compactSurface=false,compactTextures=false,assetBaseURL='/media/earthlight/'):AssetRequest[]{
  saveData ||= maxTexture<4096;
  const root=assetBaseURL.replace(/\/+$/, '')+'/';
  const large=desktop&&!saveData&&maxTexture>=8192;
@@ -43,7 +43,7 @@ export function sceneAssetPlan(desktop:boolean,maxTexture:number,terrain:boolean
 
 /** nightDetail=vnp46 (lab): the overview, its first light and the tiles come
  * from one VNP46A4 composite, so the fade, uplight and haze see the same lights. */
-export function vnp46NightOverview(plan:AssetPlan[]){
+export function vnp46NightOverview(plan:AssetRequest[]){
  for(const asset of plan)if(asset.key==='night')asset.url=asset.url.replace(/(?:preview\/night\.webp|earth-night(?:-8k)?\.avif)$/,file=>'night-vnp46-tiles/'+file.replace('preview/','preview-'));
  return plan;
 }
@@ -54,8 +54,8 @@ export function vnp46NightOverview(plan:AssetPlan[]){
  */
 export class SceneAssets {
  private abort=new AbortController();
- private compressed=new Map<AssetKey,{asset:AssetPlan;blob:Blob}>();
- private waiting=new Map<AssetKey,{asset:AssetPlan;blob:Blob}>();
+ private compressed=new Map<AssetKey,{asset:AssetRequest;blob:Blob}>();
+ private waiting=new Map<AssetKey,{asset:AssetRequest;blob:Blob}>();
  private generation=0;
  private active=true;
  private disposed=false;
@@ -67,13 +67,13 @@ export class SceneAssets {
  get firstLightFailed(){const preview=this.plan.filter(x=>x.preview);return this.previewSettled&&preview.length>0&&preview.every(x=>this.failures.includes(x.url));}
  private detailDone=0;
  private work:SceneWork;
- private plan:AssetPlan[];private upload:AssetUpload;private notify:()=>void;
- constructor(plan:AssetPlan[],upload:AssetUpload,notify:()=>void,work=new SceneWork()){this.work=work;this.plan=plan;this.upload=upload;this.notify=notify;}
- private async deliver(asset:AssetPlan,blob:Blob,generation=this.generation){
+ private plan:AssetRequest[];private upload:AssetUpload;private notify:()=>void;
+ constructor(plan:AssetRequest[],upload:AssetUpload,notify:()=>void,work=new SceneWork()){this.work=work;this.plan=plan;this.upload=upload;this.notify=notify;}
+ private async deliver(asset:AssetRequest,blob:Blob,generation=this.generation){
   if(this.disposed||!this.active||generation!==this.generation)return;
   await this.upload(asset,blob);
  }
- private async accept(asset:AssetPlan,blob:Blob){
+ private async accept(asset:AssetRequest,blob:Blob){
   while(!this.disposed){
    if(!this.active){this.waiting.set(asset.key,{asset,blob});return;}
    const generation=this.generation;
@@ -85,7 +85,7 @@ export class SceneAssets {
    this.compressed.set(asset.key,{asset,blob});return;
   }
  }
- private async load(asset:AssetPlan){
+ private async load(asset:AssetRequest){
   const controller=new AbortController();
   const cancel=()=>controller.abort();this.abort.signal.addEventListener('abort',cancel,{once:true});
   try {
@@ -123,7 +123,7 @@ export class SceneAssets {
  }
  /** A larger viewport may need a higher overview after initial loading.
   * Keep the existing image through upload/failure, and never restart focus. */
- async refine(asset:AssetPlan){
+ async refine(asset:AssetRequest){
   if(!this.settled||this.disposed||this.refinements.has(asset.url))return;
   this.refinements.add(asset.url);await this.load(asset);
  }

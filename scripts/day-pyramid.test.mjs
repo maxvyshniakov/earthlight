@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DayPyramid, PYRAMID_DEPTH, PYRAMID_TABLE, pyramidDayTile, pyramidKey, pyramidLevel, pyramidTile } from '../src/scripts/day-pyramid.ts';
+import { DayPyramidSelection, DayPyramid, PYRAMID_DEPTH, PYRAMID_TABLE, pyramidDayTile, pyramidKey, pyramidLevel, pyramidTile } from '../src/scripts/day-pyramid.ts';
 import { daySlot, decodeDayPack, decodeIndex, decodePackHeader, DAY_PACK_HEADER, DAY_SLOTS, encodeDayPack, encodeIndex, encodePack, packHeaderLength, packOf, slotMask, slotTile } from '../src/scripts/day-pyramid-pack.ts';
 import { repack, verify } from './build-day-pyramid-packs.mjs';
-import { SurfaceTiles } from '../src/scripts/night-tiles.ts';
+import { SurfaceTiles } from '../src/scripts/surface-tiles.ts';
 
 // Straight down from 420 km at a lens magnification of `zoom`.
 function nadir(lon,lat,zoom){
@@ -20,10 +20,7 @@ const fullMask=()=>{const m=new Uint8Array(11);for(let i=0;i<DAY_SLOTS;i++)m[i>>
 // The release layout's smallest blocks: level 1 over 2 × 2 day tiles, levels 2 and 3 one day tile.
 const K=[2,2,3];
 function pyramid(entries,root='/media/earthlight/'){
-  const result=Object.create(DayPyramid.prototype);
-  Object.assign(result,{packs:new Map(entries.map(([id,mask,k=K])=>[id,{mask,k:Uint8Array.from(k)}])),directory:new Uint8Array(12800),table:new Uint8Array(PYRAMID_TABLE.width*PYRAMID_TABLE.height*4),
-    wanted:0,requests:0,received:0,cached:0,cache:new Map(),loading:new Map(),signature:'',root:root+'day-pyramid/',cacheBytes:48*2**20});
-  return result;
+  return new DayPyramid(root,new AbortController().signal,()=>{},48*2**20,new Map(entries.map(([id,mask,k=K])=>[id,{mask,k:Uint8Array.from(k)}])));
 }
 const levelsOf=keys=>[...new Set(keys.map(key=>pyramidTile(key).level))].sort();
 
@@ -109,8 +106,7 @@ test('parents and the guard band join when their packs cost nothing more',()=>{
   const parent=pyramidKey(2,pyramidTile(tileOf(3,...giza)).x>>1,pyramidTile(tileOf(3,...giza)).y>>1);
   assert.ok(!cold.includes(parent));
   // The level-2 pack of this day tile is cached (say from a 4× view): its parents come along.
-  p.cache.set(p.locate(parent).path,{bytes:new Uint8Array(1)});
-  const warm=p.select(nadir(...giza,20),1280,800,40);
+  const warm=new DayPyramidSelection(p.index).select(nadir(...giza,20),1280,800,40,path=>path===p.locate(parent).path);
   assert.ok(warm.includes(parent));
   assert.ok(warm.indexOf(parent)>warm.indexOf(tileOf(3,...giza)),'drawn tiles first');
   // Guard tiles of the drawn level only from packs the drawn tiles need.
@@ -309,4 +305,56 @@ test('the day atlas holds deep tiles back until the frame is sharp, then fetches
     atlas?.dispose();clock.mockRestore();
     Object.assign(globalThis,originals);
   }
+});
+
+
+test('disposal ignores a late index response and never notifies or starts packs',async()=>{
+  let resolveIndex,notified=0;
+  const bytes=new Promise(resolve=>resolveIndex=resolve),abort=new AbortController();
+  const fetchMock=spyOn(globalThis,'fetch').mockResolvedValue({ok:true,arrayBuffer:()=>bytes});
+  try{
+    const p=new DayPyramid('/test/',abort.signal,()=>notified++);
+    await Promise.resolve();abort.abort();
+    resolveIndex(encodeIndex([{id:4253,mask:fullMask(),k:K}]).buffer);
+    await new Promise(resolve=>setTimeout(resolve,0));
+    assert.equal(p.index.size,0);assert.equal(notified,0);
+    await assert.rejects(p.load(pyramidKey(3,747,213),new AbortController().signal),/aborted/);
+    assert.equal(fetchMock.mock.calls.length,1);
+  }finally{fetchMock.mockRestore();}
+});
+
+test('aborted pack completions cannot settle or replace a newer pack at the same path',async()=>{
+  const key=pyramidKey(3,747,213),p=pyramid([[4253,fullMask()]]),at=p.locate(key);
+  const packed=encodePack(at.level,at.k,at.x,at.y,new Map([[at.slot,new Uint8Array([4,5,6])]]));
+  const reads=[];
+  const fetchMock=spyOn(globalThis,'fetch').mockImplementation(async()=>({ok:true,body:{getReader(){let sent=false;return {read(){if(sent)return Promise.resolve({done:true});sent=true;return new Promise(resolve=>reads.push(resolve));}};}}}));
+  try{
+    const old=p.load(key,new AbortController().signal);const oldRejected=assert.rejects(old,/aborted/);
+    await Promise.resolve();
+    p.select(nadir(12.5,41.9,20),1280,800,15);
+    const fresh=p.load(key,new AbortController().signal);await Promise.resolve();
+    assert.equal(reads.length,2);
+    reads[1]({done:false,value:packed});assert.equal((await fresh).size,3);
+    await new Promise(resolve=>setTimeout(resolve,0));
+    const cached=p.cached;assert.equal(cached,packed.length);
+    reads[0]({done:false,value:packed});await oldRejected;
+    assert.equal(p.cached,cached);assert.equal((await p.load(key,new AbortController().signal)).size,3);
+    assert.equal(fetchMock.mock.calls.length,2);
+  }finally{fetchMock.mockRestore();}
+});
+
+
+test('owner disposal rejects pack waiters before a non-cooperative reader completes',async()=>{
+  const abort=new AbortController(),index=new Map([[4253,{mask:fullMask(),k:Uint8Array.from(K)}]]);
+  const p=new DayPyramid('/test/',abort.signal,()=>{},1024,index),key=pyramidKey(3,747,213),at=p.locate(key);
+  const packed=encodePack(at.level,at.k,at.x,at.y,new Map([[at.slot,new Uint8Array([7])]]));
+  let finishRead;
+  const fetchMock=spyOn(globalThis,'fetch').mockResolvedValue({ok:true,body:{getReader:()=>({read:()=>new Promise(resolve=>finishRead=resolve)})}});
+  try{
+    const pending=p.load(key,new AbortController().signal);await Promise.resolve();
+    const rejected=assert.rejects(pending,/aborted/);abort.abort();await rejected;
+    assert.equal(p.cached,0);
+    finishRead({done:false,value:packed});await new Promise(resolve=>setTimeout(resolve,0));
+    assert.equal(p.cached,0);assert.equal(p.received,0);
+  }finally{fetchMock.mockRestore();}
 });

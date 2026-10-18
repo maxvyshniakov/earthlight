@@ -45,7 +45,7 @@ export function normalizeImportedTest(path,text){
   return text+'\nafterEach(()=>{mock.restore();jest.useRealTimers();});\n';
  }
  text=text.replace("import test from 'node:test';","import {test} from 'bun:test';");
- if(['scripts/night-tiles.test.mjs','scripts/terrain-detail.test.mjs'].includes(path)){
+ if(['scripts/surface-tiles.test.mjs','scripts/terrain-detail.test.mjs'].includes(path)){
   text=text.replace("import {test} from 'bun:test';","import {test,spyOn,mock,afterEach} from 'bun:test';\n\nafterEach(()=>mock.restore());")
    .replace(/t\.mock\.method\(([^,]+),('[^']+'),/g,'spyOn($1,$2).mockImplementation(')
    .replaceAll('async t=>','async()=>');

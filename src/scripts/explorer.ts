@@ -1,26 +1,29 @@
 import {sceneLook} from './scene-defaults';
 import {SceneFrameClock} from './scene-frame-clock';
+import {SceneHostLifecycle} from './scene-host-lifecycle';
+import {NightCrossfade} from './night-crossfade';
 import {rememberedScale,rememberScale} from './scene-scale-memory';
 import {ViewScale,shellCoverage,viewScaleFor} from './scene-view-scale';
 import { createCameraDrag, draggedCamera } from './camera-drag';
 import { createTouchCamera } from './camera-touch';
 import { createFlightControls, type FlightCommand } from './flight-controls';
 import { createCameraController } from './camera-controller';
-import { createFlightHud, LENS_MIN, LENS_MAX, speedAt, speedFraction, type FlightHud } from './flight-hud';
-import { readNightMode, type NightMode } from './physical-night';
-import { SceneCalendar, calendarFrame, dayOfYear, daysInYear, utcDay } from './scene-calendar';
-import { FlightNavigation, followLens, orbitPeriod, PROJECTION, ORBIT_LABELS, type Orbit, type ObserverFrame, type FlightInput } from './flight-navigation';
+import { createFlightHud, type FlightHud } from './flight-hud';
+import { LENS_MIN, LENS_MAX, type LookControl } from './scene-control-model';
+import { ExplorerSession } from './explorer-session';
+import { writeLookSettings, writeViewSettings, writePlaybackSettings, writeTimeSliderSetting, writeLensSetting, resetExplorerSettingsURL } from './explorer-url';
+import { type NightMode } from './physical-night';
+import { calendarFrame, dayOfYear, daysInYear, utcDay } from './scene-calendar';
+import { followLens, orbitPeriod, PROJECTION, ORBIT_LABELS, type Orbit, type ObserverFrame, type FlightInput } from './flight-navigation';
 import { createScenePanels } from './scene-panels';
 import { EXPOSURE_SETTLE_MS, EXPOSURE_MIN_EV, exposureMaxEV } from './camera-exposure';
-import { SceneClock } from './scene-clock';
 import { issFrame, ISS_PERIOD_SECONDS, initialSceneSeconds, cross, dot, normalize, type Vec3 } from './iss-orbit';
 import { celestialFrame, currentLunarPhase } from './celestial-sky';
 import { createSceneRenderer, type SceneLook } from './scene-renderer';
-import { readLensPreset } from './lens-reflections';
 import { SceneFocus } from './scene-assets';
 import { sceneBufferSize, sceneComposition, focusRenderScale, focusGrainScale, bufferDensity } from './scene-viewport';
 import { sceneProfile } from './scene-profile';
-import {auroraMode as readAuroraMode,cloudMode as readCloudMode} from './scene-effects';
+import {cloudMode as readCloudMode} from './scene-effects';
 import {isWebGL2,sceneContext} from './webgl-context';
 import {modisStudyURL} from './modis-study-view';
 import {cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesPath,cloudPropertiesURL,type CloudPropertiesView} from './cloud-properties';
@@ -40,13 +43,14 @@ export class EarthlightExplorer extends HTMLElement {
     const canvas = this.querySelector('canvas')!;
     // Holds the last frame of one night mode while the next one meters.
     const crossfade=this.querySelector<HTMLCanvasElement>('.explorer-crossfade');
+    const heldFrame=crossfade?new NightCrossfade(crossfade):null;
     const viewport = this.querySelector<HTMLElement>('.explorer-viewport')!;
     const motionButtons = [...this.querySelectorAll<HTMLButtonElement>('.explorer-motion')];
     const controls = this.querySelector<HTMLElement>('.explorer-controls')!;
     const settingsToggle = this.querySelector<HTMLButtonElement>('.explorer-settings-toggle')!;
     const explorerLink = this.querySelector<HTMLAnchorElement>('.explorer-link');
-    const speedInput = this.querySelector<HTMLInputElement>('.explorer-speed input')!;
-    const speedOutput = this.querySelector<HTMLOutputElement>('.explorer-speed output')!;
+    const timeSliderInput = this.querySelector<HTMLInputElement>('.explorer-speed input')!;
+    const timeScaleOutput = this.querySelector<HTMLOutputElement>('.explorer-speed output')!;
     const orbitInput = this.querySelector<HTMLInputElement>('.explorer-track input')!;
     const orbitOutput = this.querySelector<HTMLOutputElement>('.explorer-track output')!;
     const timeStatus = this.querySelector<HTMLTimeElement>('.explorer-time')!;
@@ -71,36 +75,36 @@ export class EarthlightExplorer extends HTMLElement {
     if (!gl) { this.dataset.unavailable = ''; return; }
     this.dataset.renderApi=isWebGL2(gl)?'webgl2':'webgl';
 
-    let disposed = false;
+    const runtime=new SceneHostLifecycle({
+      running:()=>!session.paused&&this.hasAttribute('data-ready'),
+      drawing:()=>session.paused||!this.hasAttribute('data-ready'),
+      frame:now=>tick(now),draw:now=>flushDraw(now),
+    });
     // Repeatable frames and opt-in render comparisons.
     const params = new URLSearchParams(location.search);
-    auroraMode.value=readAuroraMode(params);
-    cloudsMode.value=readCloudMode(params);
-    cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis','global','plates'].includes(params.get('cloudStudy')??'');
-    exposureMode.value=params.get('exposure-mode')==='manual'?'manual':'auto';
-    lensPreset.value=readLensPreset(params.get('lens-preset'));
-    // Physical night (`night=video|still`): the renderer starts in the mode
-    // the address names and N switches it in place.
-    let nightMode:NightMode=readNightMode(params);
-    this.dataset.nightMode=nightMode;
-    // The markup is built for the default range; night mode widens it.
-    const fixedRange=()=>{fixedExposure.min=String(EXPOSURE_MIN_EV);fixedExposure.max=String(exposureMaxEV(nightMode));};
-    fixedRange();
-    const restoredFixed=Number(params.get('exposure-fixed'));
-    if(Number.isFinite(restoredFixed))fixedExposure.value=String(Math.max(EXPOSURE_MIN_EV,Math.min(exposureMaxEV(nightMode),restoredFixed)));
-    const profile=sceneProfile(params);
-    this.dataset.renderProfile=profile.name;
-    for(const input of [...lookInputs,speedInput]){
-      const key=input===speedInput?'rate':`look-${input.dataset.look}`;
-      const value=Number(params.get(key));
-      if(params.has(key)&&Number.isFinite(value))input.value=String(Math.max(Number(input.min),Math.min(Number(input.max),value)));
-    }
-    for(const input of lookInputs)look[input.dataset.look as keyof typeof lookBase]=Number(input.value)*lookBase[input.dataset.look as keyof typeof lookBase];
     const standalone=this.dataset.composition==='explorer';
     const initialSeconds=initialSceneSeconds(params);
-    const calendar=new SceneCalendar(params,initialSeconds);
+    const session=new ExplorerSession(params,standalone,initialSeconds);
     const calendarInputs=[...this.querySelectorAll<HTMLInputElement>('[data-calendar]')];
-    const navigation=new FlightNavigation();
+    const settings=session.settings;
+    const {playback,calendar,navigation}=session;
+    const cameraView=settings.view;
+    auroraMode.value=settings.aurora;
+    cloudsMode.value=settings.clouds;
+    cloudsMode.closest<HTMLElement>('.setting')!.hidden=['photo','modis','global','plates'].includes(params.get('cloudStudy')??'');
+    exposureMode.value=settings.exposureMode;
+    lensPreset.value=settings.lensPreset;
+    // Physical night (`night=video|still`): the renderer starts in the mode
+    // the address names and N switches it in place.
+    this.dataset.nightMode=settings.night;
+    // The markup is built for the default range; night mode widens it.
+    const fixedRange=()=>{fixedExposure.min=String(EXPOSURE_MIN_EV);fixedExposure.max=String(exposureMaxEV(settings.night));};
+    fixedRange();
+    fixedExposure.value=String(settings.fixedExposure);
+    const profile=sceneProfile(params);
+    this.dataset.renderProfile=profile.name;
+    for(const input of lookInputs)input.value=String(settings.look[input.dataset.look as LookControl]);
+    timeSliderInput.value=String(session.timeSliderPosition);
     // Release trackpad scroll over this many milliseconds (`inputSmoothing=0`
     // applies it at once). Touch and mouse drags already arrive once per
     // frame; smoothing them only weakens short flicks, so they keep their own,
@@ -118,22 +122,12 @@ export class EarthlightExplorer extends HTMLElement {
     const touchGain=Math.max(1,Math.min(4,number('touchGain',2.5)));
     navigation.flingLimit=Math.max(.5,Math.min(10,number('flingLimit',8)));
     navigation.flingCoast=Math.max(.1,Math.min(2,number('flingCoast',1.1)));
-    if(standalone)navigation.restore(params);
-    // The lens, standalone only: 1× is the PROJECTION pinhole (about 30 mm), 0.5× a 15 mm wide angle.
-    const restoredLens=Number(params.get('lens'));
-    if(standalone&&params.has('lens')&&Number.isFinite(restoredLens))navigation.focal=PROJECTION*Math.max(LENS_MIN,Math.min(LENS_MAX,restoredLens));
     let flightControls:ReturnType<typeof createFlightControls>|undefined;
     let keyFlightUntil=0;
     let hud:FlightHud|null=null;
     let navigationURLTimer=0;
-    const cameraView={yaw:0,pitch:0};
-    for(const input of viewInputs){
-      const key=input.dataset.view as keyof typeof cameraView;
-      const value=Number(params.get(key));
-      cameraView[key]=Number.isFinite(value)?Math.max(Number(input.min),Math.min(Number(input.max),value)):0;
-      input.value=String(cameraView[key]);
-    }
-    let frame = 0,drawRequest=0,urlUpdateFrame=0;
+    for(const input of viewInputs)input.value=String(cameraView[input.dataset.view as keyof typeof cameraView]);
+    let urlUpdateFrame=0;
     // The explorer renders on whole display refreshes (`cadence=timer` keeps
     // the old 24 FPS timer); the background keeps its passive budget.
     const steadyCadence=standalone&&params.get('cadence')!=='timer';
@@ -153,7 +147,8 @@ export class EarthlightExplorer extends HTMLElement {
       if(gap>0&&gap<250)perfTicks.push({at:now,late:period>0&&gap>period*1.5,gap});
       while(perfTicks.length&&perfTicks[0].at<now-3000)perfTicks.shift();
     };
-    if(perf)try{new PerformanceObserver(list=>{for(const entry of list.getEntries())longFrames.push({at:entry.startTime+entry.duration,ms:entry.duration});}).observe({type:'long-animation-frame',buffered:false});}catch{/* unsupported */}
+    let perfObserver:PerformanceObserver|undefined;
+    if(perf)try{perfObserver=new PerformanceObserver(list=>{for(const entry of list.getEntries())longFrames.push({at:entry.startTime+entry.duration,ms:entry.duration});});perfObserver.observe({type:'long-animation-frame',buffered:false});}catch{/* unsupported */}
     if(perf){perf.className='explorer-perf';(this.querySelector('.explorer-service')??this).append(perf);}
     let scrollTimer=0;
     let pendingURL:URL|null=null;
@@ -170,15 +165,9 @@ export class EarthlightExplorer extends HTMLElement {
     // set by hand drop their `moon`.
     if(standalone&&params.has('moon')){const url=new URL(location.href);url.searchParams.delete('moon');updateURL(url);}
     const scrollComposition=this.dataset.composition==='page';
-    // Time scale: the slider's 0–1000 runs over the HUD tape's scale, 0× to
-    // 1000×. 0× is stopped time; a link that stops it starts paused at 10×.
-    const timeScale=(position:number)=>speedAt(position/1000);
-    const restoredSpeed=timeScale(Number(speedInput.value));
-    const playback=new SceneClock(initialSeconds,restoredSpeed||timeScale(Number(speedInput.defaultValue)));
     let statusTimer=0;
     const replayDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
     let grainIndex = 0;
-    let speed = restoredSpeed||timeScale(Number(speedInput.defaultValue));
     const rangeInputs=[...this.querySelectorAll<HTMLInputElement>('input[type="range"]')];
     const paintRange=(input:HTMLInputElement)=>{
       if(input.dataset.fill==='none')return;
@@ -189,23 +178,20 @@ export class EarthlightExplorer extends HTMLElement {
       input.style.setProperty('--range-end',`${Math.max(origin,position)}%`);
     };
     rangeInputs.forEach(paintRange);
-    // Stopped time reads 0×; the speed it had waits for Play.
-    const updateSpeedLabel = () => {
-      const shown=paused?0:speed;
-      if(document.activeElement!==speedInput)speedInput.value=String(paused?0:Math.round(speedFraction(speed)*1000));
-      speedOutput.value = `${shown}×`;
+    // Stopped time reads 0×; the time scale it had waits for Play.
+    const updateTimeScaleLabel = () => {
+      const shown=session.paused?0:session.timeScale;
+      if(document.activeElement!==timeSliderInput)timeSliderInput.value=String(session.paused?0:session.timeSliderPosition);
+      timeScaleOutput.value = `${shown}×`;
       for(const output of timeScaleOutputs)output.textContent=`${shown}×`;
-      speedInput.setAttribute('aria-valuetext', paused?'Time stands still':`${shown} times orbital speed`);
-      paintRange(speedInput);
+      timeSliderInput.setAttribute('aria-valuetext', session.paused?'Time stands still':`${shown} times orbital speed`);
+      paintRange(timeSliderInput);
     };
     let lastAnimationDraw = 0;
-    let lost = false;
-    let contextGeneration=0;
     let controlsInView = true;
     // Autoplay by default, including legacy links carrying `still`.
     // Explicit motion=0 remains available for repeatable screenshots.
-    let paused = params.get('motion')==='0'||!restoredSpeed;
-    updateSpeedLabel();
+    updateTimeScaleLabel();
     let lastStatus = -1;
 
     let renderer:ReturnType<typeof createSceneRenderer>;
@@ -227,7 +213,7 @@ export class EarthlightExplorer extends HTMLElement {
     const bufferScale=()=>Math.min(1,qualityScale*viewScale.factor);
     let cssHeight=1,smallHeight=1;
     const updateFocus=()=>{
-      if(disposed||lost||document.hidden)return;
+      if(runtime.disposed||runtime.lost||document.hidden)return;
       const stats=[this.dataset.dayTiles,this.dataset.nightTiles,this.dataset.cloudTiles].filter(Boolean).map(x=>JSON.parse(x!));
       const tilesSettled=stats.every(x=>x.pending===0&&x.resident>=x.wanted);
       const ready=this.hasAttribute('data-ready');
@@ -243,7 +229,7 @@ export class EarthlightExplorer extends HTMLElement {
       this.dataset.assets=renderer.assets.settled?'settled':'loading';
       this.dataset.assetBytes=String(renderer.assets.bytes);
       if(blur>=.01)focusTimer=window.setTimeout(updateFocus,1000/24);
-      if(changed&&paused&&ready)draw();
+      if(changed&&session.paused&&ready)draw();
     };
     const composition = () => sceneComposition(window.scrollY,smallHeight,cssHeight,scrollComposition);
     const observerAt=(seconds:number,now=performance.now())=>{
@@ -267,15 +253,13 @@ export class EarthlightExplorer extends HTMLElement {
       if(!explorerLink)return;
       const url=new URL(this.dataset.exploreUrl??'/',location.href);
       for(const key of ['render','compare','api','texture','aurora','cloudShape','cloudStudy','cloudStudyView','cloudLighting'])if(params.has(key))url.searchParams.set(key,params.get(key)!);
-      if(nightMode!=='current')url.searchParams.set('night',nightMode);
+      if(settings.night!=='current')url.searchParams.set('night',settings.night);
       url.searchParams.set('t',sceneTime.toFixed(2));
       calendar.write(url.searchParams);
-      if(paused)url.searchParams.set('motion','0');
+      if(session.paused)url.searchParams.set('motion','0');
       if(cameraView.yaw)url.searchParams.set('yaw',String(cameraView.yaw));
       if(cameraView.pitch)url.searchParams.set('pitch',String(cameraView.pitch));
-      for(const input of lookInputs)if(input.value!==input.defaultValue)url.searchParams.set(`look-${input.dataset.look}`,input.value);
-      if(exposureMode.value==='manual'){url.searchParams.set('exposure-mode','manual');url.searchParams.set('exposure-fixed',fixedExposure.value);}
-      if(lensPreset.value!=='iss')url.searchParams.set('lens-preset',lensPreset.value);
+      writeLookSettings(url.searchParams,settings);
       explorerLink.href=url.href;
     };
     const prepareExplorerLink = () => updateExplorerLink();
@@ -313,28 +297,27 @@ export class EarthlightExplorer extends HTMLElement {
     };
     const statusTick = () => {
       clearTimeout(statusTimer);
-      if(paused || document.hidden || lost || !this.hasAttribute('data-ready'))return;
+      if(session.paused || document.hidden || runtime.lost || !this.hasAttribute('data-ready'))return;
       const sceneTime=playback.read(performance.now())+composition().offset;
       updateStatus(sceneTime);
       const milliseconds=calendar.date(sceneTime).getTime();
       const remainder=((milliseconds%1000)+1000)%1000;
       // Schedule against the next actual second, independently of rendering cadence.
-      statusTimer=window.setTimeout(statusTick,Math.max(8,(1000-remainder)/speed));
+      statusTimer=window.setTimeout(statusTick,Math.max(8,(1000-remainder)/session.timeScale));
     };
     const flushDraw=(now:number)=>{
-      drawRequest=0;frameClock.observe(now);perfObserve(now);
-      if(disposed||lost||document.hidden||(!paused&&this.hasAttribute('data-ready')))return;
-      if(!frameDue(now)){drawRequest=requestAnimationFrame(flushDraw);return;}
+      frameClock.observe(now);perfObserve(now);
+      if(runtime.disposed||runtime.lost||document.hidden||(!session.paused&&this.hasAttribute('data-ready')))return;
+      if(!frameDue(now))return false;
       renderFrame();
     };
     const draw=()=>{
       // Inputs only invalidate. Playback owns its regular frame; a paused or
       // loading scene coalesces all pending changes into one capped RAF draw.
-      if(disposed||lost||document.hidden||(!paused&&this.hasAttribute('data-ready'))||drawRequest)return;
-      drawRequest=requestAnimationFrame(flushDraw);
+      runtime.invalidate();
     };
     const renderFrame = () => {
-      if(lost||!renderer)return;
+      if(runtime.lost||!renderer)return;
       if(!('surfaceReady' in renderer.state)&&!('galaxyReady' in renderer.state))return;
       const view=composition();
       const sceneTime=playback.read(performance.now())+view.offset;
@@ -345,8 +328,8 @@ export class EarthlightExplorer extends HTMLElement {
       // carry exposure toward inspection, so they are not timed either. Timed,
       // a busy GPU stepped the scale, and each resize's tiles restarted the
       // settle window, deferring inspection indefinitely.
-      const still=standalone&&paused&&!frameClock.interacting(performance.now());
-      const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,focusLook,focusRadius,speed,inspection||still);
+      const still=standalone&&session.paused&&!frameClock.interacting(performance.now());
+      const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,focusLook,focusRadius,session.timeScale,inspection||still);
       if(!result)return;
       if(result.nightSwitch==='handover')holdFrame();
       else if(result.nightSwitch==='settled'){delete this.dataset.nightSwitch;settleFrame(true);}
@@ -364,14 +347,14 @@ export class EarthlightExplorer extends HTMLElement {
       }
       clearTimeout(exposureTimer);
       if(exposureSceneTime!==sceneTime){exposureSceneTime=sceneTime;exposureUntil=now+EXPOSURE_SETTLE_MS;}
-      if(paused&&!document.hidden&&now<exposureUntil){
-        exposureTimer=window.setTimeout(()=>{if(!disposed&&!lost&&!document.hidden)draw();},1000/24);
+      if(session.paused&&!document.hidden&&now<exposureUntil){
+        exposureTimer=window.setTimeout(()=>{if(!runtime.disposed&&!runtime.lost&&!document.hidden)draw();},1000/24);
       }
       this.dataset.exposure=now<exposureUntil?'adapting':'settled';
       // Loading detail refreshes exposure, but must not shrink an already
       // inspected image. Otherwise a weak GPU oscillates between two sizes,
       // repeatedly loading and discarding tiles visible only at the larger one.
-      const inspect=standalone&&paused&&(inspection||now>=exposureUntil)&&!frameClock.interacting(now)&&focusRadius===0;
+      const inspect=standalone&&session.paused&&(inspection||now>=exposureUntil)&&!frameClock.interacting(now)&&focusRadius===0;
       if(inspect!==inspection){inspection=inspect;this.dataset.inspection=String(inspect);cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
       Object.assign(this.dataset,result.state);
       if(viewSky!==null&&!inspection){
@@ -394,7 +377,7 @@ export class EarthlightExplorer extends HTMLElement {
       }
       if(Math.abs(result.scale-qualityScale)>.001){qualityScale=result.scale;qualitySince=now;cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
       // Remember a size that held for ten seconds of sharp, animated frames.
-      if(renderer.adaptive&&!paused&&!inspection&&focusRadius===0&&now-qualitySince>10000&&now-qualitySaved>10000){
+      if(renderer.adaptive&&!session.paused&&!inspection&&focusRadius===0&&now-qualitySince>10000&&now-qualitySaved>10000){
         qualitySaved=now;const bounds=canvas.getBoundingClientRect();
         rememberScale(qualityScale/profile.scale,bounds.width,bounds.height,devicePixelRatio,profile.name);
       }
@@ -403,7 +386,7 @@ export class EarthlightExplorer extends HTMLElement {
       if(result.cloud)this.dataset.cloudTiles=JSON.stringify(result.cloud);
       if(result.day)this.dataset.dayTiles=JSON.stringify(result.day);
       if(result.night)this.dataset.nightTiles=JSON.stringify(result.night);
-      if(paused||!this.hasAttribute('data-ready')||standalone)updateStatus(sceneTime,observer);
+      if(session.paused||!this.hasAttribute('data-ready')||standalone)updateStatus(sceneTime,observer);
       this.dataset.starsReady='';
       if (!this.hasAttribute('data-ready')) {
         this.dataset.ready = '';
@@ -435,8 +418,7 @@ export class EarthlightExplorer extends HTMLElement {
       if(!document.hidden)renderFrame();
     };
     const tick = (now: number) => {
-      frame = 0;
-      if (paused || document.hidden || lost || !this.hasAttribute('data-ready')) return;
+      if (session.paused || document.hidden || runtime.lost || !this.hasAttribute('data-ready')) return;
       frameClock.observe(now);perfObserve(now);
       renderer.observeAnimationFrame(now,profile.fps/24);
       if (frameDue(now)) {
@@ -446,7 +428,6 @@ export class EarthlightExplorer extends HTMLElement {
         grainIndex=(grainIndex+1)%65536;
         renderFrame();
       }
-      frame = requestAnimationFrame(tick);
     };
     // Flight gestures follow display refresh (up to 60 Hz); passive playback
     // retains its 24 FPS budget. Keep the fractional deadline when paused too,
@@ -462,50 +443,47 @@ export class EarthlightExplorer extends HTMLElement {
       frameClock.reset(performance.now());
       clearTimeout(focusTimer);
       if(renderer&&this.hasAttribute('data-ready')&&this.dataset.focus!=='sharp')updateFocus();
-      cancelAnimationFrame(frame);
-      cancelAnimationFrame(drawRequest);drawRequest=0;
-      frame = 0;
+      runtime.stop();
       clearTimeout(statusTimer);
-      playback.setRunning(!paused && !document.hidden && !lost && this.hasAttribute('data-ready'),performance.now());
+      playback.setRunning(!session.paused && !document.hidden && !runtime.lost && this.hasAttribute('data-ready'),performance.now());
       lastAnimationDraw=0;
       renderer?.resetCadence();
-      this.toggleAttribute('data-paused',paused);
-      updateSpeedLabel();
+      this.toggleAttribute('data-paused',session.paused);
+      updateTimeScaleLabel();
       for(const button of motionButtons){
-        button.querySelector('.motion-play')?.toggleAttribute('data-hidden',!paused);
-        button.querySelector('.motion-pause')?.toggleAttribute('data-hidden',paused);
-        button.setAttribute('aria-label', paused ? 'Play' : 'Pause');
-        button.title = paused ? 'Play' : 'Pause';
+        button.querySelector('.motion-play')?.toggleAttribute('data-hidden',!session.paused);
+        button.querySelector('.motion-pause')?.toggleAttribute('data-hidden',session.paused);
+        button.setAttribute('aria-label', session.paused ? 'Play' : 'Pause');
+        button.title = session.paused ? 'Play' : 'Pause';
       }
       updateExplorerLink();
-      if(paused&&!document.hidden&&!lost&&this.hasAttribute('data-ready')&&performance.now()<exposureUntil)draw();
-      if (!paused && !document.hidden && !lost && this.hasAttribute('data-ready')) {
+      if(session.paused&&!document.hidden&&!runtime.lost&&this.hasAttribute('data-ready')&&performance.now()<exposureUntil)draw();
+      if (!session.paused && !document.hidden && !runtime.lost && this.hasAttribute('data-ready')) {
         statusTick();
-        frame = requestAnimationFrame(tick);
+        runtime.animate();
       }
     };
     const scroll = () => {
       // Animated frames already read scroll position. A paused scene still
       // follows the page's orbital offset without advancing the playback clock
       // or the grain seed.
-      if(!scrollComposition || !paused || document.hidden || scrollTimer) return;
+      if(!scrollComposition || !session.paused || document.hidden || scrollTimer) return;
       scrollTimer=window.setTimeout(()=>{
         scrollTimer=0;
-        if(!disposed && paused && !document.hidden)draw();
+        if(!runtime.disposed && session.paused && !document.hidden)draw();
       },1000/24);
     };
     // The link follows: paused, it reopens on this frame (motion=0 and its t);
     // playing, it plays on from here.
     const toggle = () => {
-      paused = !paused;
+      session.toggle();
       sync();
       const url=new URL(pendingURL??location.href);
       url.searchParams.set('t',playback.read(performance.now()).toFixed(2));
-      url.searchParams.delete('still');
-      if(paused)url.searchParams.set('motion','0');else url.searchParams.delete('motion');
+      writePlaybackSettings(url.searchParams,session.paused);
       updateURL(url);
       // The frame and clock on screen are the ones the link names, not the last drawn.
-      if(paused){draw();lastStatus=-1;updateStatus(playback.read(performance.now())+composition().offset);}
+      if(session.paused){draw();lastStatus=-1;updateStatus(playback.read(performance.now())+composition().offset);}
     };
     const playbackKey = (event:KeyboardEvent) => {
       if(this.dataset.composition!=='explorer'||event.code!=='Space'||event.repeat||event.defaultPrevented
@@ -526,18 +504,22 @@ export class EarthlightExplorer extends HTMLElement {
       draw();
       const url = new URL(pendingURL??location.href);
       url.searchParams.set('t',elapsed.toFixed(2));
-      url.searchParams.delete('still');
-      if(paused)url.searchParams.set('motion','0');
-      else url.searchParams.delete('motion');
+      writePlaybackSettings(url.searchParams,session.paused);
       updateURL(url);
     };
-    // 0× stops time and keeps the speed for Play; any other speed starts it.
-    const changeSpeed = () => {
-      const next=timeScale(Number(speedInput.value));
-      if(next>0){speed=next;playback.setSpeed(speed,performance.now());}
-      if((next===0)!==paused)toggle();else updateSpeedLabel();
+    // Settings, HUD and keyboard all enter the same playback command.
+    const setTimeSliderPosition=(position:number)=>{
+      const changed=session.setTimeSliderPosition(position,performance.now());
+      if(changed){
+        sync();
+        const url=new URL(pendingURL??location.href);
+        url.searchParams.set('t',playback.read(performance.now()).toFixed(2));
+        writePlaybackSettings(url.searchParams,session.paused);updateURL(url);
+        if(session.paused){draw();lastStatus=-1;updateStatus(playback.read(performance.now())+composition().offset);}
+      }else updateTimeScaleLabel();
       statusTick();
     };
+    const changeTimeScale=()=>setTimeSliderPosition(Number(timeSliderInput.value));
     const updateViewLabels=()=>{
       for(const input of viewInputs){
         const key=input.dataset.view as keyof typeof cameraView;
@@ -554,12 +536,8 @@ export class EarthlightExplorer extends HTMLElement {
     const changeView=()=>{
       if(standalone&&navigation.free)return;
       const url=new URL(pendingURL??location.href);
-      for(const input of viewInputs){
-        const key=input.dataset.view as keyof typeof cameraView;
-        cameraView[key]=Number(input.value);
-        if(cameraView[key])url.searchParams.set(key,String(cameraView[key]));
-        else url.searchParams.delete(key);
-      }
+      for(const input of viewInputs)session.setView(input.dataset.view as keyof typeof cameraView,Number(input.value));
+      writeViewSettings(url.searchParams,cameraView);
       updateURL(url);
       updateViewLabels();
       updateExplorerLink();
@@ -573,10 +551,9 @@ export class EarthlightExplorer extends HTMLElement {
       const url=new URL(pendingURL??location.href);
       navigation.write(url.searchParams);
       url.searchParams.set('t',(playback.read(performance.now())+composition().offset).toFixed(2));
-      for(const key of ['yaw','pitch'] as const){if(!navigation.free&&cameraView[key])url.searchParams.set(key,String(cameraView[key]));else url.searchParams.delete(key);}
-      const zoom=navigation.focal/PROJECTION;
-      if(Math.abs(zoom-1)>.0005)url.searchParams.set('lens',String(Math.round(zoom*1000)/1000));else url.searchParams.delete('lens');
-      if(paused)url.searchParams.set('motion','0');else url.searchParams.delete('motion');
+      writeViewSettings(url.searchParams,cameraView,!!navigation.free);
+      writeLensSetting(url.searchParams,navigation.focal/PROJECTION);
+      writePlaybackSettings(url.searchParams,session.paused);
       updateURL(url);
     };
     const enterFree=()=>{
@@ -603,24 +580,22 @@ export class EarthlightExplorer extends HTMLElement {
     };
     const changeCalendar=(event:Event)=>{
       const input=event.currentTarget as HTMLInputElement,seconds=playback.read(performance.now())+composition().offset;
-      if(input.dataset.calendar==='date')calendar.setDay(Number(input.value),seconds);
-      else calendar.setMinute(Number(input.value),seconds);
+      session.setCalendar(input.dataset.calendar as 'date'|'time',Number(input.value),seconds);
       calendarChanged();
     };
     const applyLook = () => {
+      Object.assign(look,session.look);
+      exposureMode.value=settings.exposureMode;fixedExposure.value=String(settings.fixedExposure);lensPreset.value=settings.lensPreset;
       for(const input of lookInputs){
         const key=input.dataset.look as keyof typeof lookBase;
-        look[key]=Number(input.value)*lookBase[key];
+        input.value=String(settings.look[key]);
         const value=key==='exposure'?`${look.exposure>0?'+':''}${look.exposure.toFixed(1)} EV`:`${Math.round(Number(input.value)*100)}%`;
         this.querySelector<HTMLOutputElement>(`[data-output="${key}"]`)!.value=value;
         input.setAttribute('aria-valuetext',value);
         paintRange(input);
       }
       const exposureInput=lookInputs.find(input=>input.dataset.look==='exposure')!;
-      const manual=exposureMode.value==='manual';
-      look.manualExposure=manual?Number(fixedExposure.value):null;
-      look.lensPreset=readLensPreset(lensPreset.value);
-      if(manual)look.exposure=0;
+      const manual=settings.exposureMode==='manual';
       this.querySelector<HTMLElement>('[data-manual-setting]')!.hidden=!manual;
       exposureInput.closest<HTMLElement>('.setting')!.hidden=manual;
       const fixedLabel=`${Number(fixedExposure.value)>0?'+':''}${Number(fixedExposure.value).toFixed(1)} EV`;
@@ -629,42 +604,36 @@ export class EarthlightExplorer extends HTMLElement {
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       draw();
     };
-    const changeLook = () => {
+    const saveLook=()=>{
       applyLook();
-      const url=new URL(pendingURL??location.href);
-      const exposureInput=lookInputs.find(input=>input.dataset.look==='exposure')!;
-      if(exposureInput.value===exposureInput.defaultValue)url.searchParams.delete('look-exposure');else url.searchParams.set('look-exposure',exposureInput.value);
-      if(exposureMode.value==='manual'){url.searchParams.set('exposure-mode','manual');url.searchParams.set('exposure-fixed',fixedExposure.value);}
-      else{url.searchParams.delete('exposure-mode');url.searchParams.delete('exposure-fixed');}
-      if(lensPreset.value==='iss')url.searchParams.delete('lens-preset');else url.searchParams.set('lens-preset',lensPreset.value);
-      updateURL(url);
+      const url=new URL(pendingURL??location.href);writeLookSettings(url.searchParams,settings);updateURL(url);
+    };
+    const changeLook=(event:Event)=>{
+      const input=event.currentTarget as HTMLInputElement|HTMLSelectElement;
+      if(input.dataset.look)session.setLook(input.dataset.look as LookControl,Number(input.value));
+      else if(input===fixedExposure)session.setFixedExposure(Number(input.value));
+      else if(input===exposureMode)settings.exposureMode=exposureMode.value==='manual'?'manual':'auto';
+      else if(input===lensPreset)settings.lensPreset=lensPreset.value==='flare'?'flare':'iss';
+      saveLook();
     };
     const restoreAll = () => {
-      const resetAurora=auroraMode.value!=='auto';
+      const resetAurora=settings.aurora!=='auto';
       const cloudDefaults=new URLSearchParams(location.search);cloudDefaults.delete('clouds');
-      const resetClouds=cloudsMode.value!==readCloudMode(cloudDefaults);
+      const resetClouds=settings.clouds!==readCloudMode(cloudDefaults);
       cloudsMode.value=readCloudMode(cloudDefaults);
       auroraMode.value='auto';
       const now=performance.now();
-      speedInput.value=speedInput.defaultValue;
-      speed=timeScale(Number(speedInput.value));
-      playback.setSpeed(speed,now);
-      playback.seek(initialSceneSeconds(new URLSearchParams())-composition().offset,now);
-      paused=false;
-      calendar.reset(playback.read(now)+composition().offset);
-      lensGoal=null;navigation.follow('iss',currentObserver(),now,false);flightControls?.cancel();navigation.focal=PROJECTION;updateNavigationUI();
+      session.reset(new URLSearchParams(location.search),now,composition().offset);
+      timeSliderInput.value=String(session.timeSliderPosition);
+      lensGoal=null;flightControls?.cancel();updateNavigationUI();
       lastStatus=-1;
-      viewInputs.forEach(input=>{input.value=input.defaultValue;});
-      cameraView.yaw=0;cameraView.pitch=0;
-      lookInputs.forEach(input=>{input.value=input.defaultValue;});
-      exposureMode.value="auto";fixedExposure.value=fixedExposure.defaultValue;lensPreset.value='iss';
+      viewInputs.forEach(input=>{input.value=String(cameraView[input.dataset.view as keyof typeof cameraView]);});
       const url=new URL(pendingURL??location.href);
-      for(const key of ['t','yaw','pitch','motion','still','moon','orbit','route','flight','position','heading','elevation','roll','orientation','lens','lens-preset','aurora','clouds'])url.searchParams.delete(key);
-      for(const input of [...lookInputs,speedInput])url.searchParams.delete(input===speedInput?'rate':`look-${input.dataset.look}`);
+      resetExplorerSettingsURL(url.searchParams);
       updateURL(url);
-      updateSpeedLabel();updateViewLabels();
+      updateTimeScaleLabel();updateViewLabels();
       exposureUntil=now+EXPOSURE_SETTLE_MS;
-      changeLook();
+      saveLook();
       if(resetAurora||resetClouds){reloadScene();return;}
       sync();
     };
@@ -686,13 +655,13 @@ export class EarthlightExplorer extends HTMLElement {
     };
     resetValueButtons.forEach(button=>button.addEventListener('click',restoreValue));
     try {renderer=createSceneRenderer(gl,canvas,params,()=>{
-      if(disposed||lost)return;
+      if(runtime.disposed||runtime.lost)return;
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       Object.assign(this.dataset,renderer.state);
       // No frame will come: shaders failed on this GPU, or every first-light
       // asset failed. A failed refinement keeps the preview and is not this.
       if(!this.hasAttribute('data-ready')&&(renderer.state.shaderStartup==='failed'||renderer.state.firstLight==='failed'))this.dataset.unavailable='';
-      if(paused||!this.hasAttribute('data-ready'))draw();
+      if(session.paused||!this.hasAttribute('data-ready'))draw();
     },{assetBaseURL:this.dataset.assetBase,terrainBaseURL:this.dataset.terrainBase});}
     catch(error){console.warn('The scene is unavailable.',error);this.dataset.unavailable='';return;}
     // Restoring controls must not turn a fresh visit into a dated replay URL.
@@ -709,7 +678,7 @@ export class EarthlightExplorer extends HTMLElement {
       for(const input of viewInputs)input.value=String(view[input.dataset.view as keyof typeof view]);
       Object.assign(cameraView,view);updateViewLabels();updateExplorerLink();cameraChanged();saveNavigation();
     };
-    const ready=()=>!lost&&this.hasAttribute('data-ready');
+    const ready=()=>!runtime.lost&&this.hasAttribute('data-ready');
     const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
     // The lens magnifies about a screen point and never moves the camera: free
     // flight re-aims the rig, a followed orbit re-aims its yaw and pitch.
@@ -832,23 +801,25 @@ export class EarthlightExplorer extends HTMLElement {
       command,
       key:(code,down)=>hud?.key(code,down),
       device:device=>hud?.setModality(device),
+      action:action=>{
+        if(action&&ready())dragSurface.dataset.cameraAction=action;
+        else delete dragSurface.dataset.cameraAction;
+      },
       touching:()=>!!touch?.active,
       stop:()=>{navigation.stop();settleLens();},
     });
     const disposeCameraDrag=dragSurface?createCameraDrag(dragSurface,camera,(x,y,intent)=>{
-      if(x===null||!ready()){delete dragSurface.dataset.cursor;return;}
+      if(x===null||!ready()){delete dragSurface.dataset.cursor;flightControls?.clearAction();return;}
       // A plain drag moves over Earth wherever it starts, so the cursor is Earth's.
-      const kind=intent==='roll'?'roll':intent==='look'?'look':'fly';
+      const kind=intent==='roll'?'roll':intent==='altitude'?'altitude':intent==='look'?'look':'fly';
+      if(dragSurface.dataset.cursor!==kind)flightControls?.clearAction();
       dragSurface.dataset.cursor=kind;
     },()=>hud?.modality==='trackpad'):()=>{};
     const touchSurface=dragSurface?.querySelector<HTMLElement>('.explorer-gestures');
     const touch=touchSurface?createTouchCamera(touchSurface,camera,()=>hud?.setModality('touch'),touchGain,touchSpin):null;
-    const compensation=lookInputs.find(input=>input.dataset.look==='exposure')!;
     const calendarSet=(kind:'date'|'time',value:number)=>{
-      const input=calendarInputs.find(input=>input.dataset.calendar===kind)!;
-      input.value=String(value);input.dispatchEvent(new Event('input'));
+      session.setCalendar(kind,value,playback.read(performance.now())+composition().offset);calendarChanged();
     };
-    const speedSet=(position:number)=>{speedInput.value=String(Math.max(0,Math.min(1000,position)));changeSpeed();};
     hud=standalone?createFlightHud(this,{
       orbit:orbit=>{if(ready())followOrbit(orbit);},
       free:()=>{if(ready()){enterFree();draw();}},
@@ -858,17 +829,17 @@ export class EarthlightExplorer extends HTMLElement {
       lensZoom,
       hold:(code,down)=>flightControls?.hold(code,down),
       resetCamera:()=>command('reset-camera'),
-      night:()=>command('night'),nightOn:nightMode!=='current',
+      night:()=>command('night'),nightOn:settings.night!=='current',
       faceEarth:()=>face(()=>normalize(currentObserver().camera.map(v=>-v) as Vec3)),
       faceSun:()=>face(()=>normalize([...currentObserver().sun] as Vec3)),
       faceMoon:()=>face(()=>{const f=currentObserver();return normalize(celestialFrame(f.date,f.camera as Vec3).moon.slice(0,3) as Vec3);}),
-      exposure:()=>exposureMode.value==='manual'?null:Number(compensation.value),
-      setExposure:ev=>{compensation.value=String(ev);changeLook();},
-      // The top tapes drive the same inputs as Settings, so both stay in step.
+      exposure:()=>settings.exposureMode==='manual'?null:settings.look.exposure,
+      setExposure:ev=>{session.setLook('exposure',ev);saveLook();},
+      // The top tapes submit the same commands as Settings.
       setDay:day=>calendarSet('date',day),setMinute:minute=>calendarSet('time',minute),
-      speed:()=>paused?0:speed,
-      setSpeed:target=>speedSet(target>0?Math.max(1,Math.round(speedFraction(target)*1000)):0),
-      stepSpeed:notches=>speedSet((paused?0:Math.round(speedFraction(speed)*1000))+notches*10),
+      timeScale:()=>session.paused?0:session.timeScale,
+      setTimeScale:target=>setTimeSliderPosition(session.sliderPositionForTimeScale(target)),
+      stepTimeScale:notches=>setTimeSliderPosition(session.timeSliderPosition+notches*10),
     }):null;
     // Night switch. The key latches at once; the address, the manual
     // exposure range and the link follow when the new mode draws. The last
@@ -889,42 +860,31 @@ export class EarthlightExplorer extends HTMLElement {
       if(!steadyFrames||now-steadySince>4000){steadyFrames=0;releaseFrame();}
     };
     const holdFrame=()=>{
-      if(!crossfade)return;
-      crossfade.width=canvas.width;crossfade.height=canvas.height;
-      // Same task as the draw, so the drawing buffer still holds the frame.
-      crossfade.getContext('2d',{alpha:false})?.drawImage(canvas,0,0);
-      delete crossfade.dataset.fading;crossfade.hidden=false;steadyFrames=0;
+      if(!heldFrame)return;
+      heldFrame.hold(canvas);steadyFrames=0;
       // A paused view draws the new mode's first frames itself.
       draw();
     };
-    const releaseFrame=()=>{
-      if(!crossfade||crossfade.hidden)return;
-      const done=()=>{crossfade.hidden=true;delete crossfade.dataset.fading;crossfade.width=crossfade.height=0;};
-      if(matchMedia('(prefers-reduced-motion: reduce)').matches){done();return;}
-      crossfade.dataset.fading='';
-      crossfade.addEventListener('transitionend',done,{once:true});
-      window.setTimeout(()=>{if(crossfade.dataset.fading!==undefined)done();},800);
-    };
+    const releaseFrame=()=>heldFrame?.release(matchMedia('(prefers-reduced-motion: reduce)').matches);
     const switchNight=()=>{
-      const next:NightMode=(nightTarget??nightMode)==='current'?'video':'current';
+      const next:NightMode=(nightTarget??settings.night)==='current'?'video':'current';
       nightTarget=next;hud?.setNight(next!=='current');
       this.dataset.nightTarget=next;
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       // The switch starts once the latched key has painted: building the next
       // mode's programs can hold this thread, and the press must show at once.
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        if(nightTarget!==next||disposed)return;
+        if(nightTarget!==next||runtime.disposed)return;
         void renderer.switchNight(next).then(swapped=>{
-          if(nightTarget!==next||disposed)return;
+          if(nightTarget!==next||runtime.disposed)return;
           nightTarget=null;delete this.dataset.nightTarget;
           // Nothing to dissolve into: superseded, failed, or already in this mode.
-          if(!swapped||next===nightMode){hud?.setNight(nightMode!=='current');releaseFrame();delete this.dataset.nightSwitch;return;}
-          nightMode=next;this.dataset.nightMode=next;
+          if(!swapped||next===settings.night){hud?.setNight(settings.night!=='current');releaseFrame();delete this.dataset.nightSwitch;return;}
+          session.setNight(next);this.dataset.nightMode=next;
           const url=new URL(pendingURL??location.href);
           if(next==='current')url.searchParams.delete('night');else url.searchParams.set('night',next);
           updateURL(url);
           fixedRange();
-          if(Number(fixedExposure.value)>Number(fixedExposure.max))fixedExposure.value=fixedExposure.max;
           applyLook();updateExplorerLink();
         });
       }));
@@ -939,11 +899,11 @@ export class EarthlightExplorer extends HTMLElement {
       url.searchParams.set('t',playback.read(performance.now()).toFixed(4));
       calendar.write(url.searchParams);
       if(standalone)navigation.write(url.searchParams);
-      if(paused)url.searchParams.set('motion','0');else url.searchParams.delete('motion');
-      for(const input of [...lookInputs,speedInput]){
-        const key=input===speedInput?'rate':`look-${input.dataset.look}`;
-        if(input.value!==input.defaultValue)url.searchParams.set(key,input.value);else url.searchParams.delete(key);
-      }
+      writePlaybackSettings(url.searchParams,session.paused);
+      writeLookSettings(url.searchParams,settings);
+      writeTimeSliderSetting(url.searchParams,session.timeSliderPosition);
+      writeViewSettings(url.searchParams,cameraView,!!navigation.free);
+      if(standalone)writeLensSetting(url.searchParams,navigation.focal/PROJECTION);
       location.assign(url);
     };
     const changeProfile=()=>{
@@ -1004,13 +964,15 @@ export class EarthlightExplorer extends HTMLElement {
     };
     const changeAurora=()=>{
       const url=new URL(pendingURL??location.href);
-      if(auroraMode.value==='auto')url.searchParams.delete('aurora');
-      else url.searchParams.set('aurora',auroraMode.value==='on'?'1':'0');
+      settings.aurora=auroraMode.value as typeof settings.aurora;
+      if(settings.aurora==='auto')url.searchParams.delete('aurora');
+      else url.searchParams.set('aurora',settings.aurora==='on'?'1':'0');
       reloadScene(url);
     };
     const changeClouds=()=>{
       const url=new URL(pendingURL??location.href);
-      url.searchParams.set('clouds',cloudsMode.value);
+      settings.clouds=cloudsMode.value as typeof settings.clouds;
+      url.searchParams.set('clouds',settings.clouds);
       reloadScene(url);
     };
     auroraMode.addEventListener('change',changeAurora);
@@ -1025,10 +987,7 @@ export class EarthlightExplorer extends HTMLElement {
     exposureMode.addEventListener('change',changeLook);fixedExposure.addEventListener('input',changeLook);lensPreset.addEventListener('change',changeLook);
     resetAll.addEventListener('click',restoreAll);
     viewInputs.forEach(input=>input.addEventListener('input',changeView));
-    const contextLost = (event: Event) => {
-      event.preventDefault();
-      contextGeneration++;
-      lost = true;
+    const contextLost = () => {
       flightControls?.cancel();
       clearTimeout(exposureTimer);
       clearTimeout(focusTimer);
@@ -1043,37 +1002,30 @@ export class EarthlightExplorer extends HTMLElement {
       panelController.close();
       sync();
     };
-    const contextRestored = async() => {
-      if(disposed)return;
-      const current=contextGeneration;
-      const pending=renderer.contextRestored();
-      Object.assign(this.dataset,renderer.state);
-      const restored=await pending;
-      if(disposed||current!==contextGeneration)return;
-      Object.assign(this.dataset,renderer.state);
-      lost = !restored;
-      if (!lost) { resize(); controls.hidden = !controlsInView || !this.hasAttribute('data-ready'); sync(); }
-    };
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(canvas);
-    resizeObserver.observe(viewport);
+    runtime.connect({
+      canvas,resizeTargets:[canvas,viewport],resize,sync,contextLost,
+      contextRestored:()=>{
+        const pending=renderer.contextRestored();Object.assign(this.dataset,renderer.state);return pending;
+      },
+      restored:ready=>{
+        Object.assign(this.dataset,renderer.state);
+        if(ready){resize();controls.hidden=!controlsInView||!this.hasAttribute('data-ready');sync();}
+      },
+    });
     // The transparent page keeps the sky visible below the introduction;
     // only its controls hide when the introduction leaves the viewport.
     const hero = document.querySelector('.hero');
     const visibility = new IntersectionObserver(entries => {
       controlsInView = entries[0].isIntersecting;
-      controls.hidden = !controlsInView || lost || !this.hasAttribute('data-ready');
+      controls.hidden = !controlsInView || runtime.lost || !this.hasAttribute('data-ready');
       if(controls.hidden)panelController.close();
     });
     if (hero) visibility.observe(hero);
     motionButtons.forEach(button=>button.addEventListener('click', toggle));
     window.addEventListener('keydown',playbackKey);
-    speedInput.addEventListener('input', changeSpeed);
+    timeSliderInput.addEventListener('input', changeTimeScale);
     orbitInput.addEventListener('input', seek);
-    document.addEventListener('visibilitychange', sync);
     if(scrollComposition)window.addEventListener('scroll',scroll,{passive:true});
-    canvas.addEventListener('webglcontextlost', contextLost);
-    canvas.addEventListener('webglcontextrestored', contextRestored);
     if(standalone&&params.get('startScale')!=='fresh'&&params.get('quality')!=='fixed'){
       const bounds=canvas.getBoundingClientRect(),remembered=rememberedScale(bounds.width,bounds.height,devicePixelRatio,profile.name);
       if(remembered!==null){qualityScale=profile.scale*remembered;renderer.seedScale(remembered);this.dataset.startScale=remembered.toFixed(2);}
@@ -1088,16 +1040,14 @@ export class EarthlightExplorer extends HTMLElement {
       disposeCameraDrag();
       touch?.dispose();
       hud?.dispose();
-      disposed = true;
+      runtime.dispose();heldFrame?.dispose();
+      perfObserver?.disconnect();perf?.remove();
       clearTimeout(exposureTimer);
       clearTimeout(scrollTimer);
-      cancelAnimationFrame(frame);
       clearTimeout(statusTimer);
       clearTimeout(focusTimer);
       cancelAnimationFrame(qualityFrame);
-      cancelAnimationFrame(drawRequest);
       cancelAnimationFrame(urlUpdateFrame);
-      resizeObserver.disconnect();
       visibility.disconnect();
       motionButtons.forEach(button=>button.removeEventListener('click', toggle));
       window.removeEventListener('keydown',playbackKey);
@@ -1117,12 +1067,9 @@ export class EarthlightExplorer extends HTMLElement {
       resetAll.removeEventListener('click',restoreAll);
       resetValueButtons.forEach(button=>button.removeEventListener('click',restoreValue));
       viewInputs.forEach(input=>input.removeEventListener('input',changeView));
-      speedInput.removeEventListener('input', changeSpeed);
+      timeSliderInput.removeEventListener('input', changeTimeScale);
       orbitInput.removeEventListener('input', seek);
-      document.removeEventListener('visibilitychange', sync);
       window.removeEventListener('scroll',scroll);
-      canvas.removeEventListener('webglcontextlost', contextLost);
-      canvas.removeEventListener('webglcontextrestored', contextRestored);
       renderer.dispose();
       this.removeAttribute('data-paused');
       delete this.dataset.ready;

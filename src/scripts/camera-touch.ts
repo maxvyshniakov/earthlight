@@ -1,4 +1,5 @@
 import type { CameraController, CameraSession } from './camera-controller.ts';
+import { createCameraGesture } from './camera-gesture.ts';
 
 type Point={x:number;y:number};
 const TAP_MS=260,DOUBLE_MS=320,SLOP=10;
@@ -17,7 +18,7 @@ export function createTouchCamera(surface:HTMLElement,camera:CameraController,to
   const pointers=new Map<number,Point>();
   let previous:Point[]=[],frame=0;
   let single:{session:CameraSession|null;start:Point;time:number;moved:boolean;quick:boolean}|null=null;
-  let pair:{start:{c:Point;d:number;a:number};time:number;moved:boolean;look:boolean;zoom:boolean;roll:boolean}|null=null;
+  let pair:{start:{c:Point;d:number;a:number};time:number;moved:boolean;gesture:ReturnType<typeof createCameraGesture>}|null=null;
   let lastTap:{time:number;x:number;y:number}|null=null;
   const snapshot=()=>[...pointers.values()].map(point=>({...point}));
   const centre=(p:Point[])=>({x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2});
@@ -35,17 +36,14 @@ export function createTouchCamera(surface:HTMLElement,camera:CameraController,to
         if(single.quick){if(single.moved)camera.zoom((p.y-previous[0].y)*-.008,single.start.x,single.start.y);}
         else single.session?.move(p.x,p.y);
       }else if(current.length===2&&pair){
-        const c0=centre(previous),c1=centre(current),d0=span(previous),d1=span(current);
+        const c0=centre(previous),c1=centre(current),d1=span(current);
         const travel=Math.hypot(c1.x-pair.start.c.x,c1.y-pair.start.c.y);
-        const spread=Math.abs(Math.log(d1/Math.max(1,pair.start.d))),twist=Math.abs(turn(angle(current)-pair.start.a));
-        if(travel>SLOP||spread>.04||twist>.08)pair.moved=true;
-        const other=pair.zoom||pair.roll;
-        pair.look||=travel>(other?30:12);
-        pair.zoom||=spread>(pair.look||pair.roll?.3:.14);
-        pair.roll||=twist>(pair.zoom?.3:.18);
-        if(pair.look)camera.look(c0.x,c0.y,c1.x,c1.y);
-        if(pair.zoom&&d0>8&&d1>8)camera.lens(Math.log(d1/d0),c1.x,c1.y,false);
-        if(pair.roll)camera.roll(turn(angle(current)-angle(previous)));
+        const spread=Math.log(Math.max(8,d1)/Math.max(8,pair.start.d)),twist=turn(angle(current)-pair.start.a);
+        if(travel>SLOP||Math.abs(spread)>.04||Math.abs(twist)>.08)pair.moved=true;
+        const motion=pair.gesture.update({travel,scale:spread,rotation:twist});
+        if(motion.look)camera.look(c0.x,c0.y,c1.x,c1.y);
+        if(motion.lens)camera.lens(motion.lens,c1.x,c1.y,false);
+        if(motion.roll)camera.roll(turn(motion.roll));
       }
     }
     previous=current;
@@ -66,7 +64,7 @@ export function createTouchCamera(surface:HTMLElement,camera:CameraController,to
     }else if(pointers.size===2){
       endSingle(false);
       const points=snapshot();
-      pair={start:{c:centre(points),d:span(points),a:angle(points)},time:now,moved:false,look:false,zoom:false,roll:false};
+      pair={start:{c:centre(points),d:span(points),a:angle(points)},time:now,moved:false,gesture:createCameraGesture()};
     }
   };
   const move=(event:PointerEvent)=>{

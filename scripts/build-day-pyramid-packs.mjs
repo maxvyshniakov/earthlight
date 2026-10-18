@@ -23,8 +23,9 @@ import { mkdir, readFile, readdir, rm, writeFile, copyFile } from 'node:fs/promi
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { decodeDayPack, decodeIndex, decodePackHeader, DAY_SLOTS, encodeIndex, encodePack, MAX_PACK_K, packOf, slotMask, slotTile, PACK_DEPTH } from '../src/scripts/day-pyramid-pack.ts';
+import {tileDimensions} from '../src/scripts/tile-layout.ts';
 
-const COLUMNS=160,ROWS=80;
+const {columns:COLUMNS,rows:ROWS}=tileDimensions('day');
 /** Smallest block per level (log2 tiles a side) and the largest merge. */
 export const BASE_K=[2,2,3],MAX_K=MAX_PACK_K;
 const REGION=1<<MAX_K-1; // day tiles a side under one level-1 root block (16)

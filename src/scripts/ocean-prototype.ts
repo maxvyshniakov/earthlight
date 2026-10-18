@@ -3,11 +3,8 @@ import type {NightMode} from './physical-night';
 import {ShaderProgramBatch} from './shader-programs';
 import {shaderLod,textureImage2D} from './webgl-context';
 
-export type OceanPrototype='regions'|'fronts'|'combined'|'advected';
-export function oceanPrototype(params:URLSearchParams):OceanPrototype|null {
- const value=params.get('ocean');
- return value==='regions'||value==='fronts'||value==='combined'||value==='advected'?value:null;
-}
+import type {OceanPrototype} from './ocean-options';
+export {oceanPrototype,type OceanPrototype} from './ocean-options';
 
 // Synthetic sea state, fixed to the globe. This models neither observed weather
 // nor current velocities. All expensive structure is evaluated once in a bake.
@@ -91,13 +88,10 @@ vec4 transportedState(vec2 uv){
 }
 `;
 
-/** Replace only sea statistics. Keep Cox-Munk, Fresnel, masking and illumination. */
-export function oceanPrototypeSource(source:string){
- source=source.replace('void oceanSurface(', 'uniform sampler2D oceanField;\nuniform float oceanFieldWidth;\nuniform float oceanFieldRepeats;\nvoid oceanSurface(');
- const start=source.indexOf(' float weather=waterField(');
- const end=source.indexOf(' along=east*cos(',start);
- if(start<0||end<0)throw Error('Ocean reflection signature changed');
- return source.slice(0,start)+`
+/** Baked wind and heading; Cox–Munk, Fresnel, masking and illumination stay shared. */
+export const oceanFieldShader={
+ declarations:'uniform sampler2D oceanField;\nuniform float oceanFieldWidth;\nuniform float oceanFieldRepeats;\n',
+ surface:`
  vec2 uv=earthUV(n)*oceanFieldRepeats;
  float latitudeScale=max(.02,sqrt(max(0.,1.-n.z*n.z)));
  float lod=max(0.,log2(max(1.,footprint*oceanFieldWidth*oceanFieldRepeats/(6.2831853*latitudeScale))));
@@ -110,8 +104,8 @@ export function oceanPrototypeSource(source:string){
  vec3 east=normalize(cross(abs(n.z)<.98?vec3(0.,0.,1.):vec3(0.,1.,0.),n));
  vec3 north=cross(n,east);
  float heading=.5*atan(sea.b*2.-1.,sea.g*2.-1.);
-`+source.slice(end);
-}
+`,
+};
 
 export class OceanField {
  readonly texture:WebGLTexture;
@@ -119,9 +113,9 @@ export class OceanField {
  private bindings=new Map<WebGLProgram,WebGLUniformLocation|null>();
  static supported(gl:WebGLRenderingContext){return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>14&&gl.getParameter(gl.MAX_TEXTURE_SIZE)>=2048&&!!shaderLod(gl);}
  static prepare(batch:ShaderProgramBatch,mode:OceanPrototype,night:NightMode){
-  const {fragmentSource}=sceneShadersFor(night);
+  const {scenePrelude}=sceneShadersFor(night);
   const header=`#define OCEAN_STYLE ${['regions','fronts','combined','advected'].indexOf(mode)+1}\n`;
-  const source=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+(mode==='advected'?transportedField:field)+`
+  const source=scenePrelude+(mode==='advected'?transportedField:field)+`
 uniform vec2 oceanBakeSize;
 void main(){
  vec2 uv=gl_FragCoord.xy/oceanBakeSize;

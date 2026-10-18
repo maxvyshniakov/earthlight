@@ -1,3 +1,4 @@
+import {tileDimensions,DAY_PYRAMID_DEPTH} from './tile-layout.ts';
 // Day pyramid packs and their index (docs/lab/day-pyramid-global-2026-10-17.md,
 // "Whole packs").
 //
@@ -31,13 +32,13 @@
 //
 // Integers are little-endian. scripts/build-day-pyramid.mjs writes day tile
 // packs; scripts/build-day-pyramid-packs.mjs repacks them into release packs.
-export const PACK_DEPTH=3;
+export const PACK_DEPTH=DAY_PYRAMID_DEPTH;
 export const DAY_SLOTS=4+16+64;
 export const DAY_PACK_HEADER=688;
 export const INDEX_HEADER=16,INDEX_ENTRY=16;
 /** Largest block: 32 × 32 tiles. */
 export const MAX_PACK_K=5;
-const COLUMNS=160,ROWS=80;
+const {columns:COLUMNS,rows:ROWS,interior:INTERIOR,gutter:GUTTER}=tileDimensions('day');
 
 /** Day slot of tile (level, x, y) within its day tile, and back. */
 export function daySlot(level:number,x:number,y:number){return (level===1?0:level===2?4:20)+y*(1<<level)+x;}
@@ -122,7 +123,7 @@ export type IndexEntry={mask:Uint8Array;k:Uint8Array};
 
 export function encodeIndex(entries:{id:number;mask:Uint8Array;k:ArrayLike<number>}[]){
   const out=new Uint8Array(INDEX_HEADER+entries.length*INDEX_ENTRY),view=new DataView(out.buffer);
-  out.set([69,76,68,73],0);view.setUint8(4,2);view.setUint8(5,PACK_DEPTH);view.setUint16(6,540,true);view.setUint8(8,16);
+  out.set([69,76,68,73],0);view.setUint8(4,2);view.setUint8(5,PACK_DEPTH);view.setUint16(6,INTERIOR,true);view.setUint8(8,GUTTER);
   view.setUint32(12,entries.length,true);
   entries.forEach((entry,i)=>{const at=INDEX_HEADER+i*INDEX_ENTRY;view.setUint16(at,entry.id,true);out.set(entry.mask,at+2);out.set(Array.from(entry.k),at+13);});
   return out;
@@ -131,7 +132,7 @@ export function encodeIndex(entries:{id:number;mask:Uint8Array;k:ArrayLike<numbe
 /** Map<day tile id, {tile mask, k per level}> from index.bin. */
 export function decodeIndex(bytes:Uint8Array){
   const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-  if(bytes.length<INDEX_HEADER||view.getUint32(0,true)!==0x49444c45||view.getUint8(4)!==2||view.getUint8(5)!==PACK_DEPTH||view.getUint16(6,true)!==540||view.getUint8(8)!==16)throw new Error('Invalid day pyramid index');
+  if(bytes.length<INDEX_HEADER||view.getUint32(0,true)!==0x49444c45||view.getUint8(4)!==2||view.getUint8(5)!==PACK_DEPTH||view.getUint16(6,true)!==INTERIOR||view.getUint8(8)!==GUTTER)throw new Error('Invalid day pyramid index');
   const count=view.getUint32(12,true);
   if(bytes.length!==INDEX_HEADER+count*INDEX_ENTRY)throw new Error('Truncated day pyramid index');
   const entries=new Map<number,IndexEntry>();

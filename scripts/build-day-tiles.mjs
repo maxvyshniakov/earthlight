@@ -1,3 +1,4 @@
+import {tileDimensions,tileManifest,tileAddress} from '../src/scripts/tile-layout.ts';
 // NASA Blue Marble Next Generation, October 2004, 500 m. Originals live outside the repository.
 // bun scripts/build-day-tiles.mjs /tmp/earthlight-reference/day
 import sharp from 'sharp';
@@ -9,10 +10,10 @@ sharp.concurrency(2);
 sharp.cache(false);
 const sourceDir=process.argv[2] || '/tmp/earthlight-reference/day';
 const output=process.argv[3] || 'public/media/earthlight/day-tiles';
-const size=21600, interior=540, gutter=16, cell=572;
+const size=21600,{interior,gutter,cell,columns,rows}=tileDimensions('day');
 await mkdir(output,{recursive:true});
 const path=(x,y)=>join(sourceDir,`world.200410.3x21600x21600.${'ABCD'[(x+4)%4]}${y+1}.jpg`);
-const manifest={version:1,width:86400,height:43200,interior,gutter,columns:160,rows:80,quality:50,tiles:[],bytes:0,sources:[]};
+const manifest={...tileManifest('day',[]),width:columns*interior,height:rows*interior,quality:50,tiles:[],bytes:0,sources:[]};
 for(let sy=0;sy<2;sy++)for(let sx=0;sx<4;sx++){
   const source=path(sx,sy);
   const input=await readFile(source);
@@ -55,7 +56,7 @@ for(let sy=0;sy<2;sy++)for(let sx=0;sx<4;sx++){
     // Uniform ocean / polar fill has no spatial detail beyond the global map.
     nonzero=max-min>8;
     if(!nonzero)continue;
-    const id=(sy*40+ty)*160+sx*40+tx;
+    const id=tileAddress(tileDimensions('day'),sx*40+tx,sy*40+ty);
     const target=join(output,`${id}.avif`);
     let bytes;
     try{

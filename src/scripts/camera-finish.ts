@@ -51,6 +51,50 @@ float nightSensorChannel(float opticalSignal,float isoGain,vec2 seed) {
 }
 
 `;
+/** Shared by the production finish and its isolated sensor/highlight fixtures. */
+export const cameraHighlightsShader=`vec3 cameraHighlights(vec3 linear) {
+  float peak=max(linear.r,max(linear.g,linear.b));
+  if(peak<=.8)return linear;
+  float shoulder=.8+.2*(1.-exp(-(peak-.8)/.2));
+  float white=smoothstep(.8,2.,peak);
+  return mix(linear/peak,vec3(1.),white)*shoulder;
+}
+
+`;
+export const cameraSensorShader=`float hash(vec2 p) {
+  vec3 p3=fract(vec3(p.xyx)*.1031);
+  p3+=dot(p3,p3.yzx+33.33);
+  return fract((p3.x+p3.y)*p3.z);
+}
+// Equivalent RGB sensor in linear output primaries. Shot/read noise precede
+// ISO amplification and the display curve; ISO never creates extra photons.
+float sensorChannel(float opticalSignal,float isoGain,vec2 seed) {
+  float electronsAtWhite=36000./max(.0001,grainAmount*grainAmount);
+  float expected=max(0.,opticalSignal)*electronsAtWhite;
+  if(grainAmount<.001)return min(max(0.,opticalSignal),4.)*isoGain;
+  float u=max(hash(seed),.000001);
+  float angle=6.283185307*hash(seed+vec2(113.7,47.1));
+  vec2 normal=sqrt(-2.*log(u))*vec2(cos(angle),sin(angle));
+  float measured;
+  if(expected<16.) {
+    float quantile=hash(seed+vec2(219.3,97.8));
+    float row=floor(sqrt(expected/16.)*${POISSON_ROWS-1}.+.5);
+    measured=texture2D(poisson,vec2(quantile,(row+.5)/${POISSON_ROWS}. )).r*255.;
+  } else {
+    measured=expected+sqrt(expected)*normal.x;
+  }
+  // Upstream read noise plus downstream electronics referred back through ISO.
+  // This smooth preset deliberately avoids inventing a dual-gain switching ISO.
+  float readNoise=sqrt(.9*.9+pow(.8/isoGain,2.));
+  measured+=readNoise*normal.y;
+  return clamp(measured/electronsAtWhite,0.,4.)*isoGain;
+}
+
+// Display highlight roll-off after exposure and ISO. Retain color below the
+// shoulder, then approach neutral white as sensor highlights overexpose.
+// This photographic approximation preserves the existing peak-energy curve.
+${cameraHighlightsShader}`;
+
 const fragmentSourceFor=perNightMode(mode=>{
 const PRE_EXPOSURE=preExposure(mode),sensor=physicalNight(mode)?'nightSensorChannel':'sensorChannel';
 return `
@@ -231,47 +275,7 @@ vec3 shutterImage(vec2 uv,vec2 shift,vec2 p,float aspect){
   }
   return sum/weight;
 }
-${physicalNight(mode)?nightSensorShader:''}float hash(vec2 p) {
-  vec3 p3=fract(vec3(p.xyx)*.1031);
-  p3+=dot(p3,p3.yzx+33.33);
-  return fract((p3.x+p3.y)*p3.z);
-}
-// Equivalent RGB sensor in linear output primaries. Shot/read noise precede
-// ISO amplification and the display curve; ISO never creates extra photons.
-float sensorChannel(float opticalSignal,float isoGain,vec2 seed) {
-  float electronsAtWhite=36000./max(.0001,grainAmount*grainAmount);
-  float expected=max(0.,opticalSignal)*electronsAtWhite;
-  if(grainAmount<.001)return min(max(0.,opticalSignal),4.)*isoGain;
-  float u=max(hash(seed),.000001);
-  float angle=6.283185307*hash(seed+vec2(113.7,47.1));
-  vec2 normal=sqrt(-2.*log(u))*vec2(cos(angle),sin(angle));
-  float measured;
-  if(expected<16.) {
-    float quantile=hash(seed+vec2(219.3,97.8));
-    float row=floor(sqrt(expected/16.)*${POISSON_ROWS-1}.+.5);
-    measured=texture2D(poisson,vec2(quantile,(row+.5)/${POISSON_ROWS}. )).r*255.;
-  } else {
-    measured=expected+sqrt(expected)*normal.x;
-  }
-  // Upstream read noise plus downstream electronics referred back through ISO.
-  // This smooth preset deliberately avoids inventing a dual-gain switching ISO.
-  float readNoise=sqrt(.9*.9+pow(.8/isoGain,2.));
-  measured+=readNoise*normal.y;
-  return clamp(measured/electronsAtWhite,0.,4.)*isoGain;
-}
-
-// Display highlight roll-off after exposure and ISO. Retain color below the
-// shoulder, then approach neutral white as sensor highlights overexpose.
-// This photographic approximation preserves the existing peak-energy curve.
-vec3 cameraHighlights(vec3 linear) {
-  float peak=max(linear.r,max(linear.g,linear.b));
-  if(peak<=.8)return linear;
-  float shoulder=.8+.2*(1.-exp(-(peak-.8)/.2));
-  float white=smoothstep(.8,2.,peak);
-  return mix(linear/peak,vec3(1.),white)*shoulder;
-}
-
-void main() {
+${physicalNight(mode)?nightSensorShader:''}${cameraSensorShader}void main() {
   float automaticEV=decodeCameraEV(texture2D(exposureState,vec2(.5)).rg);
   vec4 camera=cameraProgram(automaticEV);
   cameraOpening=camera.w;

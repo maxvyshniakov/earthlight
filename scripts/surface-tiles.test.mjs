@@ -1,7 +1,8 @@
 import {test,afterEach,spyOn,mock} from 'bun:test';
 import assert from 'node:assert/strict';
+import {VNP46_DISPLAY_RANGE,nightTileShader} from '../src/scripts/surface-tile-shader.ts';
 import { issFrame } from '../src/scripts/iss-orbit.ts';
-import { tileAt, visibleSurfaceTiles, visibleGalaxyTiles, SurfaceTiles, nightTileShader } from '../src/scripts/night-tiles.ts';
+import { tileAt, visibleSurfaceTiles, visibleGalaxyTiles, SurfaceTiles } from '../src/scripts/surface-tiles.ts';
 
 const all=new Set(Array.from({length:12800},(_,i)=>i));
 test('unresolved polar day/night detail uses the overview but close views still stream',()=>{
@@ -162,8 +163,8 @@ test('magnified tiles reconstruct a cubic B-spline from four bilinear taps',()=>
   }
 });
 
-test('only colour and night layers magnify magnified detail; night uses its 30" grid',async()=>{
-  const {nightTileShader,dayTileShader,galaxyTileShader,terrainTileShader,cloudTileShader}=await import('../src/scripts/night-tiles.ts');
+test('colour and night layers reconstruct magnified detail; night uses its 30" grid',async()=>{
+  const {nightTileShader,dayTileShader,galaxyTileShader,terrainTileShader,cloudTileShader}=await import('../src/scripts/surface-tile-shader.ts');
   for(const shader of [nightTileShader,dayTileShader,galaxyTileShader])assert.match(shader,/Smooth\(vec2 local,float slot\)/);
   assert.doesNotMatch(terrainTileShader,/Smooth\(/);
   // The plates' cloud tiles stay bilinear; only measured clouds (CLOUD_PROPERTIES) magnify.
@@ -186,13 +187,17 @@ const vnp46Code=L=>Math.min(2.88,displayed(L))/2.88;
 
 test('VNP46A4 lab tiles interpolate their own 15" grid and carry the 2016 display scale',()=>{
   const night=nightTileShader;
-  const branch=night.slice(night.indexOf('#ifdef NIGHT_VNP46'),night.indexOf('#endif'));
-  assert.match(branch,/vec2 t=nightOrigin\(slot\)\+vec2\(16\.\)\+local\*540\./,'level 0, not the 30" level 1');
+  assert.ok(night.includes('#ifdef NIGHT_VNP46\nvec2 t=nightOrigin(slot)+vec2(16.)+local*540.'),'VNP46 samples level 0 of its independent 15 arcsecond grid');
   assert.match(night,/#ifdef NIGHT_VNP46\nfloat magnify=1\.-smoothstep\(0\.5,1\.0,footprint\);/);
-  // Run the GLSL conversion as JavaScript.
-  const body=night.slice(night.indexOf('float nightVnp46Encoded'),night.indexOf('#ifdef NIGHT_VNP46_EXTENDED'));
-  const js=body.replace(/^float nightVnp46Encoded\(float code\)\{/,'').replace(/float /g,'const ').replace(/\b(log|exp|max|min)\(/g,'Math.$1(');
-  const extended=new Function('code',js+'return encoded;');
+  // The GLSL and the CPU calibration share the stored-code range. Verify the
+  // shader's two policies directly; no parsing or execution of shader text.
+  assert.ok(night.includes(`float encoded=code*${VNP46_DISPLAY_RANGE};
+#ifdef NIGHT_VNP46_EXTENDED
+  return encoded;
+#else
+  return min(1.,encoded);
+#endif`));
+  const extended=code=>code*VNP46_DISPLAY_RANGE;
   const encoded=L=>Math.min(1,extended(vnp46Code(L)));
   assert.ok(encoded(0)<1e-12&&Math.round(255*vnp46Code(0))===0,'dark land stores 0');
   // Global bins of the fit (vnp46-transfer.py): radiance -> median Black Marble 2016 value.

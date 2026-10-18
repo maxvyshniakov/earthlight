@@ -13,10 +13,13 @@ test('GPU fixtures load production class dependencies and optical JSON',async()=
  assert.ok(opticalPsfSource.includes('float'));
 });
 
-test('independent aurora reference changes only its requested module',async()=>{
- const {auroraShader}=runInNewContext(await browserModule('aurora',{transform:(source,id)=>id==='scripts/aurora.ts'?source.replace('(end-start)/128.','(end-start)/384.'):source}));
- assert.ok(auroraShader.includes('(end-start)/384.'));
- assert.ok(!auroraShader.includes('(end-start)/128.'));
+test('aurora convergence reference builds the production integral with more steps',async()=>{
+ const {auroraShader,auroraShaderForSteps}=runInNewContext(await browserModule('aurora'));
+ assert.ok(auroraShader.includes('(end-start)/128.'));
+ const reference=auroraShaderForSteps(384);
+ assert.ok(reference.includes('(end-start)/384.'));
+ assert.ok(reference.includes('i<384;'));
+ assert.ok(!reference.includes('(end-start)/128.'));
 });
 
 test('fixture module cannot load files outside src',async()=>{

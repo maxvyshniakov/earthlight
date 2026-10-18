@@ -4,40 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {createServer} from 'node:http';
 import {issFrame} from '../src/scripts/iss-orbit.ts';
-import {atmosphericLightShader} from '../src/scripts/atmospheric-light.ts';
-import {cloudShader} from '../src/scripts/earth-clouds.ts';
-import {terrainShader} from '../src/scripts/earth-terrain.ts';
-import {lensReflectionShader} from '../src/scripts/lens-reflections.ts';
-import {sceneColorShader} from '../src/scripts/scene-color.ts';
-import {SOLAR_IRRADIANCE,SOLAR_RADIUS,SOLAR_RADIANCE,SOLAR_SCATTER_FRACTION} from '../src/scripts/solar-light.ts';
-import {optics,opticalPsfSource} from '../src/scripts/optical-psf.ts';
+import {nightLightsLabShader as shader} from './night-lights-lab-shader.mjs';
 const root=path.resolve(import.meta.dirname,'..'),out=path.resolve(process.argv[2]||'/tmp/night-lights-lab'),port=Number(process.argv[3]||4340);
-const source=fs.readFileSync(path.join(root,'src/scripts/scene-shader.ts'),'utf8');
-let shader=source.match(/const fragmentSource = `([\s\S]*?)`;/)[1]
- .replaceAll('${SOLAR_IRRADIANCE}',String(SOLAR_IRRADIANCE))
- .replaceAll('${SOLAR_RADIUS}',String(SOLAR_RADIUS))
- .replaceAll('${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)}',(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5))
- .replaceAll('${LUNAR_SAMPLE_COUNT}','128').replace('${opticalPsfSource}',opticalPsfSource)
- .replace('${nightTileShader}','float detailedNight(vec2 uv,float footprint,float fallback){return fallback;}')
- .replace('${dayTileShader}','vec3 detailedDay(vec2 uv,float footprint,vec3 fallback){return fallback;}')
- .replace('${cloudTileShader}','float detailedCloud(vec2 uv,float footprint,float fallback){return fallback;}')
- .replace('${atmosphericLightShader}',atmosphericLightShader)
- .replace('${cloudShader}',cloudShader)
- .replace('${terrainShader}',terrainShader)
- .replace('${lensReflectionShader}',lensReflectionShader)
- .replace('${sceneColorShader}',sceneColorShader)
- .replaceAll('${optics.integral.toFixed(8)}',optics.integral.toFixed(8));
-shader=shader.replace('precision highp float;','precision highp float;\nuniform sampler2D nightDetail;\nuniform vec4 detailBounds;\nuniform float detailEnabled;\nuniform float detailGain;\nuniform float cloudAmount;');
-shader=shader.replace('return texture2D(nightMap,uv).r;',`
-  vec2 q=(uv-detailBounds.xy)/detailBounds.zw;
-  if(detailEnabled>.5 && all(greaterThanEqual(q,vec2(0.))) && all(lessThanEqual(q,vec2(1.)))){
-    float edge=min(min(q.x,q.y),min(1.-q.x,1.-q.y));
-    return mix(texture2D(nightMap,uv).r,texture2D(nightDetail,q).r*detailGain,smoothstep(0.,.002,edge));
-  }
-  return texture2D(nightMap,uv).r;`);
-// This standalone lab has no CameraFinish; display its linear scene directly.
-shader=shader.replace('packSceneRadiance(color)','vec4(linearToDisplay(color),1.)');
-shader=shader.replace('mappedCloud*=cloudFine;','mappedCloud*=cloudFine*cloudAmount;');
 const html=`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Night lights · texture lab</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0b0e11;color:#e7e7df;font:15px/1.6 system-ui}main{max-width:1440px;margin:auto;padding:40px 28px}h1{font-size:36px;letter-spacing:-.04em}h2{margin-top:44px}p{max-width:850px;color:#aeb6bd}label{display:inline-flex;gap:10px;align-items:center;margin:8px 20px 8px 0}select,button{background:#202830;color:inherit;border:1px solid #45505a;border-radius:5px;padding:9px;font:inherit}a{color:#dcaf89}.controls{position:sticky;top:0;padding:12px;background:#0b0e11f5;z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:12px}.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}.viewport{overflow:auto;height:450px;background:black}.viewport img{max-width:none;display:block}figure{margin:0;min-width:0}figcaption{padding:10px 0;color:#b2bac2}canvas{display:block;width:100%;height:auto}.pair.orbit{grid-template-columns:1fr}.scene{height:300px;overflow:hidden;background:black;position:relative}.scene canvas{position:absolute;bottom:0}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{text-align:right;padding:9px 12px;border-bottom:1px solid #ffffff15}td:first-child,th:first-child{text-align:left}tr.selected{background:#30251d}code{color:#d5b79c}.small{font-size:13px} @media(max-width:800px){.pair{grid-template-columns:1fr}.viewport{height:340px}main{padding:20px 12px}.scene{height:200px}table{font-size:12px}}

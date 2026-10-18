@@ -186,7 +186,7 @@ def displayed(radiance):
 
 
 def encoded(code):
-    # nightVnp46Encoded in src/scripts/night-tiles.ts, with the shared 2016 ceiling.
+    # nightVnp46Encoded in src/scripts/surface-tile-shader.ts, with the shared 2016 ceiling.
     return np.minimum(1, code * TOP)
 
 

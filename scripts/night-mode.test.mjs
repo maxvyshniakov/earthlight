@@ -13,7 +13,8 @@ import {OceanField} from '../src/scripts/ocean-prototype.ts';
 
 // Every program a night mode compiles, as the renderer assembles it from the
 // mode it was given. The fixture holds the SHA-256 of each source as it was
-// built when the mode was read from the address at import (ac56a17).
+// built when the mode was read from the address at import (ac56a17), with
+// city emission identifiers renamed after inverse-token source equivalence.
 function sources(mode){
  const all={};
  const batch=prefix=>({add:(name,vertex,fragment)=>{all[`${prefix}${name}:vertex`]=vertex;all[`${prefix}${name}:fragment`]=fragment;return name;}});

@@ -15,6 +15,8 @@
 
 ## Engineering
 
+- [Architecture](architecture.md): state ownership, host lifetime, render plans,
+  streaming contracts and the verification boundaries.
 - [Scene optimization](scene-optimization.md): loading order, texture budgets,
   codec choices and measured costs.
 - [Shader startup](shader-startup.md): compilation, context loss and

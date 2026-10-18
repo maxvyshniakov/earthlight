@@ -8,13 +8,15 @@ export function draggedCamera(yaw:number,pitch:number,dx:number,dy:number,height
 }
 // Wheels, drags and pinches over these stay theirs; the scene ignores them.
 export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.explorer-panel,.explorer-dialog,.explorer-controls,.scene-comparison,.flight-hud,.flight-help';
+type CameraHoverIntent=CameraIntent|'altitude';
+const hoverIntent=(event:{altKey:boolean;shiftKey:boolean}):CameraHoverIntent=>event.altKey?'roll':event.shiftKey?'altitude':'auto';
 
 /** Mouse and pen. The left button moves over Earth from anywhere; the middle
  * button, as it pans in design tools, or Shift, looks; Option/Alt twists the
  * image; the right button circles the point under the pointer. On a trackpad
  * the right button is a two-finger press, which looks instead: browsers report
  * both alike, so `secondaryLooks` says which device was in use. Explorer only. */
-export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraIntent)=>void,secondaryLooks:()=>boolean=()=>false){
+export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraHoverIntent)=>void,secondaryLooks:()=>boolean=()=>false){
   let drag:{pointer:number;session:CameraSession;x:number;y:number}|null=null,frame=0;
   let hovering:{x:number;y:number}|null=null;
   const control=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
@@ -39,7 +41,7 @@ export function createCameraDrag(surface:HTMLElement,camera:CameraController,hov
     if(event.pointerType==='touch')return;
     if(!drag){
       hovering=control(event.target)?null:{x:event.clientX,y:event.clientY};
-      if(hovering)hover(hovering.x,hovering.y,event.altKey?'roll':event.shiftKey?'look':'auto');else hover(null,0,'auto');
+      if(hovering)hover(hovering.x,hovering.y,hoverIntent(event));else hover(null,0,'auto');
       return;
     }
     if(event.pointerId!==drag.pointer)return;
@@ -47,14 +49,15 @@ export function createCameraDrag(surface:HTMLElement,camera:CameraController,hov
     if(!frame)frame=requestAnimationFrame(flush);
   };
   const leave=()=>{hovering=null;if(!drag)hover(null,0,'auto');};
-  // Holding Shift or Option changes what a drag would do before the pointer moves.
-  const modifier=(event:KeyboardEvent)=>{if((event.key==='Shift'||event.key==='Alt')&&hovering&&!drag)hover(hovering.x,hovering.y,event.altKey?'roll':event.shiftKey?'look':'auto');};
+  // Before pressing a button, modifiers hint the pinch action. An active
+  // mouse drag exposes its own session kind (Shift-drag still looks).
+  const modifier=(event:KeyboardEvent)=>{if((event.key==='Shift'||event.key==='Alt')&&hovering&&!drag)hover(hovering.x,hovering.y,hoverIntent(event));};
   // A right-button drag must not open the browser menu over the scene.
   const menu=(event:MouseEvent)=>{if(!control(event.target))event.preventDefault();};
   // The middle button looks; it must not start the browser's autoscroll.
   const middle=(event:MouseEvent)=>{if(event.button===1&&!control(event.target))event.preventDefault();};
   const double=(event:MouseEvent)=>{if(!control(event.target)&&event.button===0){event.preventDefault();camera.flyTo(event.clientX,event.clientY,event.shiftKey);}};
-  const blur=()=>end();
+  const blur=()=>{end();leave();};
   surface.addEventListener('pointerdown',start);
   surface.addEventListener('pointermove',move);
   surface.addEventListener('pointerleave',leave);

@@ -635,22 +635,39 @@ Free flight detaches at the exact current camera pose. Its orientation is stored
 independently of position: local yaw/pitch gestures can cross either pole without
 an angle clamp, and translation never aligns the camera with Earth's vertical.
 The Earth-relative direction/tilt sliders belong only to Follow orbit. Legacy
-links with tangent heading/elevation are converted once to the new orientation. Two-finger scrolling or
-left-button dragging looks around; Shift with either gesture pans in the image
-plane without rotating the camera. Pinch (Ctrl-wheel in Chromium) or Ctrl/Command
-plus wheel dollies along the viewing direction, rather than changing the field
-of view. Pan and zoom detach a following camera automatically. Gesture deltas
-are coalesced per animation frame, retaining fractional motion.
+links with tangent heading/elevation are converted once to the new orientation.
+Plain dragging and trackpad scrolling move over Earth; Shift turns either into
+looking around. A clicky mouse wheel approaches along the viewing direction;
+Shift-wheel changes the lens. Trackpad pinch changes the lens, Shift-pinch
+approaches along the viewing direction, and Option/Alt-pinch rolls the camera,
+in both Chromium's Ctrl-wheel path and Safari's gesture path. Option takes
+precedence when both modifiers are held. Lens changes
+preserve camera position and orbit following. Gesture deltas retain fractional
+motion.
 
-On a touchscreen, one finger looks, two fingers pan, and pinch zooms the lens. Touch
+On a touchscreen, one finger moves over Earth, two fingers look, and pinch zooms the lens. Touch
 capture belongs to a separate full-scene layer with `touch-action: none`; settings
 and links sit above it and retain native scrolling and taps. Adding or lifting a
 finger rebases the gesture without jumping, and cancellation discards pending input.
 
 Since 2026-10-18 a two-finger pinch zooms the lens instead of moving the camera;
 double-tap and slide still approaches. Two fingers mostly look around, and their
-spread drifts while they do, so the lens waits for a clear pinch: 15% change of
-spread from the start, or 35% once the fingers already look or roll.
+spread drifts while they do, so the lens waits for a clear pinch: absolute log
+scale change above 0.14 from the start, or 0.30 once the fingers already look or
+roll (about 15% or 35% expansion, with reciprocal contraction thresholds).
+Rotation waits for 0.18 radians, rising to 0.30 after looking or zooming starts.
+Lens and roll activation establish a fresh origin; subsequent motion applies
+without replaying the movement spent establishing intent. Trackpad pinch and
+Safari rotation use the same thresholds; a new gesture resets their activation.
+Changing a pinch modifier rebases its scale and requires fresh intent, so motion
+already used for one action cannot jump into another. Before a mouse drag starts,
+Shift shows a vertical altitude cursor and Option shows the roll cursor; an
+active mouse drag shows its own action (Shift-drag still looks).
+Once a pinch, wheel or Safari twist produces a recognized command, the cursor
+shows its direction: lens magnification/reduction uses a plus/minus magnifier,
+approach/retreat uses a down/up arrow, and roll uses a clockwise/counterclockwise
+arrow. Subthreshold motion keeps the modifier hint. Reversing direction updates
+the cursor; ending or cancelling the gesture restores the idle hint.
 
 Since 2026-10-13 one finger on Earth turns the globe about its centre like a
 trackpad scroll, 2.5 times faster than the finger and without running out at
@@ -676,7 +693,7 @@ holds the Earth point under it, and off the planet, where there is none, turns
 the globe like a scroll. The sky used to turn the camera instead, which read as
 a second meaning for the same drag. The camera turns with a middle drag (as
 it pans in design tools such as Figma), a Shift drag, a Shift scroll or two
-fingers; Shift-wheel and Shift-pinch zoom the lens, the camera's own glass.
+fingers; Shift-wheel and pinch zoom the lens, the camera's own glass.
 Option/Alt drag or a twist rolls. The right button, which rarely drags
 anything else, circles the Earth point under the pointer, which keeps its place
 on screen. The pointer works round it like a turntable: its angle about the
@@ -715,9 +732,9 @@ are encoded in the URL (`orbit`; links with the former `route` still work); inva
 also restores ISS following. A dismissible, once-per-session hint explains the
 controls. The ground track scrubber appears only while following an orbit.
 
-Settings include pause/resume, orbit scrub, playback speed, Milky Way brightness,
+Settings include pause/resume, orbit scrub, time scale, Milky Way brightness,
 film-grain intensity, color fringing, and lens reflections. Image controls
-range from off to 200%, except Milky Way which reaches 1000%. All four default
+range from off to 200%. All four default
 to 100%, normalized to the accepted grade. Current renderer gains are galaxy
 0.2625, grain 1.1, fringing 0.625, and lens reflections 1.0. The Milky Way baseline
 is 75% of the preceding 0.35 gain; this new default is labeled 100%.
@@ -1178,7 +1195,7 @@ The Moon's phase and limb orientation always follow the scene's date; the same
 light drives the disk, water reflection and lens flare flux. Settings used to
 offer a manual phase that overrode the illumination (kept in the URL as
 `moon`); it went on 2026-10-16, and old links drop the parameter. Reset all
-restores the current calendar, starting orbit time, 10× speed, playback,
+restores the current calendar, starting orbit time, 10× time scale, playback,
 default camera and 100% image controls, removing their URL overrides.
 
 In page composition, popover headers support pointer-captured mouse/touch dragging, excluding buttons; the explorer's drawers do not move.
@@ -1191,9 +1208,11 @@ GPU readback is needed to choose their color. Link hover/focus adds the same
 underline without changing ink; the settings button adds a 12% white background.
 
 Slider fills show deviation from the default: effects are centered at 100%,
-time scale at 10x, and camera tilt at zero. Time scale maps the lower half to
-0.25x–10x and the upper half to 10x–120x. Orbit position and camera direction
-have no fill. Centered controls mark their neutral midpoint.
+time scale at 10×, and camera tilt at zero. The time slider has five equal
+stretches: linear from 0× to 0.1×, then four logarithmic decades through 1×,
+10×, 100× and 1000×. The default 10× sits at position 600 on the 0–1000
+slider; zero pauses scene time. Orbit position and camera direction have no
+fill. Centered controls mark their neutral midpoint.
 Semibold values reveal an individual reset button on hover or keyboard focus,
 with a 120 ms slide; touch devices always show it. Orbit reset restores the
 initial position and does not change pause state.

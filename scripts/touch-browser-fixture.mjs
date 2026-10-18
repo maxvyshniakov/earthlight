@@ -15,7 +15,7 @@ export async function verifyTouch({run,evaluate,wait,base}){
  const cdp=(method,params)=>send(method,params,sessionId);
  const touch=(type,points)=>cdp('Input.dispatchTouchEvent',{type,touchPoints:points.map(([id,x,y])=>({id,x,y,radiusX:4,radiusY:4,force:1}))});
  const glide=async(from,to,steps=8)=>{for(let i=1;i<=steps;i++){await touch('touchMove',from.map(([id,x,y],j)=>[id,x+(to[j][1]-x)*i/steps,y+(to[j][2]-y)*i/steps]));await run('wait','16');}};
- const read=()=>evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {mode:e.dataset.flightMode,position:e.dataset.cameraPosition,basis:e.dataset.cameraBasis,alt:Number(e.dataset.cameraAltitude),roll:(()=>{const r=parseFloat(getComputedStyle(document.querySelector('.hud-attitude .gauge')).getPropertyValue('--roll'));return Math.round(((r%360)+540)%360-180);})(),time:e.querySelector('.explorer-time').textContent};})()`);
+ const read=()=>evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {mode:e.dataset.flightMode,position:e.dataset.cameraPosition,basis:e.dataset.cameraBasis,alt:Number(e.dataset.cameraAltitude),lens:Number(e.dataset.lens),roll:(()=>{const r=parseFloat(getComputedStyle(document.querySelector('.hud-attitude .gauge')).getPropertyValue('--roll'));return Math.round(((r%360)+540)%360-180);})(),time:e.querySelector('.explorer-time').textContent};})()`);
  try{
   await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
@@ -27,23 +27,30 @@ export async function verifyTouch({run,evaluate,wait,base}){
   // orbit keeps following. They start right of the exposure and lens tapes,
   // which take a touch for themselves.
   const looked=original;
-  await touch('touchStart',[[1,140,300],[2,250,300]]);await glide([[1,140,300],[2,250,300]],[[1,175,340],[2,285,340]]);await run('wait','200');
+  await touch('touchStart',[[1,140,300],[2,250,300]]);
+  await glide([[1,140,300],[2,250,300]],[[1,166,329],[2,297,356]]);await run('wait','200');
   const turned=await read();assert.notEqual(turned.basis,looked.basis);assert.equal(turned.position,looked.position);assert.equal(turned.mode,'follow');
+  assert.equal(turned.lens,looked.lens,'two-finger translation with small spread jitter keeps the lens');
+  assert.equal(turned.roll,looked.roll,'two-finger translation with small angle jitter keeps the horizon');
   assert.equal(await evaluate("document.querySelector('.flight-hud').dataset.modality"),'touch','the gesture hints switch to touch');
-  // Spreading them clearly, past the threshold a looking pair needs, zooms
-  // the lens: the camera stays put and the orbit keeps following.
+  // Looking raises the pinch threshold. Crossing it starts the lens channel
+  // without a jump; subsequent spread zooms while the camera stays put.
   const lens=()=>evaluate("document.querySelector('.lens-output').value");
-  await glide([[1,175,340],[2,285,340]],[[1,145,340],[2,315,340]]);await run('wait','300');
+  await touch('touchMove',[[1,140,340],[2,325,345]]);await run('wait','80');
+  const activated=await read();assert.equal(activated.lens,turned.lens,'pinch activation rebases without catching up');
+  await glide([[1,140,340],[2,325,345]],[[1,120,340],[2,345,345]]);await run('wait','300');
   const pinched=await read();assert.equal(pinched.position,turned.position);assert.equal(pinched.mode,'follow');assert.notEqual(await lens(),'1×','a pinch zooms the lens');
   // Lifting one finger rebases without a jump, and that finger carries on
   // alone. One finger moves over Earth wherever it is, the sky included.
-  await touch('touchEnd',[[2,315,340]]);await run('wait','150');assert.deepEqual(await read(),pinched);
-  await glide([[1,145,340]],[[1,185,380]]);await run('wait','200');
+  await touch('touchEnd',[[2,345,345]]);await run('wait','150');assert.deepEqual(await read(),pinched);
+  await glide([[1,120,340]],[[1,160,380]]);await run('wait','200');
   const single=await read();assert.notEqual(single.position,pinched.position,'one finger moves over Earth');
   await touch('touchCancel',[]);await run('wait','150');assert.deepEqual(await read(),single);
   // Twisting two fingers rolls the horizon in place.
   await touch('touchStart',[[1,140,400],[2,250,400]]);
-  for(let i=1;i<=10;i++){const a=i*.06;await touch('touchMove',[[1,195-55*Math.cos(a),400-55*Math.sin(a)],[2,195+55*Math.cos(a),400+55*Math.sin(a)]]);await run('wait','16');}
+  for(let i=1;i<=2;i++){const a=i*.06;await touch('touchMove',[[1,195-55*Math.cos(a),400-55*Math.sin(a)],[2,195+55*Math.cos(a),400+55*Math.sin(a)]]);await run('wait','16');}
+  assert.equal((await read()).roll,single.roll,'a small twist remains below the roll threshold');
+  for(let i=3;i<=10;i++){const a=i*.06;await touch('touchMove',[[1,195-55*Math.cos(a),400-55*Math.sin(a)],[2,195+55*Math.cos(a),400+55*Math.sin(a)]]);await run('wait','16');}
   await touch('touchEnd',[]);await run('wait','300');
   const twisted=await read();assert.equal(twisted.position,single.position);assert.notEqual(twisted.roll,single.roll);
   // Back to 1×, so the pinhole below matches the shaders'.

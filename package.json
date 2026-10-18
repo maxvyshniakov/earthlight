@@ -11,7 +11,7 @@
     "build": "bun --bun astro build",
     "preview": "bun scripts/preview.mjs",
     "check": "bun --bun astro check",
-    "verify": "bun test scripts/terrain-decoder.test.mjs scripts/deliver-personal-site.test.mjs scripts/extraction-tools.test.mjs scripts/worker-compat.test.mjs scripts/iss-orbit.test.mjs scripts/celestial-sky.test.mjs scripts/night-tiles.test.mjs scripts/earth-terrain.test.mjs scripts/terrain-bound.test.mjs scripts/noise-table.test.mjs scripts/scene-scale-memory.test.mjs scripts/scene-view-scale.test.mjs scripts/cloud-temporal.test.mjs scripts/terrain-detail.test.mjs scripts/scene-runtime.test.mjs scripts/scene-quality.test.mjs scripts/cloud-buffer.test.mjs scripts/cloud-lighting.test.mjs scripts/webgl-context.test.mjs scripts/shader-programs.test.mjs scripts/texture-profile.test.mjs scripts/browser-module.test.mjs scripts/scene-assets-startup.test.mjs scripts/moon-surface.test.mjs scripts/star-pack.test.mjs scripts/radiometry.test.mjs scripts/lens-dirt.test.mjs scripts/lens-presets.test.mjs scripts/limb-refraction.test.mjs scripts/cloud-calibration.test.mjs scripts/physical-night.test.mjs scripts/night-mode.test.mjs scripts/cloud-properties.test.mjs scripts/day-pyramid.test.mjs && bun run check && bun run build",
+    "verify": "bun run test && bun run check && bun run build",
     "verify:scene": "bun scripts/verify-scene-browser.mjs",
     "benchmark:scene": "bun scripts/benchmark-scene-profiles.mjs",
     "verify:profiles": "bun scripts/verify-scene-profiles.mjs",
@@ -24,7 +24,9 @@
     "package": "bun run assets:prepare && bun pm pack --destination .packages",
     "media:prepare": "bun scripts/prepare-media.mjs",
     "build:deploy": "bun scripts/build-app.mjs",
-    "deploy": "bun scripts/deploy-app.mjs"
+    "deploy": "bun scripts/deploy-app.mjs",
+    "test": "bun test scripts/*.test.mjs",
+    "verify:hosts": "bun scripts/verify-host-lifecycle.mjs"
   },
   "dependencies": {
     "astro": "7.3.5",

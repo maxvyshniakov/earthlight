@@ -1,13 +1,16 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {volumeFragment,fragmentSource} from '../src/scripts/scene-shader.ts';
+import {sceneShadersFor} from '../src/scripts/scene-shader.ts';
 import {temporalCloudMain,temporalResolveFragment,temporalCompositeShader} from '../src/scripts/cloud-temporal.ts';
 
-test('temporal composite replaces the inline cloud integral at stable anchors',()=>{
- for(const anchor of ['uniform sampler2D worldScene;','color=cloudVolume(earthRay,groundDistance,color,atmosphereDistance)'])
-  assert.equal(volumeFragment.split(anchor).length,2,`volume pass anchor: ${anchor}`);
- assert.ok(temporalCompositeShader.includes('vec3 temporalClouds('));
- assert.ok(fragmentSource.includes('void main()'),'cloud pass reuses the scene prefix');
+test('temporal composite assembles its cloud integral through the volume builder',()=>{
+ const scene=sceneShadersFor('current');
+ const composite=scene.buildVolumeFragment({declarations:temporalCompositeShader,
+  expression:'temporalClouds(uv,earthRay,groundDistance,color,atmosphereDistance)'});
+ assert.ok(composite.startsWith(scene.scenePrelude));
+ assert.ok(composite.includes(temporalCompositeShader));
+ assert.ok(composite.includes('color=temporalClouds(uv,earthRay,groundDistance,color,atmosphereDistance)'));
+ assert.ok(!composite.includes('color=cloudVolume(earthRay,groundDistance,color,atmosphereDistance)'));
  assert.ok(temporalCloudMain.includes('cloudIntegral(ray,groundDistance,transmission,atmosphereDistance)'));
 });
 test('resolve declares every input the renderer binds and keeps MRT first',()=>{

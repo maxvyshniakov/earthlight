@@ -10,7 +10,7 @@ import { SOLAR_IRRADIANCE, SOLAR_RADIUS, SOLAR_RADIANCE, SOLAR_SCATTER_FRACTION 
 import { LUNAR_SAMPLE_COUNT } from './celestial-sky';
 import { optics, opticalPsfSourceFor } from './optical-psf';
 import { SOLAR_RESOLVED_PX, solarDiskShader } from './solar-disk';
-import { nightTileShader, dayTileShader, cloudTileShader } from './night-tiles';
+import { nightTileShader, dayTileShader, cloudTileShader } from './surface-tile-shader';
 import { dayPyramidShader } from './day-pyramid';
 import { cloudShaderFor } from './earth-clouds';
 import { terrainShader } from './earth-terrain';
@@ -19,7 +19,7 @@ import { atmosphericLightShader } from './atmospheric-light';
 import { solarAureoleShader } from './solar-aureole';
 import { SOLAR_ROWS } from './limb-refraction';
 import { noiseTableShader } from './noise-table';
-import { nightScaleGlsl, perNightMode, physicalNight } from './physical-night';
+import { nightScaleGlsl, perNightMode, physicalNight, type NightMode } from './physical-night';
 import { preExposure, PRE_EXPOSED_MAX } from './pre-exposure';
 
 // ISS trajectory and sunlight, graded like a photograph taken from orbit.
@@ -30,15 +30,165 @@ attribute vec2 position;
 void main() { gl_Position = vec4(position, 0.0, 1.0); }
 `;
 
+/** Reusable production GLSL, also compiled directly by the GPU fixtures. */
+export const sceneNoiseShader=`float hash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * .1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+// Interpolated noise needs identical values at corners shared by adjacent
+// cells. The fractional jitter hash above produced discontinuities on Mali.
+// Keep this permutation integer-valued and below 2^24 until normalization.
+float latticePermute(float x) { return mod((34.*x+1.)*x,289.); }
+float latticeHash(vec2 p) {
+  vec2 q=mod(p,289.);
+  return latticePermute(latticePermute(q.x)+q.y)/289.;
+}
+#ifdef NOISE_TABLE
+${noiseTableShader}
+#else
+float noise(vec3 p) {
+  vec3 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  vec2 q = i.xy + vec2(37.0, 17.0) * i.z;
+  float a = mix(mix(latticeHash(q), latticeHash(q + vec2(1,0)), f.x),
+                mix(latticeHash(q + vec2(0,1)), latticeHash(q + vec2(1,1)), f.x), f.y);
+  q += vec2(37,17);
+  float b = mix(mix(latticeHash(q), latticeHash(q + vec2(1,0)), f.x),
+                mix(latticeHash(q + vec2(0,1)), latticeHash(q + vec2(1,1)), f.x), f.y);
+  return mix(a,b,f.z);
+}
+#endif
+`;
+export const airglowRayShader=`vec3 airglowSegment(vec3 ray,float start,float end){
+  if(end<=start)return vec3(0.);
+  float stepLength=(end-start)/16.;
+  vec3 emission=vec3(0.);
+  for(int i=0;i<16;i++) {
+    vec3 point=cameraPosition+ray*(start+(float(i)+.5)*stepLength);
+    emission+=airglowDensity(point)*stepLength*6371.;
+  }
+  return emission;
+}
+vec3 airglowEmission(vec3 ray,float groundDistance){
+  float b=dot(cameraPosition,ray),c=dot(cameraPosition,cameraPosition);
+  const float outer=1.+130./6371.,inner=1.+50./6371.;
+  float d=b*b-c+outer*outer;
+  if(d<=0. || b>=0.)return vec3(0.);
+  float start=max(0.,-b-sqrt(d)),end=-b+sqrt(d);
+  if(groundDistance>0.)end=min(end,groundDistance);
+  float hole=b*b-c+inner*inner;
+  float halfGap=sqrt(max(0.,hole));
+  vec3 nearLight=airglowSegment(ray,start,min(end,-b-halfGap));
+  vec3 farLight=airglowSegment(ray,max(start,-b+halfGap),end);
+  // The far half is seen through the lower atmosphere. Its grazing optical
+  // column (exponential atmosphere, 8 km scale height) prevents an abrupt
+  // doubling of emission just above the solid limb. The near half is in front.
+  float tangentRadius=sqrt(max(0.,c-b*b));
+  float tangentHeight=(tangentRadius-1.)*6371.;
+  float opticalColumn=exp(-max(0.,tangentHeight)/8.)
+    *sqrt(6.283185307*max(tangentRadius,1.)*8./6371.);
+  vec3 transmission=exp(-vec3(36.9518,86.0085,210.8801)*opticalColumn);
+  return nearLight+farLight*transmission;
+}
+`;
+export const cityEmissionShader=`float cityEmission(vec2 uv) {
+  // Terrain was removed at source resolution. Thresholding filtered samples
+  // here erased distant cities as their signal averaged into dark neighbors.
+  // Share the albedo's wrapped longitude derivatives. At the date line,
+  // implicit LOD otherwise averages distant cities into a bright ocean stripe.
+  return surfaceMapSample(nightMap,uv).r;
+}
+
+`;
+
+/** Finite solar image after occultation and lens spread. Statements use the
+ * scene ray, pixel scale and camera declarations in the enclosing entry point. */
+export function solarImageShader(psfIntegral=optics.integral){return `  vec2 solarCenter=screenPosition(solarImage.xyz);
+  float solarPixels=${SOLAR_RADIUS}*cssHeight*FOCAL;
+  vec2 solarDelta=(p-solarCenter)*cssHeight;
+  vec3 solarDisk=vec3(0.);
+  if(solarVisibility>0. && dot(solarImage.xyz,cameraBasis[2])>0.){
+    vec4 solarCamera=solarCameraState();
+    // Refraction squeezes the disk along the limb's normal on screen.
+    vec3 limbUp=normalize(cameraPosition-dot(cameraPosition,solarImage.xyz)*solarImage.xyz);
+    vec2 solarUp=screenPosition(normalize(solarImage.xyz+.001*limbUp))-solarCenter;
+    solarUp/=max(length(solarUp),1e-6);
+    float solarSquash=clamp(solarImage.w,.05,1.);
+    // Below ~5 CSS px the disk is 24 PSF-convolved samples; from ~9 px it is
+    // resolved analytically, where the samples would show as separate beads.
+    float solarResolved=smoothstep(${SOLAR_RESOLVED_PX[0].toFixed(1)},${SOLAR_RESOLVED_PX[1].toFixed(1)},solarPixels);
+    vec3 solarCore=vec3(0.);
+    if(length(solarDelta)<solarPixels+130.){
+      vec3 sampled=vec3(0.);
+      if(solarResolved<1.){
+        float weightSum=0.;
+        // Uniform area samples of the finite disk, convolved with the same optical
+        // response as other sources. Peak clipping belongs to the sensor later.
+        for(int i=0;i<24;i++){
+          float angle=float(i)*2.39996323;
+          vec2 offset=vec2(cos(angle),sin(angle))*sqrt((float(i)+.5)/24.)*solarPixels;
+          offset+=solarUp*dot(offset,solarUp)*(solarSquash-1.);
+          // Occlude each piece of the source BEFORE spreading its light through
+          // the lens. A small footprint makes partial eclipses continuous.
+          vec3 sourceRay=normalize(cameraBasis*vec3(solarCenter+offset/cssHeight,FOCAL));
+          float earthAngle=asin(clamp(dot(normalize(cameraPosition),sourceRay),-1.,1.))
+            +acos(1./length(cameraPosition));
+          float sampleRadius=${SOLAR_RADIUS}/sqrt(24.);
+          float visible=smoothstep(-sampleRadius,sampleRadius,earthAngle);
+          sampled+=lensPsf(solarDelta-offset,solarCenter)*visible;
+          weightSum+=visible;
+        }
+        // Match the analytic visible area; sampling only determines the shape.
+        sampled*=solarVisibility/max(.000001,weightSum)
+          *3.14159265*solarPixels*solarPixels/${psfIntegral.toFixed(8)};
+      }
+      vec3 resolved=vec3(0.);
+      if(solarResolved>0.){
+        // Earth's limb is a second edge across the disk, in CSS px above it.
+        float limbAngle=asin(clamp(dot(normalize(cameraPosition),earthRay),-1.,1.))+acos(1./length(cameraPosition));
+        resolved=resolvedSolarDisk(solarDelta+solarUp*dot(solarDelta,solarUp)*(1./solarSquash-1.),solarPixels,limbAngle*FOCAL*cssHeight,solarCamera);
+      }
+      solarCore=mix(sampled,resolved,solarResolved)*(1.-smoothstep(solarPixels+95.,solarPixels+130.,length(solarDelta)));
+    }
+    // The LUT's rays end ~10 px from each source point; beyond, they are
+    // analytic and reach across the frame. Their flux leaves the disk. They
+    // come from the visible part only: a disk of the same area, so a rising
+    // sliver throws narrower bands than the whole Sun.
+    solarDisk=solarCore*(1.-solarRayShare(solarCamera))+solarRays(solarDelta,solarPixels*sqrt(solarVisibility),solarCamera);
+    #ifdef SOLAR_TRANSMISSION
+    solarDisk*=texture2D(solarTransmission,vec2(.3,.5)).rgb;
+    #endif
+    solarDisk*=${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)};
+  }
+
+`;}
+
+export interface SceneShaderParts {
+  declarations?:string;
+  terrain?:string;
+  clouds?:string;
+  nightTiles?:string;
+  dayTiles?:string;
+  cloudTiles?:string;
+  cityEmission?:string;
+  /** A standalone lab can display the scene without the camera finish. */
+  output?:'radiance'|'display';
+}
+export interface CloudComposite {
+  declarations:string;
+  expression:string;
+}
+
 /** The scene passes for a night mode. The default program's sources are
  * byte-identical to those before the mode became a runtime value. */
-export const sceneShadersFor=perNightMode(mode=>{
+export function buildSceneShaders(mode:NightMode,parts:SceneShaderParts={}){
 const PHYSICAL_NIGHT=physicalNight(mode),PRE_EXPOSURE=preExposure(mode);
 // Scales radiance into or out of the pre-exposed targets; '' by default.
 const storePreExposed=PRE_EXPOSURE?'*sceneExposure()':'',readPreExposed=PRE_EXPOSURE?'/sceneExposure()':'';
 const stored=(value:string)=>PRE_EXPOSURE?`min(${value}${storePreExposed},vec3(${PRE_EXPOSED_MAX}.))`:value;
-const fragmentSource = `
-precision highp float;
+const scenePrelude = `
+precision highp float;${parts.declarations??''}
 precision highp sampler2D;
 uniform vec2 resolution;
 uniform float time;
@@ -80,47 +230,19 @@ uniform vec4 moonSamples[${LUNAR_SAMPLE_COUNT}];
 uniform float lunarResolved;
 ${PHYSICAL_NIGHT?'// The disk tied to moonlight (earth-light.ts, lunarDiskGain).\nuniform float lunarDiskGain;\n':''}${opticalPsfSourceFor(mode)}
 ${solarDiskShader}
-${nightTileShader}
-${dayTileShader}
+${parts.nightTiles??nightTileShader}
+${parts.dayTiles??dayTileShader}
 ${dayPyramidShader}
-${cloudTileShader}
+${parts.cloudTiles??cloudTileShader}
 ${sceneColorShader}
 
-float hash(vec2 p) {
-  vec3 p3 = fract(vec3(p.xyx) * .1031);
-  p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.x + p3.y) * p3.z);
-}
-// Interpolated noise needs identical values at corners shared by adjacent
-// cells. The fractional jitter hash above produced discontinuities on Mali.
-// Keep this permutation integer-valued and below 2^24 until normalization.
-float latticePermute(float x) { return mod((34.*x+1.)*x,289.); }
-float latticeHash(vec2 p) {
-  vec2 q=mod(p,289.);
-  return latticePermute(latticePermute(q.x)+q.y)/289.;
-}
-#ifdef NOISE_TABLE
-${noiseTableShader}
-#else
-float noise(vec3 p) {
-  vec3 i = floor(p), f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  vec2 q = i.xy + vec2(37.0, 17.0) * i.z;
-  float a = mix(mix(latticeHash(q), latticeHash(q + vec2(1,0)), f.x),
-                mix(latticeHash(q + vec2(0,1)), latticeHash(q + vec2(1,1)), f.x), f.y);
-  q += vec2(37,17);
-  float b = mix(mix(latticeHash(q), latticeHash(q + vec2(1,0)), f.x),
-                mix(latticeHash(q + vec2(0,1)), latticeHash(q + vec2(1,1)), f.x), f.y);
-  return mix(a,b,f.z);
-}
-#endif
-mat2 rotate(float a) { float c = cos(a), s = sin(a); return mat2(c,-s,s,c); }
+${sceneNoiseShader}mat2 rotate(float a) { float c = cos(a), s = sin(a); return mat2(c,-s,s,c); }
 
 vec2 earthUV(vec3 n) {
   return vec2(atan(n.y,n.x)/6.283185307+.5,asin(clamp(n.z,-1.,1.))/3.141592654+.5);
 }
 
-${terrainShader}
+${parts.terrain??terrainShader}
 ${pointBrightnessShaderFor(mode)}
 ${surfaceMapShader}
 ${atmosphericLightShader}
@@ -128,7 +250,7 @@ ${lunarLightShader}
 ${airglowLightShaderFor(mode)}
 ${galacticLightShaderFor(mode)}
 ${cityLightShaderFor(mode)}
-${cloudShaderFor(mode)}
+${parts.clouds??cloudShaderFor(mode)}
 
 // Shared exposure-normalized sunlight for diffuse ground and clear air.
 // E / pi gives the ground's Lambertian response; E also feeds scattering.
@@ -174,51 +296,39 @@ ${solarAureoleShader}
 // Fixed mesospheric emission profiles, integrated along the visible ray.
 // Split at the empty inner sphere so a ground-facing ray cannot skip the thin
 // layer. Midpoint samples are deterministic: no temporal shimmer or shell mix.
-vec3 airglowSegment(vec3 ray,float start,float end){
-  if(end<=start)return vec3(0.);
-  float stepLength=(end-start)/16.;
-  vec3 emission=vec3(0.);
-  for(int i=0;i<16;i++) {
-    vec3 point=cameraPosition+ray*(start+(float(i)+.5)*stepLength);
-    emission+=airglowDensity(point)*stepLength*6371.;
-  }
-  return emission;
-}
-vec3 airglowEmission(vec3 ray,float groundDistance){
-  float b=dot(cameraPosition,ray),c=dot(cameraPosition,cameraPosition);
-  const float outer=1.+130./6371.,inner=1.+50./6371.;
-  float d=b*b-c+outer*outer;
-  if(d<=0. || b>=0.)return vec3(0.);
-  float start=max(0.,-b-sqrt(d)),end=-b+sqrt(d);
-  if(groundDistance>0.)end=min(end,groundDistance);
-  float hole=b*b-c+inner*inner;
-  float halfGap=sqrt(max(0.,hole));
-  vec3 nearLight=airglowSegment(ray,start,min(end,-b-halfGap));
-  vec3 farLight=airglowSegment(ray,max(start,-b+halfGap),end);
-  // The far half is seen through the lower atmosphere. Its grazing optical
-  // column (exponential atmosphere, 8 km scale height) prevents an abrupt
-  // doubling of emission just above the solid limb. The near half is in front.
-  float tangentRadius=sqrt(max(0.,c-b*b));
-  float tangentHeight=(tangentRadius-1.)*6371.;
-  float opticalColumn=exp(-max(0.,tangentHeight)/8.)
-    *sqrt(6.283185307*max(tangentRadius,1.)*8./6371.);
-  vec3 transmission=exp(-vec3(36.9518,86.0085,210.8801)*opticalColumn);
-  return nearLight+farLight*transmission;
-}
-float cityEmission(vec2 uv) {
-  // Terrain was removed at source resolution. Thresholding filtered samples
-  // here erased distant cities as their signal averaged into dark neighbors.
-  // Share the albedo's wrapped longitude derivatives. At the date line,
-  // implicit LOD otherwise averages distant cities into a bright ocean stripe.
-  return surfaceMapSample(nightMap,uv).r;
-}
-
-vec2 screenPosition(vec3 direction) {
+${airglowRayShader}${parts.cityEmission??cityEmissionShader}vec2 screenPosition(vec3 direction) {
   vec3 v=vec3(dot(direction,cameraBasis[0]),dot(direction,cameraBasis[1]),dot(direction,cameraBasis[2]));
   return FOCAL*v.xy/max(.001,v.z);
 }
 
-void main() {
+`;
+const volumeCompositeShader=(cloudComposite?:CloudComposite)=>`  float atmosphereDistance=groundDistance;
+  if(mapsReady*surfaceEnabled>.5)color=${cloudComposite?.expression??'cloudVolume(earthRay,groundDistance,color,atmosphereDistance)'};
+  // Rayleigh scattering lies below the separate mesospheric emission layer.
+  vec3 scattering;
+  color=atmosphere(earthRay,atmosphereDistance,color,scattering);
+  color+=solarAureole(earthRay,atmosphereDistance);
+  // Dense cloud tops occlude the air below them; their own uplight is already
+  // integrated in cloudVolume. Clear rays continue down to the actual ground.
+  color+=cityHaze(earthRay,atmosphereDistance);
+  vec3 airglow=airglowEmission(earthRay,groundDistance);
+  color+=airglow;
+  vec3 auroralLight=vec3(0.);
+  #ifdef AURORA
+  auroralLight=pow(texture2D(auroraMap,uv).rgb,vec3(2.))*${AURORA_RADIANCE_RANGE.toFixed(1)}*${nightScaleGlsl('aurora',mode)};
+  color+=auroralLight;
+  #endif
+
+  // CameraFinish owns defocus, internal lens reflections and sensor response.
+  // Optical spread is in the camera, after world-space occlusion and air.
+  // It may overlap the silhouette only when some photosphere is visible.
+  color+=solarDisk*vec3(1.,.97,.92);
+  color=sceneToOutputLinear(color);
+  color+=atmosphericChroma(scattering,.25)+atmosphericChroma(airglow,.40)+atmosphericChroma(auroralLight,.18);
+  color=fitOutputGamut(color);
+  gl_FragColor=sceneLinear>.5?vec4(clamp(color${storePreExposed},0.,65000.),1.):${parts.output==='display'?'vec4(linearToDisplay(color),1.)':`packSceneRadiance(color${storePreExposed})`};
+`;
+const sceneMain=`void main() {
   vec2 uv = gl_FragCoord.xy/resolution;
   float aspect = resolution.x/resolution.y;
   vec2 p = (uv-.5)*vec2(aspect,1.0);
@@ -309,65 +419,7 @@ void main() {
   // Legacy composition encoding, decoded before the linear HDR output.
   color=pow(max(color,vec3(0.)),vec3(1./2.2));
   color*=skyMask;
-  vec2 solarCenter=screenPosition(solarImage.xyz);
-  float solarPixels=${SOLAR_RADIUS}*cssHeight*FOCAL;
-  vec2 solarDelta=(p-solarCenter)*cssHeight;
-  vec3 solarDisk=vec3(0.);
-  if(solarVisibility>0. && dot(solarImage.xyz,cameraBasis[2])>0.){
-    vec4 solarCamera=solarCameraState();
-    // Refraction squeezes the disk along the limb's normal on screen.
-    vec3 limbUp=normalize(cameraPosition-dot(cameraPosition,solarImage.xyz)*solarImage.xyz);
-    vec2 solarUp=screenPosition(normalize(solarImage.xyz+.001*limbUp))-solarCenter;
-    solarUp/=max(length(solarUp),1e-6);
-    float solarSquash=clamp(solarImage.w,.05,1.);
-    // Below ~5 CSS px the disk is 24 PSF-convolved samples; from ~9 px it is
-    // resolved analytically, where the samples would show as separate beads.
-    float solarResolved=smoothstep(${SOLAR_RESOLVED_PX[0].toFixed(1)},${SOLAR_RESOLVED_PX[1].toFixed(1)},solarPixels);
-    vec3 solarCore=vec3(0.);
-    if(length(solarDelta)<solarPixels+130.){
-      vec3 sampled=vec3(0.);
-      if(solarResolved<1.){
-        float weightSum=0.;
-        // Uniform area samples of the finite disk, convolved with the same optical
-        // response as other sources. Peak clipping belongs to the sensor later.
-        for(int i=0;i<24;i++){
-          float angle=float(i)*2.39996323;
-          vec2 offset=vec2(cos(angle),sin(angle))*sqrt((float(i)+.5)/24.)*solarPixels;
-          offset+=solarUp*dot(offset,solarUp)*(solarSquash-1.);
-          // Occlude each piece of the source BEFORE spreading its light through
-          // the lens. A small footprint makes partial eclipses continuous.
-          vec3 sourceRay=normalize(cameraBasis*vec3(solarCenter+offset/cssHeight,FOCAL));
-          float earthAngle=asin(clamp(dot(normalize(cameraPosition),sourceRay),-1.,1.))
-            +acos(1./length(cameraPosition));
-          float sampleRadius=${SOLAR_RADIUS}/sqrt(24.);
-          float visible=smoothstep(-sampleRadius,sampleRadius,earthAngle);
-          sampled+=lensPsf(solarDelta-offset,solarCenter)*visible;
-          weightSum+=visible;
-        }
-        // Match the analytic visible area; sampling only determines the shape.
-        sampled*=solarVisibility/max(.000001,weightSum)
-          *3.14159265*solarPixels*solarPixels/${optics.integral.toFixed(8)};
-      }
-      vec3 resolved=vec3(0.);
-      if(solarResolved>0.){
-        // Earth's limb is a second edge across the disk, in CSS px above it.
-        float limbAngle=asin(clamp(dot(normalize(cameraPosition),earthRay),-1.,1.))+acos(1./length(cameraPosition));
-        resolved=resolvedSolarDisk(solarDelta+solarUp*dot(solarDelta,solarUp)*(1./solarSquash-1.),solarPixels,limbAngle*FOCAL*cssHeight,solarCamera);
-      }
-      solarCore=mix(sampled,resolved,solarResolved)*(1.-smoothstep(solarPixels+95.,solarPixels+130.,length(solarDelta)));
-    }
-    // The LUT's rays end ~10 px from each source point; beyond, they are
-    // analytic and reach across the frame. Their flux leaves the disk. They
-    // come from the visible part only: a disk of the same area, so a rising
-    // sliver throws narrower bands than the whole Sun.
-    solarDisk=solarCore*(1.-solarRayShare(solarCamera))+solarRays(solarDelta,solarPixels*sqrt(solarVisibility),solarCamera);
-    #ifdef SOLAR_TRANSMISSION
-    solarDisk*=texture2D(solarTransmission,vec2(.3,.5)).rgb;
-    #endif
-    solarDisk*=${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)};
-  }
-
-  if (skyMask < 1.) {
+${solarImageShader()}  if (skyMask < 1.) {
     float distance=groundDistance>0.?groundDistance:max(0.,-b-sqrt(max(0.,discriminant)));
     vec3 surfacePoint=cameraPosition+earthRay*distance;
     vec3 geo=normalize(surfacePoint);
@@ -453,14 +505,14 @@ void main() {
     // Emission preserves lamp color and contrast. The camera's highlight
     // shoulder, after cloud/air extinction, owns saturation toward white.
     vec3 cityRadiance=vec3(0.);
-    float cityEnergy=cityLightEnergy(lamp);
+    float citySignal=cityLightSignal(lamp);
 #ifdef LEAN_SHADER_WORK
     // The lamp tint only matters where lights are both present and switched on.
-    vec3 cityColor=night*cityEnergy>0.?cityLampColor(geo):vec3(0.);
+    vec3 cityColor=night*citySignal>0.?cityLampColor(geo):vec3(0.);
 #else
     vec3 cityColor=cityLampColor(geo);
 #endif
-    cityRadiance=cityColor*cityEnergy;
+    cityRadiance=cityColor*citySignal;
     surface=pow(pow(max(surface,vec3(0.)),vec3(2.2))+cityRadiance*night,vec3(1./2.2));
     color+=ground*mix(original,surface,mapsReady*surfaceEnabled);
   }
@@ -478,35 +530,12 @@ void main() {
   gl_FragColor=vec4(${stored('color')},groundDistance);
 #endif
 #else
-  float atmosphereDistance=groundDistance;
-  if(mapsReady*surfaceEnabled>.5)color=cloudVolume(earthRay,groundDistance,color,atmosphereDistance);
-  // Rayleigh scattering lies below the separate mesospheric emission layer.
-  vec3 scattering;
-  color=atmosphere(earthRay,atmosphereDistance,color,scattering);
-  color+=solarAureole(earthRay,atmosphereDistance);
-  // Dense cloud tops occlude the air below them; their own uplight is already
-  // integrated in cloudVolume. Clear rays continue down to the actual ground.
-  color+=cityHaze(earthRay,atmosphereDistance);
-  vec3 airglow=airglowEmission(earthRay,groundDistance);
-  color+=airglow;
-  vec3 auroralLight=vec3(0.);
-  #ifdef AURORA
-  auroralLight=pow(texture2D(auroraMap,uv).rgb,vec3(2.))*${AURORA_RADIANCE_RANGE.toFixed(1)}*${nightScaleGlsl('aurora',mode)};
-  color+=auroralLight;
-  #endif
-
-  // CameraFinish owns defocus, internal lens reflections and sensor response.
-  // Optical spread is in the camera, after world-space occlusion and air.
-  // It may overlap the silhouette only when some photosphere is visible.
-  color+=solarDisk*vec3(1.,.97,.92);
-  color=sceneToOutputLinear(color);
-  color+=atmosphericChroma(scattering,.25)+atmosphericChroma(airglow,.40)+atmosphericChroma(auroralLight,.18);
-  color=fitOutputGamut(color);
-  gl_FragColor=sceneLinear>.5?vec4(clamp(color${storePreExposed},0.,65000.),1.):packSceneRadiance(color${storePreExposed});
-#endif
+${volumeCompositeShader()}#endif
 
 }
 `;
+
+const fragmentSource=scenePrelude+sceneMain;
 
 // A separate five-pixel program keeps source-ray integration out of the
 // screen-sized shader's control flow/register allocation. Unused scene helpers
@@ -514,7 +543,7 @@ void main() {
 // The Sun's texel is the mean transmission of its visible refracted rows:
 // near the limb the top of the disk is far clearer than its centre, and
 // cloud tops hide the lower rows first.
-const sourceTransmissionFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
+const sourceTransmissionFragment=scenePrelude+`
 uniform vec4 solarRows[${SOLAR_ROWS}];
 void main(){
   float source=floor(gl_FragCoord.x);
@@ -539,9 +568,7 @@ void main(){
 
 // Compile the same volume/optics code independently from terrain and surface
 // shading. The intermediate buffer carries linear radiance and exact distance.
-const volumeFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
-uniform sampler2D worldScene;
-void main(){
+const buildVolumeMain=(cloudComposite?:CloudComposite)=>`void main(){
   vec2 uv=gl_FragCoord.xy/resolution;
   vec2 p=(uv-.5)*vec2(resolution.x/resolution.y,1.);
   vec3 earthRay=normalize(cameraBasis*normalize(vec3(p,FOCAL)));
@@ -554,13 +581,16 @@ void main(){
   groundDistance=world.a< -1.?-1.:-b-sqrt(max(0.,disc))+world.a;
 #endif
   float cssHeight=resolution.y/pixelRatio;
-`+fragmentSource.slice(fragmentSource.indexOf('  vec2 solarCenter='),fragmentSource.indexOf('  if (skyMask < 1.) {'))
- +fragmentSource.slice(fragmentSource.indexOf('  float atmosphereDistance=groundDistance;'),fragmentSource.lastIndexOf('#endif'))+`
+${solarImageShader()}${volumeCompositeShader(cloudComposite)}
 }`;
+const buildVolumeFragment=(cloudComposite?:CloudComposite)=>scenePrelude+`
+uniform sampler2D worldScene;${cloudComposite?'\n'+cloudComposite.declarations:''}
+${buildVolumeMain(cloudComposite)}`;
+const volumeFragment=buildVolumeFragment();
 
 // One MRT cloud integral per half-resolution pixel. Snap to the sampled world
 // texel so terrain depth and the ray agree, including odd framebuffer sizes.
-const halfCloudFragment=fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
+const halfCloudFragment=scenePrelude+`
 uniform sampler2D worldScene;
 uniform vec2 cloudResolution;
 void main(){
@@ -580,12 +610,12 @@ void main(){
   gl_FragData[1]=vec4(depth,world.a,0.,1.);
 }
 `;
-const halfCloudVolumeFragment=volumeFragment
-  .replace('uniform sampler2D worldScene;', 'uniform sampler2D worldScene;\n'+cloudReconstructionShaderFor(mode))
-  .replace('color=cloudVolume(earthRay,groundDistance,color,atmosphereDistance)',
-    'color=reconstructClouds(uv,earthRay,groundDistance,color,atmosphereDistance)')
-;
-return {fragmentSource,sourceTransmissionFragment,volumeFragment,halfCloudFragment,halfCloudVolumeFragment};
+const halfCloudVolumeFragment=buildVolumeFragment({
+  declarations:cloudReconstructionShaderFor(mode),
+  expression:'reconstructClouds(uv,earthRay,groundDistance,color,atmosphereDistance)',
 });
+return {scenePrelude,fragmentSource,sourceTransmissionFragment,volumeFragment,halfCloudFragment,halfCloudVolumeFragment,buildVolumeFragment,sceneMain,buildVolumeMain};
+}
+export const sceneShadersFor=perNightMode(mode=>buildSceneShaders(mode));
 /** The default program's scene passes. */
-export const {fragmentSource,sourceTransmissionFragment,volumeFragment,halfCloudFragment,halfCloudVolumeFragment}=sceneShadersFor('current');
+export const {scenePrelude,fragmentSource,sourceTransmissionFragment,volumeFragment,halfCloudFragment,halfCloudVolumeFragment}=sceneShadersFor('current');

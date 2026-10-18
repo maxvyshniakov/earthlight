@@ -2,8 +2,10 @@ import {continuousLongitudeShader} from './surface-map.ts';
 import {nightScaleGlsl,perNightMode} from './physical-night.ts';
 // The source atlas is scalar. Lamp colors below are an illustrative regional
 // mixture, not measured spectra or invented lights in unlit geography.
-export const cityLightShaderFor=perNightMode(mode=>continuousLongitudeShader+`
-float cityLightEnergy(float encoded) {
+/** Calibrated scalar city emission on the scene's radiance scale. This is
+ * neither energy in joules nor a measured lamp spectrum: the source is a
+ * display-graded atlas, with mode-dependent calibration and a separate tint. */
+export const citySignalShaderFor=perNightMode(mode=>`float cityLightSignal(float encoded) {
   // Black Marble is a display-graded scalar image, not linear lamp power.
   // A gentle contrast curve retains connecting roads and dim settlements.
   // The previous 1.8 exponent suppressed a 10% source by another 1.7 stops.
@@ -11,7 +13,8 @@ float cityLightEnergy(float encoded) {
   // overview, detail and scattered light alike, before spatial integration.
   return .65*pow(.55,1.15)*pow(max(encoded,0.),1.3)*${nightScaleGlsl('city',mode)};
 }
-float cityActivation(vec3 normal){
+`);
+export const cityActivationShader=`float cityActivation(vec3 normal){
   float solar=dot(normal,sunDirection);
   if(solar<-.12)return 1.;
   if(solar>.04)return 0.;
@@ -20,7 +23,9 @@ float cityActivation(vec3 normal){
   float threshold=-.008-.040*region-.022*district;
   return 1.-smoothstep(threshold-.024,threshold+.024,solar);
 }
-vec3 cityLampColor(vec3 normal) {
+`;
+export const cityLightShaderFor=perNightMode(mode=>continuousLongitudeShader+`
+${citySignalShaderFor(mode)}${cityActivationShader}vec3 cityLampColor(vec3 normal) {
   float district=noise(normal*1050.+vec3(31.,17.,9.));
   // Thresholded value noise reads as axis-aligned boxes once a long lens
   // resolves its 3 km cells. A gentle warp bends their edges and keeps the
@@ -43,7 +48,7 @@ float blurredCitySample(vec2 uv,float lod) {
   return texture2D(nightMap,continuousLongitude(uv)).r;
 #endif
 }
-float cityUplightEnergy(vec3 point) {
+float cityUplightSignal(vec3 point) {
   vec3 n=normalize(point);
   vec2 uv=earthUV(n);
   // An altitude-sized footprint distributes the uplight instead of drawing
@@ -51,15 +56,15 @@ float cityUplightEnergy(vec3 point) {
   float angular=(2.+max(0.,(length(point)-1.)*6371.)*1.8)/6371.;
   vec2 radius=angular/vec2(6.283185307*max(.15,length(n.xy)),3.141592654);
   float lod=max(1.,log2(max(1.,radius.y*nightMapResolution.y)));
-  float signal=cityLightEnergy(blurredCitySample(uv,lod))*.28;
+  float signal=cityLightSignal(blurredCitySample(uv,lod))*.28;
   for(int i=0;i<6;i++){
     float angle=(float(i)+.5)*1.047197551;
-    signal+=cityLightEnergy(blurredCitySample(uv+vec2(cos(angle),sin(angle))*radius,lod))*.12;
+    signal+=cityLightSignal(blurredCitySample(uv+vec2(cos(angle),sin(angle))*radius,lod))*.12;
   }
   return signal;
 }
 vec3 cityUplight(vec3 point){
-  float energy=cityUplightEnergy(point);
+  float energy=cityUplightSignal(point);
   // Scattering mixes neighboring lamps. Keep the diffuse tint quieter than
   // individual sources, rather than projecting district color onto clouds.
   vec3 tint=mix(vec3(1.,.80,.60),cityLampColor(normalize(point)),.25);
@@ -104,7 +109,7 @@ vec3 cityHaze(vec3 ray,float groundDistance){
     // halo or emissive shell at high altitude. Bounded opacity at the limb.
     float cosine=dot(n,-ray);
     float phase=.8775/pow(1.1225-.7*cosine,1.5)*.07957747;
-    float energy=cityUplightEnergy(point);
+    float energy=cityUplightSignal(point);
     vec3 source=tint*energy;
     light+=exp(-extinction)*(1.-exp(-tau))*source*night*phase;
     extinction+=tau;

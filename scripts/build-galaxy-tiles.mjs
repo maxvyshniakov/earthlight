@@ -1,3 +1,4 @@
+import {tileDimensions,tileManifest,tileAddress} from '../src/scripts/tile-layout.ts';
 // Build the whole Milky Way pyramid from NASA's 16K Galactic EXR: the 8K and
 // 4K overviews and 512-pixel tiles with prepacked mipmaps. Every level is a
 // box average of ONE radiance field, in the space the shader displays:
@@ -13,7 +14,7 @@ import {join} from 'node:path';
 import sharp from 'sharp';
 const source=process.argv[2];
 if(!source)throw Error('Pass milkyway_2020_16k_gal.exr');
-const width=16384,height=8192,interior=512,gutter=16,cell=interior+2*gutter,columns=32,rows=16;
+const {interior,gutter,cell,columns,rows}=tileDimensions('galaxy'),width=columns*interior,height=rows*interior;
 const W4=4096,H4=2048,W8=8192,H8=4096;
 const probe=spawnSync('ffprobe',['-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','json',source]);
 const info=JSON.parse(probe.stdout).streams[0];
@@ -145,7 +146,7 @@ for(let ty=0;ty<rows;ty++){
    for(let y=0;y<size;y++)for(let x=0;x<size;x++)for(let c=0;c<3;c++)image[(y*2*cell+cell+offset+x)*3+c]=mip[(y*size+x)*3+c];
    offset+=size;
   }
-  const id=ty*columns+tx;tiles.push(id);
+  const id=tileAddress(tileDimensions('galaxy'),tx,ty);tiles.push(id);
   writes.push(encodeRadiance(image,2*cell,cell,{quality:65,effort:2,chromaSubsampling:'4:4:4'})
    .then(({out,error})=>{bytes+=out.length;tileErrors.push(error);return writeFile(new URL(`${id}.avif`,staging),out);}));
  }
@@ -154,7 +155,7 @@ for(let ty=0;ty<rows;ty++){
 }
 await input.close();await rm(rawPath,{force:true});
 tiles.sort((a,b)=>a-b);
-await writeFile(new URL('manifest.json',staging),JSON.stringify({version:2,columns,rows,interior,gutter,mipmaps:'packed',source:'NASA SVS Deep Star Maps 2020, milkyway_2020_16k_gal.exr',tiles})+'\n');
+await writeFile(new URL('manifest.json',staging),JSON.stringify({...tileManifest('galaxy',tiles,true),source:'NASA SVS Deep Star Maps 2020, milkyway_2020_16k_gal.exr',tiles})+'\n');
 await rm(target,{recursive:true,force:true});await rename(staging,target);
 const write=async(data,w,h,name)=>{
  const {out,error}=await encodeRadiance(data,w,h,{quality:50,effort:4,chromaSubsampling:'4:4:4',bitdepth:8});

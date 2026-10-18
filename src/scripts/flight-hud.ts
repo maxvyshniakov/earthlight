@@ -1,3 +1,4 @@
+import { LENS_MIN, LENS_MAX, EV_MIN, EV_MAX, timeScaleAt, timeScaleFraction } from './scene-control-model';
 import { attitude, MIN_ALTITUDE, MAX_ALTITUDE, PROJECTION, type ObserverFrame, type Orbit } from './flight-navigation.ts';
 import { shellCoverage, SHELL } from './scene-view-scale.ts';
 import { EARTH_RADIUS_KM, add, cross, dot, normalize, scale, type Vec3 } from './iss-orbit.ts';
@@ -12,22 +13,6 @@ const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
  * degree of pitch, the Earth arc's radius, and the Sun's and Moon's marker radii
  * and where they fly: the Sun clear outside the arc, the Moon along it. */
 export const GAUGE={dial:16.33,pitch:.42,earthAt:23.25,sun:4.2,sunAt:29.3,moon:3.3,moonAt:23.25};
-/** The lens range, as magnifications of the 1× pinhole (about 30 mm): from a
- * 15 mm wide angle to 600 mm. */
-export const LENS_MIN=.5,LENS_MAX=50;
-/** Exposure compensation range in EV, shared by Settings and the HUD tape. */
-export const EV_MIN=-3,EV_MAX=4;
-/** Time scale, from 0× (time stands still, which is what pausing means) to
- * 1000×. Settings' slider and the HUD tape share one scale over a 0–1 fraction
- * in five equal stretches: linear from 0 to 0.1×, then four logarithmic
- * decades. Speeds keep two significant figures. */
-export const SPEED_MAX=1000;
-const SPEED_LOW=.1,SPEED_LOW_SHARE=1/5;
-export const speedAt=(fraction:number)=>{
-  const f=clamp(fraction,0,1),raw=f<=SPEED_LOW_SHARE?SPEED_LOW*f/SPEED_LOW_SHARE:SPEED_LOW*10**((f-SPEED_LOW_SHARE)/(1-SPEED_LOW_SHARE)*4);
-  return raw>0?Number(raw.toPrecision(2)):0;
-};
-export const speedFraction=(speed:number)=>speed<=SPEED_LOW?clamp(speed,0,SPEED_LOW)/SPEED_LOW*SPEED_LOW_SHARE:clamp(SPEED_LOW_SHARE+Math.log10(speed/SPEED_LOW)/4*(1-SPEED_LOW_SHARE),0,1);
 const deg=Math.PI/180;
 // The Earth arc never gets shorter than 8 px, so it still reads as an arc.
 const EARTH_MIN=4/GAUGE.earthAt/deg;
@@ -80,7 +65,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   /** Set the replay's day of the year and minute of the day (UTC). */
   setDay:(day:number)=>void;setMinute:(minute:number)=>void;
   /** The time scale, 0 while time stands still; set it (0 stops time), or step it by hundredths of the scale. */
-  speed:()=>number;setSpeed:(speed:number)=>void;stepSpeed:(notches:number)=>void}){
+  timeScale:()=>number;setTimeScale:(timeScale:number)=>void;stepTimeScale:(notches:number)=>void}){
   const hud=root.querySelector<HTMLElement>('.flight-hud'),help=root.querySelector<HTMLElement>('#flight-help'),info=root.querySelector<HTMLElement>('#explorer-info');
   if(!hud||!help||!info)return null;
   const tape=hud.querySelector<HTMLElement>('#explorer-altitude')!,output=hud.querySelector<HTMLOutputElement>('.altitude-output')!;
@@ -312,12 +297,12 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     };
   };
   // The date tape spans a common year; a leap year's last day sits at its end.
-  const dayTape=hud.querySelector<HTMLElement>('#explorer-day')!,minuteTape=hud.querySelector<HTMLElement>('#explorer-minute')!,speedTape=hud.querySelector<HTMLElement>('#explorer-speed')!;
+  const dayTape=hud.querySelector<HTMLElement>('#explorer-day')!,minuteTape=hud.querySelector<HTMLElement>('#explorer-minute')!,timeScaleTape=hud.querySelector<HTMLElement>('#explorer-speed')!;
   let today={day:0,days:365,minute:0};
   const clockTapes=[
     sideways(dayTape,f=>o.setDay(Math.min(today.days-1,Math.round(f*365))),n=>o.setDay(clamp(today.day+n,0,today.days-1))),
     sideways(minuteTape,f=>o.setMinute(Math.min(1439,Math.round(f*1440))),n=>o.setMinute(clamp(Math.floor(today.minute)+n*5,0,1439))),
-    sideways(speedTape,f=>o.setSpeed(speedAt(f)),n=>o.stepSpeed(n)),
+    sideways(timeScaleTape,f=>o.setTimeScale(timeScaleAt(f)),n=>o.stepTimeScale(n)),
   ];
   // Narrow, the date, the time and the time scale are each a button that drops
   // its own tape under the row; pressed again, or a touch anywhere else, puts it away.
@@ -338,8 +323,8 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     const dayLabel=clockDate.format(date),timeLabel=`${date.toISOString().slice(11,19)} UTC`;
     if(shown.day!==dayLabel){shown.day=dayLabel;dayTape.querySelector('output')!.value=dayLabel;dayTape.setAttribute('aria-valuenow',String(day));dayTape.setAttribute('aria-valuetext',dayLabel);}
     if(shown.time!==timeLabel){shown.time=timeLabel;minuteTape.querySelector('output')!.value=timeLabel;minuteTape.setAttribute('aria-valuenow',String(Math.floor(minute)));minuteTape.setAttribute('aria-valuetext',timeLabel);}
-    const speed=o.speed();
-    if(shown.speed!==speed){shown.speed=speed;speedTape.style.setProperty('--at',`${speedFraction(speed)*100}%`);speedTape.setAttribute('aria-valuenow',String(speed));speedTape.setAttribute('aria-valuetext',`${speed}×`);}
+    const timeScale=o.timeScale();
+    if(shown.timeScale!==timeScale){shown.timeScale=timeScale;timeScaleTape.style.setProperty('--at',`${timeScaleFraction(timeScale)*100}%`);timeScaleTape.setAttribute('aria-valuenow',String(timeScale));timeScaleTape.setAttribute('aria-valuetext',`${timeScale}×`);}
   };
 
   // The WASD globe: an orthographic Earth centred under the camera, north up,
@@ -477,7 +462,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     const moving=earth.half!==earth.target;
     earth.at=moving?now:0;earth.frame=moving?requestAnimationFrame(easeEarth):0;
   };
-  const shown={moon:'',globe:[999,0],ev:NaN as number|null,day:'',time:'',speed:NaN,altitude:-1,lens:-1,mode:'',earth:'',sun:''};
+  const shown={moon:'',globe:[999,0],ev:NaN as number|null,day:'',time:'',timeScale:NaN,altitude:-1,lens:-1,mode:'',earth:'',sun:''};
   return {
     setModality,key,setNight,
     get modality(){return modality;},

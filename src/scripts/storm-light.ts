@@ -42,9 +42,9 @@ export function stormPulse(time:number,start:number,width:number,window:number){
   const interval=Math.max(.0001,window);
   return (primitive(time+interval/2)-primitive(time-interval/2))/interval;
 }
-export function stormLights(time:number,rate:number,camera:ArrayLike<number>,basis:ArrayLike<number>,aspect:number,fps=24,focal=1.25,mode:NightMode='current'){
+export function stormLights(time:number,timeScale:number,camera:ArrayLike<number>,basis:ArrayLike<number>,aspect:number,fps=24,focal=1.25,mode:NightMode='current'){
  // Full-frame integration preserves short flashes at accelerated playback.
- const window=Math.max(1/48,Math.abs(rate)/fps),c=Math.cos(time*.000008),s=Math.sin(time*.000008);
+ const window=Math.max(1/48,Math.abs(timeScale)/fps),c=Math.cos(time*.000008),s=Math.sin(time*.000008);
  const active:Array<{point:number[];energy:number;score:number}>=[];
  const r=1+3.6/6371,radius=42/6371;
  const camera2=camera[0]**2+camera[1]**2+camera[2]**2;

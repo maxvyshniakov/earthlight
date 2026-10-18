@@ -1,3 +1,4 @@
+import {photographicCloudDensityShader} from '../src/scripts/earth-clouds.ts';
 // Compare cloud morphology with a saved baseline earth-clouds.ts.
 // Inject only the old density function into an isolated reference renderer.
 // Interleave reference/candidate frames on one GPU to control scheduling drift.
@@ -9,6 +10,7 @@ const exec=promisify(execFile);
 const [base='http://127.0.0.1:4347',out='/tmp/earthlight-pairs',baselineFile,views='north,south',baseline='compact']=process.argv.slice(2);
 assert.ok(baselineFile,'Pass the saved baseline earth-clouds.ts as the third argument');
 const oldSource=await readFile(baselineFile,'utf8');
+// Frozen-source adapter: only the saved historical format uses boundaries.
 const end=oldSource.indexOf('float cloudIntegratedDensity(');
 const density=oldSource.slice(oldSource.indexOf('float cloudBaseDensity('),end<0?oldSource.length:end);
 assert.ok(density.startsWith('float cloudBaseDensity(')&&density.includes('return '),'Invalid baseline density source');
@@ -64,8 +66,8 @@ try{
    window.cloudTopReplacements=0;
    window.restoreCloudShader=()=>{proto.shaderSource=originalSource;};
    proto.shaderSource=function(shader,text){
-    const start=text.indexOf('float cloudBaseDensity('),end=text.indexOf('float cloudIntegratedDensity(');
-    if(start>=0&&end>start){text=text.slice(0,start)+${JSON.stringify(density)}+text.slice(end);window.cloudTopReplacements++;}
+    const current=${JSON.stringify(photographicCloudDensityShader)};
+    if(text.includes(current)){text=text.replace(current,()=>${JSON.stringify(density)});window.cloudTopReplacements++;}
     return originalSource.call(this,shader,text);
    };
    const original=document.querySelector('earthlight-explorer'),copy=original.cloneNode(true);

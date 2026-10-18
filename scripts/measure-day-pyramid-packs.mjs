@@ -15,7 +15,7 @@
 //   bun scripts/measure-day-pyramid-packs.mjs <release-dir> [<day-tile-packs-dir>] [--random=300] [--limit=15] [--json=file]
 import { open, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { DayPyramid, pyramidTile } from '../src/scripts/day-pyramid.ts';
+import { DayPyramidSelection, pyramidTile } from '../src/scripts/day-pyramid-selection.ts';
 import { decodeIndex, decodePackHeader, packHeaderLength, PACK_DEPTH, MAX_PACK_K } from '../src/scripts/day-pyramid-pack.ts';
 
 const [release,build]=process.argv.slice(2).filter(a=>!a.startsWith('--'));
@@ -36,8 +36,7 @@ for(let level=1;level<=PACK_DEPTH;level++)for(const name of await readdir(join(r
 const dayBytes=new Map();
 if(build)for(const name of (await readdir(build)).filter(n=>/^\d+\.pack$/.test(n)))dayBytes.set(Number(name.slice(0,-5)),(await stat(join(build,name))).size);
 
-const pyramid=Object.create(DayPyramid.prototype);
-Object.assign(pyramid,{packs:decodeIndex(new Uint8Array(await readFile(join(release,'index.bin')))),directory:new Uint8Array(12800),table:new Uint8Array(0),wanted:0,requests:0,received:0,cached:0,cache:new Map(),loading:new Map(),signature:'',root:'',cacheBytes:Infinity});
+const pyramid=new DayPyramidSelection(decodeIndex(new Uint8Array(await readFile(join(release,'index.bin')))));
 
 function nadir(lon,lat,zoom){
   const r=Math.PI/180,up=[Math.cos(lat*r)*Math.cos(lon*r),Math.cos(lat*r)*Math.sin(lon*r),Math.sin(lat*r)];
@@ -46,7 +45,7 @@ function nadir(lon,lat,zoom){
 }
 const dayOf=key=>{const {level,x,y}=pyramidTile(key);return (y>>level)*160+(x>>level);};
 function view(lon,lat,zoom,fetched=new Set()){
-  const keys=pyramid.select(nadir(lon,lat,zoom),1280,800,limit);
+  const keys=pyramid.select(nadir(lon,lat,zoom),1280,800,limit,path=>fetched.has(path));
   const packs=new Set(keys.map(key=>pyramid.locate(key).path)),days=new Set(keys.map(dayOf));
   const fresh=[...packs].filter(path=>!fetched.has(path));
   return {keys,tiles:keys.length,levels:[...new Set(keys.map(key=>pyramidTile(key).level))].sort().join(''),
@@ -65,10 +64,10 @@ for(const [region,[lon,lat]] of Object.entries(REGIONS))for(const zoom of ZOOMS)
 console.log('\nsession 2× → 50× with the cache kept: packs MB / ideal MB (distinct tiles)');
 const sessions=[];
 for(const [region,[lon,lat]] of Object.entries(REGIONS)){
-  pyramid.cache=new Map();const fetched=new Set(),seen=new Set();let packs=0,day=0;const days=new Set();
+  const fetched=new Set(),seen=new Set();let packs=0,day=0;const days=new Set();
   for(const zoom of ZOOMS){
     const v=view(lon,lat,zoom,fetched);packs+=v.packs;
-    for(const path of v.fresh){fetched.add(path);pyramid.cache.set(path,{});}
+    for(const path of v.fresh){fetched.add(path);}
     for(const key of v.keys)seen.add(key);
     for(const key of v.keys){const id=dayOf(key);if(!days.has(id)){days.add(id);day+=dayBytes.get(id)??0;}}
   }
@@ -76,7 +75,6 @@ for(const [region,[lon,lat]] of Object.entries(REGIONS)){
   sessions.push({region,packs,ideal,day:build?day:null});
   console.log(`${region.padEnd(12)} ${mb(packs)} / ${mb(ideal)} (${(packs/ideal).toFixed(1)}×)${build?`; day packs ${mb(day)} (${(day/ideal).toFixed(1)}×)`:''}`);
 }
-pyramid.cache=new Map();
 // Random land: day tiles with detail, a random point in each.
 let seed=7;const random=()=>(seed=seed*16807%2147483647)/2147483647,ids=[...pyramid.packs.keys()];
 const sums=Object.fromEntries(ZOOMS.map(zoom=>[zoom,{views:0,ideal:0,packs:0,day:0}]));

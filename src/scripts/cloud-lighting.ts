@@ -45,22 +45,17 @@ float cachedCloudLighting(vec3 point,vec2 uv){
 }
 `;
 
-/** Change only self-shadow transmission. Density, ground shadows and source
- * attenuation retain their original integrators and footprint filtering. */
-export function cloudLightingSource(source:string){
-  const signature='float cloudShadow(vec3 point){';
-  if(!source.includes(signature))throw Error('Cloud lighting shader signature changed');
-  return source.replace('float cloudBaseDensity(',helper+'\nfloat cloudBaseDensity(')
-    .replace(signature,signature+`
+/** Cached direct-sun transmission; density, ground shadows and source
+ * attenuation retain their integrators and footprint filtering. */
+export const cloudLightingShader={declarations:helper,shadowPrelude:`
  vec2 uv=cloudLightingUV(point);
  float edge=min(min(uv.x,uv.y),min(1.-uv.x,1.-uv.y));
  float weight=cloudLightingReady*smoothstep(.005,.04,edge);
  if(weight>=.999)return cachedCloudLighting(point,uv);
  if(weight>0.)return mix(cloudLightTransmission(point,sunDirection,6.),cachedCloudLighting(point,uv),weight);
- `);
-}
+ `};
 
-const bakeSourceFor=perNightMode(mode=>{const {fragmentSource}=sceneShadersFor(mode);return fragmentSource.slice(0,fragmentSource.indexOf('void main()'))+`
+const bakeSourceFor=perNightMode(mode=>{const {scenePrelude}=sceneShadersFor(mode);return scenePrelude+`
 uniform vec4 bakePatch;
 vec3 bakePoint(vec2 uv,float index){
  vec2 ll=bakePatch.xy+(uv-.5)*bakePatch.zw;

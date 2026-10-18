@@ -1,3 +1,4 @@
+import {tileDimensions,DAY_PYRAMID_DEPTH} from '../src/scripts/tile-layout.ts';
 // Day pyramid: three levels below the 500 m day tiles (250, 125 and 62.5 m),
 // over land worldwide, from the ESA WorldCover 2021 v200 Sentinel-2 RGBNIR
 // composite. See docs/lab/day-pyramid-global-2026-10-17.md.
@@ -53,7 +54,7 @@ import { loadInventory, rowCells, s2Key, mapKey, cellName, S2_OVERVIEW, MAP_OVER
 import { encodeDayPack, decodeDayPack, slotMask, daySlot } from '../src/scripts/day-pyramid-pack.ts';
 
 const here=dirname(fileURLToPath(import.meta.url));
-const INTERIOR=540,GUTTER=16,CELL=572,DEPTH=3,P0=240,COLUMNS=160,ROWS=80;
+const {interior:INTERIOR,gutter:GUTTER,cell:CELL,columns:COLUMNS,rows:ROWS}=tileDimensions('day'),DEPTH=DAY_PYRAMID_DEPTH,P0=240;
 const QUALITY=50,EPSILON=.005,SIGMA=1,MIN_FREE=60e9;
 const ROW_FIRST=3,ROW_LAST=66; // 83.25° N to 60.75° S: WorldCover's 83° N to 60° S
 const option=(name,fallback)=>process.argv.find(a=>a.startsWith(`--${name}=`))?.split('=')[1]??fallback;

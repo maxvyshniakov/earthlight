@@ -1,23 +1,16 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {solarImageShader} from '../src/scripts/scene-shader.ts';
 import {galacticLightShader} from '../src/scripts/galactic-light.ts';
 import {airglowLightShader} from '../src/scripts/airglow-light.ts';
 import {lunarLightShader} from '../src/scripts/earth-light.ts';
 import {atmosphericLightShader} from '../src/scripts/atmospheric-light.ts';
 import {visibleSourceDisk} from '../src/scripts/lens-reflections.ts';
-import {SOLAR_RADIUS,SOLAR_RADIANCE,SOLAR_SCATTER_FRACTION} from '../src/scripts/solar-light.ts';
-import {SOLAR_RESOLVED_PX} from '../src/scripts/solar-disk.ts';
+import {SOLAR_RADIUS} from '../src/scripts/solar-light.ts';
 
 // Exercise the production eclipse convolution with a known broad PSF so its
 // masked energy and support boundary can be measured without sensor clipping.
 export async function verifyLighting(evaluate){
- const raw=readFileSync(new URL('../src/scripts/scene-shader.ts',import.meta.url),'utf8');
- const convolution=raw.slice(raw.indexOf('  vec2 solarCenter='),raw.indexOf('  if (skyMask < 1.) {'))
-  .replaceAll('${SOLAR_RADIUS}',String(SOLAR_RADIUS))
-  .replaceAll('${optics.integral.toFixed(8)}','1.')
-  .replaceAll('${SOLAR_RESOLVED_PX[0].toFixed(1)}',SOLAR_RESOLVED_PX[0].toFixed(1))
-  .replaceAll('${SOLAR_RESOLVED_PX[1].toFixed(1)}',SOLAR_RESOLVED_PX[1].toFixed(1))
-  .replaceAll('${(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)).toFixed(5)}',String(SOLAR_RADIANCE*(1-SOLAR_SCATTER_FRACTION)));
+ const convolution=solarImageShader(1);
  const solar=`precision highp float;
  #define FOCAL 1.25
  uniform vec3 sunDirection;uniform mat3 cameraBasis;uniform float solarVisibility;uniform vec4 solarImage;

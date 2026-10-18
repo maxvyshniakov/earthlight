@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {CLOUD_PROPERTIES_DATE,CLOUD_PROPERTIES_DATES,CLOUD_PROPERTIES_OVERVIEW,CLOUD_PROPERTIES_PENDING,CLOUD_PROPERTIES_SWATH_BLEND,CLOUD_PROPERTIES_SWATHS,cloudPropertiesDate,cloudPropertiesDay,cloudPropertiesEnabled,cloudPropertiesShader,cloudPropertiesSwathDay,cloudPropertiesSwathEdge,cloudPropertiesSwathHeader,cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
 import {cloudShader} from '../src/scripts/earth-clouds.ts';
 import {fragmentSource} from '../src/scripts/scene-shader.ts';
-import {cloudTileShader} from '../src/scripts/night-tiles.ts';
+import {cloudTileShader} from '../src/scripts/surface-tile-shader.ts';
 
 test('measured clouds are an opt-in study',()=>{
   assert.equal(cloudPropertiesEnabled(new URLSearchParams('')),false);

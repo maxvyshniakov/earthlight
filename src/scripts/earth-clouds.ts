@@ -4,9 +4,9 @@ import {continuousLongitudeShader} from './surface-map.ts';
 // profile and small-scale relief below are a bounded reconstruction.
 import {stormLightShader} from './storm-light.ts';
 import {modisPatchShader} from './modis-patch.ts';
-import {perNightMode,physicalNight} from './physical-night.ts';
+import {perNightMode, type NightMode,physicalNight} from './physical-night.ts';
 import {cloudPropertiesShader} from './cloud-properties.ts';
-export const cloudShaderFor=perNightMode(mode=>continuousLongitudeShader+`
+export const cloudMapShader=continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
@@ -30,7 +30,8 @@ float cloudMapSample(vec2 uv,float lod,float texels,bool detailed){
   if(detailed)mapped=detailedCloud(uv,texels*16384./max(1.,cloudMapWidth),mapped);
   return mapped;
 }
-float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed){
+`;
+export const cloudCoverageShader=cloudMapShader+`float cloudCoverageAt(vec2 uv,float latitudeScale,float footprint,bool detailed){
   // Filter for BOTH the pixel cone and the integration interval. Implicit
   // derivatives inside divergent raymarch/shadow branches are unreliable.
   float texels=footprint*max(1.,cloudMapWidth)/(6.283185307*latitudeScale);
@@ -66,16 +67,9 @@ float cloudCoverage(vec3 point,float footprint,bool detailed){
 #endif
   return coverage;
 }
-// Once an octave is below the sampling footprint its contribution is exactly
-// the mean. Avoid evaluating eight-corner noise that will be discarded.
-float filteredCloudNoise(vec3 point,float frequency,float footprint){
-  float fade=smoothstep(.3,1.,footprint*frequency);
-  if(fade>=1.)return .5;
-  return mix(noise(point*frequency),.5,fade);
-}
-// The vertical envelope of a column of known photographic coverage.
-float cloudColumnDensity(vec3 point,float height,float coverage,float neighborhood,float footprint);
-float cloudBaseDensity(vec3 point,float footprint,bool detailed){
+`;
+/** Photographic cloud columns, separate from measured density and ray filtering. */
+export const photographicCloudDensityShader=`float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   float height=(length(point)-1.)*6371.;
   if(height<.6 || height>12.)return 0.;
 #if defined(LEAN_SHADER_WORK) && !defined(MODIS_PATCH)
@@ -170,7 +164,20 @@ float cloudBaseDensity(vec3 point,float footprint,bool detailed,vec4 ellipse){
 #endif
   return cloudColumnDensity(point,height,coverage,neighborhood,major);
 }
-float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
+`;
+export interface CloudShaderParts {
+  lighting?:{declarations:string;shadowPrelude:string};
+  /** Multiplier for the photographic plates in standalone comparisons. */
+  photographicDensityScale?:string;
+}
+export function buildCloudDensityShader(parts:CloudShaderParts={}){return `float filteredCloudNoise(vec3 point,float frequency,float footprint){
+  float fade=smoothstep(.3,1.,footprint*frequency);
+  if(fade>=1.)return .5;
+  return mix(noise(point*frequency),.5,fade);
+}
+// The vertical envelope of a column of known photographic coverage.
+float cloudColumnDensity(vec3 point,float height,float coverage,float neighborhood,float footprint);
+${parts.lighting?parts.lighting.declarations+'\n':''}${photographicCloudDensityShader}float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float halfSpan){
 #ifdef CLOUDS_DISABLED
   return 0.;
 #endif
@@ -183,7 +190,7 @@ float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float half
   if(weight>=.999)return guided;
   return mix(cloudBaseDensity(point,footprint,detailed),guided,weight);
 #else
-  return cloudBaseDensity(point,footprint,detailed);
+  return ${parts.photographicDensityScale?parts.photographicDensityScale+'*':''}cloudBaseDensity(point,footprint,detailed);
 #endif
 }
 // The view integral's density, filtered over the pixel's ellipse. Measured
@@ -201,11 +208,13 @@ float cloudIntegratedDensity(vec3 point,float footprint,bool detailed,float half
   if(weight>=.999)return guided;
   return mix(cloudBaseDensity(point,footprint,detailed,ellipse),guided,weight);
 #else
-  return cloudBaseDensity(point,footprint,detailed,ellipse);
+  return ${parts.photographicDensityScale?parts.photographicDensityScale+'*':''}cloudBaseDensity(point,footprint,detailed,ellipse);
 #endif
 }
 float cloudDensity(vec3 point,float footprint,bool detailed){return cloudIntegratedDensity(point,footprint,detailed,0.);}
-float cloudLightTransmission(vec3 point,vec3 lightDirection,float samples){
+`;}
+export const cloudDensityShader=buildCloudDensityShader();
+function buildCloudShadowShader(parts:CloudShaderParts={}){return buildCloudDensityShader(parts)+`float cloudLightTransmission(vec3 point,vec3 lightDirection,float samples){
 #ifdef CLOUDS_DISABLED
   return 1.;
 #endif
@@ -243,8 +252,12 @@ float cloudLightTransmission(vec3 point,vec3 lightDirection,float samples){
   return exp(-tau);
 }
 float cloudShadowAlong(vec3 point,vec3 lightDirection){return cloudLightTransmission(point,lightDirection,12.);}
-float cloudShadow(vec3 point){return cloudLightTransmission(point,sunDirection,6.);}
-// Five source rays are evaluated in a tiny prepass, never once per screen pixel.
+float cloudShadow(vec3 point){${parts.lighting?.shadowPrelude??''}return cloudLightTransmission(point,sunDirection,6.);}
+`;}
+export const cloudShadowShader=buildCloudShadowShader();
+export function buildCloudShader(mode:NightMode,parts:CloudShaderParts={}){return cloudCoverageShader+`// Once an octave is below the sampling footprint its contribution is exactly
+// the mean. Avoid evaluating eight-corner noise that will be discarded.
+`+buildCloudShadowShader(parts)+`// Five source rays are evaluated in a tiny prepass, never once per screen pixel.
 // The same coverage, height profile and filtering drive visible clouds and the
 // light reaching the lens. Scattering into the ray does not feed lens ghosts.
 float lensCloudDepth(vec3 ray){
@@ -423,6 +436,7 @@ vec3 cloudVolume(vec3 ray,float groundDistance,vec3 background,out float atmosph
 #endif
   return max(vec3(0.),background*transmission+scattered);
 }
-`);
+`;}
+export const cloudShaderFor=perNightMode(mode=>buildCloudShader(mode));
 /** The default program's clouds. */
 export const cloudShader=cloudShaderFor('current');

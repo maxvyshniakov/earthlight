@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import {fragmentSource} from '../src/scripts/scene-shader.ts';
+import {sceneNoiseShader} from '../src/scripts/scene-shader.ts';
 
 // Exercise the production interpolation on the actual GPU. CPU evaluation and
 // desktop-only screenshots missed the shared-corner jumps on Pixel/Mali.
-export function noiseContinuityFixture(source=fragmentSource,api='webgl'){
- const noise=source.slice(source.indexOf('float hash(vec2 p)'),source.indexOf('mat2 rotate'));
+export function noiseContinuityFixture(source=sceneNoiseShader,api='webgl'){
+ const noise=source;
  const fragment=`precision highp float;
 ${noise}
 void main(){
@@ -42,7 +42,7 @@ void main(){
 export async function verifyNoiseContinuity(evaluate){
  const results=[];
  for(const api of ['webgl','webgl2']){
-  const result=await evaluate(noiseContinuityFixture(fragmentSource,api));
+  const result=await evaluate(noiseContinuityFixture(sceneNoiseShader,api));
   assert.equal(result.error,0);
   assert.ok(result.maxJump<.002,`${api}: discontinuous lattice noise: ${JSON.stringify(result.worst)}`);
   assert.ok(result.max-result.min>.4,'Noise must retain spatial variation');

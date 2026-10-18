@@ -15,9 +15,10 @@ async function mouseInput(run){
  const mouse=params=>send('Input.dispatchMouseEvent',params,sessionId);
  const buttons={left:1,right:2,middle:4};
  return {mouse,close:()=>socket.close(),
-  async drag([x0,y0],[x1,y1],button='left',modifiers=0){
+  async drag([x0,y0],[x1,y1],button='left',modifiers=0,during=async()=>{}){
    await mouse({type:'mouseMoved',x:x0,y:y0,modifiers});
    await mouse({type:'mousePressed',x:x0,y:y0,button,buttons:buttons[button],clickCount:1,modifiers});
+   await during();
    for(let i=1;i<=10;i++){await mouse({type:'mouseMoved',x:x0+(x1-x0)*i/10,y:y0+(y1-y0)*i/10,button,buttons:buttons[button],modifiers});await new Promise(r=>setTimeout(r,16));}
    await mouse({type:'mouseReleased',x:x1,y:y1,button,buttons:0,clickCount:1,modifiers});
   }};
@@ -28,6 +29,7 @@ export async function verifyFlight({run,evaluate,wait,base}){
  await wait("document.querySelector('earthlight-explorer').dataset.focus==='sharp'");
  const read=()=>evaluate(`(()=>{const e=document.querySelector('earthlight-explorer');return {mode:e.dataset.flightMode,orbit:e.dataset.orbit,alt:Number(e.dataset.cameraAltitude),lens:Number(e.dataset.lens),position:e.dataset.cameraPosition,basis:JSON.parse(e.dataset.cameraBasis),roll:(()=>{const r=parseFloat(getComputedStyle(document.querySelector('.hud-attitude .gauge')).getPropertyValue('--roll'));return Math.round(((r%360)+540)%360-180);})(),time:e.querySelector('.explorer-time').textContent,url:location.search};})()`);
  const same=(a,b,tolerance=1e-7)=>a.basis.every((v,i)=>Math.abs(v-b.basis[i])<tolerance);
+ const radius=state=>Math.hypot(...state.position.split(',').map(Number));
  const key=(type,code)=>evaluate(`document.querySelector('.explorer-view').dispatchEvent(new KeyboardEvent('${type}',{code:'${code}',bubbles:true}));true`);
  const before=await read();
  await evaluate("document.querySelector('[data-flight-mode=free]').click();true");
@@ -49,6 +51,16 @@ export async function verifyFlight({run,evaluate,wait,base}){
  await evaluate("document.querySelector('#explorer-settings').hidePopover();document.querySelector('.explorer-view').focus();document.querySelector('.explorer-view').dispatchEvent(new KeyboardEvent('keydown',{code:'KeyW',bubbles:true}));window.dispatchEvent(new Event('blur'));true");
  await run('wait','300');const stopped=await read();await run('wait','300');assert.equal((await read()).position,stopped.position);
  const gesture=async(init,target='.explorer-view',x=720,y=180)=>evaluate(`(()=>{const e=new WheelEvent('wheel',{clientX:${x},clientY:${y},...${JSON.stringify(init)},bubbles:true,cancelable:true});document.querySelector('${target}').dispatchEvent(e);return e.defaultPrevented;})()`);
+ const pinchBurst=(deltas,shiftKey=false)=>evaluate(`(async()=>{
+  const view=document.querySelector('.explorer-view'),explorer=document.querySelector('earthlight-explorer'),samples=[];
+  for(const deltaY of ${JSON.stringify(deltas)}){
+   const event=new WheelEvent('wheel',{clientX:720,clientY:180,deltaY,ctrlKey:true,shiftKey:${shiftKey},bubbles:true,cancelable:true});
+   view.dispatchEvent(event);
+   await new Promise(resolve=>setTimeout(resolve,16));
+   samples.push({prevented:event.defaultPrevented,lens:Number(explorer.dataset.lens),alt:Number(explorer.dataset.cameraAltitude),action:view.dataset.cameraAction,cursor:getComputedStyle(view).cursor});
+  }
+  return samples;
+ })()`);
  // A trackpad scroll over the sky moves over Earth too, turning the globe,
  // and keeps the replay clock.
  const looking=await read();
@@ -57,11 +69,38 @@ export async function verifyFlight({run,evaluate,wait,base}){
  const looked=await read();assert.notEqual(looked.position,looking.position,'a scroll over the sky turns the globe');assert.equal(looked.time,looking.time);
  // Over Earth a trackpad scroll spins the globe and never runs out of travel;
  // with Shift the same scroll only looks.
+ // These are separate swipes. Cancel the old smoothing queue before taking
+ // the baseline; the later coast scenario tests uninterrupted momentum.
+ await evaluate(`(async()=>{
+  window.dispatchEvent(new Event('blur'));
+  const e=document.querySelector('earthlight-explorer'),pose=()=>e.dataset.cameraPosition+'|'+e.dataset.cameraBasis;
+  await new Promise((resolve,reject)=>{
+   let previous=pose(),stableSince=performance.now();
+   const timer=setTimeout(()=>reject(new Error('Camera pose did not settle after cancelling the swipe')),5000);
+   const sample=now=>{const current=pose();if(current!==previous){previous=current;stableSince=now;}
+    if(now-stableSince>=160){clearTimeout(timer);resolve();}else requestAnimationFrame(sample);};
+   requestAnimationFrame(sample);
+  });
+  return true;
+ })()`);
  const spinFrom=await read(),{width:w}=await evaluate('({width:innerWidth,height:innerHeight})');
  const ground=await evaluate(`(()=>{const e=document.querySelector('earthlight-explorer'),p=e.dataset.cameraPosition.split(',').map(Number),b=JSON.parse(e.dataset.cameraBasis),h=innerHeight;
   for(let y=h-30;y>0;y-=4){const v=(h/2-y)/h,r=[0,1,2].map(i=>b[3+i]*v+b[6+i]*1.25),n=Math.hypot(...r),d=r.map(x=>x/n),q=p[0]*d[0]+p[1]*d[1]+p[2]*d[2];if(q<0&&q*q-(p[0]**2+p[1]**2+p[2]**2)+1>0)return y;}return null;})()`);
  assert.ok(ground,'Earth is in view');
- for(let i=0;i<4;i++)assert.equal(await gesture({deltaX:0,deltaY:8,shiftKey:true},'.explorer-view',w/2,ground),true);
+ // Keep one swipe inside the browser: separate CLI calls can exceed the
+ // 160 ms session boundary, especially after the GPU fixtures above.
+ const shiftSwipe=await evaluate(`(async()=>{
+  const view=document.querySelector('.explorer-view'),explorer=document.querySelector('earthlight-explorer'),samples=[];
+  for(let i=0;i<4;i++){
+   const event=new WheelEvent('wheel',{clientX:${w/2},clientY:${ground},deltaY:8,shiftKey:true,bubbles:true,cancelable:true});
+   view.dispatchEvent(event);
+   samples.push({prevented:event.defaultPrevented,ready:explorer.hasAttribute('data-ready'),hidden:document.hidden});
+   await new Promise(resolve=>setTimeout(resolve,16));
+  }
+  return samples;
+ })()`);
+ assert.ok(shiftSwipe.every(sample=>sample.prevented&&sample.ready&&!sample.hidden),`Shift swipe admitted: ${JSON.stringify(shiftSwipe)}`);
+ await wait(`JSON.parse(document.querySelector('earthlight-explorer').dataset.cameraBasis).some((value,index)=>Math.abs(value-${JSON.stringify(spinFrom.basis)}[index])>1e-7)`);
  await run('wait','400');const shiftLooked=await read();
  assert.equal(shiftLooked.position,spinFrom.position,'Shift-scroll over Earth only looks');assert.ok(!same(shiftLooked,spinFrom));
  assert.equal(shiftLooked.lens,1,'a Shift trackpad scroll never zooms the lens');
@@ -85,13 +124,26 @@ export async function verifyFlight({run,evaluate,wait,base}){
  })()`);
  assert.ok(coast.shifted>coast.plain*.6&&coast.controlled>coast.plain*.6,`the globe keeps turning: ${JSON.stringify(coast)}`);
  assert.ok(Math.abs(coast.alt-1)<.01&&coast.lens===1,`no zoom: ${JSON.stringify(coast)}`);
- // A clicky mouse wheel zooms toward the pointer; so does a trackpad pinch,
- // which Chromium reports as Ctrl-wheel. Neither zooms the browser.
+ // A clicky mouse wheel changes altitude. Chromium reports a trackpad pinch
+ // as a Ctrl-wheel burst; it crosses a deliberate threshold, then changes only
+ // the lens. The activating event rebases the pinch without a catch-up jump.
  const viewport=await evaluate('visualViewport.scale'),pixelRatio=await evaluate('devicePixelRatio');
  const altitude="Number(document.querySelector('earthlight-explorer').dataset.cameraAltitude)";
- assert.equal(await gesture({deltaY:3,deltaMode:1}),true);await wait(`${altitude}>${spun.alt}+1`);await run('wait','500');
+ const clickyAction=await evaluate("(()=>{const view=document.querySelector('.explorer-view'),event=new WheelEvent('wheel',{clientX:720,clientY:180,deltaY:3,deltaMode:1,bubbles:true,cancelable:true});view.dispatchEvent(event);return {prevented:event.defaultPrevented,action:view.dataset.cameraAction};})()");
+ assert.equal(clickyAction.prevented,true);assert.equal(clickyAction.action,'approach-out','clicky wheel shows outward direction');
+ await wait(`${altitude}>${spun.alt}+1`);await run('wait','500');
+ assert.equal(await evaluate("document.querySelector('.explorer-view').dataset.cameraAction??null"),null,'clicky wheel feedback clears after idle');
  const wheeled=await read();
- assert.equal(await gesture({deltaY:-60,ctrlKey:true}),true);await wait(`${altitude}<${wheeled.alt}-1`);await run('wait','300');
+ const pinching=await pinchBurst([-6,-6,-6,-20,-20]);
+ assert.ok(pinching.every(sample=>sample.prevented),'the browser cannot take the pinch');
+ assert.equal(pinching[1].lens,wheeled.lens,'a small pinch stays below the threshold');
+ assert.equal(pinching[2].lens,wheeled.lens,'activation rebases the lens');
+ assert.equal(pinching[1].action,undefined,'a small pinch shows no action');
+ assert.equal(pinching[2].action,undefined,'activation shows no action before motion');
+ assert.ok(pinching.at(-1).lens>pinching[2].lens,'movement after activation zooms the lens');
+ assert.equal(pinching.at(-1).action,'lens-in');
+ assert.equal(pinching.at(-1).cursor,'zoom-in');
+ assert.ok(pinching.every(sample=>Math.abs(sample.alt-wheeled.alt)<.01),'a pinch never changes altitude');
  assert.equal(await evaluate('visualViewport.scale'),viewport);
  assert.equal(await gesture({deltaY:-40,ctrlKey:true},'#explorer-settings'),false);
  // A scroll still in flight ends with focus loss and moves nothing afterwards.
@@ -107,6 +159,17 @@ export async function verifyFlight({run,evaluate,wait,base}){
  const {width,height}=await evaluate('({width:innerWidth,height:innerHeight})'),centre=[width/2,height/2];
  const input=await mouseInput(run);
  try{
+  const cursor=()=>evaluate("(()=>{const e=document.querySelector('.explorer-view');return {kind:e.dataset.cursor,cursor:getComputedStyle(e).cursor,dragging:e.dataset.cameraDragging};})()");
+  await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:0});assert.equal((await cursor()).kind,'fly');
+  await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:8});
+  const shiftedCursor=await cursor();assert.equal(shiftedCursor.kind,'altitude');assert.equal(shiftedCursor.cursor,'ns-resize');
+  await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:1});assert.equal((await cursor()).kind,'roll');
+  await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:9});assert.equal((await cursor()).kind,'roll','Option takes cursor precedence');
+  await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:0});assert.equal((await cursor()).kind,'fly');
+  await evaluate("window.dispatchEvent(new KeyboardEvent('keydown',{key:'Shift',shiftKey:true}));true");
+  assert.equal((await cursor()).kind,'altitude');
+  await evaluate("window.dispatchEvent(new KeyboardEvent('keyup',{key:'Shift'}));true");
+  assert.equal((await cursor()).kind,'fly','releasing Shift restores the fly cursor');
   await input.drag([centre[0]+40,centre[1]+30],[centre[0]+120,centre[1]-10]);await run('wait','300');
   const flung=await read();assert.equal(flung.mode,'free','grabbing Earth starts free flight');assert.notEqual(flung.position,globe.position);
   // A quick release may keep the planet turning for a moment; wait until it settles.
@@ -120,7 +183,9 @@ export async function verifyFlight({run,evaluate,wait,base}){
   let settled=spun;
   for(let i=0;i<40;i++){await run('wait','300');const next=await read();if(next.position===settled.position)break;settled=next;}
   // With Shift it looks instead, and the camera stays put.
-  await input.drag([width*.25,90],[width*.25+50,40],'left',8);await run('wait','300');
+  let activeShiftCursor;
+  await input.drag([width*.25,90],[width*.25+50,40],'left',8,async()=>{activeShiftCursor=await cursor();});await run('wait','300');
+  assert.equal(activeShiftCursor.dragging,'look');assert.equal(activeShiftCursor.cursor,'crosshair','Shift-drag still looks');
   const turned=await read();assert.equal(turned.position,settled.position,'Shift-drag only looks');assert.ok(!same(turned,settled));
   await input.drag([centre[0]+50,centre[1]],[centre[0]+60,centre[1]+50],'middle');await run('wait','300');
   const rightLook=await read();assert.equal(rightLook.position,turned.position,'middle-drag only looks, even over Earth');
@@ -156,14 +221,18 @@ export async function verifyFlight({run,evaluate,wait,base}){
   if(altitude)assert.ok(Math.abs(state.alt-altitude)<.01);
   assert.equal(new URLSearchParams(state.url).has('position'),false);
  }
- // With Shift the camera stays put and the lens zooms about the pointer: a
- // pinch (Ctrl-wheel), or a clicky wheel that macOS turned sideways. + and −
- // zoom about the centre, the lens tape jumps, and a followed orbit stays followed.
+ // A plain pinch keeps the camera put and zooms the lens about the pointer.
+ // A Shift clicky wheel still steps the lens. + and − zoom about the centre,
+ // the lens tape jumps, and a followed orbit stays followed.
  const lens="Number(document.querySelector('earthlight-explorer').dataset.lens)";
+ await key('keydown','Digit0');await key('keyup','Digit0');await wait(`${lens}===1`);
  const following=await read();assert.equal(following.mode,'follow');assert.equal(following.lens,1);
- assert.equal(await gesture({deltaY:-60,ctrlKey:true,shiftKey:true}),true);await wait(`${lens}>1.5`);
+ const plainPinch=await pinchBurst([-20,-20,-20,-20,-20]);
+ assert.ok(plainPinch.every(sample=>sample.prevented));await wait(`${lens}>1.5`);
+ assert.equal(plainPinch.at(-1).action,'lens-in');
  const pinched=await read();assert.equal(pinched.mode,'follow','the lens never detaches');assert.equal(pinched.position,following.position);assert.equal(pinched.alt,following.alt);
  await run('wait','300');assert.ok(Math.abs(Number(new URLSearchParams((await read()).url).get('lens'))-pinched.lens)<.01,'the lens is in the link');
+ assert.equal(await evaluate("document.querySelector('.explorer-view').dataset.cameraAction??null"),null,'pinch feedback clears after idle');
  assert.equal(await gesture({deltaX:-4.000244140625*3,deltaY:0,shiftKey:true}),true);await wait(`${lens}>${pinched.lens}*1.6`);
  const stepped=await read();assert.equal(stepped.position,following.position);
  await key('keydown','Minus');await run('wait','600');await key('keyup','Minus');await run('wait','100');
@@ -177,11 +246,138 @@ export async function verifyFlight({run,evaluate,wait,base}){
  await run('wait','300');await run('reload');await wait("document.querySelector('earthlight-explorer').dataset.focus==='sharp'");
  const relens=await read();assert.ok(Math.abs(relens.lens-10)<.01,'the lens survives a reload');assert.equal(relens.mode,'follow');
  await evaluate("document.querySelector('[data-flight-mode=free]').click();true");await run('wait','200');
- const freeLens=await read();assert.equal(await gesture({deltaY:40,ctrlKey:true,shiftKey:true}),true);await wait(`${lens}<9`);
+ const freeLens=await read();const widening=await pinchBurst([20,20,20,20,20]);
+ assert.ok(widening.every(sample=>sample.prevented));await wait(`${lens}<9`);
+ assert.equal(widening.at(-1).action,'lens-out');
+ assert.equal(widening.at(-1).cursor,'zoom-out');
  const unpinched=await read();assert.equal(unpinched.position,freeLens.position,'free flight keeps its place too');assert.equal(unpinched.mode,'free');
- await evaluate("document.querySelector('.reset-all').click();true");
+ // Reset also resumes replay. Pause it before checking camera-only gestures.
+ await evaluate("document.querySelector('.reset-all').click();document.querySelector('.explorer-motion').click();true");
  await run('wait','200');const reset=await read();assert.equal(reset.mode,'follow');assert.equal(reset.orbit,'iss');assert.equal(new URLSearchParams(reset.url).has('flight'),false);
  assert.equal(reset.lens,1);assert.equal(new URLSearchParams(reset.url).has('lens'),false,'Reset all restores the wide lens');
+ // Change pinch intent without lifting the fingers. The first event of each
+ // new modifier mode rebases; Option wins even when Shift is also held.
+ const wheelFeedback=await evaluate(`(async()=>{
+  const view=document.querySelector('.explorer-view'),explorer=document.querySelector('earthlight-explorer'),samples=[];
+  const state=()=>({lens:Number(explorer.dataset.lens),alt:Number(explorer.dataset.cameraAltitude),position:explorer.dataset.cameraPosition,action:view.dataset.cameraAction,cursor:getComputedStyle(view).cursor,
+   roll:parseFloat(getComputedStyle(document.querySelector('.hud-attitude .gauge')).getPropertyValue('--roll'))});
+  const send=async(shiftKey,altKey,deltaY=-20)=>{
+   const before=state();
+   const event=new WheelEvent('wheel',{clientX:720,clientY:180,deltaY,ctrlKey:true,shiftKey,altKey,bubbles:true,cancelable:true});
+   view.dispatchEvent(event);
+   const action=view.dataset.cameraAction,cursor=getComputedStyle(view).cursor;
+   // Capture command feedback immediately, then observe its rendered result
+   // before reversing it; opposite inputs within one frame can cancel out.
+   if(action)await new Promise((resolve,reject)=>{
+    const field=action.startsWith('lens-')?'lens':action.startsWith('approach-')?'position':'roll';
+    const timer=setTimeout(()=>reject(new Error('No rendered '+action+' movement: '+JSON.stringify({before,current:state()}))),2000);
+    const sample=()=>{if(state()[field]!==before[field]){clearTimeout(timer);resolve();}else requestAnimationFrame(sample);};sample();
+   });
+   await new Promise(resolve=>setTimeout(resolve,16));
+   samples.push({prevented:event.defaultPrevented,...state(),action,cursor});
+  };
+  for(let i=0;i<3;i++)await send(false,false);
+  for(let i=0;i<3;i++)await send(true,false);
+  await send(true,false,20);
+  for(let i=0;i<3;i++){
+   await send(true,true);
+   if(i===0)view.dispatchEvent(new PointerEvent('pointermove',{clientX:720,clientY:180,pointerType:'mouse',isPrimary:true,shiftKey:true,altKey:true,bubbles:true}));
+  }
+  await send(true,true,20);
+  view.dispatchEvent(new PointerEvent('pointermove',{clientX:720,clientY:180,pointerType:'mouse',isPrimary:true,shiftKey:true,altKey:true,bubbles:true}));
+  const afterMove=view.dataset.cameraAction??null;
+  view.dispatchEvent(new Event('pointerleave'));
+  return {samples,afterMove,afterLeave:view.dataset.cameraAction??null};
+ })()`);
+ const wheelModes=wheelFeedback.samples;
+ assert.ok(wheelModes.every(sample=>sample.prevented));
+ assert.ok(wheelModes[2].lens>reset.lens,'plain pinch magnifies the lens');
+ assert.equal(wheelModes[2].position,reset.position,'plain pinch keeps the camera in place');
+ assert.equal(wheelModes[2].action,'lens-in');
+ assert.equal(wheelModes[3].position,wheelModes[2].position,'Shift transition has no catch-up approach');
+ assert.equal(wheelModes[3].action,undefined,'modifier transition clears the prior action');
+ assert.notEqual(wheelModes[5].position,wheelModes[2].position,'Shift pinch approaches');
+ assert.ok(radius(wheelModes[5])<radius(wheelModes[2]),'Shift pinch lowers the camera toward Earth');
+ assert.equal(wheelModes[5].lens,wheelModes[2].lens,'Shift pinch leaves the lens');
+ assert.equal(wheelModes[5].action,'approach-in');assert.equal(wheelModes[6].action,'approach-out');
+ assert.equal(wheelModes[7].roll,wheelModes[6].roll,'Option transition has no catch-up roll');
+ assert.equal(wheelModes[7].action,undefined,'Option transition clears the prior action');
+ assert.notEqual(wheelModes[9].roll,wheelModes[6].roll,'Option pinch rolls even with Shift');
+ assert.equal(wheelModes[9].position,wheelModes[6].position,'Option pinch leaves the camera in place');
+ assert.equal(wheelModes[9].lens,wheelModes[6].lens,'Option pinch leaves the lens');
+ assert.equal(wheelModes[9].action,'roll-right');assert.equal(wheelModes[10].action,'roll-left');
+ assert.notEqual(wheelModes[5].cursor,wheelModes[6].cursor,'approach cursors point in opposite directions');
+ assert.notEqual(wheelModes[9].cursor,wheelModes[10].cursor,'roll cursors point in opposite directions');
+ const cursorIcons=await evaluate(`(async()=>Promise.all(${JSON.stringify([wheelModes[5].cursor,wheelModes[6].cursor,wheelModes[9].cursor,wheelModes[10].cursor])}.map(async cursor=>{
+  const source=cursor.match(/url\\("([^"]+)"\\)/)?.[1];if(!source)return false;
+  const image=new Image();image.src=source;await image.decode();return image.naturalWidth>0&&image.naturalHeight>0;
+ })))()`);
+ assert.deepEqual(cursorIcons,[true,true,true,true],'all directional SVG cursors decode');
+ assert.equal(wheelFeedback.afterMove,'roll-left','pointer movement keeps active feedback');
+ assert.equal(wheelFeedback.afterLeave,null,'pointer leave clears action feedback');
+ const modifierFeedback=await evaluate(`(()=>{
+  const view=document.querySelector('.explorer-view');
+  for(let i=0;i<3;i++)view.dispatchEvent(new WheelEvent('wheel',{clientX:720,clientY:180,ctrlKey:true,deltaY:-20,bubbles:true,cancelable:true}));
+  const before=view.dataset.cameraAction??null;
+  window.dispatchEvent(new KeyboardEvent('keydown',{key:'Shift',shiftKey:true}));
+  const after=view.dataset.cameraAction??null;
+  window.dispatchEvent(new KeyboardEvent('keyup',{key:'Shift'}));
+  return {before,after};
+ })()`);
+ assert.equal(modifierFeedback.before,'lens-in');assert.equal(modifierFeedback.after,null,'modifier change clears action feedback');
+ await evaluate("document.querySelector('.reset-all').click();document.querySelector('.explorer-motion').click();true");
+ await run('wait','200');const safariStart=await read();assert.equal(safariStart.lens,1);
+ // Safari supplies absolute scale and rotation through gesture events. A
+ // synthetic sequence checks its threshold and rebase path in Chromium too.
+ const safari=await evaluate(`(async()=>{
+  const view=document.querySelector('.explorer-view'),explorer=document.querySelector('earthlight-explorer'),samples=[];
+  const state=()=>({lens:Number(explorer.dataset.lens),alt:Number(explorer.dataset.cameraAltitude),position:explorer.dataset.cameraPosition,
+   roll:parseFloat(getComputedStyle(document.querySelector('.hud-attitude .gauge')).getPropertyValue('--roll'))});
+  const send=async(type,scale,rotation,shiftKey=false,altKey=false)=>{
+   const before=state();
+   const event=new Event(type,{bubbles:true,cancelable:true});
+   Object.defineProperties(event,{scale:{value:scale},rotation:{value:rotation},clientX:{value:720},clientY:{value:180},shiftKey:{value:shiftKey},altKey:{value:altKey}});
+   view.dispatchEvent(event);
+   const action=view.dataset.cameraAction,cursor=getComputedStyle(view).cursor;
+   if(action)await new Promise((resolve,reject)=>{
+    const field=action.startsWith('lens-')?'lens':action.startsWith('approach-')?'position':'roll';
+    const timer=setTimeout(()=>reject(new Error('No rendered Safari '+action+' movement: '+JSON.stringify({before,current:state()}))),2000);
+    const sample=()=>{if(state()[field]!==before[field]){clearTimeout(timer);resolve();}else requestAnimationFrame(sample);};sample();
+   });
+   await new Promise(resolve=>setTimeout(resolve,16));
+   samples.push({prevented:event.defaultPrevented,...state(),action,cursor});
+  };
+  await send('gesturestart',1,0);await send('gesturechange',1.1,0);await send('gesturechange',1.2,0);await send('gesturechange',1.4,0);
+  await send('gesturechange',1.2,0);
+  await send('gesturechange',1.6,0,true);await send('gesturechange',2,0,true);await send('gesturechange',2.4,0,true);await send('gesturechange',2,0,true);
+  await send('gesturechange',2.6,0,true,true);await send('gesturechange',3,0,true,true);await send('gesturechange',3.4,0,true,true);await send('gesturechange',3,0,true,true);
+  await send('gestureend',3,0,true,true);
+  await send('gesturestart',1,0);await send('gesturechange',1,10);await send('gesturechange',1,20);await send('gesturechange',1,25);await send('gestureend',1,25);
+  return samples;
+ })()`);
+ assert.ok(safari.filter((_,index)=>![13,18].includes(index)).every(sample=>sample.prevented));
+ assert.equal(safari[1].lens,1);assert.equal(safari[2].lens,1,'Safari activation rebases the lens');
+ assert.ok(safari[3].lens>1,'Safari pinch changes the lens after activation');
+ assert.equal(safari[1].action,undefined);assert.equal(safari[2].action,undefined);
+ assert.equal(safari[3].action,'lens-in');assert.equal(safari[3].cursor,'zoom-in');
+ assert.equal(safari[4].action,'lens-out');assert.equal(safari[4].cursor,'zoom-out');
+ assert.equal(safari[3].alt,safariStart.alt,'Safari plain pinch keeps altitude');
+ assert.equal(safari[3].position,safariStart.position,'Safari plain pinch keeps position');
+ assert.equal(safari[5].position,safari[4].position,'Safari Shift transition has no catch-up approach');
+ assert.equal(safari[5].action,undefined);
+ assert.notEqual(safari[7].position,safari[4].position,'Safari Shift pinch approaches');
+ assert.ok(radius(safari[7])<radius(safari[4]),'Safari Shift pinch lowers the camera toward Earth');
+ assert.equal(safari[7].lens,safari[4].lens);
+ assert.equal(safari[7].action,'approach-in');assert.equal(safari[8].action,'approach-out');
+ assert.equal(safari[9].roll,safari[8].roll,'Safari Option transition has no catch-up roll');
+ assert.equal(safari[9].action,undefined);
+ assert.notEqual(safari[11].roll,safari[8].roll,'Safari Option pinch rolls even with Shift');
+ assert.equal(safari[11].position,safari[8].position);assert.equal(safari[11].lens,safari[8].lens);
+ assert.equal(safari[11].action,'roll-right');assert.equal(safari[12].action,'roll-left');
+ assert.equal(safari[13].action,undefined,'Safari gesture end clears action feedback');
+ assert.equal(safari[15].roll,safari[14].roll,'small Safari twist stays below threshold');
+ assert.equal(safari[16].roll,safari[15].roll,'Safari twist activation rebases');
+ assert.notEqual(safari[17].roll,safari[16].roll,'ordinary Safari twist rolls after activation');
  await run('open',`${base}/?t=1000&motion=0`);
  const outsideScene=await evaluate("(()=>{const e=new WheelEvent('wheel',{deltaY:120,bubbles:true,cancelable:true});document.body.dispatchEvent(e);return {hud:!!document.querySelector('.flight-hud'),prevented:e.defaultPrevented};})()");
  assert.deepEqual(outsideScene,{hud:true,prevented:false});

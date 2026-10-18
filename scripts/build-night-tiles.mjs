@@ -1,3 +1,4 @@
+import {tileDimensions,tileManifest,tileAddress} from '../src/scripts/tile-layout.ts';
 // NASA Black Marble 2016, 500 m. Originals live outside the repository.
 // bun scripts/build-night-tiles.mjs /tmp/earthlight-reference
 import sharp from 'sharp';
@@ -9,10 +10,10 @@ sharp.concurrency(2);
 sharp.cache(false);
 const sourceDir=process.argv[2] || '/tmp/earthlight-reference';
 const output=process.argv[3] || 'public/media/earthlight/night-tiles';
-const size=21600, interior=540, gutter=16, cell=572;
+const size=21600,{interior,gutter,cell,columns,rows}=tileDimensions('night');
 await mkdir(output,{recursive:true});
 const path=(x,y)=>join(sourceDir,`BlackMarble_2016_${'ABCD'[(x+4)%4]}${y+1}_gray.jpg`);
-const manifest={version:1,width:86400,height:43200,interior,gutter,columns:160,rows:80,quality:80,tiles:[],bytes:0,sources:[]};
+const manifest={...tileManifest('night',[]),width:columns*interior,height:rows*interior,quality:80,tiles:[],bytes:0,sources:[]};
 for(let sy=0;sy<2;sy++)for(let sx=0;sx<4;sx++){
   const source=path(sx,sy);
   const input=await readFile(source);
@@ -52,7 +53,7 @@ for(let sy=0;sy<2;sy++)for(let sx=0;sx<4;sx++){
     // Include light in the gutter too: a neighbor's boundary must interpolate.
     nonzero=pixels.some(v=>v!==0);
     if(!nonzero)continue;
-    const id=(sy*40+ty)*160+sx*40+tx;
+    const id=tileAddress(tileDimensions('night'),sx*40+tx,sy*40+ty);
     const target=join(output,`${id}.avif`);
     let bytes;
     try{

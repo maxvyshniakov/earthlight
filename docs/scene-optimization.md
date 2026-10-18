@@ -100,15 +100,20 @@ compressed inputs, one global layer at a time. A corrupt late refinement cannot
 discard the last working preview. Component disposal aborts pending requests and
 releases GPU resources. Save-Data suppresses full maps **and** detail tiles.
 
-Ownership is explicit:
+Current ownership is described in [Architecture](architecture.md). The main
+boundaries relevant to streaming and rendering are:
 
-- `explorer.ts`: input state, replay clock, scrolling and reveal.
+- `explorer-session.ts`: settings, playback clock, calendar and navigation state.
+- `explorer.ts`: commands and DOM projection, scrolling and reveal.
+- `scene-host-lifecycle.ts`: host frame scheduling, browser events and context restoration lifetime.
 - `scene-panels.ts`: popover placement, dragging and event lifecycle.
 - `scene-work.ts`: shared network, decode and upload scheduling.
-- `scene-renderer.ts`: GPU resources, passes and capability selection.
+- `scene-render-options.ts`, `scene-render-capabilities.ts`, `scene-render-plan.ts`: requested settings, probed facts and eligible rendering paths.
+- `scene-renderer.ts`: GPU resources, passes and allocation fallbacks.
 - `scene-shader.ts`: scene shader assembly.
 - `scene-assets.ts`: progressive fetch/cache/restore and focus policy.
-- `night-tiles.ts`: shared bounded day/night/cloud tile residency.
+- `surface-tiles.ts`: day, night, cloud, galaxy and coarse terrain tile loading.
+- `tile-residency.ts`: atlas reservations, completed entries, eviction and tile request lifetime.
 - `scene-quality.ts`: sparse asynchronous GPU measurements and hysteresis.
 - `camera-defocus.ts`: temporary pupil convolution in linear light.
 - `camera-finish.ts` / `sensor-noise.ts`: camera response and sensor sampling.

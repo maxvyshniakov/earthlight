@@ -5,7 +5,6 @@ import {issFrame} from '../src/scripts/iss-orbit.ts';
 
 export async function verifyAurora(evaluate){
  const production=await browserModule('aurora');
- const precise=await browserModule('aurora',{transform:(source,id)=>id==='scripts/aurora.ts'?source.replace('(end-start)/128.','(end-start)/384.').replaceAll('i<128','i<384'):source});
  const frames=[issFrame(900,.138,{yaw:79,pitch:-10}),issFrame(1000),issFrame(3600),issFrame(900,.138,{yaw:79,pitch:-90}),issFrame(1000,.138,{yaw:-90,pitch:30})];
  const motionFrames=Array.from({length:12},(_,i)=>({time:900+i*10/24,...issFrame(900+i*10/24,.138,{yaw:79,pitch:-10})}));
  const result=await evaluate(`(async()=>{
@@ -51,8 +50,7 @@ export async function verifyAurora(evaluate){
   const dark=frames.slice(1).map(f=>energy(pixels(f))),returned=pixels(frames[0]);
   // Independent oversampling reference uses 3x as many ray integration steps.
   // The same footprint texture keeps this a test of integration, not two maps.
-  const precise=${precise};
-  const reference=new precise.Aurora(gl);reference.render(960,640,frames[0].camera,frames[0].cameraBasis,frames[0].sun,900);
+  const reference=new exports.Aurora(gl,undefined,384);reference.render(960,640,frames[0].camera,frames[0].cameraBasis,frames[0].sun,900);
   const hi=read().bytes;
   // Compare unquantized encoded radiance. Rounding both HDR captures to bytes
   // before subtracting can add a full LSB to the temporal error estimate.

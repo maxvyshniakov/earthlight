@@ -6,7 +6,10 @@ class WorkQueue {
  private active=0;
  private limit:number;
  private priorityHolds=new Set<{priority:number}>();
- constructor(limit:number){this.limit=limit;}
+ constructor(limit:number){
+  if(!Number.isInteger(limit)||limit<1)throw new RangeError('Scene work limits must be positive integers');
+  this.limit=limit;
+ }
  /** Reserve startup capacity before optional producers enqueue their manifests. */
  holdBelow(priority:number){
   const hold={priority};this.priorityHolds.add(hold);
@@ -38,15 +41,18 @@ class WorkQueue {
 }
 export const scenePriority={preview:0,tile:1,overview:2} as const;
 export class SceneWork {
- readonly network=new WorkQueue(4);
- readonly decode=new WorkQueue(2);
+ readonly network:WorkQueue;
+ readonly decode:WorkQueue;
  private uploads:{priority:number;queued:number;run:()=>void;cancel:()=>void;signal:AbortSignal}[]=[];
  private timer:ReturnType<typeof setTimeout>|undefined;
  private resumeTimer:ReturnType<typeof setTimeout>|undefined;
  private releaseNetwork:(()=>void)|undefined;
  private releaseDecode:(()=>void)|undefined;
  private previousView:{camera:number[];forward:number[];time:number}|undefined;
- constructor(private notify=()=>{}){}
+ constructor(private notify=()=>{},limits:{network?:number;decode?:number}={}){
+  this.network=new WorkQueue(limits.network??4);
+  this.decode=new WorkQueue(limits.decode??2);
+ }
  get moving(){return this.releaseNetwork!==undefined;}
  /** Large atlas writes can serialize with the preceding GPU frame. During
   * fast flight retain resident detail and the complete overview, then resume

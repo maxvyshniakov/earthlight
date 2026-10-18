@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {cloudTileShader,dayTileShader} from '../src/scripts/night-tiles.ts';
+import {cloudTileShader,dayTileShader} from '../src/scripts/surface-tile-shader.ts';
 
 // Constant detail against a darker overview exposes residency seams without
 // hiding them under photographic texture. Exercise the production shader.

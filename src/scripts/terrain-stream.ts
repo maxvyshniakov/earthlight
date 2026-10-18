@@ -1,8 +1,9 @@
+import {AtlasResidency,TileRequests} from './tile-residency.ts';
 import {TerrainDecoder} from './terrain-decoder.ts';
 import {cropTextureBitmap} from './texture-bitmap.ts';
 import {textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {SceneWork,scenePriority} from './scene-work.ts';
-import {visibleSurfaceTiles} from './night-tiles.ts';
+import {visibleSurfaceTiles} from './surface-tile-selection.ts';
 import {DEM_CELL as CELL,parentTerrainTile,terrainSourceName} from './terrain-detail.ts';
 import {TerrainBound,boundCode,patchMaximum,tileCellMaxima} from './terrain-bound.ts';
 type View=Parameters<typeof visibleSurfaceTiles>[0];
@@ -26,10 +27,11 @@ export class TerrainStream {
  private capacity:number;
  private coarse=new Set<number>();
  private fine=new Set<number>();
- private entries=new Map<string,Entry>();
+ private atlas:AtlasResidency<string,Entry>;
+ private get entries(){return this.atlas.entries;}
  private wanted:string[]=[];
- private pending=new Map<string,AbortController>();
- private failed=new Map<string,number>();
+ private jobs=new TileRequests<string>();
+ private get pending(){return this.jobs.pending;}
  private parents=new Map<number,{controller:AbortController;promise:Promise<Uint8Array[]>}>();
  private parentCache=new Map<number,Uint8Array[]>();
  private decoder:TerrainDecoder;
@@ -62,6 +64,7 @@ export class TerrainStream {
    if(!this.disposed)for(const f of manifest.files)this.packed.add(f.id);
   }).catch(()=>{});
   this.columns=mobile?4:6;this.edge=CELL*this.columns;this.capacity=(this.columns*this.columns-this.columns)/2;
+  this.atlas=new AtlasResidency(this.columns,this.columns*this.columns);
   this.texture=gl.createTexture();if(!this.texture)throw Error('Cannot allocate terrain atlas');
   this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
   for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);
@@ -90,8 +93,8 @@ export class TerrainStream {
    this.wanted=[...coarse.map(id=>'c'+id),...fine.map(id=>'f'+id)];
    const parents=new Set(fine.map(parentTerrainTile));
    for(const [id,p] of this.parents)if(!parents.has(id))p.controller.abort();
-   for(const [key,c] of this.pending)if(!this.wanted.includes(key))c.abort();
-   for(const key of this.wanted){const e=this.entries.get(key);if(e)e.used=now;}
+   this.jobs.retain(this.wanted);
+   this.atlas.touch(this.wanted,now);
    if(this.wanted.length){this.needed=now;if(!this.allocated&&!this.work.moving){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,this.edge,this.edge,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=true;this.pages.fill(0);this.pageKeys.clear();this.bound?.invalidate();}}
    else if(this.allocated&&!this.work.moving&&now-this.needed>2000&&!this.pending.size){this.bind();textureImage2D(gl,gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,null);this.allocated=false;this.entries.clear();this.parentCache.clear();}
    this.pump();
@@ -151,12 +154,13 @@ export class TerrainStream {
   this.parents.set(parent,{controller,promise});return promise;
  }
  private pump(){
-  if(this.disposed||document.hidden||!this.allocated)return;
+  if(this.disposed||document.hidden||!this.allocated||!this.atlas.canReserve(this.wanted))return;
   for(const key of this.wanted){
    if(this.pending.size>=2)break;
-   if(this.entries.has(key)||this.pending.has(key)||(this.failed.get(key)??0)>performance.now())continue;
-   const fine=key[0]==='f',id=Number(key.slice(1)),controller=new AbortController(),signal=controller.signal;
-   let timedOut=false;this.pending.set(key,controller);const timeout=window.setTimeout(()=>{timedOut=true;controller.abort();if(fine)this.parents.get(parentTerrainTile(id))?.controller.abort();},25000);
+   if(this.entries.has(key))continue;
+   const fine=key[0]==='f',id=Number(key.slice(1));
+   const request=this.jobs.begin(key,25000,()=>{if(fine)this.parents.get(parentTerrainTile(id))?.controller.abort();});if(!request)continue;
+   const {signal}=request.controller;let reservation:Entry|null=null;
    void (async()=>{
     let pixels:Uint8Array|undefined,image:ImageBitmap|undefined;
     try{
@@ -171,10 +175,9 @@ export class TerrainStream {
        for(let i=0;i<18*18;i++)this.bound.raise((id%40)*18+i%18,Math.floor(id/40)*18+Math.floor(i/18),maxima?boundCode(maxima[i]):255);
       }
      }
-     let slot=0;const used=new Set([...this.entries.values()].map(e=>e.slot));
-     for(let i=this.columns;i<this.columns*this.columns-1;i+=2)if(!used.has(i)){slot=i;break;}
-     if(!slot){const stale=[...this.entries].filter(([k])=>!this.wanted.includes(k)).sort((a,b)=>a[1].used-b[1].used)[0];if(!stale)return;slot=stale[1].slot;this.entries.delete(stale[0]);}
-     this.entries.set(key,{slot,loaded:Infinity,used:performance.now(),fine,id});
+     reservation=this.atlas.reserve(key,this.wanted,performance.now(),{fine,id});
+     if(!reservation)return;
+     const {slot}=reservation;
      const cell=fine?CELL:572;
      if(image&&(image.width!==cell*2||image.height!==cell))throw Error('Invalid terrain tile');
      if(pixels&&this.uploadMode==='tile'){
@@ -187,11 +190,14 @@ export class TerrainStream {
        await this.work.upload(scenePriority.tile,signal,()=>{this.bind();const s=slot+half;textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,s%this.columns*CELL,Math.floor(s/this.columns)*CELL+y,cell,rows,this.gl.RGBA,this.gl.UNSIGNED_BYTE,strip);});}}
       else if(image){const part=await cropTextureBitmap(image,half*cell,0,cell,cell);try{await this.work.upload(scenePriority.tile,signal,()=>{this.bind();const s=slot+half;textureSubImage2D(this.gl,this.gl.TEXTURE_2D,0,s%this.columns*CELL,Math.floor(s/this.columns)*CELL,this.gl.RGBA,this.gl.UNSIGNED_BYTE,part);});}finally{part.close();}}
      }
-     this.entries.set(key,{slot,loaded:performance.now(),used:performance.now(),fine,id});this.notify();
+     if(this.jobs.current(key,request)&&this.atlas.complete(key,reservation,performance.now()))this.notify();
     }finally{image?.close();}
-   })().catch(()=>{if(this.entries.get(key)?.loaded===Infinity)this.entries.delete(key);if(!this.disposed&&(!signal.aborted||timedOut)){this.failed.set(key,performance.now()+60000);this.failures++;}}).finally(()=>{clearTimeout(timeout);this.pending.delete(key);this.pump();});
+   })().catch(()=>{if(!this.disposed&&(!signal.aborted||request.timedOut)){this.jobs.fail(key,request,60000);this.failures++;}}).finally(()=>{
+    if(reservation&&!Number.isFinite(reservation.loaded))this.atlas.release(key,reservation);
+    this.jobs.finish(key,request);this.pump();
+   });
   }
  }
  stats(){return {resident:this.entries.size,fineResident:[...this.entries.values()].filter(e=>e.fine&&Number.isFinite(e.loaded)).length,fineWanted:this.wanted.filter(key=>key[0]==='f').length,capacity:this.capacity,pending:this.pending.size,wanted:this.wanted.length,bytes:this.bytes,requests:this.requests,failures:this.failures,uploadMode:this.uploadMode,cacheMode:this.cacheMode,decoderMode:this.decoderMode,sourceMode:this.sourceMode,workersCreated:this.decoder.created+this.packedDecoder.created,workersLive:this.decoder.live+this.packedDecoder.live,decodeMs:this.decoder.milliseconds+this.packedDecoder.milliseconds,packedDecodes:this.packedDecodes,packedFallbacks:this.packedFallbacks,decodes:this.decodes,decodedParents:this.parentCache.size,decodedBytes:[...this.parentCache.values()].reduce((n,patches)=>n+patches.reduce((s,p)=>s+p.byteLength,0),0),boundMode:this.boundMode,boundReady:!!this.bound?.ready,boundCells:this.bound?.cells??0,boundTexels:this.boundTexels,gpuBytes:this.allocated?this.edge*this.edge*4:4};}
- dispose(){this.disposed=true;this.abort.abort();clearTimeout(this.timer);for(const c of this.pending.values())c.abort();for(const p of this.parents.values())p.controller.abort();this.decoder.dispose();this.packedDecoder.dispose();this.pending.clear();this.entries.clear();this.parentCache.clear();if(!this.gl.isContextLost())this.gl.deleteTexture(this.texture);this.texture=null;}
+ dispose(){this.disposed=true;this.abort.abort();clearTimeout(this.timer);this.jobs.dispose();for(const p of this.parents.values())p.controller.abort();this.decoder.dispose();this.packedDecoder.dispose();this.atlas.clear();this.parentCache.clear();if(!this.gl.isContextLost())this.gl.deleteTexture(this.texture);this.texture=null;}
 }

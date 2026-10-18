@@ -1,5 +1,5 @@
 import {continuousLongitudeShader} from './surface-map.ts';
-import {terrainTileShader} from './night-tiles.ts';
+import {terrainTileShader} from './surface-tile-shader.ts';
 import {terrainDetailShader} from './terrain-detail.ts';
 import {terrainBoundShader} from './terrain-bound.ts';
 // ETOPO heights and an independent Natural Earth ocean mask. One optional
@@ -42,7 +42,19 @@ export function decodeTerrain(buffer:ArrayBuffer){
   return {width,height,levels};
 }
 
-export const terrainShader=continuousLongitudeShader+`
+/** Synthetic wind and heading shared by every light reflected at a point. */
+const oceanSurfaceStatistics=` float weather=waterField(n,17.,footprint);
+ // Most unresolved waves belong in the slope distribution. Strong kilometre
+ // scale changes in its variance made the glint resemble mottled varnish.
+ // Keep broad wind systems and weak mesoscale variation, not a gloss texture.
+ float gust=waterField(n+vec3(4.,9.,2.),65.,footprint);
+ float wind=clamp(3.+8.*weather+(gust-.5)*1.2,2.,12.);
+ vec3 east=normalize(cross(abs(n.z)<.98?vec3(0.,0.,1.):vec3(0.,1.,0.),n));
+ vec3 north=cross(n,east);
+ float heading=6.2831853*waterField(n+vec3(3.,7.,11.),8.,footprint);
+`;
+export interface OceanSurfaceShader {declarations:string;surface:string}
+export function buildTerrainShader(ocean?:OceanSurfaceShader){return continuousLongitudeShader+`
 #ifndef FOCAL
 #define FOCAL 1.25
 #endif
@@ -229,17 +241,8 @@ float waterMasking(float cosine,float alpha){
  return (3.535*a+2.181*a*a)/(1.+2.276*a+2.577*a*a);
 }
 // Sea statistics depend on the surface point only; every light source shares them.
-void oceanSurface(vec3 n,float footprint,out vec3 along,out vec3 across,out vec2 variance){
- float weather=waterField(n,17.,footprint);
- // Most unresolved waves belong in the slope distribution. Strong kilometre
- // scale changes in its variance made the glint resemble mottled varnish.
- // Keep broad wind systems and weak mesoscale variation, not a gloss texture.
- float gust=waterField(n+vec3(4.,9.,2.),65.,footprint);
- float wind=clamp(3.+8.*weather+(gust-.5)*1.2,2.,12.);
- vec3 east=normalize(cross(abs(n.z)<.98?vec3(0.,0.,1.):vec3(0.,1.,0.),n));
- vec3 north=cross(n,east);
- float heading=6.2831853*waterField(n+vec3(3.,7.,11.),8.,footprint);
- along=east*cos(heading)+north*sin(heading);across=cross(n,along);
+${ocean?.declarations??''}void oceanSurface(vec3 n,float footprint,out vec3 along,out vec3 across,out vec2 variance){
+${ocean?.surface??oceanSurfaceStatistics} along=east*cos(heading)+north*sin(heading);across=cross(n,along);
  variance=vec2(.00316*wind,.003+.00192*wind);
 }
 float oceanGlint(vec3 n,vec3 v,vec3 l,vec3 along,vec3 across,vec2 variance){
@@ -262,4 +265,5 @@ float oceanReflection(vec3 n,vec3 v,vec3 l,float footprint){
  return oceanGlint(n,v,l,along,across,variance);
 }
 
-`;
+`;}
+export const terrainShader=buildTerrainShader();

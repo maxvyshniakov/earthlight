@@ -24,6 +24,13 @@ called Orbit, and older lab notes still use that name.
 - **Scene time**: simulation seconds along the replay (`t` in the URL).
   `SceneClock` advances it at the time scale; `SceneCalendar` maps it to a UTC
   date through `epoch`.
+- **Time scale**: scene seconds per real second. At 10×, one real second advances
+  the scene by ten seconds. It is distinct from the camera's flight speed and
+  the renderer's frame rate.
+- **Calendar time**: the UTC date used for celestial lighting. Changing it
+  changes the Sun, Moon and sky without moving the camera along its orbit.
+- **Frame cadence**: when the renderer submits frames, measured in frames per
+  second or display refreshes. Slower cadence does not slow scene time.
 - **Sky**: the celestial sky only: stars, the Milky Way, Sun, Moon and planets
   (`celestial-sky.ts`). It never names the page or its controls.
 - **Measured clouds**: the lab study `cloudStudy=global`, clouds drawn from one
@@ -34,6 +41,13 @@ called Orbit, and older lab notes still use that name.
   line, where the composite joins two local days, is a seam, not a swath edge.
 - **Observer**: the camera's state at one scene time: position, basis, Sun
   direction, date, latitude, longitude and altitude (`ObserverFrame`).
+- **Pose**: camera position and orientation. An observer also includes the date
+  and lighting context; a pose alone does not.
+- **Render profile**: a named choice of rendering passes and buffer policy.
+  `compact` is the default; `reference` retains the original rendering path.
+- **Texture profile**: a choice of the galaxy overview image's resolution.
+  It leaves the star catalogue and streamed galaxy tiles unchanged and is
+  independent of the render profile.
 
 ## Flight
 
@@ -55,6 +69,13 @@ called Orbit, and older lab notes still use that name.
   `iss` (default) is the coated ISS zoom; `flare` is a flare-prone lens with
   30 times the reflections. The type is `LensPreset`, the URL parameter
   `lens-preset`; `lens` remains the zoom.
+- **Zoom**: lens magnification relative to the 1× projection. It changes the
+  field of view, not the camera position. The range is 0.5×–50× (about 15–1500 mm
+  on the camera model's 24 mm frame height).
+- **Exposure compensation**: a bias applied to automatic metering, in EV.
+  **Manual exposure** fixes the camera's exposure-program value instead of
+  adding a bias to metering. This value is distinct from the physical EV100
+  derived from shutter, aperture and sensitivity.
 - **Physical night**: the lab that renders night emitters at their physical
   radiance and lets the camera program reach ISS night exposures. The type is
   `NightMode`, the URL parameter `night` (`video` or `still`;
@@ -76,9 +97,20 @@ called Orbit, and older lab notes still use that name.
   targets; the meter, the glare pyramid and the camera finish divide it back
   out. On with physical night only (`PRE_EXPOSURE`, `sceneExposure()`;
   `pre-exposure.ts`).
+- **City emission signal**: a calibrated scalar on the scene's radiance scale,
+  derived from the night map before lamp colour and atmospheric transport.
+  It is not energy integrated over time or a measured lamp spectrum.
 
 ## Assets
 
+- **Preview**: a small initial asset that can produce the first visible scene.
+  **Overview**: a map covering a whole layer, retained beneath streamed detail.
+  A preview is a loading stage; an overview is spatial coverage.
+- **Tile**: one addressed region of a map layer. Image layers include Earth,
+  clouds and the spherical galaxy map; terrain tiles carry height data.
+- **Atlas**: a GPU texture containing multiple tiles. An **atlas reservation**
+  owns space while an upload is pending; a **resident tile** has completed its
+  upload and can be sampled. Cancellation alone does not finish an upload.
 - **Media**: prepared scene data under `public/media/earthlight`, served at
   `/media/earthlight/` locally and published as an immutable release. The
   release manifest lists paths relative to that directory.
@@ -97,6 +129,33 @@ called Orbit, and older lab notes still use that name.
   all three levels of one day tile, repacked into packs for the release
   (`build-day-pyramid-packs.mjs`).
 
+## Implementation vocabulary
+
+These names describe software responsibilities, not additional objects in the
+scene. Keep their scope explicit rather than giving every helper a new domain
+name.
+
+| Name | Responsibility |
+| --- | --- |
+| `ExplorerSession` | Current settings, playback, calendar and navigation for one explorer. |
+| `SceneHostLifecycle` | Frame scheduling and browser lifecycle bindings for an explorer or background. |
+| `NightCrossfade` | The held hand-over image and its fade completion; not the night-mode switch itself. |
+| `SceneRenderOptions` | Normalized requested settings, including a separate set of experiments. |
+| `SceneRenderCapabilities` | Facts probed from the current WebGL context. |
+| `SceneRenderPlan` | Eligible rendering paths derived from settings, capabilities and host policy; allocation may still fail. |
+| Render diagnostics | Observations exposed to the HUD and tests, never configuration read back into the renderer. |
+| `AssetRequest` | One asset URL, asset key and loading stage; a list of requests forms an asset plan. |
+| `SceneWork` | Shared admission and scheduling budgets for resource jobs. |
+| `AtlasResidency` | Atlas reservations, completed entries and eviction. |
+| `TileRequests` | Request identity, cancellation and retry deadlines. |
+| `DayPyramidSelection` | Selection against the decoded availability index, without fetching or GPU work. |
+| GLSL block | Reusable shader source declarations, functions or statements. |
+| Fragment shader | A complete fragment-stage shader, distinct from a reusable GLSL block. |
+
+An owner and its operation may share a word (`selection.select`); that is not
+reason enough to invent a synonym. Rename when the old word denotes the wrong
+concept, conceals a unit, or conflates responsibilities.
+
 ## Words to avoid
 
 | Avoid | Use |
@@ -106,3 +165,7 @@ called Orbit, and older lab notes still use that name.
 | orbit (for the camera circling a point) | circle |
 | `sky-` (for UI) | `explorer-` |
 | orbit renderer, orbital shader | scene renderer, scene shader |
+| speed for simulation playback | time scale; keep speed for physical camera motion |
+| rate for a 0–1000 slider coordinate | time-slider position; URL `rate` is retained for compatibility |
+| asset plan for one URL request | asset request; a plan contains requests |
+| fragment for both a reusable source block and a shader stage | GLSL block or fragment shader, according to meaning |

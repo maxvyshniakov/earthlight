@@ -9,8 +9,8 @@ import assert from 'node:assert/strict';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {cloudShader} from '../src/scripts/earth-clouds.ts';
-import {cloudLightingSource} from '../src/scripts/cloud-lighting.ts';
+import {cloudShader,buildCloudShader} from '../src/scripts/earth-clouds.ts';
+import {cloudLightingShader} from '../src/scripts/cloud-lighting.ts';
 const exec=promisify(execFile);
 const [base='http://127.0.0.1:4391',out='/tmp/earthlight-cloud-footprint',ref='HEAD',views='polar,horizon,nadir']=process.argv.slice(2);
 const pairCount=Number(process.env.FOOTPRINT_PAIRS??96);
@@ -22,8 +22,16 @@ await writeFile(staged,execFileSync('git',['show',`${ref}:src/scripts/earth-clou
 let baselineShader;
 try{({cloudShader:baselineShader}=await import(staged.href));}finally{await rm(staged);}
 if(!process.env.FOOTPRINT_AA)assert.notEqual(baselineShader,cloudShader,'The working cloud shader matches the baseline');
-// The texture-lighting programs carry the cloud module rewritten by cloudLightingSource.
-const swaps=[[cloudLightingSource(cloudShader),cloudLightingSource(baselineShader)],[cloudShader,baselineShader]];
+// Frozen-source adapter for revisions predating the explicit cloud builder.
+// Only the archived module needs signature matching; current GLSL is composed.
+const baselineCachedCloud=source=>{
+ const signature='float cloudShadow(vec3 point){';
+ assert.ok(source.includes(signature),'Archived cloud shadow signature');
+ assert.ok(source.includes('float cloudBaseDensity('),'Archived cloud density signature');
+ return source.replace('float cloudBaseDensity(',cloudLightingShader.declarations+'\nfloat cloudBaseDensity(')
+  .replace(signature,signature+cloudLightingShader.shadowPrelude);
+};
+const swaps=[[buildCloudShader('current',{lighting:cloudLightingShader}),baselineCachedCloud(baselineShader)],[cloudShader,baselineShader]];
 const iss=(latDeg,lonDeg,headingDeg,altitude,elevation)=>{
  const r=Math.PI/180,lat=latDeg*r,lon=lonDeg*r,h=headingDeg*r;
  const n=[Math.cos(lat)*Math.cos(lon),Math.cos(lat)*Math.sin(lon),Math.sin(lat)];

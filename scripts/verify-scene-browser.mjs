@@ -1,3 +1,5 @@
+import {cloudReconstructionShaderFor} from '../src/scripts/cloud-reconstruction.ts';
+import {temporalShadersFor} from '../src/scripts/cloud-temporal.ts';
 import {verifySwipeRecovery} from './swipe-browser-fixture.mjs';
 import {verifyTileSeams} from './tile-seam-browser-fixture.mjs';
 import {verifyCanvasResize} from './canvas-resize-browser-fixture.mjs';
@@ -10,7 +12,7 @@ import { airglowLightShader } from '../src/scripts/airglow-light.ts';
 // bun run verify:scene http://127.0.0.1:4322 /tmp/earthlight-browser-proof
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {verifyLighting} from './lighting-browser-fixture.mjs';
 import {verifyNightLight} from './night-light-browser-fixture.mjs';
@@ -31,7 +33,9 @@ import {verifyTouch} from './touch-browser-fixture.mjs';
 import {verifyCalendar} from './calendar-browser-fixture.mjs';
 import {START_DATE} from '../src/scripts/iss-orbit.ts';
 import {atmosphericLightShader} from '../src/scripts/atmospheric-light.ts';
-import {cloudShader} from '../src/scripts/earth-clouds.ts';
+import {cloudMapShader,cloudCoverageShader,cloudDensityShader} from '../src/scripts/earth-clouds.ts';
+import {sceneNoiseShader,airglowRayShader,cityEmissionShader,sceneShadersFor} from '../src/scripts/scene-shader.ts';
+import {cameraSensorShader,cameraHighlightsShader} from '../src/scripts/camera-finish.ts';
 const exec=promisify(execFile);
 const [base='http://127.0.0.1:4322',out='/tmp/earthlight-browser-proof']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
@@ -47,14 +51,11 @@ const evaluate=async js=>JSON.parse(await run('eval','--base64',Buffer.from(js).
 const wait=condition=>run('wait','--fn',condition);
 const settled="document.querySelector('earthlight-explorer').dataset.assetPhase==='settled'&&document.querySelector('earthlight-explorer').dataset.focus==='sharp'";
 const results=[];
-const cameraFinishSource=await readFile(new URL('../src/scripts/camera-finish.ts',import.meta.url),'utf8');
 const sensorFixture='precision highp float;uniform float grainAmount;uniform sampler2D poisson;uniform float signal;uniform float iso;'
- +cameraFinishSource.slice(cameraFinishSource.indexOf('float hash(vec2 p)'),cameraFinishSource.indexOf('void main()'))
-  .replaceAll('${POISSON_ROWS-1}','1023').replaceAll('${POISSON_ROWS}','1024')
+ +cameraSensorShader
  +'void main(){float v=sensorChannel(signal,iso,gl_FragCoord.xy)*5.;gl_FragColor=vec4(v,v,v,1.);}';
-const sceneShader=await readFile(new URL('../src/scripts/scene-shader.ts',import.meta.url),'utf8');
 const highlightFixture=`precision highp float;
-${cameraFinishSource.slice(cameraFinishSource.indexOf('vec3 cameraHighlights('),cameraFinishSource.indexOf('void main()'))}
+${cameraHighlightsShader}
 void main(){
  float energy=floor(gl_FragCoord.x)/255.*3.;
  vec3 tint=gl_FragCoord.y<1.?vec3(1.,.6,.32):vec3(1.);
@@ -69,20 +70,26 @@ void main(){
  vec3 ray=normalize(vec3(-1.,(gl_FragCoord.x-31.)*.0001,(gl_FragCoord.y-2.)*.0001));
  gl_FragColor=vec4(milkyWay(ray)/.006,1.);
 }`;
-const surfaceSeamFixture=`precision highp float;
-uniform sampler2D surfaceMap;
+const surfaceSeamShader=(night=false)=>`precision highp float;
+uniform sampler2D surfaceMap;${night?'uniform sampler2D nightMap;':''}
 ${surfaceMapShader}
+${night?cityEmissionShader:''}
 void main(){
  vec3 n=normalize(vec3(-.3,(gl_FragCoord.x-31.+gl_FragCoord.y*.3)*.0001,-.95));
  vec2 uv=vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592654+.5);
- gl_FragColor=vec4(surfaceAlbedo(uv),1.);
+ gl_FragColor=vec4(${night?'vec3(cityEmission(uv))':'surfaceAlbedo(uv)'},1.);
 }`;
 // Exercise the production night sampler too: a coarse mip can invent city
 // emission over the ocean at the longitude branch cut.
-const nightSeamFixture=surfaceSeamFixture.replace('uniform sampler2D surfaceMap;',
- 'uniform sampler2D surfaceMap;uniform sampler2D nightMap;')
- .replace('void main(){',sceneShader.slice(sceneShader.indexOf('float cityEmission('),sceneShader.indexOf('vec2 screenPosition('))+'void main(){')
- .replace('vec4(surfaceAlbedo(uv),1.)','vec4(vec3(cityEmission(uv)),1.)');
+const surfaceSeamFixture=surfaceSeamShader(),nightSeamFixture=surfaceSeamShader(true);
+// Substitute explicit production entry-point blocks, retaining their headers
+// and declarations without searching for comments or function boundaries.
+const defocusFixture='void main(){vec2 d=abs(gl_FragCoord.xy-resolution*.5);float v=d.x<4.&&d.y<4.?.2:.02;vec3 color=displayToLinear(vec3(v));gl_FragColor=sceneLinear>.5?vec4(color,1.):packSceneRadiance(color);}';
+const defocusScene=sceneShadersFor('current');
+const defocusSceneSources=[defocusScene.sceneMain,defocusScene.buildVolumeMain(),
+ defocusScene.buildVolumeMain({declarations:cloudReconstructionShaderFor('current'),expression:'reconstructClouds(uv,earthRay,groundDistance,color,atmosphereDistance)'}),
+ defocusScene.buildVolumeMain({declarations:temporalShadersFor('current').temporalCompositeShader,expression:'temporalClouds(uv,earthRay,groundDistance,color,atmosphereDistance)'})]
+ .map(source=>[source,defocusFixture]);
 const sunlightFixture=`precision highp float;
 ${atmosphericLightShader}
 void main(){
@@ -99,7 +106,7 @@ float coverage;
 float noise(vec3 p){return regional;}
 vec3 cloudCoordinates(vec3 p){return p;}
 float cloudCoverage(vec3 p,float footprint,bool detailed){return coverage;}
-${cloudShader.slice(cloudShader.indexOf('float filteredCloudNoise('),cloudShader.indexOf('float cloudLightTransmission('))}
+${cloudDensityShader}
 void main(){
  coverage=gl_FragCoord.y<1.? .25:gl_FragCoord.y<2.? .6:1.;
  float height=gl_FragCoord.x/512.*12.;
@@ -113,7 +120,7 @@ const float time=0.;
 mat2 rotate(float a){return mat2(1.);}
 vec2 earthUV(vec3 n){return vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592654+.5);}
 float detailedCloud(vec2 uv,float footprint,float fallback){return fallback;}
-${cloudShader.slice(0,cloudShader.indexOf('// Once an octave'))}
+${cloudCoverageShader}
 void main(){
  // The seam band widens as 1/cos(latitude): at 60 degrees it spans +-.024 of the map.
  float longitude=(gl_FragCoord.x/256.-.5)*.064*6.283185307+ev;
@@ -130,7 +137,7 @@ const float time=0.;
 mat2 rotate(float a){return mat2(1.);}
 vec2 earthUV(vec3 n){return vec2(atan(n.y,n.x)/6.283185307+.5,asin(n.z)/3.141592654+.5);}
 float detailedCloud(vec2 uv,float footprint,float fallback){return fallback;}
-${cloudShader.slice(0,cloudShader.indexOf('float cloudCoverageAt('))}
+${cloudMapShader}
 void main(){
  vec3 n=normalize(vec3(-.3,(gl_FragCoord.x-31.+gl_FragCoord.y*.3)*.0001,-.95));
  gl_FragColor=vec4(vec3(cloudMapSample(earthUV(n),0.,1.,false)),1.);
@@ -141,9 +148,9 @@ uniform float daylight;
 uniform float gain;
 uniform vec3 sunDirection;
 const vec3 cameraPosition=vec3(0.,0.,1.+425./6371.);
-${sceneShader.slice(sceneShader.indexOf('float hash('),sceneShader.indexOf('mat2 rotate('))}
+${sceneNoiseShader}
 ${airglowLightShader}
-${sceneShader.slice(sceneShader.indexOf('vec3 airglowSegment('),sceneShader.indexOf('float cityEmission('))}
+${airglowRayShader}
 void main(){
   float height=-10.+gl_FragCoord.x/512.*150.;
   float q=(1.+height/6371.)/cameraPosition.z;
@@ -412,8 +419,9 @@ try{
  for(const byteTarget of [false,true]){
   // The defocus probe patches WebGLRenderingContext.prototype: pin WebGL1.
  await run('open',`${base}/?t=1338.89&motion=0&quality=fixed&exposure-mode=manual&exposure-fixed=-0.7&api=webgl`);await wait(settled);
- await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,source=p.shaderSource,get=p.getUniformLocation,set=p.uniform1f,names=new WeakMap();window.fixtureRadius=0;const fetchImage=window.fetch.bind(window);window.fetch=async(u,o)=>{if(String(u).includes('/media/earthlight/')&&!String(u).includes('/preview/')&&!String(u).endsWith('.bin'))await new Promise(r=>setTimeout(r,8000));return fetchImage(u,o);};if(${byteTarget}){const ext=p.getExtension;p.getExtension=function(name){return name==='OES_texture_half_float'?null:ext.call(this,name);};}p.shaderSource=function(shader,text){if(text.includes('CameraFinish owns defocus'))text=text.slice(0,text.indexOf('void main()'))+'void main(){vec2 d=abs(gl_FragCoord.xy-resolution*.5);float v=d.x<4.&&d.y<4.?.2:.02;vec3 color=displayToLinear(vec3(v));gl_FragColor=sceneLinear>.5?vec4(color,1.):packSceneRadiance(color);}';return source.call(this,shader,text);};p.getUniformLocation=function(prog,name){const loc=get.call(this,prog,name);if(loc)names.set(loc,name);return loc;};p.uniform1f=function(loc,v){return set.call(this,loc,names.get(loc)==='focusRadius'?window.fixtureRadius:v);};const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const k of Object.keys(copy.dataset))if(k!=='composition'&&!k.startsWith('astro'))delete copy.dataset[k];e.replaceWith(copy);return true;})()`);
+ await evaluate(`(()=>{const p=WebGLRenderingContext.prototype,source=p.shaderSource,get=p.getUniformLocation,set=p.uniform1f,names=new WeakMap();window.fixtureRadius=0;window.defocusReplacements=0;const fetchImage=window.fetch.bind(window);window.fetch=async(u,o)=>{if(String(u).includes('/media/earthlight/')&&!String(u).includes('/preview/')&&!String(u).endsWith('.bin'))await new Promise(r=>setTimeout(r,8000));return fetchImage(u,o);};if(${byteTarget}){const ext=p.getExtension;p.getExtension=function(name){return name==='OES_texture_half_float'?null:ext.call(this,name);};}p.shaderSource=function(shader,text){const replacements=${JSON.stringify(defocusSceneSources)};for(const [scene,fixture] of replacements)if(text.endsWith(scene)){text=text.replace(scene,fixture);window.defocusReplacements++;break;}return source.call(this,shader,text);};p.getUniformLocation=function(prog,name){const loc=get.call(this,prog,name);if(loc)names.set(loc,name);return loc;};p.uniform1f=function(loc,v){return set.call(this,loc,names.get(loc)==='focusRadius'?window.fixtureRadius:v);};const e=document.querySelector('earthlight-explorer'),copy=e.cloneNode(true);for(const k of Object.keys(copy.dataset))if(k!=='composition'&&!k.startsWith('astro'))delete copy.dataset[k];e.replaceWith(copy);return true;})()`);
  await wait("document.querySelector('earthlight-explorer').hasAttribute('data-ready')");
+ assert.ok(await evaluate('window.defocusReplacements')>0,'defocus probe replaced a production scene entry point');
  await run('wait','1800');
  const optical=await evaluate(`(async()=>{
   const e=document.querySelector('earthlight-explorer'),gl=(e.querySelector('canvas').getContext('webgl2')||e.querySelector('canvas').getContext('webgl'));

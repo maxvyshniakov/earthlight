@@ -110,7 +110,10 @@ void main(){
  gl_FragColor=field;
 }`;
 
-export const auroraShader=`
+/** Sample count is explicit so convergence fixtures compile the same integral. */
+export function auroraShaderForSteps(steps=128){
+ if(!Number.isSafeInteger(steps)||steps<1)throw new RangeError('Aurora integration steps must be a positive integer');
+ return `
 uniform sampler2D auroraFootprint;
 #ifdef AURORA_SOLAR_UNIFORM
 uniform float auroraSolarAzimuth;
@@ -212,9 +215,9 @@ vec3 auroraDensity(vec3 point,float footprint){
 }
 vec3 auroraIntegral(vec3 ray,float start,float end,float pixelAngle){
  if(end<=start)return vec3(0.);
- float stepLength=(end-start)/128.;
+ float stepLength=(end-start)/${steps}.;
  vec3 light=vec3(0.);
- for(int i=0;i<128;i++){
+ for(int i=0;i<${steps};i++){
   float distance=start+(float(i)+.5)*stepLength;
   float footprint=distance*pixelAngle;
   // A conservative coarse footprint finds the emitting sheets. Refine only
@@ -281,9 +284,10 @@ vec3 auroraEmission(vec3 ray,float pixelAngle){
  float column=exp(-tangent/8.)*sqrt(6.283185307*8./6371.);
  return nearLight+farLight*exp(-vec3(36.9518,86.0085,210.8801)*column);
 }
-`;
+`;}
+export const auroraShader=auroraShaderForSteps();
 
-const fragment=`precision highp float;
+const auroraFragment=(steps=128)=>`precision highp float;
 precision highp sampler2D;
 uniform vec2 resolution;
 uniform vec3 cameraPosition,sunDirection;
@@ -291,7 +295,7 @@ uniform mat3 cameraBasis;
 uniform float time;
 uniform float zoomExcess;
 #define FOCAL (1.25*(1.+zoomExcess))
-${auroraShader}
+${auroraShaderForSteps(steps)}
 void main(){
  vec2 p=(gl_FragCoord.xy/resolution-.5)*vec2(resolution.x/resolution.y,1.);
  vec3 ray=normalize(cameraBasis*normalize(vec3(p,FOCAL)));
@@ -311,10 +315,10 @@ export class Aurora {
  static targetType(gl:WebGLRenderingContext){
   return halfFloatTarget(gl,true)??gl.UNSIGNED_BYTE;
  }
- static sources(gl:WebGLRenderingContext,lean=false){
+ static sources(gl:WebGLRenderingContext,lean=false,steps=128){
   const storageHeader=Aurora.targetType(gl)===gl.UNSIGNED_BYTE?'#define AURORA_BYTE_TARGET 1\n':'';
   const header=shaderLod(gl)?'#extension GL_EXT_shader_texture_lod : enable\n#define AURORA_LOD 1\n':'';
-  return {vertex:'attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',volume:header+storageHeader+(lean?'#define AURORA_SOLAR_UNIFORM 1\n':'')+fragment,field:storageHeader+footprintShader};
+  return {vertex:'attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}',volume:header+storageHeader+(lean?'#define AURORA_SOLAR_UNIFORM 1\n':'')+auroraFragment(steps),field:storageHeader+footprintShader};
  }
  static prepare(gl:WebGLRenderingContext,batch:ShaderProgramBatch,lean=false){
   const source=Aurora.sources(gl,lean);
@@ -335,7 +339,7 @@ export class Aurora {
  private position=0;
  private uniforms:Record<string,WebGLUniformLocation|null>={};
  private gl:WebGLRenderingContext;
- constructor(gl:WebGLRenderingContext,prepared?:ReturnType<typeof Aurora.prepare>){
+ constructor(gl:WebGLRenderingContext,prepared?:ReturnType<typeof Aurora.prepare>,integrationSteps=128){
   this.gl=gl;
   this.pixelType=Aurora.targetType(gl);
   const shaders:WebGLShader[]=[];
@@ -343,7 +347,7 @@ export class Aurora {
    this.program=prepared?prepared.batch.take(prepared.program):gl.createProgram();this.buffer=gl.createBuffer();this.texture=gl.createTexture();this.target=gl.createFramebuffer();
    if(!this.program||!this.buffer||!this.texture||!this.target)throw Error('Cannot allocate aurora');
    if(!prepared){
-    const sources=Aurora.sources(gl);
+    const sources=Aurora.sources(gl,false,integrationSteps);
     for(const [type,source] of [[gl.VERTEX_SHADER,sources.vertex],[gl.FRAGMENT_SHADER,sources.volume]] as const){
      const shader=gl.createShader(type);if(!shader)throw Error('Cannot allocate aurora shader');
      shaders.push(shader);gl.shaderSource(shader,source);gl.compileShader(shader);

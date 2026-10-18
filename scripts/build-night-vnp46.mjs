@@ -1,3 +1,4 @@
+import {tileDimensions,tileManifest,tileMipSizes} from '../src/scripts/tile-layout.ts';
 // Lab, nightDetail=vnp46: global night tiles from NASA Black Marble VNP46A4 /
 // VJ146A4 Collection 2 (see docs/lab/night-vnp46-2026-10-17.md).
 // bun scripts/build-night-vnp46.mjs --global <work>  after scripts/vnp46-global.py:
@@ -34,7 +35,7 @@ const blackMarble = process.argv[2] === '--black-marble';
 if (!blackMarble && process.argv[2] !== '--global') throw new Error('Usage: see the header of scripts/build-night-vnp46.mjs');
 const [work, ...regions] = process.argv.slice(3);
 const output = 'public/media/earthlight/night-vnp46-tiles';
-const N = 2400, interior = 540, gutter = 16, cell = 572;
+const N = 2400, {interior,gutter,cell,columns,rows}=tileDimensions('night');
 const origin = region => [+region.slice(1, 3) * N, +region.slice(4, 6) * N];
 if (blackMarble) {
   const source = 'public/media/earthlight/night-tiles';
@@ -55,7 +56,7 @@ if (blackMarble) {
   process.exit(0);
 }
 await mkdir(output, { recursive: true });
-// The shader's nightVnp46Encoded (src/scripts/night-tiles.ts) for every code,
+// The shader's nightVnp46Encoded (src/scripts/surface-tile-shader.ts) for every code,
 // with the 2016 ceiling: what a texel contributes on the display scale.
 const TOP = 2.88;
 const displayed = Float64Array.from({ length: 256 }, (_, code) => Math.min(1, code / 255 * TOP));
@@ -86,7 +87,7 @@ const encode = pixels => {
   const image = Buffer.alloc(2 * cell * cell), level = Float64Array.from(pixels, code => displayed[code]);
   for (let y = 0; y < cell; y++) pixels.copy(image, y * 2 * cell, y * cell, (y + 1) * cell);
   let offset = cell;
-  for (const size of [cell / 2, cell / 4, Math.ceil(cell / 8), Math.ceil(cell / 16)]) {
+  for (const size of tileMipSizes(cell)) {
     const mip = shrink(shrink(level, cell, cell, size, true), size, cell, size, false);
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) image[y * 2 * cell + offset + x] = nearest(mip[y * size + x]);
     offset += size;
@@ -95,7 +96,7 @@ const encode = pixels => {
     .avif({ quality: 80, effort: 4, chromaSubsampling: '4:4:4', bitdepth: 8 }).toBuffer();
 };
 const manifest = {
-  version: 2, mipmaps: 'packed', width: 86400, height: 43200, interior, gutter, columns: 160, rows: 80, quality: 80,
+  ...tileManifest('night',[],true), width: columns*interior, height: rows*interior, quality: 80,
   // code = 255 e / 2.88, e = 0.3572 ln(1 + (L/1.564)^4.567) / 4.567, L in nW cm^-2 sr^-1:
   // Black Marble 2016's display scale (1 at ~26 nW), unclamped up to ~5000 nW.
   encoding: { kind: 'displayed', top: TOP, transfer: { a: .3572, r0: 1.564, p: 4.567 }, units: 'nW/(cm^2 sr)' },

@@ -292,7 +292,7 @@ test('playback keeps exact speed across delayed frames and resumes after repeate
 test('speed changes preserve the current time and suspension never catches up hidden time',()=>{
   const clock=new SceneClock(1000,10);
   clock.setRunning(true,0);
-  clock.setSpeed(2.5,1000);
+  clock.setTimeScale(2.5,1000);
   assert.equal(clock.read(1000),1010);
   assert.equal(clock.read(2000),1012.5);
   clock.setRunning(false,2000);

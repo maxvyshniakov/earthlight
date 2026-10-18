@@ -1,4 +1,6 @@
-export const DEM_CELL=632,DEM_INTERIOR=600,DEM_COLUMNS=720,DEM_ROWS=360;
+import {tileDimensions} from './tile-layout.ts';
+const layout=tileDimensions('terrainFine');
+export const DEM_CELL=layout.cell,DEM_INTERIOR=layout.interior,DEM_COLUMNS=layout.columns,DEM_ROWS=layout.rows;
 export function parentTerrainTile(id:number){return Math.floor(Math.floor(id/720)/2)*360+Math.floor((id%720)/2);}
 export function terrainSourceName(id:number){
  const lat=89-Math.floor(id/360),lon=id%360-180;

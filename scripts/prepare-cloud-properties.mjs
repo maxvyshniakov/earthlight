@@ -15,6 +15,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {gunzipSync} from 'node:zlib';
 import sharp from 'sharp';
 import {decodeTerrain} from '../src/scripts/earth-terrain.ts';
+import {tileAddress,tileDimensions,tileManifest} from '../src/scripts/tile-layout.ts';
 sharp.concurrency(2);sharp.cache(false);
 const cache=process.argv[2]||'/tmp/earthlight-cloud-properties-cache';
 const date=process.argv[3]||'2026-09-22';
@@ -372,10 +373,11 @@ await sharp(overview,{raw:{width:OVERVIEW,height:OVERVIEW/2,channels:4}}).avif({
 // overview already resolves them. Measured opacity is noisier than the
 // plates: AVIF quality 48 keeps all tiles near 15 MB (65: 25 MB) at an
 // opacity RMS error of about 7.5/255; effort 7 saves little and 9 is too slow.
-const interior=512,gutter=16,cell=544,columns=32,rows=16,TILE_QUALITY=48;
-const tileManifest={version:1,width:GRID,height:GRID/2,interior,gutter,columns,rows,quality:TILE_QUALITY,tiles:[],bytes:0};
+const cloudLayout=tileDimensions('cloud'),{interior,gutter,cell,columns,rows}=cloudLayout,TILE_QUALITY=48;
+const cloudManifest=tileManifest('cloud',[]);
+const cloudTileManifest={version:cloudManifest.version,width:GRID,height:GRID/2,interior,gutter,columns,rows,quality:TILE_QUALITY,tiles:cloudManifest.tiles,bytes:0};
 for(let ty=0;ty<rows;ty++)for(let tx=0;tx<columns;tx++){
- const id=ty*columns+tx,pixels=Buffer.alloc(cell*cell);let any=0;
+ const id=tileAddress(cloudLayout,tx,ty),pixels=Buffer.alloc(cell*cell);let any=0;
  for(let y=0;y<cell;y++)for(let x=0;x<cell;x++){
   const px=(tx*interior+x-gutter+GRID)%GRID,py=Math.max(0,Math.min(GRID/2-1,ty*interior+y-gutter));
   any|=pixels[y*cell+x]=opacityGrid[py*GRID+px];
@@ -383,9 +385,9 @@ for(let ty=0;ty<rows;ty++)for(let tx=0;tx<columns;tx++){
  if(!any)continue;
  const encoded=await sharp(pixels,{raw:{width:cell,height:cell,channels:1}}).toColourspace('b-w').avif({quality:TILE_QUALITY,effort:5,chromaSubsampling:'4:4:4'}).toBuffer();
  await writeFile(`${out}/tiles/${id}.avif`,encoded);
- tileManifest.tiles.push(id);tileManifest.bytes+=encoded.length;
+ cloudTileManifest.tiles.push(id);cloudTileManifest.bytes+=encoded.length;
 }
-await writeFile(out+'/tiles/manifest.json',JSON.stringify(tileManifest));
+await writeFile(out+'/tiles/manifest.json',JSON.stringify(cloudTileManifest));
 const overviewBytes=(await readFile(out+'/overview-v2.avif')).length;
 const fraction=v=>+(v/area.total).toFixed(4);
 const manifest={
@@ -415,7 +417,7 @@ const manifest={
  budget:{measured:fraction(measuredOpacity.phase),measuredWithLiquidRelation:fraction(measuredOpacity.liquid),partialFromReflectance:fraction(partialOpacity.reflectance),partialFromMedian:fraction(partialOpacity.median)},
  area:{measured:fraction(area.measured),partial:fraction(area.partial),partialFromReflectance:fraction(area.partialReflectance),clear:fraction(area.clear),unknown:+(unknownArea/overviewArea).toFixed(4),seaIce:+(seaIceArea/overviewArea).toFixed(4)},
  types:{rows:'low < 3.2 km, middle < 6.5 km, high',columns:'tau < 3.6, < 23, thicker',fractionOfGlobe:types.map(r=>[...r].map(fraction))},
- bytes:{overview:overviewBytes,tiles:tileManifest.bytes,tileCount:tileManifest.tiles.length},
+ bytes:{overview:overviewBytes,tiles:cloudTileManifest.bytes,tileCount:cloudTileManifest.tiles.length},
  limits:'One daytime overpass per place, so the picture is a mosaic of ~13:30 local solar times; the date line joins observations about 24 h apart. Only the highest layer is measured; lower decks under it are not reconstructed. Phase comes from MODIS 1-2 h later or earlier. Night and polar areas beyond the daytime swaths are unknown and render without cloud. Bases and vertical profiles are inferred in the shader from phase, height and thickness.',
 };
 await writeFile(`${out}/manifest.json`,JSON.stringify(manifest,null,2)+'\n');

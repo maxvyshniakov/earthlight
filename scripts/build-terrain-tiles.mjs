@@ -1,10 +1,11 @@
+import {tileDimensions,tileManifest,tileAddress} from '../src/scripts/tile-layout.ts';
 // Lossless, sparse ETOPO 60 arcsecond tiles. Numeric mips must be generated
 // before packing height bytes; image resizing would corrupt byte carries.
 import sharp from 'sharp';
 import {mkdir,writeFile} from 'node:fs/promises';
 const source=process.argv[2];
 if(!source)throw Error('Pass ETOPO_2022_v1_60s_N90W180_surface.tif');
-const width=21600,height=10800,interior=540,gutter=16,cell=572;
+const {interior,gutter,cell,columns,rows}=tileDimensions('terrain'),width=columns*interior,height=rows*interior;
 const meta=await sharp(source,{limitInputPixels:false}).metadata();
 if(meta.width!==width||meta.height!==height)throw Error('Expected 21600 x 10800 ETOPO');
 const root=new URL('../public/media/earthlight/terrain-tiles/',import.meta.url);
@@ -41,9 +42,9 @@ for(let ty=0;ty<20;ty++){
    }
    values=next;size=nextSize;
   }
-  const id=ty*40+tx,out=await sharp(packed,{raw:{width:cell*2,height:cell,channels:3}}).png({compressionLevel:9}).toBuffer();
+  const id=tileAddress(tileDimensions('terrain'),tx,ty),out=await sharp(packed,{raw:{width:cell*2,height:cell,channels:3}}).png({compressionLevel:9}).toBuffer();
   await writeFile(new URL(`${id}.png`,root),out);tiles.push(id);bytes+=out.length;
  }
  console.log({row:ty,tiles:tiles.length,bytes});
 }
-await writeFile(new URL('manifest.json',root),JSON.stringify({version:1,columns:40,rows:20,interior,gutter,source:'NOAA ETOPO 2022 ice surface, 60 arcseconds',tiles})+'\n');
+await writeFile(new URL('manifest.json',root),JSON.stringify({...tileManifest('terrain',tiles),source:'NOAA ETOPO 2022 ice surface, 60 arcseconds',tiles})+'\n');
