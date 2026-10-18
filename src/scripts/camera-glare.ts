@@ -23,11 +23,11 @@ export const FIELD_LEVEL_SPREAD=.76;
 /** Radiance at which a meter block counts as lit (smoothstep), shared with
  * the exposure meter's point samples. Scene units: sunlit cloud ~0.5. */
 export const METER_LIT=[.025,.10] as const;
-/** With `night=video|still` METER_LIT and the meter's subject bound hold in
- * scene units up to this EV, the default program's ceiling, and scale with
- * the exposure above it: at night a subject is what stands 4–6 stops over
- * metered mid-grey, as daylit Earth does on black sky at EV 5.1. Below it
- * the day is metered exactly as before. */
+/** With `night=video|still` METER_LIT holds in scene units up to this EV,
+ * the default program's ceiling, and scales with the meter's frame EV above
+ * it, never with the camera's own: at night a subject is what stands 4–6
+ * stops over the frame's metered mid-grey, as daylit Earth does on black sky
+ * at EV 5.1. Below it the day is metered exactly as before. */
 export const METER_SUBJECT_EV=5.1;
 /** Level whose blocks define a metering subject: about 1/70 of the frame
  * height including the chain's spread (12 px at 800). The lit half of a
@@ -89,13 +89,17 @@ uniform vec4 solarMask;
 uniform float alphaMode;
 ${PRE_EXPOSURE?`#define CAMERA_PUPIL_STATE 1
 uniform sampler2D cameraState;
+uniform sampler2D frameState;
 ${cameraModelShaderFor(mode)}${preExposureShaderFor(mode)}`:''}vec4 tap(vec2 uv){
   vec4 c=texture2D(source,uv);
   if(solarMask.w>.5&&length((uv-.5)*vec2(sourceSize.x/sourceSize.y,1.)-solarMask.xy)<solarMask.z)
     c.rgb=min(c.rgb,vec3(${GLARE_SOLAR_CAP.toFixed(1)})${PRE_EXPOSURE?'*sceneExposure()':''});
   return vec4(max(c.rgb,vec3(0.)),c.a);
 }
-float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b))${PRE_EXPOSURE?`/min(sceneExposure(),${(2**METER_SUBJECT_EV).toFixed(4)})`:''});}
+${PRE_EXPOSURE?`// Radiance over the subject threshold's scale: the frame EV of the meter's
+// last update above EV ${METER_SUBJECT_EV}, never the exposure the frame was taken with.
+float subjectScale(){return min(1.,${(2**METER_SUBJECT_EV).toFixed(4)}/exp2(decodeCameraEV(texture2D(frameState,vec2(.5)).rg)));}
+`:''}float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b))${PRE_EXPOSURE?`/(sceneExposure()*subjectScale())`:''});}
 void main(){
   vec2 uv=gl_FragCoord.xy/targetSize,d=1./sourceSize;
   vec4 a=tap(uv-d),b=tap(uv+d),c=tap(uv+vec2(d.x,-d.y)),e=tap(uv+vec2(-d.x,d.y));
@@ -173,7 +177,7 @@ export class CameraGlare {
   }
   private locate(){
     const gl=this.gl;
-    for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode','cameraState'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down!,name);
+    for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode','cameraState','frameState'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down!,name);
     for(const name of ['coarse','detail','coarseSize','targetSize','coarseScale','detailWeight'])this.uniforms[`up.${name}`]=gl.getUniformLocation(this.up!,name);
     for(const name of ['source','rect'])this.uniforms[`copy.${name}`]=gl.getUniformLocation(this.copy!,name);
   }
@@ -192,8 +196,9 @@ export class CameraGlare {
   }
   /** Downsamples the scene into its levels and atlas; false when the frame
    * is too small for a pyramid. Exposure reads these before anything else.
-   * cameraState: the exposure a pre-exposed image was rendered with. */
-  build(image:WebGLTexture,width:number,height:number,solarMask:[number,number,number,number],cameraState:WebGLTexture|null=null){
+   * cameraState: the exposure a pre-exposed image was rendered with;
+   * frameState: the meter's frame EV, which scales the subject threshold. */
+  build(image:WebGLTexture,width:number,height:number,solarMask:[number,number,number,number],cameraState:WebGLTexture|null=null,frameState:WebGLTexture|null=null){
     const gl=this.gl;
     if(width!==this.width||height!==this.height)this.allocate(width,height);
     const levels=this.images.length;
@@ -206,6 +211,7 @@ export class CameraGlare {
     gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
     gl.uniform1i(this.uniforms['down.source'],4);
     if(cameraState){gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,cameraState);gl.uniform1i(this.uniforms['down.cameraState'],7);}
+    if(frameState){gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,frameState);gl.uniform1i(this.uniforms['down.frameState'],5);}
     let source=image,sourceWidth=width,sourceHeight=height;
     for(const [k,level] of this.images.entries()){
       gl.bindFramebuffer(gl.FRAMEBUFFER,level.target);gl.viewport(0,0,level.width,level.height);

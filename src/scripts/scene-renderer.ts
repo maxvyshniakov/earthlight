@@ -728,8 +728,12 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         temporal?.invalidate();
         // The state is re-encoded into the new range on the GPU, shifted for
         // the night emitters; the new meter then takes its target at once.
-        finish!.meter.handOver(plan.handOver!,from,nightShift(from,to),NIGHT_SETTLE_FRAMES);
-        nightMode=to;pointReflections.mode=to;nightSettle=NIGHT_SETTLE_FRAMES+1;
+        // Physical night meters one frame first, for the frame EV its
+        // subjects are classified against, and takes one more at once while
+        // the subjects' shares settle behind the crossfade.
+        const settle=NIGHT_SETTLE_FRAMES+(physicalNight(to)?1:0);
+        finish!.meter.handOver(plan.handOver!,from,nightShift(from,to),settle);
+        nightMode=to;pointReflections.mode=to;nightSettle=settle+(physicalNight(to)?2:1);
         const now=performance.now();
         state.nightMode=to;state.nightSwitch='settling';
         state.nightCompileMs=(pending.compiled-pending.started).toFixed(1);

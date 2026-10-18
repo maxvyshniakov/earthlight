@@ -54,7 +54,9 @@ it in place.
   daylight), +14.3 EV at night towards physical night and −14.3 back, 0 in
   daylight, and clamped to the new range. The new meter then takes its
   target at once for three updates, as on a first frame, and adapts at its
-  usual rate after. The camera, scene time, compensation and manual exposure
+  usual rate after. Since 2026-10-18 a switch into physical night first
+  meters one update without moving and then takes four
+  ([night meter](night-meter-2026-10-18.md)). The camera, scene time, compensation and manual exposure
   carry over; a manual EV above 5.1 clamps to the default program's ceiling.
 - **Dissolve.** The crossfade holds until the meter has settled and six frames
   have kept their pace (a gap over 200 ms restarts the count; 4 s at most),

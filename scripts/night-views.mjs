@@ -36,7 +36,8 @@ const ab=async(...args)=>(await exec('agent-browser',['--session',session,...arg
 // Lab modes pre-expose the scene buffer; the ledger divides that out.
 const ledger=await readFile(new URL('./radiance-ledger.mjs',import.meta.url),'utf8');
 const hook=ledger.slice(ledger.indexOf('const hook=`')+12,ledger.indexOf('})();`;')+5)
- .replace('if(fb&&small.has(fb)){','if(fb&&small.has(fb)){window.__state={gl:this,fb};')
+ // Physical night draws the meter twice; the second writes the frame EV.
+ .replace('if(fb&&small.has(fb)){','if(fb&&small.has(fb)){const program=this.getParameter(this.CURRENT_PROGRAM),frame=program&&this.getUniformLocation(program,\'frameOutput\');if(!(frame&&this.getUniform(program,frame)>.5))window.__state={gl:this,fb};')
  +`;window.__ev=()=>{const s=window.__state;if(!s)return null;const gl=s.gl,p=gl.getParameter(gl.FRAMEBUFFER_BINDING);gl.bindFramebuffer(gl.FRAMEBUFFER,s.fb);const v=new Uint8Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,v);gl.bindFramebuffer(gl.FRAMEBUFFER,p);return (v[0]*256+v[1])/65535;};`;
 const hookPath=join(out,'night-hook.js');
 await writeFile(hookPath,hook);
