@@ -416,7 +416,7 @@ export class CameraFinish {
     // reflections of the whole frame, so it is built first. Loading defocus
     // blurs the picture only; glare is far broader than that blur.
     const PRE_EXPOSURE=preExposure(this.mode);
-    const built=this.glare?.build(this.texture!,this.width,this.height,glareMask,PRE_EXPOSURE?this.exposure!.texture:null,PRE_EXPOSURE?this.exposure!.frameTexture:null)??false;
+    const built=this.glare?.build(this.texture!,this.width,this.height,glareMask,PRE_EXPOSURE?this.exposure!.texture:null,this.exposure!.frameTexture)??false;
     const meter=built&&lens.pyramidMeter!==false?this.glare!.meter:null;
     const exposure=this.exposure!.update(this.texture!,this.linear,this.displayP3,performance.now(),lens.sun,this.width/this.height,lens.attenuation,manualExposure,lens.focal,meter);
     const image=this.defocus!.render(this.texture!,exposure,this.width,this.height,pixelRatio,focusRadius);

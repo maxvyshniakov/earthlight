@@ -3,7 +3,7 @@ import { sceneColorShader } from './scene-color';
 
 import { AUTO_EXPOSURE_MIN_EV, EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, exposureMaxEV, cameraModelShaderFor } from './camera-model';
 import { SOLAR_IRRADIANCE, SOLAR_RADIUS } from './solar-light';
-import { METER_LIT, METER_MAX_SIDE, METER_SUBJECT_EV, type MeterField } from './camera-glare';
+import { FRAME_EV_MAX, METER_LIT, METER_MAX_SIDE, METER_SUBJECT_EV, frameEVShaderFor, type MeterField } from './camera-glare';
 import { perNightMode, physicalNight, type NightMode } from './physical-night';
 import { preExposure } from './pre-exposure';
 export { EXPOSURE_MIN_EV, EXPOSURE_MAX_EV, exposureMaxEV };
@@ -42,19 +42,23 @@ uniform sampler2D meterField;
 uniform vec4 meterRect;
 uniform vec2 meterSize;
 uniform float useField;
-${PRE_EXPOSURE?'uniform sampler2D frameState;\nuniform float frameOutput;\n':''}#define FOCAL (1.25*(1.+zoomExcess))
+uniform sampler2D frameState;
+uniform float frameOutput;
+#define FOCAL (1.25*(1.+zoomExcess))
 ${sceneColorShader}
 ${cameraModelShaderFor(mode)}
+${frameEVShaderFor(mode)}
 void main(){
 ${PRE_EXPOSURE?`  float preExposure=exp2(decodeCameraEV(texture2D(previous,vec2(.5)).rg));
   // Scene-referred metering: the pre-exposure above is divided out and the
   // camera's own EV enters no decision (docs/lab/night-meter-2026-10-18.md).
-  // A subject stands 4-6 stops over the frame's metered mid-grey: above EV
+`:''}  // A subject stands 4-6 stops over the frame's metered mid-grey: above EV
   // ${METER_SUBJECT_EV} the thresholds follow the frame EV of the last update, a value
-  // of the scene, as in camera-glare.ts. Below it they are the day's.
+  // of the scene, as in camera-glare.ts. Below it they are the day's
+  // (docs/lab/subject-threshold-2026-10-20.md).
   vec4 frame=texture2D(frameState,vec2(.5));
-  float subject=min(1.,${(2**METER_SUBJECT_EV).toFixed(4)}/exp2(decodeCameraEV(frame.rg)));
-`:''}  vec3 weights=displayP3>.5?vec3(.2289746,.6917385,.0792869):vec3(.2126,.7152,.0722);
+  float subject=subjectScaleFor(frame);
+  vec3 weights=displayP3>.5?vec3(.2289746,.6917385,.0792869):vec3(.2126,.7152,.0722);
   float total=0.,emission=0.,emissionWeight=0.,coverage=0.,count=0.;
   // Point samples on a 32 x 32 grid, or every texel of the pyramid level once.
   vec2 grid=useField>.5?meterSize:vec2(32.);
@@ -76,7 +80,7 @@ ${PRE_EXPOSURE?`  float preExposure=exp2(decodeCameraEV(texture2D(previous,vec2(
     }else{
       vec4 pixel=texture2D(scene,uv);
       c=sceneLinear>.5?pixel.rgb:unpackSceneRadiance(pixel);
-${PRE_EXPOSURE?'      c/=preExposure;\n':''}      peak=max(c.r,max(c.g,c.b));lit=smoothstep(${METER_LIT[0]}${PRE_EXPOSURE?'*subject':''},${METER_LIT[1].toFixed(2)}${PRE_EXPOSURE?'*subject':''},peak);
+${PRE_EXPOSURE?'      c/=preExposure;\n':''}      peak=max(c.r,max(c.g,c.b));lit=smoothstep(${METER_LIT[0]}*subject,${METER_LIT[1].toFixed(2)}*subject,peak);
     }
     float w=1.+exp(-dot(uv-.5,uv-.5)*8.);
     float luminance=dot(c,weights);
@@ -113,8 +117,13 @@ ${PRE_EXPOSURE?'      c/=preExposure;\n':''}      peak=max(c.r,max(c.g,c.b));lit
   // Blend within the metering range. A black sky asks for about +15 EV; mixed
   // before clamping, it outweighed any bright subject under 2.5% of the frame,
   // so a small Earth or a zoomed Moon was metered as empty sky.
-  float target=clamp(log2(.055/max(measured+sunMean*.45,${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${ceiling});
-${PRE_EXPOSURE?'  float frameEV=target;\n':''}  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${ceiling});
+  float frameRequest=log2(.055/max(measured+sunMean*.45,${METER_LUMINANCE_FLOOR}));
+  float target=clamp(frameRequest,${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${ceiling});
+  // The frame EV the subject threshold scales with. The default program's
+  // frame asks for more than its ceiling on a black sky; that request is
+  // kept, so a subject there is still found relative to the frame.
+  float frameEV=${PRE_EXPOSURE?'target':`clamp(frameRequest,${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${FRAME_EV_MAX.toFixed(1)})`};
+  float emissionTarget=clamp(log2(.25/max(emission/max(emissionWeight,.0001),${METER_LUMINANCE_FLOOR})),${AUTO_EXPOSURE_MIN_EV.toFixed(1)},${ceiling});
   // Point samples catch stars, so a subject needs 0.6-2.5% of them.
   if(useField<.5)target=mix(target,min(target,emissionTarget),smoothstep(.006,.025,coverage/count));
   else{
@@ -150,13 +159,13 @@ ${PRE_EXPOSURE?`  // Video AE at night holds within a dead band: it starts only 
   // the state. Frames below EV ${METER_SUBJECT_EV} adapt as before.
   float moving=step(frame.a>.5?.1:.3,abs(target-old));
   if(initialized>.5&&moving<.5&&subject<1.)ev=old;
-  // The second draw stores the frame EV, the frame's share in subjects and
-  // whether the exposure is moving.
+`:'  float moving=0.;\n'}  // The second draw stores the frame EV, the frame's share in subjects and,
+  // in physical night, whether the exposure is moving.
   if(frameOutput>.5){
-    float frameCode=floor(clamp((frameEV-(${EXPOSURE_MIN_EV.toFixed(1)}))/${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)},0.,1.)*65535.+.5);
+    float frameCode=floor(clamp((frameEV-(${EXPOSURE_MIN_EV.toFixed(1)}))/${(FRAME_EV_MAX-EXPOSURE_MIN_EV).toFixed(1)},0.,1.)*65535.+.5);
     gl_FragColor=vec4(floor(frameCode/256.)/255.,mod(frameCode,256.)/255.,sqrt(coverage/count),moving);return;
   }
-`:''}  if(automatic<.5)ev=clamp(manualEV,${EXPOSURE_MIN_EV.toFixed(1)},${ceiling});
+  if(automatic<.5)ev=clamp(manualEV,${EXPOSURE_MIN_EV.toFixed(1)},${ceiling});
   float encodedEV=floor(clamp((ev-(${EXPOSURE_MIN_EV.toFixed(1)}))/${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)},0.,1.)*65535.+.5);
   gl_FragColor=vec4(floor(encodedEV/256.)/255.,mod(encodedEV,256.)/255.,(target-(${EXPOSURE_MIN_EV.toFixed(1)}))/${(EXPOSURE_MAX_EV-EXPOSURE_MIN_EV).toFixed(1)},age/.25);
 }`;
@@ -184,9 +193,9 @@ export class CameraExposure {
   /** The state before the last update: the exposure the metered scene was
    * rendered with, and so its pre-exposure. */
   get previousTexture(){return this.targets[1-this.index].texture;}
-  /** Physical night: the frame EV of the last update, the exposure the
-   * frame's mean asks for without subjects. Subjects are classified against
-   * it, in the meter and the glare pyramid. */
+  /** The frame EV of the last update, the exposure the frame's mean asks
+   * for without subjects, in the range up to FRAME_EV_MAX in every program.
+   * Subjects are classified against it, in the meter and the glare pyramid. */
   get frameTexture(){return this.targets[2+this.frameIndex].texture;}
   private program:WebGLProgram;
   private buffer:WebGLBuffer;
@@ -257,14 +266,13 @@ export class CameraExposure {
     gl.uniform1f(this.uniforms.elapsed,this.lastTime===null||metering?0:Math.min(.25,Math.max(0,(now-this.lastTime)/1000)));
     gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.enableVertexAttribArray(this.position);gl.vertexAttribPointer(this.position,2,gl.FLOAT,false,0,0);
     const dither=gl.isEnabled(gl.DITHER);gl.disable(gl.DITHER);
-    const frame=preExposure(this.mode);
-    if(frame){gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,this.frameTexture);gl.uniform1i(this.uniforms.frameState,5);gl.uniform1f(this.uniforms.frameOutput,0);}
+    gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,this.frameTexture);gl.uniform1i(this.uniforms.frameState,5);gl.uniform1f(this.uniforms.frameOutput,0);
     gl.drawArrays(gl.TRIANGLES,0,3);
     // The same inputs again, for the frame EV.
-    if(frame){
-      gl.bindFramebuffer(gl.FRAMEBUFFER,this.targets[3-this.frameIndex].framebuffer);gl.uniform1f(this.uniforms.frameOutput,1);
-      gl.drawArrays(gl.TRIANGLES,0,3);this.frameIndex=1-this.frameIndex;
-    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER,this.targets[3-this.frameIndex].framebuffer);gl.uniform1f(this.uniforms.frameOutput,1);
+    gl.drawArrays(gl.TRIANGLES,0,3);this.frameIndex=1-this.frameIndex;
+    // Leave the state bound, as before the frame EV had a draw of its own.
+    gl.bindFramebuffer(gl.FRAMEBUFFER,this.targets[next].framebuffer);
     if(dither)gl.enable(gl.DITHER);
     this.index=next;
     if(!metering&&!(this.settle>0&&--this.settle>0))this.lastTime=now;
@@ -306,9 +314,10 @@ export class CameraExposure {
       gl.uniform4fv(at('ranges'),ranges);gl.uniform1f(at('shift'),offset);
       gl.drawArrays(gl.TRIANGLES,0,3);
     }
-    // The frame EV starts at the handed-over exposure; the first update
-    // replaces it with the new mode's own.
+    // The frame EV starts at the handed-over exposure, in the frame state's
+    // own range; the first update replaces it with the new mode's own.
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.targets[this.index].texture);
+    gl.uniform4fv(at('ranges'),[EXPOSURE_MIN_EV,toSpan,EXPOSURE_MIN_EV,FRAME_EV_MAX-EXPOSURE_MIN_EV]);
     for(const target of [2,3]){gl.bindFramebuffer(gl.FRAMEBUFFER,this.targets[target].framebuffer);gl.drawArrays(gl.TRIANGLES,0,3);}
     if(dither)gl.enable(gl.DITHER);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.deleteProgram(program);

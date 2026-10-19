@@ -1,9 +1,9 @@
 import {textureImage2D} from './webgl-context.ts';
 import type {ShaderProgramBatch} from './shader-programs';
 import { FRAME_VEIL_COMPONENTS } from './solar-light';
-import { cameraModelShaderFor } from './camera-model';
+import { cameraModelShaderFor, EXPOSURE_MIN_EV, NIGHT_EXPOSURE_MAX_EV } from './camera-model';
 import { preExposure, preExposureShaderFor } from './pre-exposure';
-import { perNightMode, type NightMode } from './physical-night';
+import { perNightMode, physicalNight, type NightMode } from './physical-night';
 
 /** Per-axis spread of pyramid level k: σ = this · 2^k full-resolution pixels.
  * Box 4×4 downsampling (1.25 texel² per step), the 3×3 tent upsample and the
@@ -23,12 +23,26 @@ export const FIELD_LEVEL_SPREAD=.76;
 /** Radiance at which a meter block counts as lit (smoothstep), shared with
  * the exposure meter's point samples. Scene units: sunlit cloud ~0.5. */
 export const METER_LIT=[.025,.10] as const;
-/** With `night=video|still` METER_LIT holds in scene units up to this EV,
- * the default program's ceiling, and scales with the meter's frame EV above
- * it, never with the camera's own: at night a subject is what stands 4–6
- * stops over the frame's metered mid-grey, as daylit Earth does on black sky
- * at EV 5.1. Below it the day is metered exactly as before. */
+/** METER_LIT holds in scene units up to this EV, the default program's
+ * ceiling, and scales with the meter's frame EV above it, never with the
+ * camera's own: on a dark frame a subject is what stands 4–6 stops over the
+ * frame's metered mid-grey, as daylit Earth does on black sky at EV 5.1.
+ * Below it the day is metered exactly as before. Both programs
+ * (docs/lab/subject-threshold-2026-10-20.md). */
 export const METER_SUBJECT_EV=5.1;
+/** The frame EV state spans the physical-night range in every program: the
+ * default program's frame can ask for more than its 5.1 ceiling. */
+export const FRAME_EV_MAX=NIGHT_EXPOSURE_MAX_EV;
+/** Stops the default program's subject threshold may fall below the day's.
+ * Its stars and planets are 8 × 10⁴ times their physical radiance: much
+ * deeper, the lens wings of a bright planet fill a subject block. Physical
+ * night has no such floor. */
+export const METER_SUBJECT_DEPTH=2;
+/** GLSL: the frame EV from its state texel, and the subject threshold's
+ * scale from it. */
+export const frameEVShaderFor=perNightMode(mode=>`float decodeFrameEV(vec2 state){return dot(state,vec2(65280.,255.))/65535.*${(FRAME_EV_MAX-EXPOSURE_MIN_EV).toFixed(1)}+${EXPOSURE_MIN_EV.toFixed(1)};}
+float subjectScaleFor(vec4 frame){return ${physicalNight(mode)?'':`max(${(2**-METER_SUBJECT_DEPTH).toFixed(6)},`}min(1.,${(2**METER_SUBJECT_EV).toFixed(4)}/exp2(decodeFrameEV(frame.rg)))${physicalNight(mode)?'':')'};}
+`);
 /** Level whose blocks define a metering subject: about 1/70 of the frame
  * height including the chain's spread (12 px at 800). The lit half of a
  * 40 px Moon fills several; a star fills none. */
@@ -87,19 +101,20 @@ uniform vec2 sourceSize;
 uniform vec2 targetSize;
 uniform vec4 solarMask;
 uniform float alphaMode;
+uniform sampler2D frameState;
+uniform float frameKnown;
 ${PRE_EXPOSURE?`#define CAMERA_PUPIL_STATE 1
 uniform sampler2D cameraState;
-uniform sampler2D frameState;
-${cameraModelShaderFor(mode)}${preExposureShaderFor(mode)}`:''}vec4 tap(vec2 uv){
+${cameraModelShaderFor(mode)}${preExposureShaderFor(mode)}`:''}${frameEVShaderFor(mode)}vec4 tap(vec2 uv){
   vec4 c=texture2D(source,uv);
   if(solarMask.w>.5&&length((uv-.5)*vec2(sourceSize.x/sourceSize.y,1.)-solarMask.xy)<solarMask.z)
     c.rgb=min(c.rgb,vec3(${GLARE_SOLAR_CAP.toFixed(1)})${PRE_EXPOSURE?'*sceneExposure()':''});
   return vec4(max(c.rgb,vec3(0.)),c.a);
 }
-${PRE_EXPOSURE?`// Radiance over the subject threshold's scale: the frame EV of the meter's
+// Radiance over the subject threshold's scale: the frame EV of the meter's
 // last update above EV ${METER_SUBJECT_EV}, never the exposure the frame was taken with.
-float subjectScale(){return min(1.,${(2**METER_SUBJECT_EV).toFixed(4)}/exp2(decodeCameraEV(texture2D(frameState,vec2(.5)).rg)));}
-`:''}float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b))${PRE_EXPOSURE?`/(sceneExposure()*subjectScale())`:''});}
+float subjectScale(){return frameKnown>.5?subjectScaleFor(texture2D(frameState,vec2(.5))):1.;}
+float lit(vec3 c){return smoothstep(${METER_LIT[0]},${METER_LIT[1].toFixed(2)},max(c.r,max(c.g,c.b))/(${PRE_EXPOSURE?'sceneExposure()*':''}subjectScale()));}
 void main(){
   vec2 uv=gl_FragCoord.xy/targetSize,d=1./sourceSize;
   vec4 a=tap(uv-d),b=tap(uv+d),c=tap(uv+vec2(d.x,-d.y)),e=tap(uv+vec2(-d.x,d.y));
@@ -177,7 +192,7 @@ export class CameraGlare {
   }
   private locate(){
     const gl=this.gl;
-    for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode','cameraState','frameState'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down!,name);
+    for(const name of ['source','sourceSize','targetSize','solarMask','alphaMode','cameraState','frameState','frameKnown'])this.uniforms[`down.${name}`]=gl.getUniformLocation(this.down!,name);
     for(const name of ['coarse','detail','coarseSize','targetSize','coarseScale','detailWeight'])this.uniforms[`up.${name}`]=gl.getUniformLocation(this.up!,name);
     for(const name of ['source','rect'])this.uniforms[`copy.${name}`]=gl.getUniformLocation(this.copy!,name);
   }
@@ -211,7 +226,9 @@ export class CameraGlare {
     gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
     gl.uniform1i(this.uniforms['down.source'],4);
     if(cameraState){gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,cameraState);gl.uniform1i(this.uniforms['down.cameraState'],7);}
-    if(frameState){gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,frameState);gl.uniform1i(this.uniforms['down.frameState'],5);}
+    // Without a frame EV the sampler reads the source unit, never a target.
+    if(frameState){gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,frameState);}
+    gl.uniform1i(this.uniforms['down.frameState'],frameState?5:4);gl.uniform1f(this.uniforms['down.frameKnown'],frameState?1:0);
     let source=image,sourceWidth=width,sourceHeight=height;
     for(const [k,level] of this.images.entries()){
       gl.bindFramebuffer(gl.FRAMEBUFFER,level.target);gl.viewport(0,0,level.width,level.height);

@@ -1,0 +1,853 @@
+{
+ "before": [
+  {
+   "id": "ledger-earthDay",
+   "mode": "current",
+   "ev": -1.053,
+   "target": -1.05,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "ledger-moon",
+   "mode": "current",
+   "ev": -3,
+   "target": -3.01,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "ledger-cityNight",
+   "mode": "current",
+   "ev": 0.659,
+   "target": 0.65,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "ledger-aurora",
+   "mode": "current",
+   "ev": -0.242,
+   "target": -0.22,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "ledger-airglowLimb",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "ledger-milkyWay",
+   "mode": "current",
+   "ev": -2.989,
+   "target": -3.01,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "ledger-emptySky",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "night-full-moon",
+   "mode": "current",
+   "ev": 0.352,
+   "target": 0.36,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "night-new-moon",
+   "mode": "current",
+   "ev": 0.352,
+   "target": 0.36,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "night-quarter-moon",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "night-city-1x",
+   "mode": "current",
+   "ev": 0.142,
+   "target": 0.15,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "night-city-8x",
+   "mode": "current",
+   "ev": -0.017,
+   "target": -0.01,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "night-limb",
+   "mode": "current",
+   "ev": 5.098,
+   "target": 5.1,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "night-iberia",
+   "mode": "current",
+   "ev": -0.163,
+   "target": -0.18,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "user-aurora-paused",
+   "mode": "current",
+   "ev": 5.075,
+   "target": 5.06,
+   "frameCode": null,
+   "frameShare": null
+  },
+  {
+   "id": "user-aurora-running",
+   "mode": "current",
+   "evMin": 0.77,
+   "evMax": 4.98,
+   "targetMin": 0.65,
+   "targetMax": 5.06,
+   "samples": 1256
+  },
+  {
+   "id": "ledger-earthDay",
+   "mode": "video",
+   "ev": -1.053,
+   "target": -1.06,
+   "frameCode": 10558,
+   "frameShare": 0.863806
+  },
+  {
+   "id": "ledger-moon",
+   "mode": "video",
+   "ev": 11.562,
+   "target": 11.6,
+   "frameCode": 54589,
+   "frameShare": 0.009612
+  },
+  {
+   "id": "ledger-cityNight",
+   "mode": "video",
+   "ev": 16.594,
+   "target": 16.47,
+   "frameCode": 60000,
+   "frameShare": 0.086505
+  },
+  {
+   "id": "ledger-aurora",
+   "mode": "video",
+   "ev": 3.925,
+   "target": 3.92,
+   "frameCode": 34083,
+   "frameShare": 0.012057
+  },
+  {
+   "id": "ledger-airglowLimb",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0
+  },
+  {
+   "id": "ledger-milkyWay",
+   "mode": "video",
+   "ev": 15.081,
+   "target": 14.96,
+   "frameCode": 53530,
+   "frameShare": 0.000554
+  },
+  {
+   "id": "ledger-emptySky",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0
+  },
+  {
+   "id": "night-full-moon",
+   "mode": "video",
+   "ev": 18.028,
+   "target": 18.1,
+   "frameCode": 55998,
+   "frameShare": 0.003937
+  },
+  {
+   "id": "night-new-moon",
+   "mode": "video",
+   "ev": 20.383,
+   "target": 20.69,
+   "frameCode": 65459,
+   "frameShare": 0.028435
+  },
+  {
+   "id": "night-quarter-moon",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0
+  },
+  {
+   "id": "night-city-1x",
+   "mode": "video",
+   "ev": 17.041,
+   "target": 17.12,
+   "frameCode": 55597,
+   "frameShare": 0.041584
+  },
+  {
+   "id": "night-city-8x",
+   "mode": "video",
+   "ev": 14.186,
+   "target": 14.31,
+   "frameCode": 46975,
+   "frameShare": 0
+  },
+  {
+   "id": "night-limb",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0
+  },
+  {
+   "id": "night-iberia",
+   "mode": "video",
+   "ev": 18.439,
+   "target": 18.31,
+   "frameCode": 56612,
+   "frameShare": 0.005552
+  },
+  {
+   "id": "user-aurora-paused",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0.002599
+  }
+ ],
+ "uncapped": [
+  {
+   "id": "ledger-earthDay",
+   "mode": "current",
+   "ev": -1.053,
+   "target": -1.05,
+   "frameCode": 10558,
+   "frameShare": 0.863806
+  },
+  {
+   "id": "ledger-moon",
+   "mode": "current",
+   "ev": -2.998,
+   "target": -3.01,
+   "frameCode": 25980,
+   "frameShare": 0.009612
+  },
+  {
+   "id": "ledger-cityNight",
+   "mode": "current",
+   "ev": 0.833,
+   "target": 0.82,
+   "frameCode": 26118,
+   "frameShare": 0.086505
+  },
+  {
+   "id": "ledger-aurora",
+   "mode": "current",
+   "ev": 0.294,
+   "target": 0.28,
+   "frameCode": 31458,
+   "frameShare": 0.012057
+  },
+  {
+   "id": "ledger-airglowLimb",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": 34306,
+   "frameShare": 0
+  },
+  {
+   "id": "ledger-milkyWay",
+   "mode": "current",
+   "ev": -2.97,
+   "target": -2.96,
+   "frameCode": 27693,
+   "frameShare": 0.001538
+  },
+  {
+   "id": "ledger-emptySky",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": 40749,
+   "frameShare": 6.2e-05
+  },
+  {
+   "id": "night-full-moon",
+   "mode": "current",
+   "ev": 1.606,
+   "target": 1.61,
+   "frameCode": 36513,
+   "frameShare": 0.041584
+  },
+  {
+   "id": "night-new-moon",
+   "mode": "current",
+   "ev": 1.605,
+   "target": 1.61,
+   "frameCode": 36500,
+   "frameShare": 0.041584
+  },
+  {
+   "id": "night-quarter-moon",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": 37783,
+   "frameShare": 0
+  },
+  {
+   "id": "night-city-1x",
+   "mode": "current",
+   "ev": 0.142,
+   "target": 0.15,
+   "frameCode": 21812,
+   "frameShare": 0.103406
+  },
+  {
+   "id": "night-city-8x",
+   "mode": "current",
+   "ev": -0.018,
+   "target": -0.01,
+   "frameCode": 13021,
+   "frameShare": 0.487259
+  },
+  {
+   "id": "night-limb",
+   "mode": "current",
+   "ev": 1.155,
+   "target": 1.15,
+   "frameCode": 36230,
+   "frameShare": 0.000138
+  },
+  {
+   "id": "night-iberia",
+   "mode": "current",
+   "ev": -0.163,
+   "target": -0.18,
+   "frameCode": 23016,
+   "frameShare": 0.014779
+  },
+  {
+   "id": "user-aurora-paused",
+   "mode": "current",
+   "ev": 2.672,
+   "target": 2.69,
+   "frameCode": 30922,
+   "frameShare": 0.002599
+  },
+  {
+   "id": "ledger-earthDay",
+   "mode": "video",
+   "ev": -1.053,
+   "target": -1.06,
+   "frameCode": 10558,
+   "frameShare": 0.863806
+  },
+  {
+   "id": "ledger-moon",
+   "mode": "video",
+   "ev": 11.562,
+   "target": 11.6,
+   "frameCode": 54589,
+   "frameShare": 0.009612
+  },
+  {
+   "id": "ledger-cityNight",
+   "mode": "video",
+   "ev": 16.596,
+   "target": 16.47,
+   "frameCode": 60000,
+   "frameShare": 0.086505
+  },
+  {
+   "id": "ledger-aurora",
+   "mode": "video",
+   "ev": 4.042,
+   "target": 3.92,
+   "frameCode": 34083,
+   "frameShare": 0.012057
+  },
+  {
+   "id": "ledger-airglowLimb",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0
+  },
+  {
+   "id": "ledger-milkyWay",
+   "mode": "video",
+   "ev": 14.869,
+   "target": 14.96,
+   "frameCode": 53530,
+   "frameShare": 0.000554
+  },
+  {
+   "id": "ledger-emptySky",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0
+  },
+  {
+   "id": "night-full-moon",
+   "mode": "video",
+   "ev": 18.037,
+   "target": 18.1,
+   "frameCode": 55998,
+   "frameShare": 0.003937
+  },
+  {
+   "id": "night-new-moon",
+   "mode": "video",
+   "ev": 20.526,
+   "target": 20.69,
+   "frameCode": 65459,
+   "frameShare": 0.028435
+  },
+  {
+   "id": "night-quarter-moon",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0
+  },
+  {
+   "id": "night-city-1x",
+   "mode": "video",
+   "ev": 17.031,
+   "target": 17.12,
+   "frameCode": 55597,
+   "frameShare": 0.041584
+  },
+  {
+   "id": "night-city-8x",
+   "mode": "video",
+   "ev": 14.185,
+   "target": 14.31,
+   "frameCode": 46975,
+   "frameShare": 0
+  },
+  {
+   "id": "night-limb",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0
+  },
+  {
+   "id": "night-iberia",
+   "mode": "video",
+   "ev": 18.604,
+   "target": 18.31,
+   "frameCode": 56612,
+   "frameShare": 0.005552
+  },
+  {
+   "id": "user-aurora-paused",
+   "mode": "video",
+   "ev": 22.068,
+   "target": 22.1,
+   "frameCode": 65459,
+   "frameShare": 0.002599
+  },
+  {
+   "id": "user-aurora-running",
+   "mode": "current",
+   "evMin": 2.43,
+   "evMax": 2.61,
+   "targetMin": 2.4,
+   "targetMax": 2.61,
+   "samples": 1249
+  },
+  {
+   "id": "user-aurora-running",
+   "mode": "video",
+   "evMin": 22.07,
+   "evMax": 22.07,
+   "targetMin": 22.1,
+   "targetMax": 22.1,
+   "samples": 1232
+  }
+ ],
+ "depth1": [
+  {
+   "id": "ledger-aurora",
+   "mode": "current",
+   "ev": -0.009,
+   "target": -0.01,
+   "frameCode": 31305,
+   "frameShare": 0.008135
+  },
+  {
+   "id": "night-full-moon",
+   "mode": "current",
+   "ev": 0.8,
+   "target": 0.82,
+   "frameCode": 36513,
+   "frameShare": 0.016747
+  },
+  {
+   "id": "night-limb",
+   "mode": "current",
+   "ev": 5.096,
+   "target": 5.1,
+   "frameCode": 36230,
+   "frameShare": 1.5e-05
+  },
+  {
+   "id": "user-aurora-paused",
+   "mode": "current",
+   "ev": 1.461,
+   "target": 1.44,
+   "frameCode": 30922,
+   "frameShare": 0.000754
+  },
+  {
+   "id": "user-aurora-running",
+   "mode": "current",
+   "evMin": 1.46,
+   "evMax": 1.58,
+   "targetMin": 1.44,
+   "targetMax": 1.61,
+   "samples": 1378
+  }
+ ],
+ "depth2": [
+  {
+   "id": "ledger-cityNight",
+   "mode": "current",
+   "ev": 0.833,
+   "target": 0.82,
+   "frameCode": 26118,
+   "frameShare": 0.086505
+  },
+  {
+   "id": "ledger-aurora",
+   "mode": "current",
+   "ev": 0.18,
+   "target": 0.19,
+   "frameCode": 31400,
+   "frameShare": 0.010396
+  },
+  {
+   "id": "ledger-milkyWay",
+   "mode": "current",
+   "ev": -2.968,
+   "target": -2.96,
+   "frameCode": 27693,
+   "frameShare": 0.001538
+  },
+  {
+   "id": "ledger-emptySky",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": 40749,
+   "frameShare": 0
+  },
+  {
+   "id": "night-full-moon",
+   "mode": "current",
+   "ev": 1.152,
+   "target": 1.15,
+   "frameCode": 36513,
+   "frameShare": 0.023391
+  },
+  {
+   "id": "night-city-1x",
+   "mode": "current",
+   "ev": 0.142,
+   "target": 0.15,
+   "frameCode": 21812,
+   "frameShare": 0.103406
+  },
+  {
+   "id": "night-limb",
+   "mode": "current",
+   "ev": 4.673,
+   "target": 4.68,
+   "frameCode": 36230,
+   "frameShare": 6.2e-05
+  },
+  {
+   "id": "night-iberia",
+   "mode": "current",
+   "ev": -0.162,
+   "target": -0.18,
+   "frameCode": 23016,
+   "frameShare": 0.014779
+  },
+  {
+   "id": "user-aurora-paused",
+   "mode": "current",
+   "ev": 2.406,
+   "target": 2.4,
+   "frameCode": 30922,
+   "frameShare": 0.001861
+  },
+  {
+   "id": "user-aurora-running",
+   "mode": "current",
+   "evMin": 2.13,
+   "evMax": 2.37,
+   "targetMin": 2.11,
+   "targetMax": 2.4,
+   "samples": 1082
+  }
+ ],
+ "depth3": [
+  {
+   "id": "ledger-cityNight",
+   "mode": "current",
+   "ev": 0.833,
+   "target": 0.82,
+   "frameCode": 26118,
+   "frameShare": 0.086505
+  },
+  {
+   "id": "ledger-aurora",
+   "mode": "current",
+   "ev": 0.294,
+   "target": 0.28,
+   "frameCode": 31458,
+   "frameShare": 0.012057
+  },
+  {
+   "id": "ledger-milkyWay",
+   "mode": "current",
+   "ev": -2.968,
+   "target": -2.96,
+   "frameCode": 27693,
+   "frameShare": 0.001538
+  },
+  {
+   "id": "ledger-emptySky",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": 40749,
+   "frameShare": 0
+  },
+  {
+   "id": "night-full-moon",
+   "mode": "current",
+   "ev": 1.373,
+   "target": 1.36,
+   "frameCode": 36513,
+   "frameShare": 0.029773
+  },
+  {
+   "id": "night-city-1x",
+   "mode": "current",
+   "ev": 0.142,
+   "target": 0.15,
+   "frameCode": 21812,
+   "frameShare": 0.103406
+  },
+  {
+   "id": "night-limb",
+   "mode": "current",
+   "ev": 3.604,
+   "target": 3.6,
+   "frameCode": 36230,
+   "frameShare": 6.2e-05
+  },
+  {
+   "id": "night-iberia",
+   "mode": "current",
+   "ev": -0.163,
+   "target": -0.18,
+   "frameCode": 23016,
+   "frameShare": 0.014779
+  },
+  {
+   "id": "user-aurora-paused",
+   "mode": "current",
+   "ev": 2.672,
+   "target": 2.69,
+   "frameCode": 30922,
+   "frameShare": 0.002599
+  },
+  {
+   "id": "user-aurora-running",
+   "mode": "current",
+   "evMin": 2.42,
+   "evMax": 2.61,
+   "targetMin": 2.4,
+   "targetMax": 2.65,
+   "samples": 1072
+  }
+ ],
+ "final": [
+  {
+   "id": "ledger-earthDay",
+   "mode": "current",
+   "ev": -1.053,
+   "target": -1.05,
+   "frameCode": 10558,
+   "frameShare": 0.863806
+  },
+  {
+   "id": "ledger-moon",
+   "mode": "current",
+   "ev": -2.998,
+   "target": -3.01,
+   "frameCode": 25979,
+   "frameShare": 0.009612
+  },
+  {
+   "id": "ledger-cityNight",
+   "mode": "current",
+   "ev": 0.833,
+   "target": 0.82,
+   "frameCode": 26118,
+   "frameShare": 0.086505
+  },
+  {
+   "id": "ledger-aurora",
+   "mode": "current",
+   "ev": 0.18,
+   "target": 0.19,
+   "frameCode": 31400,
+   "frameShare": 0.010396
+  },
+  {
+   "id": "ledger-airglowLimb",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": 34306,
+   "frameShare": 0
+  },
+  {
+   "id": "ledger-milkyWay",
+   "mode": "current",
+   "ev": -2.968,
+   "target": -2.96,
+   "frameCode": 27693,
+   "frameShare": 0.001538
+  },
+  {
+   "id": "ledger-emptySky",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": 40749,
+   "frameShare": 0
+  },
+  {
+   "id": "night-full-moon",
+   "mode": "current",
+   "ev": 1.152,
+   "target": 1.15,
+   "frameCode": 36513,
+   "frameShare": 0.023391
+  },
+  {
+   "id": "night-new-moon",
+   "mode": "current",
+   "ev": 1.152,
+   "target": 1.15,
+   "frameCode": 36500,
+   "frameShare": 0.023391
+  },
+  {
+   "id": "night-quarter-moon",
+   "mode": "current",
+   "ev": 5.1,
+   "target": 5.1,
+   "frameCode": 37783,
+   "frameShare": 0
+  },
+  {
+   "id": "night-city-1x",
+   "mode": "current",
+   "ev": 0.142,
+   "target": 0.15,
+   "frameCode": 21812,
+   "frameShare": 0.103406
+  },
+  {
+   "id": "night-city-8x",
+   "mode": "current",
+   "ev": -0.017,
+   "target": -0.01,
+   "frameCode": 13021,
+   "frameShare": 0.487259
+  },
+  {
+   "id": "night-limb",
+   "mode": "current",
+   "ev": 4.673,
+   "target": 4.68,
+   "frameCode": 36230,
+   "frameShare": 6.2e-05
+  },
+  {
+   "id": "night-iberia",
+   "mode": "current",
+   "ev": -0.163,
+   "target": -0.18,
+   "frameCode": 23016,
+   "frameShare": 0.014779
+  },
+  {
+   "id": "user-aurora-paused",
+   "mode": "current",
+   "ev": 2.407,
+   "target": 2.4,
+   "frameCode": 30922,
+   "frameShare": 0.001861
+  },
+  {
+   "id": "user-aurora-running",
+   "mode": "current",
+   "evMin": 2.1,
+   "evMax": 2.36,
+   "targetMin": 2.11,
+   "targetMax": 2.4,
+   "samples": 997
+  }
+ ]
+}
