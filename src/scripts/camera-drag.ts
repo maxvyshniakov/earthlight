@@ -8,19 +8,22 @@ export function draggedCamera(yaw:number,pitch:number,dx:number,dy:number,height
 }
 // Wheels, drags and pinches over these stay theirs; the scene ignores them.
 export const SCENE_CONTROLS='a,button,input,select,textarea,[role="slider"],.explorer-panel,.explorer-dialog,.explorer-controls,.scene-comparison,.flight-hud,.flight-help';
-type CameraHoverIntent=CameraIntent|'altitude';
-const hoverIntent=(event:{altKey:boolean;shiftKey:boolean}):CameraHoverIntent=>event.altKey?'roll':event.shiftKey?'altitude':'auto';
+// Modifiers mean the same for a drag, a trackpad scroll and a wheel, so the
+// cursor shows them before anything moves.
+const hoverIntent=(event:{altKey:boolean;shiftKey:boolean;ctrlKey:boolean}):CameraIntent=>event.ctrlKey?'circle':event.altKey?'roll':event.shiftKey?'look':'auto';
 
 /** Mouse and pen. The left button moves over Earth from anywhere; the middle
  * button, as it pans in design tools, or Shift, looks; Option/Alt twists the
- * image; the right button circles the point under the pointer. On a trackpad
- * the right button is a two-finger press, which looks instead: browsers report
- * both alike, so `secondaryLooks` says which device was in use. Explorer only. */
-export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraHoverIntent)=>void,secondaryLooks:()=>boolean=()=>false){
+ * image; the right button or Control circles the point under the pointer. On a
+ * trackpad the right button is a two-finger press, which looks instead:
+ * browsers report both alike, so `secondaryLooks` says which device was in
+ * use. A Control-click, which macOS may report as either button, circles.
+ * Explorer only. */
+export function createCameraDrag(surface:HTMLElement,camera:CameraController,hover:(clientX:number|null,clientY:number,intent:CameraIntent)=>void,secondaryLooks:()=>boolean=()=>false){
   let drag:{pointer:number;session:CameraSession;x:number;y:number}|null=null,frame=0;
   let hovering:{x:number;y:number}|null=null;
   const control=(target:EventTarget|null)=>target instanceof Element&&!!target.closest(SCENE_CONTROLS);
-  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1?'look':event.button===2?(secondaryLooks()?'look':'circle'):event.button!==0?null:event.altKey?'roll':event.shiftKey?'look':'auto';
+  const intent=(event:PointerEvent):CameraIntent|null=>event.button===1?'look':event.button===2?(secondaryLooks()&&!event.ctrlKey?'look':'circle'):event.button!==0?null:hoverIntent(event);
   const flush=()=>{cancelAnimationFrame(frame);frame=0;drag?.session.move(drag.x,drag.y);};
   const end=(event?:PointerEvent)=>{
     if(!drag||(event&&event.pointerId!==drag.pointer))return;
@@ -49,9 +52,9 @@ export function createCameraDrag(surface:HTMLElement,camera:CameraController,hov
     if(!frame)frame=requestAnimationFrame(flush);
   };
   const leave=()=>{hovering=null;if(!drag)hover(null,0,'auto');};
-  // Before pressing a button, modifiers hint the pinch action. An active
-  // mouse drag exposes its own session kind (Shift-drag still looks).
-  const modifier=(event:KeyboardEvent)=>{if((event.key==='Shift'||event.key==='Alt')&&hovering&&!drag)hover(hovering.x,hovering.y,hoverIntent(event));};
+  // Before pressing a button, modifiers hint the action. An active mouse drag
+  // exposes its own session kind.
+  const modifier=(event:KeyboardEvent)=>{if(['Shift','Alt','Control'].includes(event.key)&&hovering&&!drag)hover(hovering.x,hovering.y,hoverIntent(event));};
   // A right-button drag must not open the browser menu over the scene.
   const menu=(event:MouseEvent)=>{if(!control(event.target))event.preventDefault();};
   // The middle button looks; it must not start the browser's autoscroll.

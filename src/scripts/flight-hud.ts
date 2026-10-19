@@ -6,13 +6,15 @@ import { dayOfYear, daysInYear } from './scene-calendar.ts';
 import { GLOBE_LAND } from './globe-land.ts';
 import { celestialFrame } from './celestial-sky.ts';
 import { haptic } from './haptics.ts';
+import type { WheelDevice } from './flight-controls.ts';
 
 export type Modality='mouse'|'trackpad'|'touch';
 const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
 /** Horizon gauge geometry in its 48-unit drawing (64 px): dial radius, units per
  * degree of pitch, the Earth arc's radius, and the Sun's and Moon's marker radii
  * and where they fly: the Sun clear outside the arc, the Moon along it. */
-export const GAUGE={dial:16.33,pitch:.42,earthAt:23.25,sun:4.2,sunAt:29.3,moon:3.3,moonAt:23.25};
+// The Moon is half again the night key's crescent, so it reads as large as the Sun.
+export const GAUGE={dial:16.33,pitch:.42,earthAt:23.25,sun:4.2,sunAt:29.3,moon:4.95,moonAt:23.25};
 const deg=Math.PI/180;
 // The Earth arc never gets shorter than 8 px, so it still reads as an arc.
 const EARTH_MIN=4/GAUGE.earthAt/deg;
@@ -56,6 +58,8 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   hold:(code:string,down:boolean)=>void;
   /** Bring back the horizon, as \ does. */
   resetCamera:()=>void;
+  /** The dial: bring back the horizon, or once there level or flip, as H does. */
+  dial:()=>void;
   /** Switch night mode (physical night video) on or off, as N does; and whether it is on. */
   night:()=>void;nightOn:boolean;
   /** Turn the camera to face Earth's centre, or the Sun. */
@@ -64,6 +68,8 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   exposure:()=>number|null;setExposure:(ev:number)=>void;
   /** Set the replay's day of the year and minute of the day (UTC). */
   setDay:(day:number)=>void;setMinute:(minute:number)=>void;
+  /** Choose the mouse or the trackpad, or go back to detecting it, as M and T do. */
+  device:(device:WheelDevice)=>void;
   /** The time scale, 0 while time stands still; set it (0 stops time), or step it by hundredths of the scale. */
   timeScale:()=>number;setTimeScale:(timeScale:number)=>void;stepTimeScale:(notches:number)=>void}){
   const hud=root.querySelector<HTMLElement>('.flight-hud'),help=root.querySelector<HTMLElement>('#flight-help'),info=root.querySelector<HTMLElement>('#explorer-info');
@@ -80,8 +86,11 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   const lensTape=hud.querySelector<HTMLElement>('#explorer-lens')!,lensOutput=hud.querySelector<HTMLOutputElement>('.lens-output')!;
   const timers=new Set<number>();
   const later=(fn:()=>void,ms:number)=>{const id=window.setTimeout(()=>{timers.delete(id);fn();},ms);timers.add(id);};
-  // Option is a key only on Apple keyboards.
-  if(!/Mac|iPhone|iPad/.test(navigator.platform))for(const e of [...hud.querySelectorAll('.hud-alt'),...help.querySelectorAll('.hud-alt')])e.textContent='Alt';
+  // Option and the ⌃ cap are only on Apple keyboards.
+  if(!/Mac|iPhone|iPad/.test(navigator.platform)){
+    for(const e of [...hud.querySelectorAll('.hud-alt'),...help.querySelectorAll('.hud-alt')])e.textContent='Alt';
+    for(const e of [...hud.querySelectorAll('.hud-ctrl'),...help.querySelectorAll('.hud-ctrl')])e.textContent='Ctrl';
+  }
   // Only Safari reports a trackpad rotation.
   if('ongesturestart' in window)hud.dataset.gesture=help.dataset.gesture='';
 
@@ -103,6 +112,19 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   let modality:Modality=fine?'mouse':'touch';
   const setModality=(next:Modality)=>{seen(next==='touch'?'touch':'pointer');if(next!==modality){modality=next;hud.dataset.modality=help.dataset.modality=next;}};
   hud.dataset.modality=help.dataset.modality=modality;
+  // Mouse and Trackpad over Help: the device in use keeps its key down,
+  // chosen or detected; a detected one says (auto).
+  let pointerDevice:WheelDevice='mouse';
+  const deviceButtons=[...hud.querySelectorAll<HTMLButtonElement>('.hud-corner [data-device]')];
+  const setDevice=(device:WheelDevice,preference:WheelDevice|'auto')=>{
+    pointerDevice=device;if(modality!=='touch')setModality(device);
+    for(const button of deviceButtons){
+      const own=button.dataset.device as WheelDevice;
+      button.setAttribute('aria-pressed',String(own===device));
+      button.querySelector('.hud-name')!.textContent=`${own==='mouse'?'Mouse':'Trackpad'}${preference==='auto'&&own===device?' (auto)':''}`;
+    }
+  };
+  const deviceClick=(event:MouseEvent)=>o.device((event.currentTarget as HTMLElement).dataset.device as WheelDevice);
   // Only a real key press shows a keyboard: the on-screen caps light keys too.
   const keyboardSeen=(event:KeyboardEvent)=>{if(event.isTrusted)seen('keyboard');};
   const key=(code:string,down:boolean)=>{
@@ -167,7 +189,8 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     if(km===null)return;
     event.preventDefault();o.altitude(clamp(km,MIN_ALTITUDE,MAX_ALTITUDE));
   };
-  const tapeWheel=(event:WheelEvent)=>{event.preventDefault();o.altitude(clamp(o.current()*Math.exp(event.deltaY*.004),MIN_ALTITUDE,MAX_ALTITUDE));};
+  // Scrolling down lowers every tape, as it moves the reading down the scale.
+  const tapeWheel=(event:WheelEvent)=>{event.preventDefault();o.altitude(clamp(o.current()*Math.exp(-event.deltaY*.004),MIN_ALTITUDE,MAX_ALTITUDE));};
   // A pointer click hands focus back to the scene, so Space pauses again.
   const refocus=(event:Event)=>{if((event as MouseEvent).detail>0)root.closest<HTMLElement>('.explorer-view')?.focus({preventScroll:true});};
   const mode=(event:Event)=>{
@@ -362,13 +385,14 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   // size on screen. It hides on Earth's far side or behind the camera.
   const pinLayer=hud.querySelector<HTMLElement>('.hud-pin')!,pinSpot=pinLayer.querySelector<SVGPathElement>('.pin-spot')!;
   const pinRings=[...pinLayer.querySelectorAll<SVGPathElement>('.pin-ring')],pinStalks=[...pinLayer.querySelectorAll<SVGLineElement>('.pin-stalk')];
-  const pinHead=pinLayer.querySelector<SVGCircleElement>('.pin-head')!,pinRipples=[...pinLayer.querySelectorAll<SVGPathElement>('.pin-ripples path')];
-  let view:{camera:Vec3;basis:number[];focal:number}|null=null,pinned:{anchor:Vec3;since:number;until:number}|null=null,pinFrame=0;
-  const PIN={ring:12,stalk:26,ripple:900,fade:250};
+  const pinHead=pinLayer.querySelector<SVGCircleElement>('.pin-head')!;
+  let view:{camera:Vec3;basis:number[];focal:number}|null=null,pinned:{anchor:Vec3;until:number}|null=null,pinFrame=0;
+  // A dropped pin stays 1.1 s, then fades.
+  const PIN={ring:12,stalk:26,hold:1100,fade:250};
   const drawPin=(now:number)=>{
     pinFrame=0;
     if(!pinned||!view){pinLayer.toggleAttribute('hidden',true);return;}
-    const {anchor,since,until}=pinned,up=normalize(anchor),r=canvas.getBoundingClientRect(),b=view.basis;
+    const {anchor,until}=pinned,up=normalize(anchor),r=canvas.getBoundingClientRect(),b=view.basis;
     const toward=add(anchor,scale(view.camera,-1)),depth=dot(toward,b.slice(6,9) as Vec3);
     const fading=until?Math.max(0,1-(now-until)/PIN.fade):1;
     if(until&&fading===0){pinned=null;pinLayer.toggleAttribute('hidden',true);return;}
@@ -381,30 +405,24 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
     pinSpot.setAttribute('d',outline);pinRings.forEach(path=>path.setAttribute('d',outline));
     pinStalks.forEach(line=>{line.setAttribute('x1',base[0].toFixed(1));line.setAttribute('y1',base[1].toFixed(1));line.setAttribute('x2',top[0].toFixed(1));line.setAttribute('y2',top[1].toFixed(1));});
     pinHead.setAttribute('cx',top[0].toFixed(1));pinHead.setAttribute('cy',top[1].toFixed(1));
-    // Ripples spread over the ground as the pin lands, like rings on water.
-    let rippling=false;
-    pinRipples.forEach((path,i)=>{
-      const t=still.matches?1:(now-since-i*220)/PIN.ripple;
-      if(t<=0||t>=1){path.setAttribute('d','');return;}
-      rippling=true;path.setAttribute('d',ring(PIN.ring*(1+2.6*t)));path.style.opacity=String((1-t)*.9);
-    });
     pinLayer.style.opacity=String(fading);pinLayer.toggleAttribute('hidden',false);
-    if(!until||fading>0||rippling)pinFrame=requestAnimationFrame(drawPin);
+    if(!until||fading>0)pinFrame=requestAnimationFrame(drawPin);
   };
-  const showPin=(anchor:Vec3,until:number)=>{const now=performance.now();pinned={anchor,since:now,until};cancelAnimationFrame(pinFrame);drawPin(now);};
+  const showPin=(anchor:Vec3,until:number)=>{pinned={anchor,until};cancelAnimationFrame(pinFrame);drawPin(performance.now());};
 
   // A tapped button, or a target on the gauge, answers with a click of its own.
   const buttonTapped=(event:MouseEvent)=>{if(modality==='touch'&&(event.target as Element).closest('button,[role="button"]'))haptic(15);};
-  const touchSeen=(event:PointerEvent)=>{if(event.pointerType==='touch')setModality('touch');else if(event.pointerType==='pen'||modality==='touch')setModality('mouse');else seen('pointer');};
+  const touchSeen=(event:PointerEvent)=>{if(event.pointerType==='touch')setModality('touch');else if(event.pointerType==='pen')setModality('mouse');else if(modality==='touch')setModality(pointerDevice);else seen('pointer');};
 
   tape.addEventListener('pointerdown',tapeDown);tape.addEventListener('pointermove',tapeMove);
   for(const type of ['pointerup','pointercancel','lostpointercapture'])tape.addEventListener(type,tapeUp as EventListener);
   tape.addEventListener('keydown',tapeKey);tape.addEventListener('wheel',tapeWheel,{passive:false});
   modeButtons.forEach(button=>button.addEventListener('click',mode));
+  deviceButtons.forEach(button=>button.addEventListener('click',deviceClick));
   // The gauge's targets: the dial brings back the horizon, as \ does; the
   // Earth arc, the Sun and the Moon turn the camera to face them. Enter or
   // Space works on each, as on a button.
-  const gaugeTargets:[Element,()=>void][]=[[gauge.querySelector('.gauge-dial')!,()=>o.resetCamera()],[gauge.querySelector('.gauge-earth')!,()=>o.faceEarth()],[sunRing,()=>o.faceSun()],[moonMark,()=>o.faceMoon()]];
+  const gaugeTargets:[Element,()=>void][]=[[gauge.querySelector('.gauge-dial')!,()=>o.dial()],[gauge.querySelector('.gauge-earth')!,()=>o.faceEarth()],[sunRing,()=>o.faceSun()],[moonMark,()=>o.faceMoon()]];
   const gaugeClick=(event:Event)=>{gaugeTargets.find(([target])=>target===event.currentTarget)?.[1]();refocus(event);};
   const gaugeKey=(event:Event)=>{const key=(event as KeyboardEvent).key;if(key==='Enter'||key===' '){event.preventDefault();event.stopPropagation();gaugeTargets.find(([target])=>target===event.currentTarget)?.[1]();}};
   gaugeTargets.forEach(([target])=>{target.addEventListener('click',gaugeClick);target.addEventListener('keydown',gaugeKey);});
@@ -464,7 +482,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
   };
   const shown={moon:'',globe:[999,0],ev:NaN as number|null,day:'',time:'',timeScale:NaN,altitude:-1,lens:-1,mode:'',earth:'',sun:''};
   return {
-    setModality,key,setNight,
+    setModality,setDevice,key,setNight,
     get modality(){return modality;},
     toggleHelp(){help.togglePopover();},
     toggleInfo(){info.togglePopover();},
@@ -522,7 +540,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
         const x=dot(direction,b.slice(0,3) as Vec3),y=dot(direction,b.slice(3,6) as Vec3),z=dot(direction,b.slice(6,9) as Vec3),across=Math.hypot(x,y);
         const inFrame=z>0&&Math.abs(focal*x/z)<=aspect/2&&Math.abs(focal*y/z)<=.5;
         const out=inFrame?Math.acos(clamp(z,-1,1))/deg*GAUGE.pitch:at;
-        const hidden=!inFrame&&across<1e-3;marker.toggleAttribute('hidden',hidden);cuts.forEach(cut=>cut.toggleAttribute('hidden',hidden));
+        const hidden=!inFrame&&across<1e-3;marker.toggleAttribute('hidden',hidden);marker.toggleAttribute('data-in-frame',inFrame);cuts.forEach(cut=>cut.toggleAttribute('hidden',hidden));
         const point=across<1e-6?[0,0]:[out*x/across,-out*y/across],place=`translate(${point[0].toFixed(2)}px, ${point[1].toFixed(2)}px)`;
         if(place!==shown[key]){shown[key]=place;marker.style.transform=place;cuts.forEach(cut=>cut.style.transform=place);}
         return point;
@@ -542,8 +560,8 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
       if(anchor)showPin(anchor,0);
       else if(pinned&&!pinned.until){pinned.until=performance.now();if(!pinFrame)pinFrame=requestAnimationFrame(drawPin);}
     },
-    /** Drop the pin where a double-click flies: it lands with ripples, then fades. */
-    drop(anchor:Vec3){showPin(anchor,performance.now()+PIN.ripple+200);},
+    /** Drop the pin where a double-click flies; it stays a moment, then fades. */
+    drop(anchor:Vec3){showPin(anchor,performance.now()+PIN.hold);},
     pulse(clientX:number,clientY:number){
       if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
       const ring=pulseTemplate.cloneNode() as HTMLElement;ring.hidden=false;
@@ -555,6 +573,7 @@ export function createFlightHud(root:HTMLElement,o:{orbit:(orbit:Orbit)=>void;fr
       for(const type of ['pointerup','pointercancel','lostpointercapture'])tape.removeEventListener(type,tapeUp as EventListener);
       tape.removeEventListener('keydown',tapeKey);tape.removeEventListener('wheel',tapeWheel);
       modeButtons.forEach(button=>button.removeEventListener('click',mode));
+      deviceButtons.forEach(button=>button.removeEventListener('click',deviceClick));
       gaugeTargets.forEach(([target])=>{target.removeEventListener('click',gaugeClick);target.removeEventListener('keydown',gaugeKey);});
       lensTape.removeEventListener('pointerdown',lensDown);lensTape.removeEventListener('pointermove',lensMove);
       for(const type of ['pointerup','pointercancel','lostpointercapture'])lensTape.removeEventListener(type,lensUp as EventListener);

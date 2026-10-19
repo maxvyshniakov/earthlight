@@ -124,6 +124,12 @@ test('the horizon view levels and looks out along the heading, as an orbit at th
  const again=new FlightNavigation();again.detach(iss,{yaw:0,pitch:0});again.horizon(true);
  for(let i=0;i<9;i++)assert.ok(Math.abs(again.free.basis[i]-iss.cameraBasis[i])<1e-6);
  assert.ok(Math.abs(ahead-horizon(again).heading)<1e-6);
+ // There, upright or turned over, only a flip is left: the gauge's dial flips
+ // as H does instead of bringing back the horizon the short way round.
+ assert.equal(again.atHorizon(),true);
+ again.level(true);assert.equal(again.atHorizon(),true,'turned over at the horizon');
+ again.roll(.3);assert.equal(again.atHorizon(),false,'rolled');
+ again.horizon();assert.equal(again.atHorizon(),false,'still turning');
  // High, Earth's whole disk fits in the frame, so the view centres it.
  const high=new FlightNavigation();high.detach(orbitFrame('high',1000),{yaw:0,pitch:0});high.turn(0,60);high.horizon(true);
  assert.ok(dot(high.free.basis.slice(6,9),normalize(scale(high.free.position,-1)))>1-1e-9,'Earth centred from high orbit');

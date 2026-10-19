@@ -9,6 +9,7 @@ import { createTouchCamera } from './camera-touch';
 import { createFlightControls, type FlightCommand } from './flight-controls';
 import { createCameraController } from './camera-controller';
 import { createFlightHud, type FlightHud } from './flight-hud';
+import { createInputDevice, type InputDevicePreference } from './input-device';
 import { LENS_MIN, LENS_MAX, type LookControl } from './scene-control-model';
 import { ExplorerSession } from './explorer-session';
 import { writeLookSettings, writeViewSettings, writePlaybackSettings, writeTimeSliderSetting, writeLensSetting, resetExplorerSettingsURL } from './explorer-url';
@@ -757,7 +758,20 @@ export class EarthlightExplorer extends HTMLElement {
       }
       enterFree();navigation.face(target,reducedMotion());cameraChanged();flightControls?.request();
     };
+    // Mouse or trackpad: detected from the wheel until chosen with M or T, the
+    // buttons over Help or Settings; M, T or a button again goes back to Auto.
+    const inputDeviceSelect=this.querySelector<HTMLSelectElement>('#explorer-input-device');
+    const inputDevice=createInputDevice((device,preference)=>{
+      hud?.setDevice(device,preference);
+      if(inputDeviceSelect){
+        inputDeviceSelect.value=preference;
+        const auto=inputDeviceSelect.querySelector<HTMLOptionElement>('option[value="auto"]');
+        if(auto)auto.textContent=`Auto (${inputDevice.detected})`;
+      }
+    });
+    const chooseInputDevice=()=>inputDevice.choose(inputDeviceSelect!.value as InputDevicePreference);
     const command=(name:FlightCommand)=>{
+      if(name==='mouse'||name==='trackpad'){inputDevice.toggle(name);return;}
       if(!ready())return;
       if(name==='help')hud?.toggleHelp();
       else if(name==='info')hud?.toggleInfo();
@@ -797,10 +811,10 @@ export class EarthlightExplorer extends HTMLElement {
       zoom:(log,x,y,smooth)=>camera.zoom(log,x,y,smooth),
       lens:(log,x,y,smooth)=>camera.lens(log,x,y,smooth),
       roll:angle=>camera.roll(angle),
-      scroll:(x,y,lookOnly)=>camera.scroll(x,y,lookOnly),
+      scroll:(x,y,intent)=>camera.scroll(x,y,intent),
       command,
       key:(code,down)=>hud?.key(code,down),
-      device:device=>hud?.setModality(device),
+      device:device=>inputDevice.detect(device),forced:inputDevice.forced,
       action:action=>{
         if(action&&ready())dragSurface.dataset.cameraAction=action;
         else delete dragSurface.dataset.cameraAction;
@@ -811,10 +825,10 @@ export class EarthlightExplorer extends HTMLElement {
     const disposeCameraDrag=dragSurface?createCameraDrag(dragSurface,camera,(x,y,intent)=>{
       if(x===null||!ready()){delete dragSurface.dataset.cursor;flightControls?.clearAction();return;}
       // A plain drag moves over Earth wherever it starts, so the cursor is Earth's.
-      const kind=intent==='roll'?'roll':intent==='altitude'?'altitude':intent==='look'?'look':'fly';
+      const kind=intent==='auto'?'fly':intent;
       if(dragSurface.dataset.cursor!==kind)flightControls?.clearAction();
       dragSurface.dataset.cursor=kind;
-    },()=>hud?.modality==='trackpad'):()=>{};
+    },()=>inputDevice.device==='trackpad'):()=>{};
     const touchSurface=dragSurface?.querySelector<HTMLElement>('.explorer-gestures');
     const touch=touchSurface?createTouchCamera(touchSurface,camera,()=>hud?.setModality('touch'),touchGain,touchSpin):null;
     const calendarSet=(kind:'date'|'time',value:number)=>{
@@ -829,6 +843,9 @@ export class EarthlightExplorer extends HTMLElement {
       lensZoom,
       hold:(code,down)=>flightControls?.hold(code,down),
       resetCamera:()=>command('reset-camera'),
+      // A first click brings back the horizon, as \ does; once there, upright
+      // or turned over, each click flips the view clockwise, as H does.
+      dial:()=>command((navigation.free?navigation.atHorizon():!cameraView.yaw&&!cameraView.pitch)?'level':'reset-camera'),
       night:()=>command('night'),nightOn:settings.night!=='current',
       faceEarth:()=>face(()=>normalize(currentObserver().camera.map(v=>-v) as Vec3)),
       faceSun:()=>face(()=>normalize([...currentObserver().sun] as Vec3)),
@@ -840,7 +857,9 @@ export class EarthlightExplorer extends HTMLElement {
       timeScale:()=>session.paused?0:session.timeScale,
       setTimeScale:target=>setTimeSliderPosition(session.sliderPositionForTimeScale(target)),
       stepTimeScale:notches=>setTimeSliderPosition(session.timeSliderPosition+notches*10),
+      device:device=>inputDevice.toggle(device),
     }):null;
+    inputDevice.notify();
     // Night switch. The key latches at once; the address, the manual
     // exposure range and the link follow when the new mode draws. The last
     // frame of the old mode stays over the canvas until the new camera has
@@ -977,6 +996,7 @@ export class EarthlightExplorer extends HTMLElement {
     };
     auroraMode.addEventListener('change',changeAurora);
     cloudsMode.addEventListener('change',changeClouds);
+    inputDeviceSelect?.addEventListener('change',chooseInputDevice);
     profileSelect.addEventListener('change',changeProfile);
     cloudShapeSelect.addEventListener('change',changeCloudShape);
     calendarInputs.forEach(input=>input.addEventListener('input',changeCalendar));
@@ -1064,6 +1084,7 @@ export class EarthlightExplorer extends HTMLElement {
       exposureMode.removeEventListener('change',changeLook);fixedExposure.removeEventListener('input',changeLook);lensPreset.removeEventListener('change',changeLook);
       auroraMode.removeEventListener('change',changeAurora);
       cloudsMode.removeEventListener('change',changeClouds);
+      inputDeviceSelect?.removeEventListener('change',chooseInputDevice);
       resetAll.removeEventListener('click',restoreAll);
       resetValueButtons.forEach(button=>button.removeEventListener('click',restoreValue));
       viewInputs.forEach(input=>input.removeEventListener('input',changeView));

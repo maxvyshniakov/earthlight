@@ -58,9 +58,13 @@ called Orbit, and older lab notes still use that name.
 - **Free flight**: the camera detached from any orbit. `FlightNavigation` owns
   following and free flight; `flight-controls.ts` maps keys and wheels;
   `FlightHud` draws the instruments.
+- **Pointing device**: mouse or trackpad, which decides what a wheel event
+  means. Detected from wheel bursts until the viewer chooses one with M, T or
+  the setting; the choice lives in the `earthlight-input-device` cookie. The
+  types are `WheelDevice` and `InputDevicePreference` (`input-device.ts`).
 - **Camera controller**: turns gestures into camera motion: fly, look,
-  approach, lens, roll and **circle** (the right button circles the pinned
-  point under the pointer). See `camera-controller.ts`, `camera-drag.ts` and
+  approach, lens, roll and **circle** (the right button or Control circles
+  the pinned point under the pointer). See `camera-controller.ts`, `camera-drag.ts` and
   `camera-touch.ts`.
 - **Camera model**: the photographic camera: exposure, lens point-spread,
   reflections, defocus, grain (`camera-model.ts` and the other `camera-*`

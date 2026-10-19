@@ -29,17 +29,17 @@ function environment(run){
   finally{for(const [name,descriptor] of saved)if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}
 }
 
-function flight(env){
-  const calls={lens:[],zoom:[],roll:[],scroll:[],moves:[],action:[],stop:0};let enabled=true,touching=false;
+function flight(env,{forced=null}={}){
+  const calls={lens:[],zoom:[],roll:[],scroll:[],moves:[],action:[],device:[],stop:0};let enabled=true,touching=false;
   const controls=createFlightControls(env.surface,{
-    enabled:()=>enabled,touching:()=>touching,step:()=>false,key:()=>{},command:()=>{},device:()=>{},stop:()=>calls.stop++,
+    enabled:()=>enabled,touching:()=>touching,step:()=>false,key:()=>{},command:()=>{},device:value=>calls.device.push(value),forced:()=>forced,stop:()=>calls.stop++,
     lens:(...args)=>calls.lens.push(args),zoom:(...args)=>calls.zoom.push(args),roll:value=>calls.roll.push(value),
     action:value=>calls.action.push(value),
     scroll:(...args)=>{calls.scroll.push(args);return {by:(...args)=>calls.moves.push(args)};},
   });
   const wheel=values=>env.fire(env.surface,'wheel',{clientX:300,clientY:200,deltaX:0,deltaY:0,deltaMode:0,ctrlKey:false,shiftKey:false,altKey:false,...values});
   const gesture=(type,values={})=>env.fire(env.surface,type,{clientX:300,clientY:200,scale:1,rotation:0,shiftKey:false,altKey:false,...values});
-  return {calls,controls,wheel,gesture,setEnabled:value=>{enabled=value;},setTouching:value=>{touching=value;}};
+  return {calls,controls,wheel,gesture,setEnabled:value=>{enabled=value;},setTouching:value=>{touching=value;},setForced:value=>{forced=value;}};
 }
 
 test('two-finger translation tolerates spread and twist, then deliberately transitions without a jump',()=>{
@@ -115,36 +115,31 @@ test('touch pointer events preserve look during jitter and apply only subsequent
   }finally{touch.dispose();}
 }));
 
-test('Chromium pinch maps ordinary to lens, Shift to approach, and Option to roll with precedence',()=>environment(env=>{
+test('Chromium pinch zooms the lens whatever the modifiers',()=>environment(env=>{
   const f=flight(env);
   try{
-    for(const [modifiers,channel,sign] of [[{},'lens',1],[{shiftKey:true},'zoom',-1],[{altKey:true},'roll',1],[{shiftKey:true,altKey:true},'roll',1]]){
+    for(const modifiers of [{},{shiftKey:true},{altKey:true},{shiftKey:true,altKey:true}]){
       for(const direction of [-1,1]){
-        f.controls.cancel();const before=Object.fromEntries(['lens','zoom','roll'].map(name=>[name,f.calls[name].length]));
+        f.controls.cancel();const before=f.calls.lens.length;
         f.wheel({ctrlKey:true,...modifiers,deltaY:-10*direction});
         f.wheel({ctrlKey:true,...modifiers,deltaY:-6*direction});
-        for(const name of ['lens','zoom','roll'])assert.equal(f.calls[name].length,before[name],'threshold crossing rebases');
+        assert.equal(f.calls.lens.length,before,'threshold crossing rebases');
         f.wheel({ctrlKey:true,...modifiers,deltaY:-4*direction});
-        for(const name of ['lens','zoom','roll'])assert.equal(f.calls[name].length,before[name]+Number(name===channel));
-        const applied=f.calls[channel].at(-1);close(channel==='roll'?applied:applied[0],.04*direction*sign);
+        assert.equal(f.calls.lens.length,before+1);close(f.calls.lens.at(-1)[0],.04*direction);
       }
     }
-    assert.equal(f.calls.scroll.length,0);
+    assert.equal(f.calls.zoom.length,0);assert.equal(f.calls.roll.length,0);assert.equal(f.calls.scroll.length,0);
   }finally{f.controls.dispose();}
 }));
 
-test('Chromium live pinch modifiers rebase and require new intent before changing operation',()=>environment(env=>{
+test('a modifier pressed mid-pinch keeps zooming the lens without a fresh threshold',()=>environment(env=>{
   const f=flight(env),pinch=values=>f.wheel({ctrlKey:true,...values});
   try{
     pinch({deltaY:-16});pinch({deltaY:-4});close(f.calls.lens[0][0],.04);
-    for(const modifiers of [{shiftKey:true},{shiftKey:true,altKey:true},{}]){
-      const before=[f.calls.lens.length,f.calls.zoom.length,f.calls.roll.length];
-      pinch({...modifiers,deltaY:-100});pinch({...modifiers,deltaY:-10});pinch({...modifiers,deltaY:-6});
-      assert.deepEqual([f.calls.lens.length,f.calls.zoom.length,f.calls.roll.length],before,'old motion and fresh threshold do not move the next operation');
-      pinch({...modifiers,deltaY:-4});
-    }
-    assert.equal(f.calls.lens.length,2);assert.equal(f.calls.zoom.length,1);assert.equal(f.calls.roll.length,1);
-    close(f.calls.zoom[0][0],-.04);close(f.calls.roll[0],.04);close(f.calls.lens[1][0],.04);
+    env.fire(env.window,'keydown',{code:'ShiftLeft',shiftKey:true});pinch({shiftKey:true,deltaY:-4});
+    env.fire(env.window,'keydown',{code:'AltLeft',shiftKey:true,altKey:true});pinch({shiftKey:true,altKey:true,deltaY:-4});
+    assert.equal(f.calls.lens.length,3);close(f.calls.lens[2][0],.04);
+    assert.equal(f.calls.zoom.length,0);assert.equal(f.calls.roll.length,0);
   }finally{f.controls.dispose();}
 }));
 
@@ -159,7 +154,7 @@ test('Chromium pinch burst, blur and cancel start with fresh intent',()=>environ
 }));
 
 test('pinch during trackpad scroll waits for the higher threshold; physically held Control preserves momentum',()=>environment(env=>{
-  const f=flight(env);
+  const f=flight(env,{forced:'trackpad'});
   try{
     f.wheel({deltaY:7});assert.equal(f.calls.scroll.length,1);
     f.wheel({ctrlKey:true,deltaY:-20});assert.equal(f.calls.lens.length,0);assert.equal(env.timers.size,1,'scroll remains alive below threshold');
@@ -172,13 +167,93 @@ test('pinch during trackpad scroll waits for the higher threshold; physically he
   }finally{f.controls.dispose();}
 }));
 
-test('ordinary scroll, Shift-look and clicky wheel retain their camera operations',()=>environment(env=>{
+test('a scroll moves over Earth, looks with Shift and circles with Control; a clicky wheel zooms the lens, and approaches with Shift',()=>environment(env=>{
   const f=flight(env);
   try{
-    f.wheel({deltaX:2,deltaY:7});assert.equal(f.calls.scroll[0][2],false);
-    f.controls.cancel();f.wheel({deltaY:7,shiftKey:true});assert.equal(f.calls.scroll[1][2],true);
-    f.controls.cancel();f.wheel({deltaY:3,deltaMode:1});assert.equal(f.calls.zoom.length,1);
-    f.controls.cancel();f.wheel({deltaY:-3,deltaMode:1,shiftKey:true});assert.equal(f.calls.lens.length,1);close(f.calls.lens[0][0],Math.log(2)/3);
+    f.wheel({deltaX:2,deltaY:7});assert.equal(f.calls.scroll[0][2],'auto');
+    f.controls.cancel();f.wheel({deltaY:2,shiftKey:true});assert.equal(f.calls.scroll[1][2],'look');
+    // Chromium sets Ctrl on a pinch too; only the key held makes it a Control scroll.
+    f.controls.cancel();env.fire(env.window,'keydown',{code:'ControlLeft',ctrlKey:true});
+    f.wheel({deltaX:-3,ctrlKey:true,shiftKey:true});assert.equal(f.calls.scroll[2][2],'circle','Control takes precedence');
+    assert.deepEqual(f.calls.moves.at(-1),[3,-0]);
+    f.controls.cancel();f.wheel({deltaY:3,deltaMode:1});assert.equal(f.calls.lens.length,1);close(f.calls.lens[0][0],-Math.log(2)/3);
+    f.controls.cancel();f.wheel({deltaY:-3,deltaMode:1,shiftKey:true});assert.equal(f.calls.zoom.length,1);close(f.calls.zoom[0][0],.28);
+    assert.equal(f.calls.lens.length,1);
+  }finally{f.controls.dispose();}
+}));
+
+test('a wheel burst is recognized from its first event: signature, lines, both axes or a tiny delta',()=>environment(env=>{
+  const f=flight(env);
+  try{
+    f.wheel({deltaY:4.000244140625});assert.equal(f.calls.lens.length,1,'a clicky notch is a mouse at once');
+    assert.deepEqual(f.calls.device,['mouse']);
+    env.advance(300);f.wheel({deltaX:3,deltaY:5});assert.equal(f.calls.scroll.length,1,'both axes are a trackpad');
+    env.advance(300);f.wheel({deltaY:3,deltaMode:1});assert.equal(f.calls.lens.length,2,'lines are a wheel');
+    env.advance(300);f.wheel({deltaY:2.5});assert.equal(f.calls.scroll.length,2,'a tiny delta is a trackpad');
+    assert.deepEqual(f.calls.device,['mouse','trackpad','mouse','trackpad'],'the device is reported as it changes');
+  }finally{f.controls.dispose();}
+}));
+
+test('an ambiguous first event waits up to 40 ms: a quick small follower is a trackpad, none or a slow one a wheel',()=>environment(env=>{
+  const f=flight(env);
+  try{
+    f.wheel({deltaY:10});assert.equal(f.calls.lens.length+f.calls.scroll.length,0,'nothing moves while it waits');
+    env.advance(39);assert.equal(f.calls.lens.length,0);env.advance(1);assert.equal(f.calls.lens.length,1,'a lone event is a wheel');
+    env.advance(300);f.wheel({deltaY:10});env.advance(8);f.wheel({deltaY:12});
+    assert.equal(f.calls.scroll.length,1,'a quick follower makes a trackpad');assert.deepEqual(f.calls.moves.map(m=>m[1]),[-10,-12],'both events move');
+    env.advance(300);f.wheel({deltaY:50});env.advance(30);f.wheel({deltaY:50});assert.equal(f.calls.lens.length,3,'a slow follower makes both notches a wheel');
+    env.advance(300);f.wheel({deltaY:10});f.controls.cancel();env.advance(100);assert.equal(f.calls.lens.length,3,'cancel drops the waiting event');
+  }finally{f.controls.dispose();}
+}));
+
+test('a sideways Shift scroll after a wheel stays a wheel, as macOS can strip its signature',()=>environment(env=>{
+  const f=flight(env);
+  try{
+    f.wheel({deltaY:4.000244140625});env.advance(300);
+    f.wheel({shiftKey:true,deltaX:7.5});assert.equal(f.calls.zoom.length,1,'Shift-wheel changes altitude at once');
+    env.advance(300);f.wheel({deltaX:2,deltaY:3});env.advance(300);
+    f.wheel({shiftKey:true,deltaX:2});assert.equal(f.calls.scroll.at(-1)[2],'look','after a trackpad it looks');
+  }finally{f.controls.dispose();}
+}));
+
+test('a pinch shows a trackpad; a chosen device takes every wheel event and is never reported',()=>environment(env=>{
+  const f=flight(env);
+  try{
+    f.wheel({ctrlKey:true,deltaY:-4});assert.deepEqual(f.calls.device,['trackpad']);
+    f.controls.cancel();f.setForced('mouse');
+    f.wheel({deltaX:3,deltaY:2});assert.equal(f.calls.lens.length,1,'a trackpad-like event zooms the lens');assert.equal(f.calls.scroll.length,0);
+    close(f.calls.lens[0][0],-.02*Math.log(2)/3);
+    env.advance(300);f.setForced('trackpad');f.wheel({deltaY:4.000244140625});assert.equal(f.calls.scroll.length,1,'a clicky notch scrolls');
+    assert.deepEqual(f.calls.device,['trackpad']);
+  }finally{f.controls.dispose();}
+}));
+
+test('an Option swipe takes its first clear axis: up and down change altitude, sideways rolls',()=>environment(env=>{
+  const f=flight(env,{forced:'trackpad'});
+  try{
+    f.wheel({altKey:true,deltaY:2});assert.equal(f.calls.zoom.length,0,'a few pixels decide nothing yet');
+    f.wheel({altKey:true,deltaY:3});assert.equal(f.calls.zoom.length,1);close(f.calls.zoom[0][0],-5/800*2);
+    assert.equal(f.calls.action.at(-1),'approach-in','scrolling down descends, as on the tape');
+    f.wheel({altKey:true,deltaX:10,deltaY:-1});assert.equal(f.calls.roll.length,0,'the swipe keeps its axis');
+    close(f.calls.zoom.at(-1)[0],1/800*2);assert.equal(f.calls.action.at(-1),'approach-out');
+    f.controls.cancel();f.wheel({altKey:true,shiftKey:true,deltaX:-6});
+    assert.equal(f.calls.roll.length,1,'Option takes precedence over Shift');close(f.calls.roll[0],6/800*Math.PI*.75);
+    assert.equal(f.calls.action.at(-1),'roll-right');
+    f.wheel({altKey:true,shiftKey:true,deltaY:10});assert.equal(f.calls.roll.length,1);assert.equal(f.calls.zoom.length,2);
+    assert.equal(f.calls.scroll.length,0);assert.equal(f.calls.lens.length,0);
+  }finally{f.controls.dispose();}
+}));
+
+test('a clicky wheel rolls with Option and circles with Control, as a short sideways scroll',()=>environment(env=>{
+  const f=flight(env);
+  try{
+    f.wheel({altKey:true,deltaY:-3,deltaMode:1});close(f.calls.roll[0],.06*Math.PI*.75);
+    assert.equal(f.calls.action.at(-1),'roll-right','wheel up turns the image clockwise');
+    f.controls.cancel();f.wheel({altKey:true,deltaY:4.000244140625*2});close(f.calls.roll[1],-2*.06*Math.PI*.75);
+    f.controls.cancel();env.fire(env.window,'keydown',{code:'ControlLeft',ctrlKey:true});
+    f.wheel({ctrlKey:true,deltaY:-3,deltaMode:1});
+    assert.equal(f.calls.scroll.at(-1)[2],'circle');assert.deepEqual(f.calls.moves.at(-1),[.06*800,-0]);
+    assert.equal(f.calls.zoom.length,0);assert.equal(f.calls.lens.length,0);
   }finally{f.controls.dispose();}
 }));
 
@@ -194,61 +269,29 @@ test('ordinary Safari pinch and native twist share intent thresholds',()=>enviro
   }finally{f.controls.dispose();}
 }));
 
-test('Safari pinch modifier mapping matches Chromium, and modified pinches ignore native twist',()=>environment(env=>{
+test('Safari pinch zooms the lens whatever the modifiers',()=>environment(env=>{
   const f=flight(env);
   try{
-    for(const [modifiers,channel,sign] of [[{},'lens',1],[{shiftKey:true},'zoom',-1],[{altKey:true},'roll',1],[{shiftKey:true,altKey:true},'roll',1]]){
+    for(const modifiers of [{},{shiftKey:true},{altKey:true},{shiftKey:true,altKey:true}]){
       for(const direction of [-1,1]){
-        f.controls.cancel();const before=Object.fromEntries(['lens','zoom','roll'].map(name=>[name,f.calls[name].length]));
+        f.controls.cancel();const before=f.calls.lens.length;
         f.gesture('gesturestart',modifiers);
-        f.gesture('gesturechange',{...modifiers,scale:Math.exp(.16*direction)});
-        for(const name of ['lens','zoom','roll'])assert.equal(f.calls[name].length,before[name]);
-        f.gesture('gesturechange',{...modifiers,scale:Math.exp(.20*direction)});
-        for(const name of ['lens','zoom','roll'])assert.equal(f.calls[name].length,before[name]+Number(name===channel));
-        const applied=f.calls[channel].at(-1);close(channel==='roll'?applied:applied[0],.04*direction*sign);
-        if(channel!=='lens'){
-          const rolls=f.calls.roll.length;
-          f.gesture('gesturechange',{...modifiers,scale:Math.exp(.20*direction),rotation:45});
-          f.gesture('gesturechange',{...modifiers,scale:Math.exp(.20*direction),rotation:60});
-          assert.equal(f.calls.roll.length,rolls,'modified pinch does not also consume native twist');
-        }
+        f.gesture('gesturechange',{...modifiers,scale:Math.exp(.16*direction)});assert.equal(f.calls.lens.length,before);
+        f.gesture('gesturechange',{...modifiers,scale:Math.exp(.20*direction)});assert.equal(f.calls.lens.length,before+1);
+        close(f.calls.lens.at(-1)[0],.04*direction);
+        f.gesture('gestureend');
       }
     }
+    assert.equal(f.calls.zoom.length,0);assert.equal(f.calls.roll.length,0);
   }finally{f.controls.dispose();}
 }));
 
-test('Safari live modifiers rebase absolute scale and native rotation before starting the new operation',()=>environment(env=>{
+test('a wheel alongside a Safari gesture is ignored, even with Control held',()=>environment(env=>{
   const f=flight(env);
   try{
-    f.gesture('gesturestart');f.gesture('gesturechange',{scale:Math.exp(.16)});f.gesture('gesturechange',{scale:Math.exp(.20)});
-    let base=1;
-    for(const modifiers of [{shiftKey:true},{shiftKey:true,altKey:true},{}]){
-      const before=[f.calls.lens.length,f.calls.zoom.length,f.calls.roll.length];
-      for(const delta of [0,.10,.16])f.gesture('gesturechange',{...modifiers,scale:Math.exp(base+delta),rotation:60});
-      assert.deepEqual([f.calls.lens.length,f.calls.zoom.length,f.calls.roll.length],before);
-      f.gesture('gesturechange',{...modifiers,scale:Math.exp(base+.20),rotation:60});base++;
-    }
-    assert.equal(f.calls.lens.length,2);assert.equal(f.calls.zoom.length,1);assert.equal(f.calls.roll.length,1);
-    close(f.calls.zoom[0][0],-.04);close(f.calls.roll[0],.04);close(f.calls.lens[1][0],.04);
-  }finally{f.controls.dispose();}
-}));
-
-test('Safari missing modifier fields use keyboard state; explicit false and blur remain authoritative',()=>environment(env=>{
-  const f=flight(env);
-  const pinch=modifiers=>{
-    f.gesture('gesturestart',modifiers);
-    f.gesture('gesturechange',{...modifiers,scale:Math.exp(.16)});
-    f.gesture('gesturechange',{...modifiers,scale:Math.exp(.20)});
-    f.gesture('gestureend');
-  };
-  try{
-    env.fire(env.window,'keydown',{code:'AltLeft',altKey:true,shiftKey:true});
-    pinch({altKey:undefined,shiftKey:undefined});assert.equal(f.calls.roll.length,1);assert.equal(f.calls.zoom.length,0);
-    pinch({altKey:false,shiftKey:false});assert.equal(f.calls.lens.length,1);assert.equal(f.calls.roll.length,1);
-    pinch({altKey:false,shiftKey:true});assert.equal(f.calls.zoom.length,1);
-    env.fire(env.window,'keyup',{code:'AltLeft',altKey:false,shiftKey:true});
-    pinch({altKey:undefined,shiftKey:undefined});assert.equal(f.calls.zoom.length,2);
-    env.fire(env.window,'blur');pinch({altKey:undefined,shiftKey:undefined});assert.equal(f.calls.lens.length,2);
+    env.fire(env.window,'keydown',{code:'ControlLeft',ctrlKey:true});
+    f.gesture('gesturestart');f.wheel({ctrlKey:true,deltaY:-20});f.wheel({ctrlKey:true,deltaY:-20});
+    assert.equal(f.calls.scroll.length,0);assert.equal(f.calls.lens.length,0);
   }finally{f.controls.dispose();}
 }));
 
@@ -273,22 +316,38 @@ test('Safari disabled, touch, controls and cancellation gates prevent stale gest
 test('pinch action feedback starts on applied movement and reverses with the effective delta',()=>environment(env=>{
   const f=flight(env);
   try{
-    for(const [modifiers,positive,negative] of [[{},'lens-in','lens-out'],[{shiftKey:true},'approach-in','approach-out'],[{altKey:true},'roll-right','roll-left']]){
+    for(const modifiers of [{},{shiftKey:true},{altKey:true}]){
       f.controls.cancel();const start=f.calls.action.length;
       f.wheel({ctrlKey:true,...modifiers,deltaY:-10});f.wheel({ctrlKey:true,...modifiers,deltaY:-6});
       assert.equal(f.calls.action.length,start,'crossing the threshold alone does not claim movement');
-      f.wheel({ctrlKey:true,...modifiers,deltaY:-4});assert.equal(f.calls.action.at(-1),positive);
-      f.wheel({ctrlKey:true,...modifiers,deltaY:2});assert.equal(f.calls.action.at(-1),negative,'reversal follows the latest applied delta, not total displacement');
+      f.wheel({ctrlKey:true,...modifiers,deltaY:-4});assert.equal(f.calls.action.at(-1),'lens-in');
+      f.wheel({ctrlKey:true,...modifiers,deltaY:2});assert.equal(f.calls.action.at(-1),'lens-out','reversal follows the latest applied delta, not total displacement');
       const count=f.calls.action.length;f.wheel({ctrlKey:true,...modifiers,deltaY:2});assert.equal(f.calls.action.length,count,'unchanged direction does not repeat notifications');
-      env.advance(219);assert.equal(f.calls.action.at(-1),negative);env.advance(1);assert.equal(f.calls.action.at(-1),null,'wheel burst feedback ends after idle');
+      env.advance(219);assert.equal(f.calls.action.at(-1),'lens-out');env.advance(1);assert.equal(f.calls.action.at(-1),null,'wheel burst feedback ends after idle');
     }
   }finally{f.controls.dispose();}
+}));
+
+test('a Shift scroll shows that it looks while its events keep arriving',()=>environment(env=>{
+  const calls=[];
+  const controls=createFlightControls(env.surface,{
+    enabled:()=>true,touching:()=>false,step:()=>false,key:()=>{},command:()=>{},device:()=>{},stop:()=>{},
+    lens:()=>{},zoom:()=>{},roll:()=>{},action:value=>calls.push(value),
+    scroll:(x,y,intent)=>({kind:intent==='look'?'look':'fly',by:()=>{}}),forced:()=>'trackpad',
+  });
+  const wheel=values=>env.fire(env.surface,'wheel',{clientX:300,clientY:200,deltaX:0,deltaY:0,deltaMode:0,ctrlKey:false,shiftKey:false,altKey:false,...values});
+  try{
+    wheel({deltaY:7});assert.equal(calls.length,0,'a plain scroll shows nothing');
+    controls.cancel();wheel({deltaY:7,shiftKey:true});assert.equal(calls.at(-1),'look');
+    env.advance(100);wheel({deltaY:7,shiftKey:true});env.advance(219);assert.equal(calls.at(-1),'look');
+    env.advance(1);assert.equal(calls.at(-1),null,'the hint returns once the scroll stops');
+  }finally{controls.dispose();}
 }));
 
 test('clicky wheel action feedback uses the signed camera operation with and without Shift',()=>environment(env=>{
   const f=flight(env);
   try{
-    for(const [shiftKey,deltaY,action] of [[false,-3,'approach-in'],[false,3,'approach-out'],[true,-3,'lens-in'],[true,3,'lens-out']]){
+    for(const [shiftKey,deltaY,action] of [[false,-3,'lens-in'],[false,3,'lens-out'],[true,-3,'approach-out'],[true,3,'approach-in']]){
       f.wheel({deltaMode:1,deltaY,shiftKey});assert.equal(f.calls.action.at(-1),action);
     }
     env.advance(220);assert.equal(f.calls.action.at(-1),null);
@@ -298,13 +357,13 @@ test('clicky wheel action feedback uses the signed camera operation with and wit
 test('Safari action feedback follows scale reversals and native twist, then clears at gesture end',()=>environment(env=>{
   const f=flight(env);
   try{
-    for(const [modifiers,positive,negative] of [[{},'lens-in','lens-out'],[{shiftKey:true},'approach-in','approach-out'],[{altKey:true},'roll-right','roll-left']]){
+    for(const modifiers of [{},{shiftKey:true},{altKey:true}]){
       const start=f.calls.action.length;
       f.gesture('gesturestart',modifiers);f.gesture('gesturechange',{...modifiers,scale:Math.exp(.16)});
       assert.equal(f.calls.action.length,start);
-      f.gesture('gesturechange',{...modifiers,scale:Math.exp(.20)});assert.equal(f.calls.action.at(-1),positive);
-      f.gesture('gesturechange',{...modifiers,scale:Math.exp(.18)});assert.equal(f.calls.action.at(-1),negative);
-      env.advance(500);assert.equal(f.calls.action.at(-1),negative,'Safari keeps feedback until its explicit end');
+      f.gesture('gesturechange',{...modifiers,scale:Math.exp(.20)});assert.equal(f.calls.action.at(-1),'lens-in');
+      f.gesture('gesturechange',{...modifiers,scale:Math.exp(.18)});assert.equal(f.calls.action.at(-1),'lens-out');
+      env.advance(500);assert.equal(f.calls.action.at(-1),'lens-out','Safari keeps feedback until its explicit end');
       f.gesture('gestureend');assert.equal(f.calls.action.at(-1),null);
     }
     const start=f.calls.action.length;f.gesture('gesturestart');f.gesture('gesturechange',{rotation:10});f.gesture('gesturechange',{rotation:20});
@@ -315,19 +374,13 @@ test('Safari action feedback follows scale reversals and native twist, then clea
   }finally{f.controls.dispose();}
 }));
 
-test('action feedback clears on modifier transitions before the new operation passes its threshold',()=>environment(env=>{
+test('action feedback clears on a modifier change and returns with the next movement',()=>environment(env=>{
   const f=flight(env);
   try{
     f.wheel({ctrlKey:true,deltaY:-16});f.wheel({ctrlKey:true,deltaY:-4});
     env.fire(env.window,'keydown',{code:'ShiftLeft',shiftKey:true,altKey:false});assert.equal(f.calls.action.at(-1),null);
-    f.wheel({ctrlKey:true,shiftKey:true,deltaY:-100});f.wheel({ctrlKey:true,shiftKey:true,deltaY:-16});assert.equal(f.calls.action.at(-1),null);
-    f.wheel({ctrlKey:true,shiftKey:true,deltaY:-4});assert.equal(f.calls.action.at(-1),'approach-in');
+    f.wheel({ctrlKey:true,shiftKey:true,deltaY:-4});assert.equal(f.calls.action.at(-1),'lens-in');
     env.fire(env.window,'keyup',{code:'ShiftLeft',shiftKey:false,altKey:false});assert.equal(f.calls.action.at(-1),null);
-    f.controls.cancel();f.gesture('gesturestart');f.gesture('gesturechange',{scale:1.2});f.gesture('gesturechange',{scale:1.4});
-    assert.equal(f.calls.action.at(-1),'lens-in');
-    f.gesture('gesturechange',{scale:2,altKey:true});assert.equal(f.calls.action.at(-1),null);
-    f.gesture('gesturechange',{scale:2.4,altKey:true});assert.equal(f.calls.action.at(-1),null);
-    f.gesture('gesturechange',{scale:2.6,altKey:true});assert.equal(f.calls.action.at(-1),'roll-right');
   }finally{f.controls.dispose();}
 }));
 

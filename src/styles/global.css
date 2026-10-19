@@ -18,7 +18,9 @@
 }
 
 @layer explorer {
-  .explorer-page { color-scheme: dark; --paper: #080a0c; --ink: #f0ede6; --muted: #a5a5a3; --line: #ffffff24; --accent: #dfa77e; --page-gutter: clamp(20px, 3.333vw, 48px); background: #000; }
+  .explorer-page { color-scheme: dark; --paper: #080a0c; --ink: #f0ede6; --muted: #a5a5a3; --line: #ffffff24; --accent: #aee400; --page-gutter: clamp(20px, 3.333vw, 48px); background: #000; }
+  /* The personal site's accent, deeper on wide-gamut displays. */
+  @media (color-gamut: p3) { .explorer-page { --accent: oklch(0.85 0.27 125); } }
   /* Black, so browser bars that take their colour from the page match it. */
   .explorer-page body { isolation: isolate; background: #000; }
 }

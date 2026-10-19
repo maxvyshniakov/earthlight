@@ -422,7 +422,9 @@ Since 2026-10-15 the explorer (`/`) has no telemetry block. Time sits top
 centre. On a HUD at least 960 px wide it is Space, named Time, then three tapes
 hung 6 px lower so their short ticks share an axis with that name
 along the top edge, plain like the side ones: the time scale, the date and the
-time of day in UTC; there is no play button, since stopped time is simply 0×.
+time of day in UTC. Since 2026-10-20 the play button stands in the top-left
+corner there too, mirroring the Settings gear, as on a phone; it used to go,
+since stopped time is also 0× on the time-scale tape.
 The time scale runs from 0× to 1000× in five equal stretches, 160 px in all:
 linear from 0 to 0.1×, then four logarithmic decades, each end labelled (0×,
 0.1×, 1×, 10×, 100×, 1000×) and a tick every sixth of a stretch, so labels and
@@ -476,7 +478,9 @@ spacing changes only at a long tick; a gap gets as many as its round steps (25 k
 from 200 to 300, 200 km from 1K to 2K), so each sits near a round value. Short
 screens show only the long ticks and drop the 200, 3K and 30K labels. The reading sits beyond the labels, plain text
 joined to the tape by a rule that passes under them; on hover or focus it turns
-black on opaque orange. The lens tape mirrors it at the middle of the left edge:
+black on the accent. Since 2026-10-20 the accent is the personal site's green,
+`#aee400`, or `oklch(0.85 0.27 125)` on wide-gamut displays; it used to be a
+warm beige. The lens tape mirrors it at the middle of the left edge:
 0.5× to 50×, a 15 mm wide angle to 1500 mm, logarithmic, long ticks on the 1-2-5
 series (0.5×, 1×, 2×, 5×, 10×, 20×, 50×),
 nearly even on that scale and labelled at both ends, short ticks at one pitch
@@ -538,22 +542,32 @@ radius 16.33 in its 48-unit drawing (8 px narrower than at first, the arc and
 Sun ring keeping their radii),
 parted by 1 px of empty space at the horizon, with a pitch ladder over the whole
 ±90° (a rung every 6°, long every 30°) cut out of them the same way. The
-ground used to be the accent's orange; it is now monochrome like the rest of
+ground used to be the accent's former beige; it is now monochrome like the rest of
 the HUD, white at the accent's brightness (68 %). Sky and ground stay faint
 (45 %) until the pointer or focus is on the dial itself. The wings,
 the Sun and Moon markers and the Earth arc are 1 px at any dial size. The Sun is
 a ten-pointed star whose rays meet at right angles, outside the arc, the Moon a full crescent
 opening up and to the right with blunt horns, riding on it; both are pictograms that only mark a direction and never turn.
 The star's radius is 4.2 units, flying at 29.3 so it clears the arc with a
-little room; the crescent's is 3.3. Both cut their own
+little room; the crescent's is 4.95, half again the night key's crescent, so
+the two read alike (it was 3.3, which read smaller than the star). Both cut their own
 shape, with 1 px clear round the outline, out of all they cross (the dial's
 fill and ladder, the Earth arc and the wings), so their insides are holes onto
-the scene rather than dark discs, and turn the camera to face them on a click. The gauge is
-64 px (50 px on phones and short screens); the wings are white,
+the scene rather than dark discs, and turn the camera to face them on a click. Since 2026-10-20 the gauge is
+64 px on every screen, the size at which the Sun is 11 px across, as large as
+the roll icons beside it; it used to be 50 px on phones and short screens and
+104 px (80 px when short) without a keyboard, where the Sun and Moon drifted
+from the icons' size. A finger gets wider targets round the markers instead
+(radius 11 and 10 units). The wings span 18 units, about half the dial's 33,
+24 px; they spanned 26 (35 px) and crowded the dial. They are white,
 and the markers and arc match the tapes' ticks, half-white. Each part answers
 the pointer alone, only when the pointer is on it: the dial brightens its fill,
-the arc turns white and 2 px, and the Sun or Moon fills in white. The gauge has four targets, each only where it is drawn: the
-dial levels or flips, as H does; the Earth arc turns the camera to face Earth's
+the arc turns white and 2 px, and the Sun or Moon fills in white. A Sun or Moon in frame, drawn over the dial, takes no clicks:
+facing it, its marker sat on the dial's centre and turned a click meant to level
+the horizon toward it instead. The gauge has four targets, each only where it is drawn: the
+dial brings back the horizon as \\ does, and once there, upright or turned
+over, flips the view clockwise as H does (2026-10-16 to 10-20 it only brought
+back the horizon, so a second click did nothing); the Earth arc turns the camera to face Earth's
 centre, the Sun and Moon markers to face them, each thickening to 2 px under the
 pointer over a wider invisible target. Following an orbit, the look-around eases
 there (450 ms) and the orbit stays followed; where the orbit cannot look (the
@@ -637,13 +651,31 @@ an angle clamp, and translation never aligns the camera with Earth's vertical.
 The Earth-relative direction/tilt sliders belong only to Follow orbit. Legacy
 links with tangent heading/elevation are converted once to the new orientation.
 Plain dragging and trackpad scrolling move over Earth; Shift turns either into
-looking around. A clicky mouse wheel approaches along the viewing direction;
-Shift-wheel changes the lens. Trackpad pinch changes the lens, Shift-pinch
-approaches along the viewing direction, and Option/Alt-pinch rolls the camera,
-in both Chromium's Ctrl-wheel path and Safari's gesture path. Option takes
-precedence when both modifiers are held. Lens changes
-preserve camera position and orbit following. Gesture deltas retain fractional
-motion.
+looking around. Since 2026-10-19 one modifier means one thing on every pointer
+input. A trackpad scroll with Option changes altitude when it goes up or down
+(scrolling down descends) and rolls when it goes sideways (fingers right turn the
+image clockwise): its first 4 px decide the axis for the whole swipe, momentum
+included. With Control it circles the point under the pointer, as a right-drag
+does: sideways turns about the point's vertical, half a turn per view height,
+and up or down raises or lowers the camera over it, a quarter turn per view
+height; the ground pin marks the point while it circles. A clicky mouse wheel
+zooms the lens; Shift-wheel approaches along the viewing direction. Since
+2026-10-20 scrolling down lowers the reading of whatever it changes, as the
+reading moves down its tape: the wheel widens the lens, Shift-wheel and an
+Option scroll come closer, and so does the wheel over the altitude tape, which
+used to climb (the lens, exposure and time tapes already went this way). Since
+Shift-wheel already changes altitude, a wheel with Option rolls and with
+Control circles: a notch moves as a sideways trackpad scroll of 6% of the view
+height, wheel up as fingers to the right. (A first version kept the wheel's
+own axis, so an ordinary wheel with Option only changed altitude again and with
+Control only tilted over the point.) A pinch zooms the lens whatever the modifiers, in both
+Chromium's Ctrl-wheel path and Safari's gesture path. Chromium also sets Ctrl
+on a pinch, so only a Control key the page saw go down makes a Control scroll;
+a wheel alongside a Safari gesture is ignored. Control takes precedence over
+Option, and Option over Shift. Lens changes preserve camera position and orbit
+following. Gesture deltas retain fractional motion. Until 2026-10-19 Shift-pinch
+approached and Option-pinch rolled, and the plain wheel approached; altitude
+and roll moved to Option so that Shift always turns the camera.
 
 On a touchscreen, one finger moves over Earth, two fingers look, and pinch zooms the lens. Touch
 capture belongs to a separate full-scene layer with `touch-action: none`; settings
@@ -659,10 +691,11 @@ Rotation waits for 0.18 radians, rising to 0.30 after looking or zooming starts.
 Lens and roll activation establish a fresh origin; subsequent motion applies
 without replaying the movement spent establishing intent. Trackpad pinch and
 Safari rotation use the same thresholds; a new gesture resets their activation.
-Changing a pinch modifier rebases its scale and requires fresh intent, so motion
-already used for one action cannot jump into another. Before a mouse drag starts,
-Shift shows a vertical altitude cursor and Option shows the roll cursor; an
-active mouse drag shows its own action (Shift-drag still looks).
+Before a drag or scroll starts, modifiers hint at what it will do: Shift a
+crosshair, since it either turns the camera or, on a wheel, changes altitude;
+Option the roll cursor and Control an orbit round a pin. Once the action is
+clear the cursor says which: four arrows while a drag or scroll looks, and the
+directional cursors below for the wheel, pinch and Option scroll.
 Once a pinch, wheel or Safari twist produces a recognized command, the cursor
 shows its direction: lens magnification/reduction uses a plus/minus magnifier,
 approach/retreat uses a down/up arrow, and roll uses a clockwise/counterclockwise
@@ -677,15 +710,35 @@ momentum of its own. `touchMode=grab` holds the touched point instead, and
 released over about two frames on each display refresh, 90 ms at 24 FPS
 (`inputSmoothing=<ms>` fixes it, 0 applies them at once), which removes uneven
 steps at the end of a momentum swipe. A trackpad scroll keeps the modifiers it
-started with while its events, momentum included, keep arriving: Shift or
-Control pressed as the globe coasts neither looks nor zooms, and the sideways
+started with while its events, momentum included, keep arriving: Shift, Option
+or Control pressed as the globe coasts neither looks, rolls nor circles, and the sideways
 deltas macOS sends while Shift is held keep the swipe's axis. A pinch, which
-Chromium reports with Ctrl but without the key, still zooms. A wheel that has
-shown its clicks (deltas in multiples of 4.000244140625 px, or legacy 120s)
-stays a wheel until a plain trackpad scroll: macOS turns Shift-wheel into a
-sideways scroll whose deltas can lose that signature, and it used to pass for a
-Shift trackpad scroll and look instead of zooming the lens. A Shift-wheel before
-any plain wheel click still needs the signature.
+Chromium reports with Ctrl but without the key, still zooms.
+
+The **pointing device**, mouse or trackpad, decides what a wheel event means,
+and browsers do not report it. Since 2026-10-20 the first event of each wheel
+burst (events more than 220 ms apart start a new one) decides, as MapLibre's
+scroll zoom does. Deltas in multiples of 4.000244140625 px (Chromium on
+macOS), legacy 120s (WebKit, Windows) or lines (Firefox) mean a mouse; so does
+a sideways Shift scroll once a mouse has been seen, since macOS turns
+Shift-wheel sideways and can strip the signature. Both axes at once, or a
+delta under 4 px, mean a trackpad, and so does a pinch. Anything else waits up
+to 40 ms for the next event: a trackpad streams small deltas, so a follower
+whose delay times the first delta stays under 200 px·ms makes a trackpad, and
+a slow follower or none a mouse. Until then the event is held, not applied. A
+mouse that scrolls smoothly (a free-spinning wheel, Logitech's smooth
+scrolling, Mos) is built to pass for a trackpad, so the viewer can choose:
+the Mouse and Trackpad buttons over Help (M, T; the chosen one again goes
+back to Auto; the device in use keeps its key down either way, and a detected
+one reads "(auto)") and the
+Pointing device setting (Mouse, Trackpad, Auto with the detected device) keep
+the choice in the
+`earthlight-input-device` cookie for a year, and every wheel event is then
+taken from that device; Auto forgets it. Under a chosen mouse a delta without
+notches moves the lens in proportion, 100 px a notch, with no quarter-notch
+minimum. Touch devices hide the switch. Until 2026-10-20 a wheel only counted
+once it had shown its clicks, so the first Shift-wheel after loading turned
+the camera.
 
 Since 2026-10-15 the plain gesture moves over Earth wherever it starts, and
 Shift turns it into the camera's: a left drag, a trackpad scroll or one finger
@@ -693,9 +746,10 @@ holds the Earth point under it, and off the planet, where there is none, turns
 the globe like a scroll. The sky used to turn the camera instead, which read as
 a second meaning for the same drag. The camera turns with a middle drag (as
 it pans in design tools such as Figma), a Shift drag, a Shift scroll or two
-fingers; Shift-wheel and pinch zoom the lens, the camera's own glass.
+fingers; the wheel and pinch zoom the lens, the camera's own glass.
 Option/Alt drag or a twist rolls. The right button, which rarely drags
-anything else, circles the Earth point under the pointer, which keeps its place
+anything else, or a drag with Control, which macOS reports as either button,
+circles the Earth point under the pointer, which keeps its place
 on screen. The pointer works round it like a turntable: its angle about the
 point is the camera's turn about the point's vertical, one for one, so a full
 circle of the pointer flies a full circle round the point, and the ground under
@@ -707,17 +761,18 @@ overhead and inside 150–50,000 km, and a step goes only the way asked; off the
 circles the horizon point toward the pointer, and straight overhead the
 camera's up sets the tilt. While it circles, a ground pin marks the point: a
 lit spot and a ring lying on the ground round it and a stalk standing up from
-it, all in perspective so they tilt with the land, with ripples spreading over
-the ground as it lands, like rings on water; it keeps its size on screen and
-hides on Earth's far side. A double-click on Earth drops the same pin where the
-flight heads, ripples and all, then lets it fade; on the sky the flat pulse
-stays. The middle button's browser autoscroll is suppressed over the scene. Moving
+it, all in perspective so they tilt with the land; it keeps its size on screen
+and hides on Earth's far side. A double-click on Earth drops the same pin where
+the flight heads, holds it 1.1 s, then lets it fade; on the sky the flat pulse
+stays. Until 2026-10-20 ripples spread from the pin as it landed, like rings on
+water; they went as a distraction. The middle button's browser autoscroll is suppressed over the scene. Moving
 over Earth, rolling or circling starts free flight from a followed orbit; only
 looking keeps the orbit. Free flight waits for the first movement, so a click,
 or the first of two fingers landing, leaves the orbit followed.
 
-W/S move along the view, A/D strafe, Q/E move along the camera’s own up axis,
-and Shift multiplies speed by four. Speed grows with altitude. The altitude
+W/S move along the view, A/D strafe, R/F climb and descend, and Q/E roll:
+since 2026-10-20 Q turns the image anticlockwise and E clockwise, as their
+icons show (they used to turn it the other way). Shift multiplies speed by four. Speed grows with altitude. The altitude
 slider spans 150–50,000 km logarithmically. Gesture movement clips its entire
 path against these bounds to prevent crossing Earth. A short damping interval
 softens keyboard starts and stops. Movement uses elapsed real time, independently

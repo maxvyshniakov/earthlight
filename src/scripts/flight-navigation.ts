@@ -333,6 +333,14 @@ export class FlightNavigation {
  /** Turn to the level view of `horizonBasis`, keeping the heading along the
   * ground (looking straight down, the way the top of the image points), over
   * a moment unless `now`. */
+ /** Whether the camera already looks as horizon() leaves it, upright or
+  * turned over (right and up reversed), so that only a flip is left to do. */
+ atHorizon(){
+  if(!this.free||this.homing||this.leveling)return false;
+  const pose=this.free,target=horizonBasis(pose.position,groundHeading(pose.basis,normalize(pose.position)),this.focal);
+  const near=(sign:number)=>target.every((value,i)=>Math.abs((i<6?sign:1)*value-pose.basis[i])<1e-3);
+  return near(1)||near(-1);
+ }
  horizon(now=false){
   if(!this.free)return;
   const pose=this.free;
