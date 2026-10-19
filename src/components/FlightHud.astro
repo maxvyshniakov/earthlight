@@ -48,12 +48,14 @@ const halfHours = Array.from({ length: 49 }, (_, i) => i * 30);
 const SUN_RAYS = 10, sunInner = 1 / (Math.sin(Math.PI / SUN_RAYS) + Math.cos(Math.PI / SUN_RAYS));
 const sunStar = Array.from({ length: 2 * SUN_RAYS }, (_, i) => { const a = i * Math.PI / SUN_RAYS - Math.PI / 2, r = (i % 2 ? sunInner : 1) * GAUGE.sun; return `${i ? 'L' : 'M'}${(r * Math.cos(a)).toFixed(2)} ${(r * Math.sin(a)).toFixed(2)}`; }).join('') + 'Z';
 // The crescent: a 3.2 disc less a 2.55 disc 1.75 up and to its right, each horn
-// rounded by a curve through where the two circles meet.
-const crescent = 'M2.96 1.22A3.2 3.2 0 1 1 -0.69 -3.12Q-0.15 -3.20 -0.56 -2.83A2.55 2.55 0 0 0 2.69 1.04Q3.12 0.70 2.96 1.22Z';
+// rounded by a curve through where the two circles meet. The night key draws it
+// at this size; the gauge at GAUGE.moon, its hit radius less 2.5, over 3.3.
+const crescentAt = (k: number) => { const c = (v: number) => (v * k).toFixed(2); return `M${c(2.96)} ${c(1.22)}A${c(3.2)} ${c(3.2)} 0 1 1 ${c(-0.69)} ${c(-3.12)}Q${c(-0.15)} ${c(-3.2)} ${c(-0.56)} ${c(-2.83)}A${c(2.55)} ${c(2.55)} 0 0 0 ${c(2.69)} ${c(1.04)}Q${c(3.12)} ${c(0.7)} ${c(2.96)} ${c(1.22)}Z`; };
+const crescent = crescentAt(1), gaugeCrescent = crescentAt(GAUGE.moon / 3.3);
 const ladder = Array.from({ length: 30 }, (_, i) => (i < 15 ? i + 1 : 14 - i) * 6)
   .map(deg => { const half = deg % 30 ? 2 : 5; return `M${-half} ${(-deg * GAUGE.pitch).toFixed(2)}h${half * 2}`; }).join('');
-// Modifier keys as their key-cap symbols (Inter draws them); Option reads Alt off Apple keyboards.
-const shift = '<kbd>⇧</kbd>', option = '<kbd class="hud-alt">⌥</kbd>';
+// Modifier keys as their key-cap symbols (Inter draws them); off Apple keyboards Option reads Alt and Control Ctrl.
+const shift = '<kbd>⇧</kbd>', option = '<kbd class="hud-alt">⌥</kbd>', control = '<kbd class="hud-ctrl">⌃</kbd>';
 // The controls panel: a column of paragraphs per action, keys first, then
 // pointer and touch, whichever the device has. Keys come in paragraphs of key-and-effect rows
 // (a cluster laid out as on the keyboard). Every sentence is one idea and leads
@@ -64,15 +66,15 @@ const devices = ['pointer', 'touch'] as const;
 type Group = { name: string; keys: [string, string][][]; faster?: string; how?: Partial<Record<(typeof devices)[number], string[]>> };
 const groups: Group[] = [
   { name: 'Look', keys: [[[cluster(key('ArrowUp', '↑'), key('ArrowLeft', '←'), key('ArrowDown', '↓'), key('ArrowRight', '→')), '']], [[key('Backslash', '\\'), 'Horizon']]], faster: 'turn',
-    how: { pointer: [`Drag with ${shift}, or middle-drag.`, 'Two-finger press and drag on a trackpad.', `Scroll on a trackpad with ${shift}.`, 'Right-drag with a mouse circles the point under the pointer.', 'Click the gauge for the horizon.'], touch: ['Two fingers together.', 'Tap the gauge for the horizon.'] } },
+    how: { pointer: [`Drag with ${shift}, or middle-drag.`, 'Two-finger press and drag on a trackpad.', `Scroll on a trackpad with ${shift}.`, `Circle the point under the pointer: right-drag with a mouse, or drag, scroll or wheel with ${control}.`, 'Click the gauge for the horizon.'], touch: ['Two fingers together.', 'Tap the gauge for the horizon.'] } },
   { name: 'Fly', keys: [[[cluster(key('KeyW', 'W'), key('KeyA', 'A'), key('KeyS', 'S'), key('KeyD', 'D')), '']]], faster: 'fly',
     how: { pointer: ['Drag, or scroll on a trackpad.', 'Flick to coast.'], touch: ['Drag.', 'Flick to coast.'] } },
   { name: 'Roll', keys: [[[key('KeyQ', 'Q'), 'Left'], [key('KeyE', 'E'), 'Right'], [key('KeyH', 'H'), 'Level or flip']]], faster: 'roll',
-    how: { pointer: [`Drag around the centre or pinch with ${option}<span data-only="gesture">, or rotate two fingers</span>.`], touch: ['Twist two fingers.'] } },
+    how: { pointer: [`Drag around the centre with ${option}<span data-only="gesture">, or rotate two fingers</span>.`, `Wheel, or scroll sideways, with ${option}.`], touch: ['Twist two fingers.'] } },
   { name: 'Altitude', keys: [[[key('KeyF', 'F'), 'Closer'], [key('KeyR', 'R'), 'Farther']]], faster: 'move',
-    how: { pointer: [`Wheel, or pinch with ${shift}.`, 'Double-click a point to fly in.', `Double-click with ${shift} to back off.`], touch: ['Double-tap and slide.', 'Double-tap to fly in.', 'Tap with two fingers to back off.'] } },
+    how: { pointer: [`Wheel with ${shift}.`, `Scroll up or down on a trackpad with ${option}.`, 'Double-click a point to fly in.', `Double-click with ${shift} to back off.`], touch: ['Double-tap and slide.', 'Double-tap to fly in.', 'Tap with two fingers to back off.'] } },
   { name: 'Zoom', keys: [[[key('Equal', '+'), 'In'], [key('Minus', '−'), 'Out'], [key('Digit0', '0'), 'Reset']]], faster: 'zoom',
-    how: { pointer: ['Pinch.', `Wheel with ${shift}.`], touch: ['Pinch.'] } },
+    how: { pointer: ['Wheel, or pinch.'], touch: ['Pinch.'] } },
   { name: 'Orbits', keys: [[[key('Digit1', '1'), 'Free flight'], [key('Digit2', '2'), 'ISS'], [key('Digit3', '3'), 'Polar'], [key('Digit4', '4'), 'High']]] },
   { name: 'Time', keys: [[[key('Space', 'Space'), 'Pause or play']]] },
   { name: 'Night', keys: [[[key('KeyN', 'N'), 'Night mode']]] },
@@ -161,12 +163,12 @@ const groups: Group[] = [
           <circle r={GAUGE.dial} fill="#fff" />
           <g class="gauge-horizon"><line class="gauge-cut" x1="-48" x2="48" y1="0" y2="0" /><path class="gauge-cut" d={ladder} /></g>
           <path class="gauge-sun-cut" d={sunStar} style={`transform: translate(0px, ${-GAUGE.sunAt}px)`} />
-          <path class="gauge-moon-cut" d={crescent} style={`transform: translate(0px, ${-GAUGE.moonAt}px)`} />
+          <path class="gauge-moon-cut" d={gaugeCrescent} style={`transform: translate(0px, ${-GAUGE.moonAt}px)`} />
         </mask>
         <mask id="hud-gauge-cut-mask" maskUnits="userSpaceOnUse" x="-40" y="-40" width="80" height="80">
           <rect x="-40" y="-40" width="80" height="80" fill="#fff" />
           <path class="gauge-sun-cut" d={sunStar} style={`transform: translate(0px, ${-GAUGE.sunAt}px)`} />
-          <path class="gauge-moon-cut" d={crescent} style={`transform: translate(0px, ${-GAUGE.moonAt}px)`} />
+          <path class="gauge-moon-cut" d={gaugeCrescent} style={`transform: translate(0px, ${-GAUGE.moonAt}px)`} />
         </mask></defs>
         <g class="gauge-dial" role="button" tabindex="0" aria-label="Look at the horizon"><title>Horizon (\)</title>
           <circle class="gauge-hit" r={GAUGE.dial} />
@@ -174,7 +176,7 @@ const groups: Group[] = [
             <rect class="gauge-sky" x="-48" y="-96" width="96" height="96" />
             <rect class="gauge-ground" x="-48" y="0" width="96" height="96" />
           </g></g>
-          <path class="gauge-wings" mask="url(#hud-gauge-cut-mask)" d="M-13 0h9l2 2.5l2 -2.5l2 2.5l2 -2.5h9" />
+          <path class="gauge-wings" mask="url(#hud-gauge-cut-mask)" d="M-9 0h6l1.5 2l1.5 -2l1.5 2l1.5 -2h6" />
         </g>
         <g class="gauge-earth" role="button" tabindex="0" aria-label="Face Earth" mask="url(#hud-gauge-cut-mask)"><title>Face Earth</title>
           <path class="gauge-hit" d="" /><path class="gauge-stroke" d="" />
@@ -183,7 +185,7 @@ const groups: Group[] = [
           <circle class="gauge-hit" r={GAUGE.sun + 2.5} /><path class="gauge-stroke" d={sunStar} />
         </g>
         <g class="gauge-moon" role="button" tabindex="0" aria-label="Face the Moon" style={`transform: translate(0px, ${-GAUGE.moonAt}px)`}><title>Face the Moon</title>
-          <circle class="gauge-hit" r={GAUGE.moon + 2.5} /><path class="gauge-stroke" d={crescent} />
+          <circle class="gauge-hit" r={GAUGE.moon + 2.5} /><path class="gauge-stroke" d={gaugeCrescent} />
         </g>
       </svg>
       </div>
@@ -209,12 +211,14 @@ const groups: Group[] = [
 
   <div class="explorer-controls hud-corner hud-list" hidden>
     <button class="hud-info" type="button" popovertarget="explorer-info" title="Info (i)" aria-label="Info"><kbd data-key="KeyI">i</kbd><span class="hud-name">Info</span><span class="hud-cap hud-touch-cap"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25" /><path d="M10.5 10.75h1.75v6" /><circle cx="12" cy="7.6" r="1.1" fill="currentColor" stroke="none" /></svg></span></button>
+    <button type="button" data-device="mouse" aria-pressed="false" title="Mouse (M); again for auto"><kbd data-key="KeyM">M</kbd><span class="hud-name">Mouse (auto)</span></button>
+    <button type="button" data-device="trackpad" aria-pressed="false" title="Trackpad (T); again for auto"><kbd data-key="KeyT">T</kbd><span class="hud-name">Trackpad</span></button>
     <button type="button" popovertarget="flight-help" title="Help (? or F1)" aria-label="Help"><kbd data-key="Slash">?</kbd><span class="hud-name">Help</span><span class="hud-cap hud-touch-cap"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.25-.9.75-.9 1.4v.55" /><circle cx="12" cy="16.6" r="1.1" fill="currentColor" stroke="none" /></svg></span></button>
     <button class="explorer-settings-toggle" type="button" popovertarget="explorer-settings" title="Settings" aria-label="Settings"><span class="hud-cap"><svg class="hud-gear" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.7 2-.5 2.2-1.8 1-2.2-.7-2.3 4 1.7 1.5v2l-1.7 1.5 2.3 4 2.2-.7 1.8 1 .5 2.2h4.6l.5-2.2 1.8-1 2.2.7 2.3-4-1.7-1.5v-2l1.7-1.5-2.3-4-2.2.7-1.8-1-.5-2.2z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg></span></button>
   </div>
 
   <span class="hud-pulse" aria-hidden="true" hidden></span>
-  <div class="hud-pin" aria-hidden="true" hidden><svg><path class="pin-spot" d="" /><g class="pin-ripples"><path d="" /><path d="" /><path d="" /></g><path class="pin-ring pin-halo" d="" /><path class="pin-ring" d="" /><line class="pin-stalk pin-halo" /><line class="pin-stalk" /><circle class="pin-head" r="2.5" /></svg></div>
+  <div class="hud-pin" aria-hidden="true" hidden><svg><path class="pin-spot" d="" /><path class="pin-ring pin-halo" d="" /><path class="pin-ring" d="" /><line class="pin-stalk pin-halo" /><line class="pin-stalk" /><circle class="pin-head" r="2.5" /></svg></div>
   <div class="hud-fpm" aria-hidden="true" hidden><svg viewBox="-18 -12 36 24" width="36" height="24"><g class="fpm-halo"><circle r="5" /><path d="M-16 0h11M5 0h11M0 -5v-6" /></g><circle r="5" /><path d="M-16 0h11M5 0h11M0 -5v-6" /></svg><span class="hud-speed"></span></div>
 </div>
 
@@ -246,7 +250,9 @@ const groups: Group[] = [
   /* The HUD box ends above the docked controls panel; contain: layout makes it
      the containing block of its fixed parts, so they all move up with it, and as
      a size container its height (cqh) sizes the tape instead of the screen's. */
-  .flight-hud { --hud-glass: rgb(8 10 14 / 62%); --hud-dim: rgb(255 255 255 / 58%); --hud-accent: #d3a784; --hud-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; --hud-top: max(12px, env(safe-area-inset-top)); --hud-left: max(12px, env(safe-area-inset-left)); --hud-right: max(12px, env(safe-area-inset-right)); --hud-bottom: max(12px, env(safe-area-inset-bottom)); --hud-cap: 24px; --hud-round-r: 5px; --hud-pill-r: 4px; --hud-round: var(--hud-round-r); --hud-pill: var(--hud-pill-r); position: fixed; inset: 0 0 var(--explorer-inset-bottom, 0px); contain: layout; container-type: size; z-index: 4; pointer-events: none; color: #fff; font: 11px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: opacity .5s ease; }
+  .flight-hud { --hud-glass: rgb(8 10 14 / 62%); --hud-dim: rgb(255 255 255 / 58%); --hud-accent: #aee400; --hud-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; --hud-top: max(12px, env(safe-area-inset-top)); --hud-left: max(12px, env(safe-area-inset-left)); --hud-right: max(12px, env(safe-area-inset-right)); --hud-bottom: max(12px, env(safe-area-inset-bottom)); --hud-cap: 24px; --hud-round-r: 5px; --hud-pill-r: 4px; --hud-round: var(--hud-round-r); --hud-pill: var(--hud-pill-r); position: fixed; inset: 0 0 var(--explorer-inset-bottom, 0px); contain: layout; container-type: size; z-index: 4; pointer-events: none; color: #fff; font: 11px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: opacity .5s ease; }
+  /* The personal site's accent, deeper on wide-gamut displays. */
+  @media (color-gamut: p3) { .flight-hud { --hud-accent: oklch(0.85 0.27 125); } }
   :global(earthlight-explorer:not([data-ready])) .flight-hud { opacity: 0; }
   .hud-time, .hud-list, .hud-attitude, .hud-meter, .hud-pad { pointer-events: auto; }
   .flight-hud { user-select: none; -webkit-user-select: none; }
@@ -291,17 +297,17 @@ const groups: Group[] = [
   .hud-key, .time-key { display: grid; padding: 0; border: 0; background: none; touch-action: none; }
   /* Wide enough, the clock becomes three tapes along the top, plain like the
      side ones: time scale, date and time of day (UTC), after only Space and its
-     name; 0× is stopped, so no play button. Ticks hang from the edge, labels
+     name; the play button stays in its corner, as on a phone. Ticks hang from the edge, labels
      sit under them and the reading under the labels, joined by a rule; press or
-     drag along a tape, scroll over it, or use the arrow keys. Only the Settings
-     gear shares the top edge, so the tapes fit from 820 px; narrower, the
-     one-line clock stays. */
+     drag along a tape, scroll over it, or use the arrow keys. Only the play
+     button and the Settings gear share the top edge, so the tapes fit from
+     820 px; narrower, the one-line clock stays. */
   /* The gap clears the end labels, which stand half out of their tapes. */
   .hud-clock { display: none; align-items: flex-start; gap: 48px; }
   @container (min-width: 820px) {
     /* As wide as its tapes: centred from the middle, it would otherwise squeeze them. */
     .hud-time { width: max-content; align-items: flex-start; gap: 24px; height: auto; padding: 0; background: none; }
-    .hud-time :is(.hud-picks, .hud-time-toggle) { display: none; }
+    .hud-time .hud-picks { display: none; }
     /* Space sits at the top; the tapes hang 6 px lower, so their short ticks
        share an axis with its name. */
     .time-hint { align-self: flex-start; }
@@ -347,6 +353,12 @@ const groups: Group[] = [
   .hud-list button { display: flex; flex-direction: row-reverse; align-items: center; gap: 8px; height: var(--hud-cap); padding: 0 0 0 12px; border: 0; background: none; color: var(--hud-dim); font: 600 10px/1 var(--hud-mono); letter-spacing: .06em; text-transform: uppercase; }
   /* Not a segmented control: no fills; the active preset's key looks pressed and its name turns white. */
   .hud-list button:is(:focus-visible, [aria-pressed="true"]), .flight-hud[data-pointer] .hud-list button:hover { color: #fff; }
+  /* Mouse and Trackpad over Help, set like the presets: the device in use keeps
+     its key down, chosen or detected (then it says "(auto)"). Only a pointer
+     scrolls, so touch alone hides them. */
+  .flight-hud:not([data-pointer]) .hud-corner [data-device] { display: none; }
+  /* Under 720 px the arrow keys reach the corner; Settings still has the choice. */
+  @container (max-width: 719px) { .hud-corner [data-device] { display: none; } }
   /* A held roll key lights its name too. */
   .hud-list button:has(kbd[data-pressed]) { color: #fff; }
 
@@ -425,6 +437,9 @@ const groups: Group[] = [
      under it. */
   .gauge-hit { fill: none; stroke: none; cursor: pointer; }
   .gauge-dial .gauge-hit, :is(.gauge-sun, .gauge-moon) .gauge-hit { pointer-events: fill; }
+  /* In frame the Sun or Moon is drawn over the dial, already in view; it leaves
+     the dial its clicks, which would otherwise turn to it instead of levelling. */
+  :is(.gauge-sun, .gauge-moon)[data-in-frame] .gauge-hit { pointer-events: none; }
   .gauge-earth .gauge-hit { stroke: transparent; stroke-width: 10px; vector-effect: non-scaling-stroke; pointer-events: stroke; }
   /* Under the pointer the arc turns white and 2 px; the Sun and Moon fill in. */
   .gauge-earth:focus-visible .gauge-stroke, .flight-hud[data-pointer] .gauge-earth:hover .gauge-stroke { stroke: #fff; stroke-width: 2px; }
@@ -480,7 +495,7 @@ const groups: Group[] = [
   .hud-tick b { position: absolute; right: 17px; top: -6px; color: rgb(255 255 255 / 66%); font: 500 9px/12px var(--hud-mono); white-space: nowrap; }
   .hud-tick b, .hud-now output { text-shadow: 0 0 3px rgb(0 0 0 / 85%), 0 0 1px rgb(0 0 0 / 90%); }
   /* The reading: plain text beyond the labels, joined to the axis by a rule that
-     passes under them. Hover or focus fills it opaque orange. */
+     passes under them. Hover or focus fills it with the accent. */
   .hud-now { position: absolute; left: 0; right: 0; top: var(--at); height: 0; color: #fff; }
   .hud-now::before { content: ''; position: absolute; right: var(--tick-end); top: 0; width: calc(var(--reach) - var(--tick-end)); height: 1px; background: currentColor; }
   .hud-now output { position: absolute; right: var(--reach); top: -9px; padding: 2px 6px; border-radius: 4px; color: inherit; font: 700 10px/14px var(--hud-mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -499,15 +514,15 @@ const groups: Group[] = [
   .hud-fpm .fpm-halo { stroke: rgb(0 0 0 / 55%); stroke-width: 3.5; }
   .hud-speed { text-shadow: 0 0 3px rgb(0 0 0 / 80%); font: 600 9px/1 var(--hud-mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
   /* The ground pin: where a right-drag circles and where a double-click flies.
-     A lit spot and a ring lie on the ground round the point, a stalk stands up
-     from it, and ripples spread over the ground as it lands, all in perspective
-     so they tilt with the land (flight-hud.ts draws it). */
+     A lit spot and a ring lie on the ground round the point and a stalk stands
+     up from it, all in perspective so they tilt with the land (flight-hud.ts
+     draws it). */
   .hud-pin { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; color: var(--hud-accent); }
   .hud-pin svg { display: block; width: 100%; height: 100%; overflow: visible; }
   .hud-pin[hidden] { display: none; }
   .hud-pin :is(path, line) { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
   .hud-pin .pin-halo { stroke: rgb(0 0 0 / 55%); stroke-width: 3.5; }
-  .hud-pin .pin-spot { fill: rgb(211 167 132 / 24%); stroke: none; }
+  .hud-pin .pin-spot { fill: color-mix(in srgb, var(--hud-accent) 24%, transparent); stroke: none; }
   .pin-head { fill: currentColor; stroke: rgb(0 0 0 / 55%); stroke-width: 1; }
   .hud-pulse[hidden] { display: none; }
   .hud-pulse { position: fixed; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--hud-accent); pointer-events: none; animation: hud-pulse .7s ease-out forwards; }
@@ -516,7 +531,6 @@ const groups: Group[] = [
   /* Phones: compact instruments. */
   @media (max-width: 640px) {
     .hud-time { gap: 10px; }
-    .gauge { width: 50px; height: 50px; }
     .hud-attitude { gap: 12px; }
     /* Centred in the room the corner buttons leave. */
     .hud-dock { left: calc(var(--hud-left) + 64px); right: calc(var(--hud-right) + 64px); }
@@ -553,9 +567,10 @@ const groups: Group[] = [
   .flight-hud:not([data-keyboard]) .hud-night[aria-pressed="true"] .hud-glyph { color: #fff; }
   .flight-hud:not([data-keyboard]) .hud-night[aria-pressed="true"] .hud-moon path { fill: currentColor; }
   .flight-hud:not([data-keyboard]) .hud-gauge { margin-inline: 12px; }
-  .flight-hud:not([data-keyboard]) .gauge { width: 104px; height: 104px; }
-  .flight-hud:not([data-keyboard]) .gauge-sun .gauge-hit { r: 8px; }
-  .flight-hud:not([data-keyboard]) .gauge-moon .gauge-hit { r: 7.5px; }
+  /* The gauge keeps its 64 px, where the Sun and Moon match the icons; a finger
+     gets wider targets round them instead. */
+  .flight-hud:not([data-keyboard]) .gauge-sun .gauge-hit { r: 11px; }
+  .flight-hud:not([data-keyboard]) .gauge-moon .gauge-hit { r: 10px; }
   .flight-hud:not([data-keyboard]) .hud-modes button { position: relative; padding: 0; }
   .flight-hud:not([data-keyboard]) .hud-modes .hud-name { padding: 5px; border-radius: var(--hud-pill); }
   .flight-hud:not([data-keyboard]) .hud-modes [aria-pressed="true"] .hud-name { background: #fff; color: #000; }
@@ -595,9 +610,7 @@ const groups: Group[] = [
     :is(.hud-meter, .hud-left) { top: auto; bottom: calc(var(--hud-bottom) + 84px); transform: none; }
     .hud-meter .hud-key:not(.hud-night) { display: none; }
     .flight-hud[data-keyboard] .hud-night { display: none; }
-    .flight-hud:not([data-keyboard]) .gauge { width: 80px; height: 80px; }
     .hud-attitude { gap: 12px; }
-    .gauge { width: 50px; height: 50px; }
     .hud-meter { --tape: clamp(112px, 34cqh, 170px); }
     .hud-tick b[data-crowded], .hud-tick:not(.major) { visibility: hidden; }
   }

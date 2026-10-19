@@ -92,19 +92,21 @@ export async function verifyFlight({run,evaluate,wait,base}){
  const shiftSwipe=await evaluate(`(async()=>{
   const view=document.querySelector('.explorer-view'),explorer=document.querySelector('earthlight-explorer'),samples=[];
   for(let i=0;i<4;i++){
-   const event=new WheelEvent('wheel',{clientX:${w/2},clientY:${ground},deltaY:8,shiftKey:true,bubbles:true,cancelable:true});
+   const event=new WheelEvent('wheel',{clientX:${w/2},clientY:${ground},deltaX:.5,deltaY:8,shiftKey:true,bubbles:true,cancelable:true});
    view.dispatchEvent(event);
-   samples.push({prevented:event.defaultPrevented,ready:explorer.hasAttribute('data-ready'),hidden:document.hidden});
+   samples.push({prevented:event.defaultPrevented,ready:explorer.hasAttribute('data-ready'),hidden:document.hidden,action:view.dataset.cameraAction});
    await new Promise(resolve=>setTimeout(resolve,16));
   }
   return samples;
  })()`);
  assert.ok(shiftSwipe.every(sample=>sample.prevented&&sample.ready&&!sample.hidden),`Shift swipe admitted: ${JSON.stringify(shiftSwipe)}`);
+ assert.ok(shiftSwipe.every(sample=>sample.action==='look'),'a Shift swipe shows the four arrows while it looks');
  await wait(`JSON.parse(document.querySelector('earthlight-explorer').dataset.cameraBasis).some((value,index)=>Math.abs(value-${JSON.stringify(spinFrom.basis)}[index])>1e-7)`);
  await run('wait','400');const shiftLooked=await read();
  assert.equal(shiftLooked.position,spinFrom.position,'Shift-scroll over Earth only looks');assert.ok(!same(shiftLooked,spinFrom));
  assert.equal(shiftLooked.lens,1,'a Shift trackpad scroll never zooms the lens');
- for(let i=0;i<40;i++)await gesture({deltaX:0,deltaY:-12},'.explorer-view',w/2,ground);
+ // A trackpad's deltas drift across both axes, which tells it from a wheel.
+ for(let i=0;i<40;i++)await gesture({deltaX:-.5,deltaY:-12},'.explorer-view',w/2,ground);
  await run('wait','400');const spun=await read();assert.notEqual(spun.position,shiftLooked.position);
  // A swipe keeps its modifiers while its events, momentum included, keep
  // arriving: Shift or Control pressed as the globe coasts neither looks nor
@@ -114,7 +116,7 @@ export async function verifyFlight({run,evaluate,wait,base}){
   const send=init=>view.dispatchEvent(new WheelEvent('wheel',{clientX:${w/2},clientY:${ground},bubbles:true,cancelable:true,...init}));
   const phase=async(count,init)=>{const from=angle();for(let i=0;i<count;i++){send(init);await new Promise(r=>setTimeout(r,16));}return Math.acos(Math.min(1,from.reduce((s,v,i)=>s+v*angle()[i],0)));};
   const start={alt:Number(e.dataset.cameraAltitude),lens:Number(e.dataset.lens)};
-  const plain=await phase(30,{deltaX:0,deltaY:-12});
+  const plain=await phase(30,{deltaX:-.5,deltaY:-12});
   const shifted=await phase(30,{deltaX:-12,deltaY:0,shiftKey:true});
   window.dispatchEvent(new KeyboardEvent('keydown',{key:'Control',code:'ControlLeft',ctrlKey:true}));
   const controlled=await phase(30,{deltaX:0,deltaY:-12,ctrlKey:true});
@@ -124,13 +126,13 @@ export async function verifyFlight({run,evaluate,wait,base}){
  })()`);
  assert.ok(coast.shifted>coast.plain*.6&&coast.controlled>coast.plain*.6,`the globe keeps turning: ${JSON.stringify(coast)}`);
  assert.ok(Math.abs(coast.alt-1)<.01&&coast.lens===1,`no zoom: ${JSON.stringify(coast)}`);
- // A clicky mouse wheel changes altitude. Chromium reports a trackpad pinch
+ // A clicky mouse wheel with Shift changes altitude. Chromium reports a trackpad pinch
  // as a Ctrl-wheel burst; it crosses a deliberate threshold, then changes only
  // the lens. The activating event rebases the pinch without a catch-up jump.
  const viewport=await evaluate('visualViewport.scale'),pixelRatio=await evaluate('devicePixelRatio');
  const altitude="Number(document.querySelector('earthlight-explorer').dataset.cameraAltitude)";
- const clickyAction=await evaluate("(()=>{const view=document.querySelector('.explorer-view'),event=new WheelEvent('wheel',{clientX:720,clientY:180,deltaY:3,deltaMode:1,bubbles:true,cancelable:true});view.dispatchEvent(event);return {prevented:event.defaultPrevented,action:view.dataset.cameraAction};})()");
- assert.equal(clickyAction.prevented,true);assert.equal(clickyAction.action,'approach-out','clicky wheel shows outward direction');
+ const clickyAction=await evaluate("(()=>{const view=document.querySelector('.explorer-view'),event=new WheelEvent('wheel',{clientX:720,clientY:180,deltaY:-3,deltaMode:1,shiftKey:true,bubbles:true,cancelable:true});view.dispatchEvent(event);return {prevented:event.defaultPrevented,action:view.dataset.cameraAction};})()");
+ assert.equal(clickyAction.prevented,true);assert.equal(clickyAction.action,'approach-out','Shift clicky wheel shows outward direction');
  await wait(`${altitude}>${spun.alt}+1`);await run('wait','500');
  assert.equal(await evaluate("document.querySelector('.explorer-view').dataset.cameraAction??null"),null,'clicky wheel feedback clears after idle');
  const wheeled=await read();
@@ -161,13 +163,22 @@ export async function verifyFlight({run,evaluate,wait,base}){
  try{
   const cursor=()=>evaluate("(()=>{const e=document.querySelector('.explorer-view');return {kind:e.dataset.cursor,cursor:getComputedStyle(e).cursor,dragging:e.dataset.cameraDragging};})()");
   await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:0});assert.equal((await cursor()).kind,'fly');
+  // Shift hints with a crosshair; the four arrows wait for the camera to
+  // turn. Control shows the orbit about a point.
   await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:8});
-  const shiftedCursor=await cursor();assert.equal(shiftedCursor.kind,'altitude');assert.equal(shiftedCursor.cursor,'ns-resize');
+  const shiftedCursor=await cursor();assert.equal(shiftedCursor.kind,'look');assert.equal(shiftedCursor.cursor,'crosshair');
   await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:1});assert.equal((await cursor()).kind,'roll');
   await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:9});assert.equal((await cursor()).kind,'roll','Option takes cursor precedence');
+  await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:11});
+  const circleCursor=await cursor();assert.equal(circleCursor.kind,'circle','Control takes cursor precedence');assert.match(circleCursor.cursor,/^url\(/);
+  assert.notEqual(circleCursor.cursor,shiftedCursor.cursor);
+  const hintIcons=await evaluate(`(async()=>Promise.all(${JSON.stringify([circleCursor.cursor])}.map(async cursor=>{
+   const image=new Image();image.src=cursor.match(/url\\("([^"]+)"\\)/)[1];await image.decode();return image.naturalWidth>0;
+  })))()`);
+  assert.deepEqual(hintIcons,[true],'the circle SVG cursor decodes');
   await input.mouse({type:'mouseMoved',x:width*.25,y:90,modifiers:0});assert.equal((await cursor()).kind,'fly');
   await evaluate("window.dispatchEvent(new KeyboardEvent('keydown',{key:'Shift',shiftKey:true}));true");
-  assert.equal((await cursor()).kind,'altitude');
+  assert.equal((await cursor()).kind,'look');
   await evaluate("window.dispatchEvent(new KeyboardEvent('keyup',{key:'Shift'}));true");
   assert.equal((await cursor()).kind,'fly','releasing Shift restores the fly cursor');
   await input.drag([centre[0]+40,centre[1]+30],[centre[0]+120,centre[1]-10]);await run('wait','300');
@@ -185,7 +196,9 @@ export async function verifyFlight({run,evaluate,wait,base}){
   // With Shift it looks instead, and the camera stays put.
   let activeShiftCursor;
   await input.drag([width*.25,90],[width*.25+50,40],'left',8,async()=>{activeShiftCursor=await cursor();});await run('wait','300');
-  assert.equal(activeShiftCursor.dragging,'look');assert.equal(activeShiftCursor.cursor,'crosshair','Shift-drag still looks');
+  assert.equal(activeShiftCursor.dragging,'look');assert.match(activeShiftCursor.cursor,/^url\(/,'Shift-drag looks under the four arrows');
+  const arrows=await evaluate(`(async()=>{const image=new Image();image.src=${JSON.stringify(activeShiftCursor.cursor)}.match(/url\\("([^"]+)"\\)/)[1];await image.decode();return image.naturalWidth>0;})()`);
+  assert.ok(arrows,'the four-arrow SVG cursor decodes');
   const turned=await read();assert.equal(turned.position,settled.position,'Shift-drag only looks');assert.ok(!same(turned,settled));
   await input.drag([centre[0]+50,centre[1]],[centre[0]+60,centre[1]+50],'middle');await run('wait','300');
   const rightLook=await read();assert.equal(rightLook.position,turned.position,'middle-drag only looks, even over Earth');
@@ -222,7 +235,7 @@ export async function verifyFlight({run,evaluate,wait,base}){
   assert.equal(new URLSearchParams(state.url).has('position'),false);
  }
  // A plain pinch keeps the camera put and zooms the lens about the pointer.
- // A Shift clicky wheel still steps the lens. + and − zoom about the centre,
+ // A plain clicky wheel steps the lens. + and − zoom about the centre,
  // the lens tape jumps, and a followed orbit stays followed.
  const lens="Number(document.querySelector('earthlight-explorer').dataset.lens)";
  await key('keydown','Digit0');await key('keyup','Digit0');await wait(`${lens}===1`);
@@ -233,7 +246,7 @@ export async function verifyFlight({run,evaluate,wait,base}){
  const pinched=await read();assert.equal(pinched.mode,'follow','the lens never detaches');assert.equal(pinched.position,following.position);assert.equal(pinched.alt,following.alt);
  await run('wait','300');assert.ok(Math.abs(Number(new URLSearchParams((await read()).url).get('lens'))-pinched.lens)<.01,'the lens is in the link');
  assert.equal(await evaluate("document.querySelector('.explorer-view').dataset.cameraAction??null"),null,'pinch feedback clears after idle');
- assert.equal(await gesture({deltaX:-4.000244140625*3,deltaY:0,shiftKey:true}),true);await wait(`${lens}>${pinched.lens}*1.6`);
+ assert.equal(await gesture({deltaX:0,deltaY:-4.000244140625*3}),true);await wait(`${lens}>${pinched.lens}*1.6`);
  const stepped=await read();assert.equal(stepped.position,following.position);
  await key('keydown','Minus');await run('wait','600');await key('keyup','Minus');await run('wait','100');
  const widened=await read();assert.ok(widened.lens<stepped.lens/1.3,`− widens: ${widened.lens}`);assert.equal(widened.mode,'follow');
@@ -255,60 +268,70 @@ export async function verifyFlight({run,evaluate,wait,base}){
  await evaluate("document.querySelector('.reset-all').click();document.querySelector('.explorer-motion').click();true");
  await run('wait','200');const reset=await read();assert.equal(reset.mode,'follow');assert.equal(reset.orbit,'iss');assert.equal(new URLSearchParams(reset.url).has('flight'),false);
  assert.equal(reset.lens,1);assert.equal(new URLSearchParams(reset.url).has('lens'),false,'Reset all restores the wide lens');
- // Change pinch intent without lifting the fingers. The first event of each
- // new modifier mode rebases; Option wins even when Shift is also held.
+ // A pinch zooms the lens whatever the modifiers. With Option a swipe changes
+ // altitude up and down and rolls sideways; with Control it circles the point
+ // under the pointer. Each phase is its own swipe.
  const wheelFeedback=await evaluate(`(async()=>{
   const view=document.querySelector('.explorer-view'),explorer=document.querySelector('earthlight-explorer'),samples=[];
   const state=()=>({lens:Number(explorer.dataset.lens),alt:Number(explorer.dataset.cameraAltitude),position:explorer.dataset.cameraPosition,action:view.dataset.cameraAction,cursor:getComputedStyle(view).cursor,
    roll:parseFloat(getComputedStyle(document.querySelector('.hud-attitude .gauge')).getPropertyValue('--roll'))});
-  const send=async(shiftKey,altKey,deltaY=-20)=>{
-   const before=state();
-   const event=new WheelEvent('wheel',{clientX:720,clientY:180,deltaY,ctrlKey:true,shiftKey,altKey,bubbles:true,cancelable:true});
-   view.dispatchEvent(event);
-   const action=view.dataset.cameraAction,cursor=getComputedStyle(view).cursor;
-   // Capture command feedback immediately, then observe its rendered result
-   // before reversing it; opposite inputs within one frame can cancel out.
-   if(action)await new Promise((resolve,reject)=>{
-    const field=action.startsWith('lens-')?'lens':action.startsWith('approach-')?'position':'roll';
-    const timer=setTimeout(()=>reject(new Error('No rendered '+action+' movement: '+JSON.stringify({before,current:state()}))),2000);
-    const sample=()=>{if(state()[field]!==before[field]){clearTimeout(timer);resolve();}else requestAnimationFrame(sample);};sample();
+  const frames=n=>new Promise(resolve=>{const step=()=>n--?requestAnimationFrame(step):resolve();step();});
+  const phase=async(count,init)=>{
+   let prevented=true;
+   for(let i=0;i<count;i++){const event=new WheelEvent('wheel',{clientX:720,clientY:180,bubbles:true,cancelable:true,...init});view.dispatchEvent(event);prevented&&=event.defaultPrevented;await new Promise(r=>setTimeout(r,16));}
+   // The direction shows while the swipe lasts; the pose once its smoothed
+   // motion has landed, which takes longer on slow frames.
+   await frames(3);const {action,cursor}=state();
+   await new Promise((resolve,reject)=>{
+    const pose=()=>explorer.dataset.cameraPosition+'|'+explorer.dataset.cameraBasis;let previous=pose(),since=performance.now();
+    const timer=setTimeout(()=>reject(new Error('Camera pose did not settle after '+JSON.stringify(init))),5000);
+    const sample=now=>{const current=pose();if(current!==previous){previous=current;since=now;}
+     if(now-since>=300){clearTimeout(timer);resolve();}else requestAnimationFrame(sample);};
+    requestAnimationFrame(sample);
    });
-   await new Promise(resolve=>setTimeout(resolve,16));
-   samples.push({prevented:event.defaultPrevented,...state(),action,cursor});
+   const sample={prevented,...state(),action,cursor};samples.push(sample);return sample;
   };
-  for(let i=0;i<3;i++)await send(false,false);
-  for(let i=0;i<3;i++)await send(true,false);
-  await send(true,false,20);
-  for(let i=0;i<3;i++){
-   await send(true,true);
-   if(i===0)view.dispatchEvent(new PointerEvent('pointermove',{clientX:720,clientY:180,pointerType:'mouse',isPrimary:true,shiftKey:true,altKey:true,bubbles:true}));
-  }
-  await send(true,true,20);
-  view.dispatchEvent(new PointerEvent('pointermove',{clientX:720,clientY:180,pointerType:'mouse',isPrimary:true,shiftKey:true,altKey:true,bubbles:true}));
+  await phase(5,{deltaY:-20,ctrlKey:true});
+  await phase(4,{deltaY:-20,ctrlKey:true,shiftKey:true});
+  await phase(4,{deltaY:-20,ctrlKey:true,altKey:true});
+  await phase(10,{deltaX:.5,deltaY:10,altKey:true});
+  await phase(10,{deltaX:.5,deltaY:-10,altKey:true});
+  view.dispatchEvent(new PointerEvent('pointermove',{clientX:720,clientY:180,pointerType:'mouse',isPrimary:true,altKey:true,bubbles:true}));
+  await phase(10,{deltaX:-10,deltaY:.5,altKey:true});
+  await phase(10,{deltaX:10,deltaY:.5,altKey:true});
+  window.dispatchEvent(new KeyboardEvent('keydown',{key:'Control',code:'ControlLeft',ctrlKey:true}));
+  await phase(10,{deltaX:-10,deltaY:.5,ctrlKey:true});
+  // A clicky wheel circles with Control and rolls with Option.
+  await phase(3,{deltaY:-3,deltaMode:1,ctrlKey:true});
+  window.dispatchEvent(new KeyboardEvent('keyup',{key:'Control',code:'ControlLeft'}));
+  await phase(3,{deltaY:-3,deltaMode:1,altKey:true});
+  // Pointer movement keeps live feedback; leaving clears it.
+  view.dispatchEvent(new PointerEvent('pointermove',{clientX:720,clientY:180,pointerType:'mouse',isPrimary:true,altKey:true,bubbles:true}));
+  for(let i=0;i<4;i++){view.dispatchEvent(new WheelEvent('wheel',{clientX:720,clientY:180,deltaX:10,deltaY:.5,altKey:true,bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,16));}
+  await frames(2);
+  view.dispatchEvent(new PointerEvent('pointermove',{clientX:720,clientY:180,pointerType:'mouse',isPrimary:true,altKey:true,bubbles:true}));
   const afterMove=view.dataset.cameraAction??null;
   view.dispatchEvent(new Event('pointerleave'));
   return {samples,afterMove,afterLeave:view.dataset.cameraAction??null};
  })()`);
- const wheelModes=wheelFeedback.samples;
- assert.ok(wheelModes.every(sample=>sample.prevented));
- assert.ok(wheelModes[2].lens>reset.lens,'plain pinch magnifies the lens');
- assert.equal(wheelModes[2].position,reset.position,'plain pinch keeps the camera in place');
- assert.equal(wheelModes[2].action,'lens-in');
- assert.equal(wheelModes[3].position,wheelModes[2].position,'Shift transition has no catch-up approach');
- assert.equal(wheelModes[3].action,undefined,'modifier transition clears the prior action');
- assert.notEqual(wheelModes[5].position,wheelModes[2].position,'Shift pinch approaches');
- assert.ok(radius(wheelModes[5])<radius(wheelModes[2]),'Shift pinch lowers the camera toward Earth');
- assert.equal(wheelModes[5].lens,wheelModes[2].lens,'Shift pinch leaves the lens');
- assert.equal(wheelModes[5].action,'approach-in');assert.equal(wheelModes[6].action,'approach-out');
- assert.equal(wheelModes[7].roll,wheelModes[6].roll,'Option transition has no catch-up roll');
- assert.equal(wheelModes[7].action,undefined,'Option transition clears the prior action');
- assert.notEqual(wheelModes[9].roll,wheelModes[6].roll,'Option pinch rolls even with Shift');
- assert.equal(wheelModes[9].position,wheelModes[6].position,'Option pinch leaves the camera in place');
- assert.equal(wheelModes[9].lens,wheelModes[6].lens,'Option pinch leaves the lens');
- assert.equal(wheelModes[9].action,'roll-right');assert.equal(wheelModes[10].action,'roll-left');
- assert.notEqual(wheelModes[5].cursor,wheelModes[6].cursor,'approach cursors point in opposite directions');
- assert.notEqual(wheelModes[9].cursor,wheelModes[10].cursor,'roll cursors point in opposite directions');
- const cursorIcons=await evaluate(`(async()=>Promise.all(${JSON.stringify([wheelModes[5].cursor,wheelModes[6].cursor,wheelModes[9].cursor,wheelModes[10].cursor])}.map(async cursor=>{
+ const [plainPinchMode,shiftPinch,optionPinch,climbIn,climbOut,rollRight,rollLeft,circling,wheelCircle,wheelRoll]=wheelFeedback.samples;
+ assert.ok(wheelFeedback.samples.every(sample=>sample.prevented));
+ assert.ok(plainPinchMode.lens>reset.lens,'plain pinch magnifies the lens');
+ assert.equal(plainPinchMode.position,reset.position,'plain pinch keeps the camera in place');
+ assert.ok(shiftPinch.lens>plainPinchMode.lens&&optionPinch.lens>shiftPinch.lens,'Shift and Option pinches zoom the lens too');
+ assert.equal(optionPinch.position,reset.position,'a pinch never moves the camera');
+ assert.ok(radius(climbIn)<radius(optionPinch),'an Option scroll down lowers the camera');assert.equal(climbIn.lens,optionPinch.lens);
+ assert.equal(climbIn.action,'approach-in');
+ assert.ok(radius(climbOut)>radius(climbIn),'an Option scroll up raises the camera');assert.equal(climbOut.action,'approach-out');
+ assert.notEqual(rollRight.roll,climbOut.roll,'Option swipe sideways rolls');assert.equal(rollRight.position,climbOut.position,'rolling leaves the camera in place');
+ assert.equal(rollRight.action,'roll-right');assert.equal(rollLeft.action,'roll-left');
+ assert.notEqual(circling.position,rollLeft.position,'Control swipe circles a point');assert.equal(circling.lens,rollLeft.lens);
+ assert.notEqual(wheelCircle.position,circling.position,'Control-wheel circles a point');assert.equal(wheelCircle.lens,circling.lens);
+ assert.notEqual(wheelRoll.roll,wheelCircle.roll,'Option-wheel rolls');assert.equal(wheelRoll.position,wheelCircle.position,'Option-wheel leaves the camera in place');
+ assert.equal(wheelRoll.lens,wheelCircle.lens);assert.equal(wheelRoll.action,'roll-right');
+ assert.notEqual(climbIn.cursor,climbOut.cursor,'approach cursors point in opposite directions');
+ assert.notEqual(rollRight.cursor,rollLeft.cursor,'roll cursors point in opposite directions');
+ const cursorIcons=await evaluate(`(async()=>Promise.all(${JSON.stringify([climbIn.cursor,climbOut.cursor,rollRight.cursor,rollLeft.cursor])}.map(async cursor=>{
   const source=cursor.match(/url\\("([^"]+)"\\)/)?.[1];if(!source)return false;
   const image=new Image();image.src=source;await image.decode();return image.naturalWidth>0&&image.naturalHeight>0;
  })))()`);
@@ -363,21 +386,34 @@ export async function verifyFlight({run,evaluate,wait,base}){
  assert.equal(safari[4].action,'lens-out');assert.equal(safari[4].cursor,'zoom-out');
  assert.equal(safari[3].alt,safariStart.alt,'Safari plain pinch keeps altitude');
  assert.equal(safari[3].position,safariStart.position,'Safari plain pinch keeps position');
- assert.equal(safari[5].position,safari[4].position,'Safari Shift transition has no catch-up approach');
- assert.equal(safari[5].action,undefined);
- assert.notEqual(safari[7].position,safari[4].position,'Safari Shift pinch approaches');
- assert.ok(radius(safari[7])<radius(safari[4]),'Safari Shift pinch lowers the camera toward Earth');
- assert.equal(safari[7].lens,safari[4].lens);
- assert.equal(safari[7].action,'approach-in');assert.equal(safari[8].action,'approach-out');
- assert.equal(safari[9].roll,safari[8].roll,'Safari Option transition has no catch-up roll');
- assert.equal(safari[9].action,undefined);
- assert.notEqual(safari[11].roll,safari[8].roll,'Safari Option pinch rolls even with Shift');
- assert.equal(safari[11].position,safari[8].position);assert.equal(safari[11].lens,safari[8].lens);
- assert.equal(safari[11].action,'roll-right');assert.equal(safari[12].action,'roll-left');
+ assert.ok(safari[7].lens>safari[4].lens,'Safari Shift pinch zooms the lens');assert.equal(safari[7].position,safari[4].position);
+ assert.equal(safari[7].action,'lens-in');assert.equal(safari[8].action,'lens-out');
+ assert.ok(safari[11].lens>safari[8].lens,'Safari Option pinch zooms the lens');
+ assert.equal(safari[11].position,safari[8].position);assert.equal(safari[11].roll,safari[8].roll);
+ assert.equal(safari[11].action,'lens-in');assert.equal(safari[12].action,'lens-out');
  assert.equal(safari[13].action,undefined,'Safari gesture end clears action feedback');
  assert.equal(safari[15].roll,safari[14].roll,'small Safari twist stays below threshold');
  assert.equal(safari[16].roll,safari[15].roll,'Safari twist activation rebases');
  assert.notEqual(safari[17].roll,safari[16].roll,'ordinary Safari twist rolls after activation');
+ // Mouse or trackpad: detected until chosen over Help, kept in a cookie
+ // across reloads; the chosen button again, or Auto in Settings, forgets it.
+ const device=()=>evaluate(`(()=>{const b=document.querySelector('.hud-corner [data-device=mouse]'),s=document.querySelector('#explorer-input-device');
+  return {name:b.querySelector('.hud-name').textContent,mouse:b.getAttribute('aria-pressed'),select:s.value,cookie:document.cookie.includes('earthlight-input-device=mouse')};})()`);
+ await evaluate("document.querySelector('.hud-corner [data-device=mouse]').click();true");
+ assert.deepEqual(await device(),{name:'Mouse',mouse:'true',select:'mouse',cookie:true});
+ await run('reload');await wait("document.querySelector('earthlight-explorer').dataset.focus==='sharp'");
+ assert.deepEqual(await device(),{name:'Mouse',mouse:'true',select:'mouse',cookie:true},'the chosen device survives a reload');
+ const forcedLens=await read();
+ assert.equal(await gesture({deltaX:3,deltaY:-20}),true);await wait(`Number(document.querySelector('earthlight-explorer').dataset.lens)>${forcedLens.lens}`);
+ assert.equal((await read()).position,forcedLens.position,'with the mouse chosen a trackpad-like scroll zooms the lens');
+ await evaluate("(()=>{const s=document.querySelector('#explorer-input-device');s.value='auto';s.dispatchEvent(new Event('change'));return true;})()");
+ const auto=await device();assert.equal(auto.select,'auto');assert.equal(auto.cookie,false);
+ assert.equal(await evaluate("document.querySelectorAll('.hud-corner [data-device][aria-pressed=true]').length"),1,'the detected device keeps its key down too');
+ assert.equal(await evaluate("[...document.querySelectorAll('.hud-corner [data-device] .hud-name')].filter(n=>n.textContent.endsWith('(auto)')).length"),1);
+ await evaluate("document.querySelector('.hud-corner [data-device=mouse]').click();true");
+ assert.deepEqual(await device(),{name:'Mouse',mouse:'true',select:'mouse',cookie:true});
+ await evaluate("document.querySelector('.hud-corner [data-device=mouse]').click();true");
+ const toggled=await device();assert.equal(toggled.select,'auto','a second click goes back to Auto');assert.equal(toggled.cookie,false);
  await run('open',`${base}/?t=1000&motion=0`);
  const outsideScene=await evaluate("(()=>{const e=new WheelEvent('wheel',{deltaY:120,bubbles:true,cancelable:true});document.body.dispatchEvent(e);return {hud:!!document.querySelector('.flight-hud'),prevented:e.defaultPrevented};})()");
  assert.deepEqual(outsideScene,{hud:true,prevented:false});

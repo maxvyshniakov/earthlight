@@ -70,8 +70,9 @@ These are unedited frames from the demo. Each one is a URL, for example
 
 Follow the ISS, a polar or a high orbit, or grab Earth and fly freely. Drag
 anywhere to fly over Earth, and with Shift or the middle button to look around;
-the right button circles the point under it, marked by a pin on the ground. A trackpad scroll flies too; the
-mouse wheel or a pinch comes closer. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly, arrow keys look,
+the right button or Control circles the point under it, marked by a pin on the ground. A trackpad scroll flies
+too, with Shift it looks, with Option it climbs, descends or rolls, and with Control it circles. The mouse
+wheel or a pinch zooms the lens; Shift-wheel comes closer, Option-wheel rolls and Control-wheel circles. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly, arrow keys look,
 <kbd>F</kbd>/<kbd>R</kbd> come closer or back away, <kbd>Q</kbd>/<kbd>E</kbd>
 roll, <kbd>+</kbd>/<kbd>−</kbd> zoom the lens and <kbd>0</kbd> takes it back to
 1×, <kbd>\</kbd> resets the camera, <kbd>1</kbd>–<kbd>4</kbd> choose free flight

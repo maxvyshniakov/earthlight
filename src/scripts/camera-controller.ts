@@ -5,7 +5,7 @@ import type { Vec3 } from './iss-orbit.ts';
 export type CameraAction='fly'|'look'|'approach'|'lens'|'roll';
 export type CameraIntent='auto'|'look'|'roll'|'circle';
 export type CameraSession={readonly kind:'fly'|'look'|'roll'|'circle';move(clientX:number,clientY:number):void;end(fling?:boolean):void};
-export type ScrollSession={readonly kind:'fly'|'look';by(dx:number,dy:number):void};
+export type ScrollSession={readonly kind:'fly'|'look'|'circle';by(dx:number,dy:number):void;end?():void};
 type Options={
   canvas:HTMLCanvasElement;
   navigation:FlightNavigation;
@@ -27,8 +27,8 @@ type Options={
 /** One meaning per gesture on every device. The plain gesture moves over Earth
  * wherever it starts: a point of Earth stays under the pointer, and off the
  * planet the globe turns like a scroll. Shift, the middle button or two fingers
- * turn the camera instead; Option or a twist rolls; the right button circles
- * the point under the pointer. */
+ * turn the camera instead; Option or a twist rolls; the right button or Control
+ * circles the point under the pointer. */
 export function createCameraController(o:Options){
   const nav=o.navigation;
   const screen=(clientX:number,clientY:number)=>{
@@ -117,17 +117,33 @@ export function createCameraController(o:Options){
       }};
   };
   /** A trackpad scroll at a resting pointer spins the globe about its centre
-   * wherever it is, so it never runs out of travel; with Shift it looks. The
+   * wherever it is, so it never runs out of travel; with Shift it looks, and
+   * with Control it circles the point under the pointer: sideways turns about
+   * the point's vertical, up and down raise or lower the camera over it. The
    * content follows the fingers. */
-  const scroll=(clientX:number,clientY:number,lookOnly:boolean):ScrollSession|null=>{
+  const scroll=(clientX:number,clientY:number,intent:'auto'|'look'|'circle'):ScrollSession|null=>{
     if(!o.ready())return null;
     nav.stop();
-    const spinning=!lookOnly;
+    const height=()=>Math.max(1,o.canvas.getBoundingClientRect().height);
+    if(intent==='circle'){
+      // Off the planet, the horizon point toward the pointer, as for a right-drag.
+      const anchor=pick(clientX,clientY).point;let started=false;
+      return {kind:'circle',
+        by(dx,dy){
+          if(!dx&&!dy)return;
+          if(!started){started=true;free();o.pin(anchor);}
+          // Half a turn per screen height sideways, as the near ground follows
+          // the fingers; a quarter turn up or down.
+          const h=height();nav.circleAbout(anchor,-dx/h*Math.PI,dy/h*Math.PI*.5);o.changed();
+        },
+        end(){if(started)o.pin(null);}};
+    }
+    const spinning=intent==='auto';
     if(spinning)free();
     return {kind:spinning?'fly':'look',
       by(dx,dy){
         if(!dx&&!dy)return;
-        if(spinning){const p=screen(clientX,clientY),h=Math.max(1,o.canvas.getBoundingClientRect().height);nav.spinGlobe(dx/h,-dy/h,p.x,p.y);o.changed();}
+        if(spinning){const p=screen(clientX,clientY);nav.spinGlobe(dx/height(),-dy/height(),p.x,p.y);o.changed();}
         else look(clientX,clientY,clientX+dx,clientY+dy);
       }};
   };
