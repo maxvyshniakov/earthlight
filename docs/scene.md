@@ -768,7 +768,14 @@ log mean to target 0.055 linear radiance. Within-bin log sums avoid rounding
 uniform scenes to a stop boundary. A coverage-weighted strongest-channel
 measurement protects extended coloured highlights; isolated stars may clip.
 The pyramid's alpha marks subjects: blocks about 1/70 of the frame height
-that are mostly lit. A star never fills one, so a subject counts fully from
+that are mostly lit. Lit means 0.025–0.10 scene radiance while the frame's
+mean asks for at most EV 5.1. On a darker frame the threshold follows the
+frame EV of the last update, 4–6 stops over its mid-grey, down to two stops
+below the day's values (physical night has no floor). A dim aurora on a
+black sky is then a subject at every phase of its pulse, instead of one
+whose metered area breathes with its light; see
+[the subject threshold lab note](lab/subject-threshold-2026-10-20.md).
+A star never fills a subject block, so a subject counts fully from
 0.025% of the frame, and a 40 px Moon is metered wherever it falls; its
 radiance is the cell's light over its subject share. Smaller subjects mix
 with the frame's request as light, with weight (coverage/0.025%)²: half the

@@ -82,6 +82,18 @@ async function verifyPyramidMeter(evaluate,exposureModule){
    const m=new exposure.CameraExposure(gl);m.update(scene,true,false,0,[0,0,0],w/h,null,null,1.25,pyramid?glare.meter:null);
    const ev=read();m.dispose();return ev;
   };
+  // As the camera does: one update meters the frame EV, the pyramid is then
+  // built against it and a second meter takes its request at once.
+  const framed=paint=>{
+   const data=new Float32Array(w*h*4);
+   for(let y=0;y<h;y++)for(let x=0;x<w;x++){const v=paint(x+.5,y+.5);data.set([v,v,v,1],(y*w+x)*4);}
+   gl.bindTexture(gl.TEXTURE_2D,scene);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,w,h,0,gl.RGBA,gl.FLOAT,data);
+   const first=new exposure.CameraExposure(gl);glare.build(scene,w,h,[0,0,0,0]);
+   first.update(scene,true,false,0,[0,0,0],w/h,null,null,1.25,glare.meter);
+   glare.build(scene,w,h,[0,0,0,0],null,first.frameTexture);
+   const m=new exposure.CameraExposure(gl);m.update(scene,true,false,0,[0,0,0],w/h,null,null,1.25,glare.meter);
+   const ev=read();m.dispose();first.dispose();return ev;
+  };
   const sky=1e-4;
   const stars=(x,y)=>[[200,160],[840,600],[666,300]].some(([sx,sy])=>Math.abs(x-sx)<1.5&&Math.abs(y-sy)<1.5)?50:sky;
   // A Moon of radius 20 px lit on its right half, radiance 0.08 like the scene's.
@@ -94,6 +106,13 @@ async function verifyPyramidMeter(evaluate,exposureModule){
    moonPoints:[[0,0],[6.8,3.4]].map(([dx,dy])=>meter(moon(600+dx,400+dy),false)),
    uniform:meter(uniform),uniformPoints:meter(uniform,false),
   };
+  // A soft subject on a black sky whose peak lies in the METER_LIT band, an
+  // aurora seen from orbit: radiance 0.05 and twice that.
+  const glow=peak=>(x,y)=>sky+peak*Math.exp(-((x-600)**2+(y-400)**2)/(2*14*14));
+  out.glow=[.05,.1].map(peak=>meter(glow(peak)));
+  out.glowFramed=[.05,.1].map(peak=>framed(glow(peak)));
+  out.starsFramed=framed(stars);
+  out.uniformFramed=framed(uniform);
   // A partial subject on a black sky, written straight into a meter field:
   // one 37 x 25 cell holds a subject of radiance 0.5 covering a share of it.
   // Its EV at 25%, 50% and 75% of full coverage, then with 1% more area.
@@ -119,6 +138,10 @@ async function verifyPyramidMeter(evaluate,exposureModule){
  assert.ok(Math.min(...result.moonPoints)>cameraModel.EXPOSURE_MAX_EV-.2,'point samples miss the same Moon');
  assert.ok(Math.max(...result.moon)-Math.min(...result.moon)<.25,`moving the Moon across blocks changes exposure by under 0.25 EV (${result.moon})`);
  assert.ok(Math.abs(result.uniform-result.uniformPoints)<.1,'a uniform frame meters as with point samples');
+ // Subjects relative to the frame (docs/lab/subject-threshold-2026-10-20.md).
+ assert.ok(result.starsFramed>cameraModel.EXPOSURE_MAX_EV-.2,`relative to a black frame, three bright stars still do not darken the sky (${result.starsFramed})`);
+ assert.ok(Math.abs(result.uniformFramed-result.uniform)<.01,`a frame within the range keeps the day's thresholds (${result.uniformFramed}, ${result.uniform})`);
+ assert.ok(result.glowFramed[0]-result.glowFramed[1]<1.1,`twice the light of a dim subject darkens exposure by about a stop, not by its coverage (${result.glowFramed}; day thresholds ${result.glow})`);
  for(const [ev,larger] of result.partial)assert.ok(ev<cameraModel.EXPOSURE_MAX_EV-.5&&Math.abs(larger-ev)<.035,`a partial subject pulls exposure, and 1% more of it moves exposure under 0.035 EV (${result.partial})`);
  return result;
 }

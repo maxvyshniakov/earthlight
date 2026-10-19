@@ -82,11 +82,14 @@ called Orbit, and older lab notes still use that name.
   `physical-night.ts`). Its **night lens** opens to max(f/1.4, focal / 143 mm)
   (`NIGHT_LENS`, `exposureCeiling`), and its grain bins the **photosites** of
   a 12 MP sensor into each CSS pixel (`photositesPerPixel`, `sensor-noise.ts`).
-- **Frame EV**: in physical night, the exposure the frame's mean scene
-  luminance asks for before subjects pull, kept by the meter in its own
-  state (`CameraExposure.frameTexture`). Night subjects are classified
-  against it, never against the camera's own EV. See
-  `docs/lab/night-meter-2026-10-18.md`.
+- **Frame EV**: the exposure the frame's mean scene luminance asks for
+  before subjects pull, kept by the meter in its own state
+  (`CameraExposure.frameTexture`, up to `FRAME_EV_MAX` in every program).
+  Subjects are classified against it above EV 5.1, never against the
+  camera's own EV; the default program's threshold stops two stops below
+  the day's (`METER_SUBJECT_DEPTH`). See
+  `docs/lab/night-meter-2026-10-18.md` and
+  `docs/lab/subject-threshold-2026-10-20.md`.
 - **Night switch**: changing the night mode of a running renderer in place
   (`switchNight`, the N key): the next mode's programs compile while the
   current one draws, the **hand-over** frame is the last of the old mode,
