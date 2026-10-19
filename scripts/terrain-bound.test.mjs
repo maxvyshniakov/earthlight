@@ -61,6 +61,9 @@ test('nothing is published before the global maxima arrive',()=>{
 const earthUV=n=>[Math.atan2(n[1],n[0])/(2*Math.PI)+.5,Math.asin(Math.max(-1,Math.min(1,n[2])))/Math.PI+.5];
 const normalize=v=>{const l=Math.hypot(...v);return v.map(x=>x/l);};
 const fract=x=>x-Math.floor(x);
+// The track centre and points one margin east, west, north and south of it,
+// as east and north steps.
+const PROBE_OFFSETS=[0,0,1,0,-1,0,0,1,0,-1];
 function trackLevelCell(a,b,margin){
  const m=normalize(a.map((v,i)=>v+b[i])),polar=Math.max(Math.abs(a[2]),Math.abs(b[2]),Math.abs(m[2]));
  if(polar>.98)return null;
@@ -86,13 +89,19 @@ test('one stored texel bounds every cell within the margin of a great-circle tra
   const b=normalize(a.map((v,i)=>v*Math.cos(length)+direction[i]*Math.sin(length)));
   const cell=trackLevelCell(a,b,margin);if(!cell)continue;
   const [,,width]=boundLevels[cell.level],stored=bound.dilated[cell.level][cell.row*width+cell.column];
+  // About a million probes: scalar arithmetic, no per-probe arrays or messages.
   for(let k=0;k<=64;k++){
-   const t=k/64,p=normalize(a.map((v,i)=>v*Math.sin((1-t)*length)+b[i]*Math.sin(t*length)));
-   for(const offset of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){
-    const east=normalize([-p[1],p[0],0]),north=[p[1]*east[2]-p[2]*east[1],p[2]*east[0]-p[0]*east[2],p[0]*east[1]-p[1]*east[0]];
-    const q=normalize(p.map((v,i)=>v+(east[i]*offset[0]+north[i]*offset[1])*margin));
-    const [u,v]=earthUV(q),truth=grid[Math.min(BOUND_ROWS-1,Math.floor((1-v)*BOUND_ROWS))*BOUND_COLUMNS+Math.min(BOUND_COLUMNS-1,Math.floor(fract(u)*BOUND_COLUMNS))];
-    assert.ok(stored>=truth,`level ${cell.level}: ${stored} < ${truth}`);checked++;
+   const t=k/64,sa=Math.sin((1-t)*length),sb=Math.sin(t*length);
+   let px=a[0]*sa+b[0]*sb,py=a[1]*sa+b[1]*sb,pz=a[2]*sa+b[2]*sb;
+   const pl=Math.sqrt(px*px+py*py+pz*pz);px/=pl;py/=pl;pz/=pl;
+   const el=Math.sqrt(px*px+py*py),ex=-py/el,ey=px/el,nx=-pz*ey,ny=pz*ex,nz=px*ey-py*ex;
+   for(let o=0;o<PROBE_OFFSETS.length;o+=2){
+    const de=PROBE_OFFSETS[o]*margin,dn=PROBE_OFFSETS[o+1]*margin;
+    let qx=px+ex*de+nx*dn,qy=py+ey*de+ny*dn,qz=pz+nz*dn;
+    const ql=Math.sqrt(qx*qx+qy*qy+qz*qz);qx/=ql;qy/=ql;qz/=ql;
+    const u=Math.atan2(qy,qx)/(2*Math.PI)+.5,v=Math.asin(Math.max(-1,Math.min(1,qz)))/Math.PI+.5;
+    const truth=grid[Math.min(BOUND_ROWS-1,Math.floor((1-v)*BOUND_ROWS))*BOUND_COLUMNS+Math.min(BOUND_COLUMNS-1,Math.floor(fract(u)*BOUND_COLUMNS))];
+    if(stored<truth)assert.fail(`level ${cell.level}: ${stored} < ${truth}`);checked++;
    }
   }
  }
