@@ -2,13 +2,10 @@
  * sized formats are core there, and phones whose WebGL1 lacks explicit LOD
  * need it anyway, so desktops, phones and the tests compile one dialect
  * (GLSL ES 3.00 reserves names WebGL1 accepts). `api=webgl` and
- * `api=webgl-nolod` keep the WebGL1 lab paths reproducible.
- * With failIfMajorPerformanceCaveat, software renderers are refused as well:
- * browsers do not flag a software GL that was selected explicitly. */
+ * `api=webgl-nolod` keep the WebGL1 lab paths reproducible. */
 export function sceneContext(canvas:HTMLCanvasElement,params:URLSearchParams,attributes:WebGLContextAttributes){
-  const api=params.get('api'),hardware=!!attributes.failIfMajorPerformanceCaveat;
+  const api=params.get('api');
   const preferWebGL2=api!=='webgl'&&api!=='webgl-nolod';
-  if(hardware&&webgl1Probe(attributes).software)return null;
   const gl=(preferWebGL2?canvas.getContext('webgl2',attributes):null)??canvas.getContext('webgl',attributes);
   // Lab reproduction of WebGL1 devices without explicit LOD, such as the
   // measured Pixel: hide the extension so the fallback shaders compile here.
@@ -17,23 +14,6 @@ export function sceneContext(canvas:HTMLCanvasElement,params:URLSearchParams,att
     gl.getExtension=((name:string)=>name==='EXT_shader_texture_lod'?null:getExtension(name)) as typeof gl.getExtension;
   }
   return gl;
-}
-
-/** Software renderer names reported by Chromium, Firefox and Mesa. */
-export const SOFTWARE_RENDERER=/swiftshader|llvmpipe|softpipe|software|basic render driver/i;
-
-// One short-lived WebGL1 context answers both questions. It shares the caller's
-// attributes, so a refused software context is never created here either.
-function webgl1Probe(attributes:WebGLContextAttributes){
-  try{
-    const probe=document.createElement('canvas').getContext('webgl',attributes);
-    if(!probe)return {explicitLod:true,software:false};
-    const debug=probe.getExtension('WEBGL_debug_renderer_info');
-    const renderer=String(debug?probe.getParameter(debug.UNMASKED_RENDERER_WEBGL):probe.getParameter(probe.RENDERER));
-    const result={explicitLod:!!probe.getExtension('EXT_shader_texture_lod'),software:SOFTWARE_RENDERER.test(renderer)};
-    probe.getExtension('WEBGL_lose_context')?.loseContext();
-    return result;
-  }catch{return {explicitLod:true,software:false};}
 }
 
 /** Keep the WebGL1 path explicit while testing the same scene on WebGL2. */

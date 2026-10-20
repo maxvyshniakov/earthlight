@@ -6,6 +6,7 @@ import {issFrame,initialSceneSeconds} from './iss-orbit';
 import {SceneFocus} from './scene-assets';
 import {sceneBufferSize,sceneComposition,focusRenderScale,focusGrainScale,bufferDensity} from './scene-viewport';
 import {sceneContext,isWebGL2} from './webgl-context';
+import {softwareRenderer} from './software-renderer';
 import {SceneFrameClock} from './scene-frame-clock';
 import {SceneHostLifecycle} from './scene-host-lifecycle';
 
@@ -18,7 +19,8 @@ export class EarthlightBackground extends HTMLElement {
     const reduced=matchMedia('(prefers-reduced-motion: reduce)');
     let renderer:ReturnType<typeof createSceneRenderer>|undefined;
     let gl:WebGLRenderingContext|null=null;
-    let visible=false,unavailable=false,lastAnimationDraw=0,grain=0;
+    let visible=false,unavailable=false,probed=false,lastAnimationDraw=0,grain=0;
+    let probe:Promise<void>|undefined;
     const runtime=new SceneHostLifecycle({running:()=>active()&&!!renderer,frame:now=>tick(now)});
     let scale=.75,focusRadius=6,cssHeight=1,density=1.5;
     const params=new URLSearchParams({texture:'compact',aurora:'0'});
@@ -87,7 +89,16 @@ export class EarthlightBackground extends HTMLElement {
         if(unavailable)return;
         // A decorative scene never runs on software GL (VMs, blocklisted GPUs,
         // headless audits): it would spend seconds of CPU per frame. The poster stays.
-        gl=sceneContext(canvas,params,{alpha:false,antialias:false,depth:false,powerPreference:'low-power',failIfMajorPerformanceCaveat:true});
+        const attributes:WebGLContextAttributes={alpha:false,antialias:false,depth:false,powerPreference:'low-power',failIfMajorPerformanceCaveat:true};
+        if(!probed){
+          probe??=softwareRenderer(attributes).then(software=>{
+            probed=true;
+            if(software){unavailable=true;this.dataset.renderApi='unavailable';}
+            if(!runtime.disposed)sync();
+          });
+          return;
+        }
+        gl=sceneContext(canvas,params,attributes);
         if(!gl){unavailable=true;this.dataset.renderApi='unavailable';return;}
         this.dataset.renderApi=isWebGL2(gl)?'webgl2':'webgl';
         renderer=createSceneRenderer(gl,canvas,params,()=>{

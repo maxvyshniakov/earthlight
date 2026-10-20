@@ -6,9 +6,9 @@ import {promisify} from 'node:util';
 import {mkdir,writeFile} from 'node:fs/promises';
 
 const [base='http://127.0.0.1:4321',out='/tmp/earthlight-host-lifecycle']=process.argv.slice(2);
-const build=await Bun.build({entrypoints:[new URL('../src/scripts/background.ts',import.meta.url).pathname],target:'browser',define:{'import.meta.env.DEV':'false'}});
+const build=await Bun.build({entrypoints:['background.ts','software-probe.worker.ts'].map(name=>new URL(`../src/scripts/${name}`,import.meta.url).pathname),target:'browser',define:{'import.meta.env.DEV':'false'}});
 assert.ok(build.success,build.logs.map(String).join('\n'));
-const module=await build.outputs[0].text();
+const [module,probeWorker]=await Promise.all(build.outputs.map(output=>output.text()));
 const html=`<!doctype html><meta charset="utf-8"><title>Background lifecycle fixture</title>
 <style>body{margin:0}section{height:100vh}earthlight-background{display:contents}canvas{position:fixed;inset:0;width:100%;height:100vh;pointer-events:none}</style>
 <section><earthlight-background><canvas></canvas></earthlight-background></section>
@@ -25,6 +25,7 @@ const fixture=Bun.serve({hostname:'127.0.0.1',port:0,async fetch(request){
  const url=new URL(request.url);
  if(url.pathname==='/')return new Response(html,{headers:{'Content-Type':'text/html'}});
  if(url.pathname==='/background.js')return new Response(module,{headers:{'Content-Type':'text/javascript'}});
+ if(url.pathname==='/software-probe.worker.ts')return new Response(probeWorker,{headers:{'Content-Type':'text/javascript'}});
  if(url.pathname.startsWith('/media/earthlight/'))return fetch(new URL(url.pathname+url.search,base),{signal:request.signal});
  return new Response('Not found',{status:404});
 }});
