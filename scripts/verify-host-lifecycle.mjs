@@ -29,7 +29,7 @@ const fixture=Bun.serve({hostname:'127.0.0.1',port:0,async fetch(request){
  return new Response('Not found',{status:404});
 }});
 const session=`host-lifecycle-${process.pid}`,exec=promisify(execFile);
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'60000'}})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:8e6,timeout:90000,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'60000'}})).stdout;
 const evaluate=async js=>JSON.parse(await run('eval','--base64',Buffer.from(js).toString('base64')));
 const wait=condition=>run('wait','--fn',condition);
 const results={};

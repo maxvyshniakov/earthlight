@@ -5,7 +5,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 const [base='http://127.0.0.1:4322',out='/tmp/cloud-family-cost',selection='0,1,2,3,4,5']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const exec=promisify(execFile),session=`cloud-cost-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:4e6,timeout:90000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:4e6,timeout:90000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 try{
  await run('set','viewport','1200','1000');await run('open',base+'/cloud-lab/');

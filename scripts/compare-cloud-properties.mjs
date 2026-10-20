@@ -15,7 +15,7 @@ import {cloudPropertiesURL} from '../src/scripts/cloud-properties.ts';
 const [base='http://127.0.0.1:4411',out='/tmp/cloud-properties']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const exec=promisify(execFile),session='cloud-properties-'+process.pid;
-const run=async(...a)=>(await exec('rtk',['proxy','agent-browser','--session',session,...a],{timeout:180000,maxBuffer:64e6})).stdout;
+const run=async(...a)=>(await exec('agent-browser',['--session',session,...a],{timeout:180000,maxBuffer:64e6})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 await run('set','viewport','1200','800');
 const wait=async()=>{

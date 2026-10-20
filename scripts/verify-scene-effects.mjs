@@ -21,7 +21,7 @@ const init=`(()=>{
 })();`;
 await writeFile(`${out}/init.js`,init);
 let session='';
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:90000,maxBuffer:8e6,env:{...process.env,AGENT_BROWSER_INIT_SCRIPTS:`${out}/init.js`,AGENT_BROWSER_DEFAULT_TIMEOUT:'60000'}})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{timeout:90000,maxBuffer:8e6,env:{...process.env,AGENT_BROWSER_INIT_SCRIPTS:`${out}/init.js`,AGENT_BROWSER_DEFAULT_TIMEOUT:'60000'}})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 let touchClient=null;
 const emulateTouch=async()=>{

@@ -10,7 +10,7 @@ let evaluate,navigate,close;
 if(device==='android')({evaluate,navigate,close}=await sceneDevice('android',base));
 else{
  const exec=promisify(execFile),session='cloud-shape-'+process.pid;
- const run=async(...a)=>(await exec('rtk',['proxy','agent-browser','--session',session,...a],{timeout:120000,maxBuffer:32e6})).stdout;
+ const run=async(...a)=>(await exec('agent-browser',['--session',session,...a],{timeout:120000,maxBuffer:32e6})).stdout;
  evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
  navigate=url=>run('open',url);close=()=>run('close');await run('set','viewport','1200','800');
 }

@@ -7,7 +7,7 @@ import {promisify} from 'node:util';
 const exec=promisify(execFile);
 const base=process.argv[2]??'http://127.0.0.1:4322';
 const session=`scene-url-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:2e6,timeout:90000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:2e6,timeout:90000})).stdout;
 const evaluate=async js=>JSON.parse(await run('eval','--base64',Buffer.from(js).toString('base64')));
 const ready=async()=>{
  await run('wait','--fn',"!!document.querySelector('earthlight-explorer[data-ready]')");

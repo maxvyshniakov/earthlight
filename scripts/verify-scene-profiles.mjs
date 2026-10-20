@@ -6,7 +6,7 @@ const exec=promisify(execFile);
 const [base='http://127.0.0.1:4347',out='/tmp/earthlight-profile-checks']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const session=`profile-checks-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:90000,maxBuffer:8e6})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{timeout:90000,maxBuffer:8e6})).stdout;
 const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));
 const wait=()=>run('wait','--fn',`document.querySelector('earthlight-explorer')?.dataset.focus==='sharp'&&document.querySelector('earthlight-explorer').dataset.exposure==='settled'`);
 const state=()=>evaluate(`(()=>{const s=document.querySelector('earthlight-explorer'),c=s.querySelector('canvas');return {profile:s.dataset.renderProfile,volume:s.dataset.volumePass,position:s.dataset.cameraPosition,basis:s.dataset.cameraBasis,scale:s.dataset.renderScale,grain:s.querySelector('[data-look=grain]').value,rate:s.querySelector('.explorer-speed input').value,motion:s.querySelector('.explorer-motion').getAttribute('aria-label'),width:c.width,height:c.height,api:s.dataset.renderApi,error:(c.getContext('webgl2')??c.getContext('webgl')).getError()}})()`);

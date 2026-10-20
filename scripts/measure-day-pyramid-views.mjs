@@ -80,7 +80,7 @@ for(let round=0;round<rounds;round++)for(const region of regions)for(const lens 
   const name=`${region.name}-${lens}x-${detail?'deep':'bmng'}${round?`-r${round}`:''}`;
   if(results.some(r=>r.name===name&&(!frames||r.medianMs)))continue;
   const session=`day-pyramid-${process.pid}-${sequence++}`;
-  const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:120000})).stdout;
+  const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:8e6,timeout:120000})).stdout;
   const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));
   try{
     await run('set','viewport','1280','800');

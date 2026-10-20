@@ -44,7 +44,7 @@ const scenes={
  nadir:'t=0&epoch=2026-06-13T08:29:36.170Z&flight=free&'+iss(8,86,20,420,-Math.PI/2),
 };
 let session;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:120000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:8e6,timeout:120000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 const evaluateTask=async code=>{
  await evaluate(`(()=>{window.footprintTask={done:false};Promise.resolve(${code}).then(value=>window.footprintTask={done:true,value},error=>window.footprintTask={done:true,error:String(error.stack??error)});return true;})()`);

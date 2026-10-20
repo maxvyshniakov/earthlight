@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 const [mode,folder]=process.argv.slice(2),out=path.resolve(folder);
-const run=(...args)=>execFileSync('rtk',['proxy','agent-browser','--session','explorer-codecs',...args],{encoding:'utf8',timeout:120000});
+const run=(...args)=>execFileSync('agent-browser',['--session','explorer-codecs',...args],{encoding:'utf8',timeout:120000});
 const wait='document.querySelector("earthlight-explorer")?.hasAttribute("data-galaxy-ready") && document.querySelector("earthlight-explorer")?.hasAttribute("data-stars-ready") && document.querySelector("earthlight-explorer")?.hasAttribute("data-surface-ready") && getComputedStyle(document.querySelector("canvas")).opacity === "1"';
 const captures=[];
 if(mode==='stars'){

@@ -7,7 +7,7 @@ import {modisPatchShader} from '../src/scripts/modis-patch.ts';
 const [base='http://127.0.0.1:4322',out='/tmp/modis-patch-checks']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const exec=promisify(execFile),session='modis-check-'+process.pid;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:32e6,timeout:120000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:32e6,timeout:120000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 const wait=async()=>{for(let i=0;i<160;i++){
  const ready=await evaluate(`(()=>{const s=document.querySelector('earthlight-explorer');return s?.hasAttribute('data-ready')&&s.dataset.modisReady==='1'&&s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled';})()`);

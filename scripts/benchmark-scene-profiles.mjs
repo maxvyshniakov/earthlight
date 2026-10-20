@@ -13,7 +13,7 @@ assert.equal(profiles[0],'reference','Start with reference for matching camera a
 assert.ok(profiles.every(name=>Object.hasOwn(sceneProfiles,name)),'Unknown render profile');
 await mkdir(out,{recursive:true});
 let sequence=0,session=`earthlight-profiles-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
 const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));
 const cases=[{name:'day',t:3235.65},{name:'night',t:610.87},{name:'horizon',t:3235.65,pitch:5},{name:'clouds',t:3235.65,pitch:-25},{name:'moon',t:1338.89},{name:'high',t:3235.65,orbit:'high'}].filter(scene=>!only||only==='all'||only.split(',').includes(scene.name));
 assert.ok(cases.length,'Unknown scene name');

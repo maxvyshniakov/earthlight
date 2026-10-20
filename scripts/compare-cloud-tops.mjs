@@ -32,7 +32,7 @@ function sceneURL(scene){
  return u.href;
 }
 let sequence=0,session,opened=false;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 // Keep long GPU sampling outside a single browser-command timeout.
 const evaluateTask=async code=>{

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import {ISS_PERIOD_SECONDS} from '../src/scripts/iss-orbit.ts';
 const [base='http://127.0.0.1:4352',out='/tmp/earthlight-device-transitions']=process.argv.slice(2);
-const adb=(...args)=>execFileSync('rtk',['proxy','adb',...args],{encoding:'utf8',timeout:15000}).trim();
+const adb=(...args)=>execFileSync('adb',[...args],{encoding:'utf8',timeout:15000}).trim();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const short=process.env.DEVICE_TRANSITION_SHORT==='1',images=process.env.DEVICE_TRANSITION_VISUALS!=='0';
 const profiles=(process.env.DEVICE_TRANSITION_PROFILES??'compact,clouds-half').split(',');assert.ok(profiles.every(x=>['compact','clouds-half'].includes(x)));

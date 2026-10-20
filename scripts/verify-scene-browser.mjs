@@ -45,7 +45,7 @@ const run=async(...args)=>{
  if(args[0]==='open'&&args[1]?.startsWith(base)){
   const url=new URL(args[1]);if(!url.searchParams.has('epoch'))url.searchParams.set('epoch',START_DATE.toISOString());if(process.env.SCENE_PROFILE)url.searchParams.set('render',process.env.SCENE_PROFILE);if(process.env.SCENE_TERRAIN_UPLOAD)url.searchParams.set('terrainUpload',process.env.SCENE_TERRAIN_UPLOAD);if(process.env.SCENE_TERRAIN_CACHE)url.searchParams.set('terrainCache',process.env.SCENE_TERRAIN_CACHE);for(const [key,name] of [['terrainDecoder','SCENE_TERRAIN_DECODER'],['terrainSource','SCENE_TERRAIN_SOURCE'],['cloudBake','SCENE_CLOUD_BAKE']])if(process.env[name])url.searchParams.set(key,process.env[name]);args[1]=url.href;
  }
- return (await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
+ return (await exec('agent-browser',['--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
 };
 const evaluate=async js=>JSON.parse(await run('eval','--base64',Buffer.from(js).toString('base64')));
 const wait=condition=>run('wait','--fn',condition);

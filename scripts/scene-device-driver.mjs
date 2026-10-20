@@ -54,7 +54,7 @@ if(browser==='safari-mcp'){
   // Chrome tab. Its visibilityState can say visible while RAF never runs.
   const initial=options.initialPath?new URL(options.initialPath,base).href:`${base}/?device-test=${Date.now()}&motion=0`;
   const quotedInitial="'"+initial.replaceAll("'","'\\''")+"'";
-  execFileSync('rtk',['proxy','adb','shell','am','start','-a','android.intent.action.VIEW','-d',quotedInitial,'-p','com.android.chrome'],{stdio:'ignore'});
+  execFileSync('adb',['shell','am','start','-a','android.intent.action.VIEW','-d',quotedInitial,'-p','com.android.chrome'],{stdio:'ignore'});
   let target;
   for(let i=0;i<40&&!target;i++){target=(await call('Target.getTargets')).targetInfos.find(t=>t.url===initial);if(!target)await sleep(250);}
   assert.ok(target,'Android Chrome did not open the native test tab');

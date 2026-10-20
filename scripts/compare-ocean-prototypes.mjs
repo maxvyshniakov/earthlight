@@ -5,7 +5,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 const exec=promisify(execFile);
 const [base='http://127.0.0.1:4395',out='/tmp/ocean-prototypes',selected='wide,oblique']=process.argv.slice(2);
 const session=`ocean-compare-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 export function oceanSceneURL(base,scene,mode){
  const angle=scene.startsWith('angle-')?Number(scene.slice(6)):null;

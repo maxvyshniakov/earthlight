@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import {modisDemoPrelude} from '../src/scripts/modis-demo-shader.ts';
 const [base='http://127.0.0.1:4322',out='/tmp/modis-proof']=process.argv.slice(2);
 await mkdir(out,{recursive:true});const exec=promisify(execFile),session='modis-proof-'+process.pid;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:120000,maxBuffer:16e6})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{timeout:120000,maxBuffer:16e6})).stdout;
 const evaluate=async s=>JSON.parse(await run('eval','--base64',Buffer.from(s).toString('base64')));
 const hash=s=>createHash('sha256').update(s).digest('hex');const result={};
 const manifest=JSON.parse(await readFile('public/media/earthlight/modis-demo/manifest.json'));

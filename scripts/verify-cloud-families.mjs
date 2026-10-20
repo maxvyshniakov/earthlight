@@ -8,7 +8,7 @@ import {cloudFamiliesShader} from '../src/scripts/cloud-families.ts';
 const [base='http://127.0.0.1:4321',out='/tmp/cloud-family-proof']=process.argv.slice(2);
 await mkdir(out,{recursive:true});
 const exec=promisify(execFile),session=`cloud-families-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:12e6,timeout:90000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:12e6,timeout:90000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const result={};

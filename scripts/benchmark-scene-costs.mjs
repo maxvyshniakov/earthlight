@@ -9,7 +9,7 @@ const exec=promisify(execFile);
 const [base='http://127.0.0.1:4347',out='/tmp/earthlight-costs',mode='all']=process.argv.slice(2);
 assert.ok(['all','clouds','scroll'].includes(mode),'Mode must be all, clouds or scroll');
 const session=`earthlight-costs-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:90000,maxBuffer:8e6})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{timeout:90000,maxBuffer:8e6})).stdout;
 const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));
 const evaluateLong=async source=>{
  await evaluate(`(()=>{window.sceneCostTask={done:false};Promise.resolve(${source}).then(value=>window.sceneCostTask={done:true,value},error=>window.sceneCostTask={done:true,error:String(error.stack||error)});return true;})()`);

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 const [base='http://127.0.0.1:4356',out='/tmp/earthlight-current-baseline-pixel']=process.argv.slice(2);
 assert.ok(process.env.ANDROID_SERIAL,'Set ANDROID_SERIAL');
-const adb=(...a)=>execFileSync('rtk',['proxy','adb',...a],{encoding:'utf8',timeout:15000}).trim();
+const adb=(...a)=>execFileSync('adb',[...a],{encoding:'utf8',timeout:15000}).trim();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const scenes=[{name:'day',t:3235.65,pitch:0,exposure:0},{name:'night',t:610.87,pitch:-25,exposure:4.1},{name:'clouds',t:3235.65,pitch:-25,exposure:0}];
 const forward=scenes.flatMap(scene=>['compact','clouds-half'].map(profile=>({scene,profile})));

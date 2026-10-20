@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 const exec=promisify(execFile);
 const [base='http://127.0.0.1:4339',out='/tmp/cloud-lighting-lifecycle']=process.argv.slice(2);
 const session=`cloud-lighting-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:8e6,timeout:90000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 const wait=async condition=>{
   for(let i=0;i<4;i++)try{return await run('wait','--fn',condition);}catch(error){if(i===3||!String(error.stderr).includes('Wait timed out'))throw error;}

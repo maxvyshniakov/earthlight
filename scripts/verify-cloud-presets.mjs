@@ -5,7 +5,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const exec=promisify(execFile),[base='http://127.0.0.1:4395',out='/tmp/earthlight-cloud-openings/presets']=process.argv.slice(2);
 const session=`cloud-presets-${process.pid}`;
-const run=async(...a)=>(await exec('rtk',['proxy','agent-browser','--session',session,...a],{encoding:'utf8',timeout:90000,maxBuffer:8e6})).stdout;
+const run=async(...a)=>(await exec('agent-browser',['--session',session,...a],{encoding:'utf8',timeout:90000,maxBuffer:8e6})).stdout;
 const ev=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 const settled=`(()=>{const s=document.querySelector('earthlight-explorer');return s?.dataset.shaderStartup==='ready'&&s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&['dayTiles','nightTiles','cloudTiles','terrainTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
 const wait=async()=>{try{await run('wait','--fn',settled);}catch{await run('wait','--fn',settled);}};

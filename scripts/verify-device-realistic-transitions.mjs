@@ -15,7 +15,7 @@ const [base='http://127.0.0.1:4356',out='/tmp/earthlight-realistic-transitions']
 const profiles=(process.env.REALISTIC_PROFILES??'compact,clouds-half').split(',');
 assert.ok(profiles.length<=2&&profiles.every(v=>['compact','clouds-half'].includes(v)));
 assert.ok(process.env.ANDROID_SERIAL,'Set ANDROID_SERIAL to the reserved Pixel');
-const adb=(...args)=>execFileSync('rtk',['proxy','adb',...args],{encoding:'utf8',timeout:15000}).trim();
+const adb=(...args)=>execFileSync('adb',[...args],{encoding:'utf8',timeout:15000}).trim();
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const dawn={epoch:'2026-10-06T07:00:00Z',t:330,seconds:60,rate:10};
 const orbit={epoch:'2026-10-06T01:32:27Z',t:3235.65,seconds:49.9,rate:10};

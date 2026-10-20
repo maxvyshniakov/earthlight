@@ -10,7 +10,7 @@ import {ISS_PERIOD_SECONDS} from '../src/scripts/iss-orbit.ts';
 const exec=promisify(execFile);
 const [before='http://127.0.0.1:4350',after='http://127.0.0.1:4351',out='/tmp/earthlight-cleanup-images',profiles='reference,compact']=process.argv.slice(2);
 const session=`cleanup-images-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{timeout:90000,maxBuffer:80e6,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'60000'}})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{timeout:90000,maxBuffer:80e6,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'60000'}})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 const settled=`(()=>{const s=document.querySelector('earthlight-explorer');return s?.hasAttribute('data-ready')&&s.dataset.focus==='sharp'&&s.dataset.exposure==='settled'&&s.dataset.assetPhase==='settled'&&['dayTiles','cloudTiles','nightTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||(()=>{const v=JSON.parse(s.dataset[k]);return v.pending===0&&(v.fading??0)===0&&v.resident>=v.wanted})())})()`;
 const capture=async(t,count,fixedResidency)=>evaluate(`(async()=>{

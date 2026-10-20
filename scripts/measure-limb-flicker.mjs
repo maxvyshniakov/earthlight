@@ -30,7 +30,7 @@ function issPose(latDeg,lonDeg,headingDeg,altitude){
 const fixed='motion=0&quality=fixed&look-grain=0&exposure-mode=manual&exposure-fixed=-0.6';
 const settled=`(()=>{const s=document.querySelector('earthlight-explorer');return s.dataset.focus==='sharp'&&s.dataset.assetPhase==='settled'&&s.dataset.exposure==='settled'&&Number(s.dataset.cloudLightingProgress??0)===0&&['dayTiles','nightTiles','cloudTiles','terrainTiles','galaxyTiles'].every(k=>!s.dataset[k]||JSON.parse(s.dataset[k]).pending===0)})()`;
 let session='';
-const run=(...args)=>execFileSync('rtk',['proxy','agent-browser','--session',session,...args],{encoding:'utf8',timeout:180000,maxBuffer:8e6});
+const run=(...args)=>execFileSync('agent-browser',['--session',session,...args],{encoding:'utf8',timeout:180000,maxBuffer:8e6});
 const evaluate=js=>JSON.parse(JSON.parse(run('eval','--base64',Buffer.from(`JSON.stringify(${js})`).toString('base64'))));
 // Heavily loaded machines miss the first readiness window; retry once.
 const wait=()=>{try{run('wait','--fn',settled);}catch{run('wait','--fn',settled);}};

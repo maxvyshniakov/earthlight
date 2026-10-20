@@ -6,7 +6,7 @@ import {execFileSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
 const [base='http://127.0.0.1:4350',out='/tmp/earthlight-device-cloud-storage']=process.argv.slice(2);
-const adb=(...a)=>execFileSync('rtk',['proxy','adb',...a],{encoding:'utf8',timeout:15000}).trim();
+const adb=(...a)=>execFileSync('adb',[...a],{encoding:'utf8',timeout:15000}).trim();
 const awake=adb('shell','settings','get','global','stay_on_while_plugged_in');
 await mkdir(out,{recursive:true});
 const results=[];let device;

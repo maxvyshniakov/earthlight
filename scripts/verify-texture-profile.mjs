@@ -11,7 +11,7 @@ const [base='http://127.0.0.1:4347',out='/tmp/earthlight-textures']=process.argv
 const api=process.env.TEXTURE_API??'webgl';
 assert.ok(['webgl','webgl2'].includes(api));
 const session=`texture-proof-${process.pid}`;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{
   timeout:120000,maxBuffer:40e6,env:{...process.env,AGENT_BROWSER_DEFAULT_TIMEOUT:'90000'},
 })).stdout;
 const evaluate=async source=>JSON.parse(await run('eval','--base64',Buffer.from(source).toString('base64')));

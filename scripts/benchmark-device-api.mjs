@@ -6,7 +6,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 const [base='http://127.0.0.1:4350',out='/tmp/earthlight-device-api']=process.argv.slice(2);
-const adb=(...args)=>execFileSync('rtk',['proxy','adb',...args],{encoding:'utf8',timeout:15000}).trim();
+const adb=(...args)=>execFileSync('adb',[...args],{encoding:'utf8',timeout:15000}).trim();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const originalAwake=adb('shell','settings','get','global','stay_on_while_plugged_in');
 const names=['compact-webgl','compact-webgl2','clouds-half-webgl2'];

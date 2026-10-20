@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 const [base='http://127.0.0.1:4356',out='/tmp/earthlight-device-startup']=process.argv.slice(2);
 assert.ok(process.env.ANDROID_SERIAL,'Set ANDROID_SERIAL to scope ADB');
-const adb=(...args)=>execFileSync('rtk',['proxy','adb',...args],{encoding:'utf8',timeout:15000}).trim();
+const adb=(...args)=>execFileSync('adb',[...args],{encoding:'utf8',timeout:15000}).trim();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const startupProfile=process.env.STARTUP_PROFILE??'compact';assert.ok(['compact','clouds-half'].includes(startupProfile));
 const originalAwake=adb('shell','settings','get','global','stay_on_while_plugged_in');

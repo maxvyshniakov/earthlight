@@ -11,7 +11,7 @@ const options={bake:{cloudBake:'budget'},pool:{terrainDecoder:'pool'},packed:{te
 const currentWork=['uploads','cache','bake','pool','packed','streaming','lean','bound','leanBound','noise','all','terrainFetch','temporal','allTemporal'];
 const [base='http://127.0.0.1:4347',out='/tmp/earthlight-pairs',selected='bounded,pixel',views='clouds,day,night',baseline='compact']=process.argv.slice(2);
 let sequence=0,session,opened=false;
-const run=async(...args)=>(await exec('rtk',['proxy','agent-browser','--session',session,...args],{maxBuffer:80e6,timeout:90000})).stdout;
+const run=async(...args)=>(await exec('agent-browser',['--session',session,...args],{maxBuffer:80e6,timeout:90000})).stdout;
 const evaluate=async code=>JSON.parse(await run('eval','--base64',Buffer.from(code).toString('base64')));
 // Keep long GPU sampling outside a single browser-command timeout.
 const evaluateTask=async code=>{
