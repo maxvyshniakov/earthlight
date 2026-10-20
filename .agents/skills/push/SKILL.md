@@ -1,19 +1,25 @@
 ---
 name: push
-description: Publish Earthlight commits to main and follow both deliveries a push starts, the explorer Worker and the package update on personal-site dev, to their live versions. Use for explicit push requests, including "пуш". Commit-only and skill-authoring requests do not authorize publication; asset publication is separate.
+description: Publish Earthlight commits to dev, or ship them to main and follow both deliveries a main push starts, the explorer Worker and the package update on personal-site dev, to their live versions. Use for explicit push requests, including "пуш". Commit-only and skill-authoring requests do not authorize publication; asset publication is separate.
 ---
 
 # Push
 
-A bare `push` or `пуш` publishes every local commit ahead of `origin/main` on
-the current branch. List that range before pushing. Uncommitted work stays out
-unless the user asks for it. Never force-push.
+A bare `push` or `пуш` publishes every local commit ahead of `origin/dev` on
+the current branch to `dev`. Shipping, or an explicit request for `main`,
+publishes the same tip to both `dev` and `main`, so `origin/main` stays an
+ancestor of `origin/dev`. List the range before pushing. Uncommitted work stays
+out unless the user asks for it. Never force-push, and never check out another
+branch in a shared working tree; push with an explicit refspec.
 
-A push to `main` starts two independent deliveries:
+A push to `dev` starts no GitHub workflow and no delivery to personal-site; it
+is finished when `git ls-remote origin dev` shows the pushed SHA. A push to
+`main` starts two independent deliveries:
 
 1. Cloudflare Workers Builds builds and deploys the explorer at
    https://earthlight.maxvyshniakov.com (docs/deployment.md).
-2. GitHub Actions `Update personal site dev` verifies the commit, updates the
+2. GitHub Actions `Update personal site dev`, on the self-hosted homelab runner
+   (CT 108; maxvyshniakov/proxmox `docs/ci-runner.md`), verifies the commit, updates the
    package on personal-site `dev` and pushes there; Cloudflare then deploys
    https://dev.maxvyshniakov.com (docs/integration.md).
 
@@ -27,8 +33,9 @@ A push to `main` starts two independent deliveries:
 
 ## Push
 
-`git push origin HEAD:main` as a fast-forward. A rejection means another commit
-landed: fetch, inspect it and rebase onto it.
+`git fetch`, rebase onto `origin/dev`, then `git push origin HEAD:dev` for
+`dev`, or `git push origin HEAD:dev HEAD:main` to ship. Both are fast-forwards.
+A rejection means another commit landed: fetch, inspect it and rebase onto it.
 
 ## Follow the explorer
 
