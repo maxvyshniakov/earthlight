@@ -1,18 +1,19 @@
 # Earthlight
 
-**Earth from the International Space Station, drawn live in your browser.**
+**Earth, the Moon and the sky from orbit, rendered live in the browser. Fly
+anywhere, pick any date and shoot it through a simulated camera.**
 
-**[Open the scene](https://earthlight.maxvyshniakov.com)**, or read
+**[Open Earthlight](https://earthlight.maxvyshniakov.com)**, or read
 [how it was made](https://maxvyshniakov.com/work/earthlight/).
 
 [![Green and red aurora curtains along Earth's night-side limb, the Milky Way overhead and the sunlit Earth with a blue limb in the lower right](docs/media/aurora.webp)](https://earthlight.maxvyshniakov.com/?t=1227.09&epoch=2026-11-14T14%3A39%3A32.910Z&motion=0&look-exposure=2&flight=free&position=-0.58184030%2C-0.62239333%2C0.64313219&orientation=0.8626780101%2C-0.3581205042%2C-0.1815948337%2C0.3075055638)
 
-It isn't a video. Every frame is rendered from the station's real orbit, a
-catalog of 15,598 stars and NASA maps of the planet: sunrise on a thin blue
-limb, aurora curtains over the poles, clouds catching the low sun, city lights
-across the night side and the Milky Way behind the airglow. One WebGL renderer
-in TypeScript and GLSL draws all of it, with no Three.js, and one simulated
-camera exposes it.
+Ride the International Space Station on its real orbit, switch to a polar or a
+high orbit, or leave orbit and fly anywhere from 150 to 50,000 km. Set any date
+from 1900 to 2100 and the Sun, the Moon's phase, the planets and 15,598 real
+stars move into place. Zoom a 0.5–50× lens onto city lights, mountain ridges or
+the craters of the Moon. Every frame is drawn live by one WebGL renderer, with
+no Three.js and no video, and exposed by one simulated camera.
 
 <table>
   <tr>
@@ -41,21 +42,49 @@ camera exposes it.
   </tr>
 </table>
 
-These are unedited frames. Every view is a URL that carries the time, position,
-lens and exposure, so click any picture to open that exact view.
+These are unedited frames. The address bar follows the view, with the time,
+position, lens and exposure, so click any picture to open that exact view.
 
-## What you are looking at
+## What you can do
+
+- **Fly anywhere.** Follow the ISS, a polar orbit at 800 km or a high orbit at
+  20,000 km, or fly freely between 150 and 50,000 km. Grab the ground and drag
+  it, flick to coast, circle a pinned point, double-click to fly in, and let the
+  horizon gauge turn you toward the Sun, the Moon or the Earth.
+- **Pick any moment.** Any date from 1900 to 2100, any time of day, time running
+  from paused to 1,000×. The day–night line, the Moon's phase, the planets and
+  the stars all follow it.
+- **Zoom from 15 to 1,500 mm.** At 50× the Moon resolves into NASA's colour and
+  relief maps with libration, the Sun becomes a limb-darkened disk, and on Earth
+  close-up relief and city lights on their native 1 km grid stream in.
+- **Shoot it like a camera.** Automatic or manual exposure with compensation
+  from −3 to +4 EV, a coated ISS lens or a flare-prone one, and dials for
+  flares, grain, colour separation and the Milky Way. Night mode (<kbd>N</kbd>)
+  draws the night at its physical brightness through a camera set like ISS
+  night video.
+- **Change the sky.** Clouds come in Calibrated, Balanced or Original density
+  or not at all, and the aurora can be on, off or left to the device.
+- **Share the exact frame.** Copy the address bar and anyone opens the same
+  view at the same moment, paused or running.
+- **Use any input.** Mouse, trackpad, touchscreen and keyboard each have their
+  own gestures, Help shows only the ones your devices have, and phones get a
+  touch layout with haptic ticks.
+- **Embed it.** The same renderer runs as a quiet page background, without
+  controls. It is behind the homepage of
+  [maxvyshniakov.com](https://maxvyshniakov.com).
+
+## What is in the frame
 
 - **A real orbit.** A saved CelesTrak element set for the ISS (NORAD 25544),
   propagated with SGP4: about 93 minutes a lap at roughly 420 km, sixteen
   sunrises a day. Earth turns by apparent sidereal time, and Astronomy Engine
-  places the Sun, Moon and planets with precession and nutation. Pick any date
-  and the light follows it.
+  places the Sun, Moon and planets from Mercury to Saturn with precession and
+  nutation.
 - **The sky.** 15,598 stars from the HYG catalog down to magnitude 7, with
   proper motion, colour from B−V and brightness from magnitude. Positions match
   NASA's Deep Star Maps to a median of 1.35 arcminutes. The Milky Way is NASA's
-  map, streamed in tiles up to 16K. The Moon carries NASA's lunar maps, lit by
-  the real Sun.
+  map, streamed in tiles up to 16K. The Moon carries NASA's lunar colour and
+  elevation maps and is lit by the real Sun.
 - **Atmosphere and airglow.** Rayleigh scattering through an exponential
   atmosphere, with Earth's shadow and wavelength-dependent extinction: the blue
   limb by day and the orange band at twilight. Sunlight grazing the limb is
@@ -67,38 +96,37 @@ lens and exposure, so click any picture to open that exact view.
   and 137 km and the red layer peaks at 245–330 km. Thin rays, the curtain
   body and the diffuse glow between curtains are rendered as a volume.
 - **Clouds.** NASA's July 2001 cloud-cover composite, lifted into a volume
-  between 0.6 and 12 km whose tops and gaps come from the data, not from noise. Opacity is fitted to NASA's own
-  composite to within 0.011 RMS over dark ocean. Clouds cast shadows, catch the
-  low sun, dim the cities beneath them and flicker with lightning.
-- **Surface and cities.** NASA Blue Marble at 500 m per pixel (86,400 ×
+  between 0.6 and 12 km whose tops and gaps come from the data, not from noise.
+  The default opacity is fitted to NASA's own composite to within 0.011 RMS
+  over dark ocean. Clouds cast shadows, catch the low sun, dim the cities
+  beneath them and flicker with lightning.
+- **Surface, sea and cities.** NASA Blue Marble at 500 m per pixel (86,400 ×
   43,200) and Black Marble night lights, streamed tile by tile into bounded GPU
-  atlases; the night side loads only tiles that contain light. Relief comes from ETOPO 2022 and,
-  close up, Copernicus GLO-90.
+  atlases; the night side loads only tiles that contain light. The Sun and Moon
+  glint on the ocean. Relief comes from ETOPO 2022 and, close up, Copernicus
+  GLO-90.
 - **One camera for every light.** No object has its own brightness. A light
   meter reads the frame on the GPU and sets aperture and ISO at a fixed 1/48 s
   shutter. The lens is modelled on the 28–300 mm the crews use, with nine
-  rounded blades: its eighteen diffraction rays, coated internal reflections
-  and defocus follow from each source's real light. It zooms from 0.5× to 50×,
-  about 15 to 1,500 mm. The sensor turns photons
-  into electrons with shot and read noise, and the image is encoded once, in
-  Display P3 where the screen supports it.
+  rounded blades: its eighteen diffraction rays, coated internal reflections,
+  dirt veil and defocus follow from each source's real light. The sensor turns
+  photons into electrons with shot and read noise, swipes blur like a film
+  camera's, and the image is encoded once, in Display P3 where the screen
+  supports it.
 
-## Explore
+## Controls
 
 [![The HUD around a sunrise on the limb: exposure and lens tapes on the left, orbit buttons and altitude on the right, the time tape across the top and the horizon gauge along the bottom](docs/media/hud.webp)](https://earthlight.maxvyshniakov.com/?t=4080.30&epoch=2026-10-01T14%3A24%3A04.390Z&yaw=-26.902000000010958&motion=0&pitch=-16.32600000000559)
 
-Follow the ISS, a polar or a high orbit, or leave orbit and fly freely. Tapes
-around the frame set the time scale, date and time of day along the top,
+Tapes around the frame set the time scale, date and time of day along the top,
 exposure and the lens on the left, and altitude and the orbit on the right. The
 horizon gauge at the bottom levels the camera, and its Sun, Moon and Earth
-markers turn you to face them. Settings hold the clouds, aurora, exposure mode,
-lens coating, flares, grain and Milky Way brightness. The address bar follows
-the view, so copying it shares exactly what you see.
+markers turn you to face them. The gear opens Settings.
 
 |                  | Keyboard                                     | Mouse and trackpad                                                                  | Touch                                     |
 | ---------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
 | Fly              | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> | Drag, or scroll on a trackpad; flick to coast                                       | Drag; flick to coast                      |
-| Look around      | Arrow keys; <kbd>&#92;</kbd> levels the horizon  | Shift-drag or middle-drag, two-finger press and drag, or Shift-scroll               | Drag with two fingers                     |
+| Look around      | Arrow keys; <kbd>&#92;</kbd> levels the horizon | Shift-drag or middle-drag, two-finger press and drag, or Shift-scroll               | Drag with two fingers                     |
 | Circle a point   |                                              | Right-drag, or drag, scroll or wheel with Control                                   |                                           |
 | Roll             | <kbd>Q</kbd> <kbd>E</kbd>; <kbd>H</kbd> levels or flips | Option-drag around the centre, Option-wheel, or rotate two fingers in Safari        | Twist two fingers                         |
 | Closer, farther  | <kbd>F</kbd> <kbd>R</kbd>                    | Shift-wheel or Option-scroll; double-click to fly in, Shift-double-click to back off | Double-tap to fly in, two-finger tap to back off |
@@ -106,54 +134,46 @@ the view, so copying it shares exactly what you see.
 | Orbit            | <kbd>1</kbd> free, <kbd>2</kbd> ISS, <kbd>3</kbd> polar, <kbd>4</kbd> high | Buttons on the right                                                                | Buttons on the right                      |
 | Time             | <kbd>Space</kbd> pauses and plays            | The time tape                                                                       | The time tape                             |
 
-Hold Shift to go faster. <kbd>N</kbd> switches night mode, <kbd>I</kbd> shows
-what you are looking at, and <kbd>?</kbd> opens Help, which lists the gestures
-for the devices you actually have.
+Hold Shift to go faster. <kbd>N</kbd> switches night mode, <kbd>M</kbd> and
+<kbd>T</kbd> pick a mouse or a trackpad, <kbd>I</kbd> shows the credits and
+<kbd>?</kbd> opens Help.
 
 ## Performance
 
-The scene is tuned on a weak GPU, an Intel UHD 630, rather than on a fast
-laptop, so every effect pays for its milliseconds.
+The scene is tuned on a weak GPU, an Intel UHD 630, and a Pixel 9 Pro XL rather
+than on a fast laptop, so every effect pays for its milliseconds.
 
 - **First light.** The first frame is a defocused poster of a few kilobytes,
   chosen by where the Sun is. Low-resolution overviews follow, then detail for
   the visible region, and the lens pulls focus as it arrives. On slow 4G first
   light is complete in 1.08 s.
-- **Frame rate.** Render resolution adapts to measured frame delivery, and
-  brief stalls don't count as overload. Swipes run at 51–54 frames per second
-  on desktop, with motion blur on the Earth like a film camera's.
-- **Robustness.** A failed tile falls back to the overview, not to a blank
-  screen. The renderer recovers from WebGL context loss and frees GPU memory
-  when detached. Terrain decodes in workers.
+- **Frame rate.** Render resolution adapts to measured frame delivery, and the
+  settled scale is remembered per device. Brief stalls don't count as overload,
+  so desktop swipes run at 51–54 frames per second.
+- **Robustness.** A failed tile falls back to the overview, and a device that
+  can't render gets the poster instead of a blank screen. The renderer recovers
+  from WebGL context loss, pauses off screen and frees GPU memory when
+  detached.
 
 ## How it is built
 
-- `<earthlight-explorer>` is a framework-free custom element in
-  [`src/scripts/`](src/scripts/). Astro only hosts the demo page.
+- `<earthlight-explorer>` is a framework-free custom element, about 15,500
+  lines of TypeScript and GLSL in [`src/scripts/`](src/scripts/). Astro only
+  hosts the demo page.
 - WebGL2 where it exists, WebGL1 as the fallback, compiled from one shader
-  dialect.
-- The pipelines in [`scripts/`](scripts/) rebuild every texture and catalog
-  from the original sources, and [`docs/lab/`](docs/lab/) keeps 71 dated
-  experiments with their measurements.
+  dialect. Terrain decodes in workers.
+- Scene data ships as a versioned, checksummed release of about 12,000 files,
+  served with an immutable cache. The pipelines in [`scripts/`](scripts/)
+  rebuild every texture and catalog from the original sources.
+- 357 unit tests, browser checks that drive the rendered scene, and
+  [71 dated lab notes](docs/lab/) with the measurements behind each decision.
 
 The [docs](docs/README.md) explain the model, the data and the measurements in
 detail, including what is approximate.
 
-## Honest limits
+### Run it locally
 
-This is a replay, not live tracking: the orbit comes from one saved element
-set. The clouds are a single global composite, not the weather on the chosen
-date. The aurora is procedural on a real magnetic model, and the lightning is
-illustrative. The camera is plausible, not calibrated, and the default night is
-many times brighter than a real camera would see it; night mode (<kbd>N</kbd>)
-draws night light at its physical brightness through a camera set like ISS
-night video, much darker. Do not navigate with
-it.
-
-## Run it locally
-
-Requires [Bun](https://bun.sh) 1.3.14. Scene data comes from a checksummed,
-versioned release.
+Requires [Bun](https://bun.sh) 1.3.14.
 
 ```sh
 bun install --frozen-lockfile
@@ -165,12 +185,12 @@ bun run dev         # http://localhost:4321/
 tests need the downloaded scene data. `bun run verify:scene <url> <output-dir>`
 drives the rendered scene in an isolated agent-browser session.
 
-## Embed the background
+### Embed the background
 
-The `earthlight/background` Astro component uses the same renderer without
-navigation or controls. It leaves page input alone and keeps a static poster
-when reduced motion is requested. It runs behind the homepage of
-[maxvyshniakov.com](https://maxvyshniakov.com).
+The `earthlight/background` Astro component runs the same renderer as a
+passive background: it follows the ISS, scrolls with the page and leaves page
+input alone. It keeps a static poster when reduced motion is requested or the
+GPU is emulated in software.
 
 ```astro
 ---
@@ -181,8 +201,21 @@ import assets from 'earthlight/assets-manifest';
 <a href="https://earthlight.maxvyshniakov.com/">Explore Earthlight</a>
 ```
 
-See [integration and releases](docs/integration.md) for local development,
-package updates, asset publication and deployment.
+The package also exports the explorer as an element and as an Astro component,
+the terrain proxy and an Astro integration for local assets. See
+[integration and releases](docs/integration.md) for package updates, asset
+publication and deployment.
+
+## Honest limits
+
+The ISS is a replay, not live tracking: its orbit comes from one saved element
+set. The clouds are a single global composite, not the weather on the chosen
+date. The aurora is procedural on a real magnetic model, and the lightning is
+illustrative. The camera is plausible, not calibrated, and the default night is
+many times brighter than a real camera would see it; that is a choice, and
+night mode shows the physical one. A day of measured clouds, a 62.5 m daytime
+surface and measured night radiance exist as experiments behind URL flags but
+are not in the data release. Do not navigate with it.
 
 ## How it was made
 
