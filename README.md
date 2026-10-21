@@ -98,7 +98,7 @@ the view, so copying it shares exactly what you see.
 |                  | Keyboard                                     | Mouse and trackpad                                                                  | Touch                                     |
 | ---------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
 | Fly              | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> | Drag, or scroll on a trackpad; flick to coast                                       | Drag; flick to coast                      |
-| Look around      | Arrow keys; <kbd>\</kbd> levels the horizon  | Shift-drag or middle-drag, two-finger press and drag, or Shift-scroll               | Drag with two fingers                     |
+| Look around      | Arrow keys; <kbd>&#92;</kbd> levels the horizon  | Shift-drag or middle-drag, two-finger press and drag, or Shift-scroll               | Drag with two fingers                     |
 | Circle a point   |                                              | Right-drag, or drag, scroll or wheel with Control                                   |                                           |
 | Roll             | <kbd>Q</kbd> <kbd>E</kbd>; <kbd>H</kbd> levels or flips | Option-drag around the centre, Option-wheel, or rotate two fingers in Safari        | Twist two fingers                         |
 | Closer, farther  | <kbd>F</kbd> <kbd>R</kbd>                    | Shift-wheel or Option-scroll; double-click to fly in, Shift-double-click to back off | Double-tap to fly in, two-finger tap to back off |
