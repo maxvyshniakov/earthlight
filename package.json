@@ -20,13 +20,14 @@
     "assets": "bun scripts/fetch-assets.mjs",
     "terrain:prepare": "bun scripts/prepare-terrain-packed.mjs",
     "assets:prepare": "bun scripts/prepare-assets.mjs",
-    "assets:publish": "bun scripts/publish-assets.mjs",
+    "assets:publish": "bun run security:tls && bun scripts/publish-assets.mjs",
     "package": "bun run assets:prepare && bun pm pack --destination .packages",
     "media:prepare": "bun scripts/prepare-media.mjs",
     "build:deploy": "bun scripts/build-app.mjs",
-    "deploy": "bun scripts/deploy-app.mjs",
+    "deploy": "bun run security:tls && bun scripts/deploy-app.mjs",
     "test": "bun test scripts/*.test.mjs",
-    "verify:hosts": "bun scripts/verify-host-lifecycle.mjs"
+    "verify:hosts": "bun scripts/verify-host-lifecycle.mjs",
+    "security:tls": "bun scripts/security/verify-public-tls.mjs"
   },
   "dependencies": {
     "astro": "7.3.5",

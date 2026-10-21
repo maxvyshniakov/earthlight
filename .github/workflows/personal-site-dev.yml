@@ -30,6 +30,10 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      - name: Verify Bun public TLS trust before network work
+        working-directory: earthlight
+        run: bun run security:tls
+
       - name: Cache immutable scene assets
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
