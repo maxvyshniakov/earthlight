@@ -12,7 +12,7 @@ and review links explicitly select those settings for their reference side.
 The review is available locally at `http://127.0.0.1:4352`, with a divider,
 full-size display, matched camera sequences and links to live scenes on port
 4351. Its files are in
-`/Users/maxwish/.codex/visualizations/2026/10/11/earthlight-optimization`.
+`~/.codex/visualizations/2026/10/11/earthlight-optimization`.
 Run `bun serve.ts` there to restart the review. The Earthlight production
 preview supplies the live scene links. This is a local review, not a deployment.
 
@@ -134,16 +134,16 @@ bun scripts/compare-ray-work.mjs http://127.0.0.1:4351 /tmp/work-review pixel,cl
 bun scripts/compare-ray-work.mjs http://127.0.0.1:4351 /tmp/work-combined combined clouds
 ```
 
-From Proxmox:
+From the lab host:
 
 ```sh
-uv run --locked python files/browser-lab/run.py chrome http://192.168.0.200:4351 /tmp/work-terrain \
+uv run --locked python files/browser-lab/run.py chrome http://<lab-host>:4351 /tmp/work-terrain \
   --script ../earthlight/scripts/profile-linux-gpu.py --scenes clouds --variants baseline,bounded,control,pixel,control2 --no-motion
-uv run --locked python files/browser-lab/run.py chrome http://192.168.0.200:4351 /tmp/work-clouds \
+uv run --locked python files/browser-lab/run.py chrome http://<lab-host>:4351 /tmp/work-clouds \
   --script ../earthlight/scripts/profile-linux-gpu.py --scenes clouds --variants baseline,balanced,control3 --no-motion
 ```
 
-The wrapper stops CT 106 after every run and preserves results. Do not run
+The wrapper stops the lab container after every run and preserves results. Do not run
 two GPU benchmarks on the same device at once. Source checks, steady-state
 GPU costs, image comparison and normal browser behavior are separate evidence.
 
@@ -165,7 +165,7 @@ GPU costs, image comparison and normal browser behavior are separate evidence.
 - The review loaded its images and divider/frame controls at desktop and
   390 px widths without horizontal overflow. Fixed-quality live links use
   the same resolution policy on both sides.
-- Each host job finished successfully and stopped CT 106. The final Firefox
+- Each host job finished successfully and stopped the lab container. The final Firefox
   run had no parent-cgroup memory pressure or OOM events. The Mac preview
   and review server remain available for interactive inspection.
 

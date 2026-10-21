@@ -68,7 +68,7 @@ and public read CORS. There is no R2 binding in the media Workers.
 Cloudflare does not provide a hard R2 spending cap. The uploader checks the
 `media` bucket before adding data and refuses projected storage there above
 2 GB, archives above 512 MiB, or 100 objects created in it during the current
-month. Other buckets in the account, such as homelab backups, belong to other
+month. Other buckets in the account belong to other
 tools and are neither listed nor counted. These are publishing safeguards, not
 account-wide billing limits.
 

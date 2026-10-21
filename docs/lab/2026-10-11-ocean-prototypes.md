@@ -140,10 +140,10 @@ startup completion, and performance checks must assert the active ocean mode.
 
 ## Linux measurements
 
-The lab is CT 106 on Proxmox: Ubuntu, Intel UHD 630, two CPU cores, 8 GiB
+The lab is a Linux container: Ubuntu, Intel UHD 630, two CPU cores, 8 GiB
 memory ceiling. Chrome uses hardware ANGLE/Mesa on a Weston Wayland output.
 The host-owned runner serializes jobs and stops the container after completion.
-Plex transcoding is checked independently before and during measurement.
+Competing GPU work is checked independently before and during measurement.
 
 **Correction to the initial report:** the previous Chrome/WebGL 1 matrix did
 not enable any ocean candidate. UHD 630's WebGL 1 context did not expose
@@ -163,7 +163,7 @@ The bake timer covers the field draw and mip generation. Shader compilation,
 asset acquisition and first-focus delay are outside that GPU timer.
 
 The reproducible standalone job is `scripts/profile-ocean-linux.py`, intended
-for the homelab's host-owned `files/browser-lab/run.py` wrapper. Pass
+for the lab host's `files/browser-lab/run.py` wrapper. Pass
 `--api webgl2 --scenes wide,oblique --no-motion`. The script requires Chrome
 CDP to install the bake timer before application startup. A direct WebGL 1 run
 on this machine fails the active-mode assertion instead of accepting fallback.
@@ -188,10 +188,10 @@ costs 10.67 MiB and roughly 141 ms for its one-time GPU bake; the 1024 atlas
 costs 2.67 MiB and roughly 40 ms. Initialization also includes shader compilation
 and assets, so bake time must not be called total startup latency.
 
-The completed corrected job left CT 106 stopped, with autostart off. Its cgroup
+The completed corrected job left the lab container stopped, with autostart off. Its cgroup
 reported zero memory limit/OOM events; cumulative memory pressure was 120 µs
-and the reported 10/60/300-second averages were zero. Plex had no active
-transcoder in checks before and during the run. These remain virtual-output
+and the reported 10/60/300-second averages were zero. No other GPU workload
+was active in checks before and during the run. These remain virtual-output
 GPU measurements, not physical display presentation timings.
 
 

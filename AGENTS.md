@@ -18,7 +18,7 @@ metered subscriptions or change billing without explicit owner authorization.
 
 Push with `.agents/skills/push/SKILL.md`. Everyday pushes go to `dev`. Shipping
 pushes the same tip to `dev` and `main`; a push to `main` deploys the explorer
-and updates personal-site `dev` (on the self-hosted homelab runner), and is
+and updates personal-site `dev` (on a self-hosted runner), and is
 finished when both deliveries have a final result.
 
 Documentation is maintained here. Dated experiments live under `docs/lab`.

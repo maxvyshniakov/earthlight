@@ -54,8 +54,8 @@ The controls make a large upload-specific speedup implausible for this fixture.
 
 ## Chrome on Intel UHD 630
 
-Ubuntu/Wayland CT 106, two CPU cores, 8 GiB ceiling, Chrome 155. No Plex
-transcoder was active when testing began. Each case uses a fresh browser.
+Ubuntu/Wayland lab container, two CPU cores, 8 GiB ceiling, Chrome 155. No other GPU
+workload was active when testing began. Each case uses a fresh browser.
 The source starts at Earthlight `9ee5f153811a864401bae7ffc2b50baf3a1e8935`,
 including the previously accepted terrain and cloud work reductions.
 
@@ -120,7 +120,7 @@ The cache reduces motion decoding by 21.4% and 15.4%. Initial-load timing
 varies enough that total decoding does not improve in the second pair.
 The first 32–43% total-count result must not be generalized to every load.
 A larger cache remains an optional memory/work tradeoff, not a demonstrated
-frame-stall fix. CT 106 stopped after the final run with no memory-pressure
+frame-stall fix. The lab container stopped after the final run with no memory-pressure
 or OOM events recorded.
 
 ## Firefox texture upload failure
@@ -177,23 +177,23 @@ above 4/255. The crop workaround does not introduce visible loss here.
 
 The interactive review at `http://127.0.0.1:4354` has a divider, eight-frame
 sequences, frame-gap timelines and live links. Its files are under
-`/Users/maxwish/.codex/visualizations/2026/10/11/earthlight-dem90`.
+`~/.codex/visualizations/2026/10/11/earthlight-dem90`.
 
 ## Reproduce
 
-Build and serve Earthlight on LAN port 4351. From the Proxmox checkout:
+Build and serve Earthlight on LAN port 4351. From the lab host checkout:
 
 ```sh
-uv run --locked python files/browser-lab/run.py chrome http://192.168.0.200:4351 /tmp/dem-cache-run \
+uv run --locked python files/browser-lab/run.py chrome http://<lab-host>:4351 /tmp/dem-cache-run \
   --script ../earthlight/scripts/profile-dem-stream.py --scenes adaptive --variants strips,cache,strips,cache
-uv run --locked python files/browser-lab/run.py chrome http://192.168.0.200:4351 /tmp/dem-upload-run \
+uv run --locked python files/browser-lab/run.py chrome http://<lab-host>:4351 /tmp/dem-upload-run \
   --script ../earthlight/scripts/profile-dem-stream.py --scenes fixed --variants strips,tile,strips,tile
-uv run --locked python files/browser-lab/run.py chrome http://192.168.0.200:4351 /tmp/dem-replay-run \
+uv run --locked python files/browser-lab/run.py chrome http://<lab-host>:4351 /tmp/dem-replay-run \
   --script ../earthlight/scripts/profile-dem-replay.py --scenes fixed --variants none,strips,tile,none
 ```
 
 `--scenes` names the quality mode in these specialized profilers. The wrapper
-stops CT 106 on success or failure. Do not overlap GPU tests on the same device.
+stops the lab container on success or failure. Do not overlap GPU tests on the same device.
 For matched image sequences, from Earthlight:
 
 ```sh

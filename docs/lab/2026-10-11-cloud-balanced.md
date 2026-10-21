@@ -60,7 +60,7 @@ screenshot; its refreshed captures include actual renderer state.
 
 The old `clouds=broken` URL was separately opened through Tailscale and verified
 to select/render Balanced. The comparison page at
-`http://100.111.111.10:4396/clouds-balanced/` loaded all three images (including
+`http://<tailnet-host>:4396/clouds-balanced/` loaded all three images (including
 both remote NASA references) without horizontal overflow at 390 px.
 
 No new texture, sample, loop or render pass is introduced. A smoothstep and
@@ -85,11 +85,11 @@ Cost is close to Original in these views. Do not carry forward the rejected
 Scattered version's ~10% reduction or claim an equivalent phone FPS change.
 The India baseline drift was 2.34%, larger than the candidate/control-mean
 difference. No memory allocation was added. No asset/GL errors, OOM events,
-limit hits or memory pressure were recorded. No Plex transcoder was active at
-preflight, midpoint or completion. CT 106 was confirmed stopped, `onboot: 0`.
+limit hits or memory pressure were recorded. No other GPU workload was active at
+preflight, midpoint or completion. The lab container was confirmed stopped.
 
 Artifacts:
-`/Users/maxwish/.codex/visualizations/2026/10/11/01a12a81-c208-7563-88aa-79cb253024ad/cloud-balanced/`.
+`~/.codex/visualizations/2026/10/11/01a12a81-c208-7563-88aa-79cb253024ad/cloud-balanced/`.
 Includes captures, actual scene states, browser logs, Linux raw measurements,
 reference browser screenshots and source snapshot. The rejected variant is
 recreated only by browser-local shader substitution for the before screenshot.

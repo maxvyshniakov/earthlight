@@ -80,9 +80,9 @@ GPU waits were added to the renderer.
 
 ## Measurement setup
 
-Ubuntu/Wayland CT 106, two CPU cores, 8 GiB ceiling, hardware Intel UHD 630.
+Ubuntu/Wayland lab container, two CPU cores, 8 GiB ceiling, hardware Intel UHD 630.
 The wrapper shuts down the container after each job; interrupted jobs are
-checked explicitly. No Plex transcoder was active at the initial check.
+checked explicitly. No other GPU workload was active at the initial check.
 
 The preview's optional `--terrain-cache .media/dem90` serves the original TIFF
 fixtures from the same machine/connection as the prepared assets. This avoids
@@ -108,7 +108,7 @@ bun run preview --host 0.0.0.0 --port 4355 --terrain-cache .media/dem90
 bun scripts/prepare-dem-benchmark.mjs
 ```
 
-From the Proxmox checkout, one job at a time:
+From the lab host checkout, one job at a time:
 
 ```sh
 uv run --locked python files/browser-lab/run.py chrome http://HOST:4355 /tmp/decoder-proof \
@@ -206,7 +206,7 @@ pair does not establish an FPS or tail-latency improvement. Both completed
 with no GL/shader errors or asset failures, ending with seven/eight resident
 fine terrain cells. Completed decode wall-time sums fell from 15.94 to 1.90
 seconds. The remaining frame cost is not explained by TIFF decoding alone.
-CT 106 was verified stopped after this run.
+The lab container was verified stopped after this run.
 
 Chrome candidate comparisons and M2 matched frames predate the synchronous
 resize fix. Firefox motion and the final browser regression suite include it.

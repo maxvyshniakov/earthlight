@@ -28,8 +28,8 @@ async function main(){
   if(JSON.stringify(published.manifest)!==JSON.stringify(manifest))throw Error('Refusing to overwrite an immutable release');
   console.log(`Release ${manifest.version} already exists; no upload.`);return;
  }
- // Budgets cover this release bucket only. Other buckets (e.g. homelab
- // backups) belong to other tools and are neither listed nor enforced here.
+ // Budgets cover this release bucket only. Other buckets in the
+ // account belong to other tools and are neither listed nor enforced here.
  let total=0,monthly=0,continuationToken,pages=0;
  const month=new Date().toISOString().slice(0,7);
  do{

@@ -62,7 +62,7 @@ An additional Off → Reset browser check passed through the Tailscale preview.
 The served preview at port 4397 was checked for `clouds=broken`, active
 `ocean=advected`, matching UI value and zero asset failures.
 
-Phone comparison: `http://100.111.111.10:4396/clouds/`. Its live links omit
+Phone comparison: `http://<tailnet-host>:4396/clouds/`. Its live links omit
 fixed quality, allowing normal adaptive rendering on the phone. Screenshots
 and Linux measurements use fixed quality for matched comparisons.
 
@@ -86,12 +86,12 @@ claim or a physical-phone measurement. The full fixed-resolution scenes are
 still expensive; normal live links retain adaptive quality.
 
 No new texture memory is required by Scattered. Off avoids the 16 MiB cloud
-lighting cache and cloud-detail atlas. Asset/GL errors were absent. No Plex
-transcoder was active at preflight, midpoint or completion. The guest reported
+lighting cache and cloud-detail atlas. Asset/GL errors were absent. No other
+GPU workload was active at preflight, midpoint or completion. The guest reported
 no OOM/limit events and zero pressure averages. After the wrapper completed,
-CT 106 was confirmed stopped with `onboot: 0`.
+the lab container was confirmed stopped.
 
 Artifacts (local):
-`/Users/maxwish/.codex/visualizations/2026/10/11/01a12a81-c208-7563-88aa-79cb253024ad/cloud-openings/`.
+`~/.codex/visualizations/2026/10/11/01a12a81-c208-7563-88aa-79cb253024ad/cloud-openings/`.
 Includes matched captures, coverage audit, Linux result JSON, profiling script,
 and a source snapshot. Nothing was published or committed.

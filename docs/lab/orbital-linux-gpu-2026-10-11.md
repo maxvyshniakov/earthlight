@@ -11,7 +11,7 @@ Renderer revision: `040b7c012e608e3d2aa4ce022d7266886659bb3b`, served from a
 local production build. Unprivileged Ubuntu 24.04 LXC, two CPU cores,
 Intel UHD 630 shared render node, Mesa 25.2.8, Weston 13 GL compositor.
 Browsers open ordinary Wayland windows; neither browser uses headless mode
-or software rendering. No Plex transcoder was active during these runs.
+or software rendering. No other GPU workload was active during these runs.
 
 Chrome 155.0.8059.39 reports ANGLE over Mesa Intel UHD 630. Firefox 157.0.1
 sanitizes its WebGL renderer string; its saved `about:support` confirms
@@ -140,17 +140,17 @@ CPU-profile summaries. Full shaders, profiles and screenshots are retained
 locally under `/tmp/browser-lab-20261011`; that directory is not permanent
 storage. No large asset datasets are included in this report.
 
-From the Proxmox checkout, with the production preview reachable over LAN:
+From the lab host checkout, with the production preview reachable over LAN:
 
 ```sh
-uv run --locked python files/browser-lab/run.py chrome http://192.168.0.200:4351 /tmp/earthlight-chrome-run \
+uv run --locked python files/browser-lab/run.py chrome http://<lab-host>:4351 /tmp/earthlight-chrome-run \
   --script ../earthlight/scripts/profile-linux-gpu.py --scenes clouds,day,night
-uv run --locked python files/browser-lab/run.py firefox http://192.168.0.200:4351 /tmp/earthlight-firefox-run \
+uv run --locked python files/browser-lab/run.py firefox http://<lab-host>:4351 /tmp/earthlight-firefox-run \
   --script ../earthlight/scripts/profile-linux-gpu.py --scenes clouds --variants baseline
 ```
 
-Run browsers sequentially. The wrapper starts CT 106, collects artifacts and
+Run browsers sequentially. The wrapper starts the lab container, collects artifacts and
 shuts it down, including failures, Ctrl-C and the host's 30-minute deadline.
 An injected exit-7 failure and the successful Firefox run both stopped the
 container and preserved artifacts. The host GPU driver and other guests
-were not reconfigured. See the Proxmox repository's `docs/browser-lab.md`.
+were not reconfigured.

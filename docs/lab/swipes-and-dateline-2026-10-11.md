@@ -148,4 +148,4 @@ string alone was not used as hardware proof.
 See [Firefox timing evidence](evidence/swipe-linux-firefox-2026-10-11.json).
 An earlier attempt navigated during the local build's replacement of `dist`
 and loaded no scene; that incomplete run is excluded. The completed repeat
-used the stable final build. CT 106 was confirmed stopped after testing.
+used the stable final build. The lab container was confirmed stopped after testing.

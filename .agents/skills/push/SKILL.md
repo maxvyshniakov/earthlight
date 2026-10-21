@@ -18,10 +18,10 @@ is finished when `git ls-remote origin dev` shows the pushed SHA. A push to
 
 1. Cloudflare Workers Builds builds and deploys the explorer at
    https://earthlight.maxvyshniakov.com (docs/deployment.md).
-2. GitHub Actions `Update personal site dev`, on the self-hosted homelab runner
-   (CT 108; maxvyshniakov/proxmox `docs/ci-runner.md`), verifies the commit, updates the
-   package on personal-site `dev` and pushes there; Cloudflare then deploys
-   https://dev.maxvyshniakov.com (docs/integration.md).
+2. GitHub Actions `Update personal site dev`, on a self-hosted runner,
+   verifies the commit, updates the package on personal-site `dev` and pushes
+   there; Cloudflare then deploys the personal site's dev environment
+   (docs/integration.md).
 
 ## Before pushing
 
