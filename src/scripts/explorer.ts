@@ -457,8 +457,10 @@ export class EarthlightExplorer extends HTMLElement {
     // retains its 24 FPS budget. Keep the fractional deadline when paused too,
     // instead of starting a new full interval after each render finishes.
     const frameDue=(now:number)=>{
-      const previous=frameClock.fps,due=frameClock.due(now);
-      if(previous!==frameClock.fps)lastAnimationDraw=0;
+      const due=frameClock.due(now);
+      // Estimator jitter does not change the scheduled spacing. Reset only
+      // across real cadence transitions, otherwise quality receives no samples.
+      if(frameClock.cadenceChanged)lastAnimationDraw=0;
       this.dataset.targetFps=String(frameClock.fps);
       if(diagnostic)this.dataset.refreshPeriodMs=frameClock.refreshPeriod.toFixed(3);
       return due;

@@ -17,6 +17,9 @@ export class SceneFrameClock {
  private probing=false;
  private fastBefore=false;
  private slowedAt=-Infinity;
+ private cadenceStep=0;
+ /** True only when due() changes the scheduled spacing, not its estimated FPS. */
+ cadenceChanged=false;
  fps:number;
  /** Steady mode renders every k-th display refresh, the largest k that keeps
   * at least the passive rate. 24 FPS on a 60 Hz display alternates 33/50 ms;
@@ -63,11 +66,15 @@ export class SceneFrameClock {
  private refreshes(fps:number){return Math.max(1,Math.floor(1000/(fps*this.period)+.1));}
  /** The steady rate without a gesture, in frames per second. */
  get passiveRate(){return this.steady&&this.period>0?1000/(this.refreshes(this.passiveFPS)*this.period):this.passiveFPS;}
+ private schedule(step:number){
+  this.cadenceChanged=step!==this.cadenceStep;this.cadenceStep=step;
+ }
  due(now:number){
   if(this.steady&&this.period>0){
    const passive=this.refreshes(this.passiveFPS);
    const fast=this.interacting(now)&&this.interactionFPS>this.passiveFPS;
    const refreshes=fast?Math.min(passive,this.refreshes(this.interactionFPS)+this.slower):passive;
+   this.schedule(refreshes);
    this.fps=1000/(refreshes*this.period);
    if(this.elapsedRefreshes<refreshes)return false;
    // The first fast frame follows a slower one; only later ones can be late.
@@ -79,6 +86,7 @@ export class SceneFrameClock {
    this.elapsedRefreshes=0;this.last=now;return true;
   }
   const fps=this.interacting(now)?this.interactionFPS:this.passiveFPS,tolerance=.1,interval=1000/fps;
+  this.schedule(-fps);
   if(Math.abs(fps-this.fps)>.01){this.fps=fps;this.last=now-interval;}
   const elapsed=now-this.last;
   // RAF timestamps have sub-millisecond rounding even at exact 60 Hz.

@@ -628,3 +628,39 @@ test('steady cadence keeps the display period through GPU backpressure, not a re
 });
 
 afterEach(()=>mock.restore());
+
+
+test('refresh jitter retains delivery evidence and recovers remembered low quality',()=>{
+ const clock=new SceneFrameClock(24,true),quality=new SceneQuality();quality.scale=.45;
+ let now=0,last=0,observations=0,draws=0;
+ for(let i=0;i<144*60;i++){
+  now+=1000/144+[.03,-.02,.01,-.02][i%4];
+  clock.observe(now);quality.observeAnimationFrame(now);
+  const due=clock.due(now);
+  if(clock.cadenceChanged)last=0;
+  if(!due)continue;
+  draws++;
+  if(last){quality.observeCadence(now-last,now);observations++;}
+  last=now;
+ }
+ assert.ok(observations>1400,`${observations} intervals from ${draws} draws`);
+ assert.ok(quality.scale>=.6,`quality must recover from .45, got ${quality.scale}`);
+ assert.ok(Math.abs(draws-1440)<3,'passive target remains 24 FPS');
+});
+
+test('cadence transitions distinguish refresh spacing from FPS estimate jitter',()=>{
+ const clock=new SceneFrameClock(24,true);let now=0;
+ const tick=()=>{now+=1000/144;clock.observe(now);clock.due(now);return clock.cadenceChanged;};
+ for(let i=0;i<60;i++)tick();
+ clock.interact(now,60);assert.equal(tick(),true);
+ assert.equal(tick(),false);
+ let returned=false;
+ for(let i=0;i<30;i++)if(tick()){assert.ok(clock.fps<25);returned=true;}
+ assert.ok(returned,'gesture exit changes the scheduled spacing');
+ for(let i=0;i<60;i++){now+=1000/60;clock.observe(now);clock.due(now);}
+ assert.ok(Math.abs(clock.fps-30)<.1);
+ const fixed=new SceneFrameClock(24,false);
+ fixed.due(0);fixed.interact(0,60);fixed.due(1);assert.equal(fixed.cadenceChanged,true);
+ fixed.due(2);assert.equal(fixed.cadenceChanged,false);
+ fixed.due(200);assert.equal(fixed.cadenceChanged,true);
+});

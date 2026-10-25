@@ -60,3 +60,38 @@ particular, a group nearly as long as the entire render may include deferred
 earlier work or boundary effects. Treat group timings as leads for controlled
 experiments, not exact shader attribution. These local results are not Windows
 performance evidence; the next comparison needs a new RTX 2080 report.
+
+## Second Windows report and quality recovery
+
+The `earthlight-2026-10-25T19-07-32-913Z-report.json` capture confirms clean
+revision `08c7eec` on the same RTX 2080, viewport and DPR. All guided phases
+hold approximately 24 FPS and the estimated refresh period stays near 6.94 ms.
+However, the remembered quality starts at .45 and stays there: day/night use
+1210 × 581 and surface uses 864 × 415, about 40% of the earlier pixel counts.
+Lower GPU costs therefore do not establish a renderer optimization.
+
+Grouped medians point to volumes (day 9.7 ms, night 13.8 ms) ahead of world
+(day 5.3 ms, night 4.3 ms) and camera finish (below 1 ms in those phases).
+Most groups have only three samples per phase. First frame is 1816.9 ms;
+sharp focus is 8185.2 ms. Further GPU comparisons need matched buffer sizes.
+
+The explorer discarded the previous animation timestamp whenever the computed
+FPS changed by any amount. Small refresh-estimator jitter therefore starved
+quality adaptation of delivery intervals. A 60-second synthetic 144 Hz stream
+with .01–.03 ms jitter produced 1440 draws but zero usable intervals with the
+old comparison. The clock now exposes changes to scheduled spacing (whole
+refresh count, or requested FPS in non-steady mode) independently of estimated
+FPS. The explorer resets delivery evidence only across those transitions.
+
+Regression coverage feeds that jittered clock into the real quality controller,
+checks recovery from .45, preserves the 24 FPS draw count, and checks gesture
+and fixed-clock transitions. `scripts/verify-quality-recovery-browser.mjs`
+checks the explorer wiring with a remembered .45 scale at a small viewport;
+it is a recovery check, not a performance benchmark. Visual rendering and the
+passive FPS target are unchanged.
+
+Validation: 399 tests passed with zero type errors and a successful build.
+The recovery browser check observed .45 → .50 and a matching buffer resize.
+The full scene browser suite passed, including gestures, context restoration,
+flight, pause, URL restoration and lighting. Windows recovery and performance
+remain to be checked on the next deployed revision.
