@@ -14,7 +14,7 @@ export class ShaderProgramBatch {
   private extension:KHR_parallel_shader_compile|null;
   private gl:WebGLRenderingContext;
 
-  constructor(gl:WebGLRenderingContext){
+  constructor(gl:WebGLRenderingContext,private onComplete?:(label:string,batchElapsedMs:number)=>void){
     this.gl=gl;
     this.extension=gl.getExtension('KHR_parallel_shader_compile');
     this.parallel=!!this.extension;
@@ -47,6 +47,11 @@ export class ShaderProgramBatch {
     this.started=true;
     return new Promise((resolve,reject)=>{
       const gl=this.gl;
+      const started=this.onComplete?performance.now():0,reported=new Set<WebGLProgram>();
+      const report=(program:WebGLProgram,label:string)=>{
+        if(!this.onComplete||reported.has(program))return;
+        reported.add(program);this.onComplete(label,performance.now()-started);
+      };
       let frame=0,settled=false;
       const finish=(error?:unknown)=>{
         if(settled)return;settled=true;
@@ -66,7 +71,10 @@ export class ShaderProgramBatch {
         try{
           if(this.extension){
             let pending=false;
-            for(const {program} of this.programs)if(!gl.getProgramParameter(program,this.extension.COMPLETION_STATUS_KHR))pending=true;
+            for(const {program,label} of this.programs){
+              if(!gl.getProgramParameter(program,this.extension.COMPLETION_STATUS_KHR))pending=true;
+              else report(program,label);
+            }
             if(pending){frame=requestAnimationFrame(check);return;}
           }
           // Completion is not success. Query errors only after all programs
@@ -77,6 +85,7 @@ export class ShaderProgramBatch {
               for(const shader of shaders)if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))details.push(gl.getShaderInfoLog(shader));
               throw Error(`${label}: ${details.filter(Boolean).join('\n')||'Cannot link program'}`);
             }
+            report(program,label);
           }
           finish();
         }catch(error){finish(error);}

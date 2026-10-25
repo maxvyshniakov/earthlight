@@ -95,3 +95,17 @@ test('an already aborted signal never submits links or completion queries',async
  controller.abort();await assert.rejects(batch.wait(controller.signal),{name:'AbortError'});
  assert.equal(f.calls.some(x=>x[0]==='link'||x[0]==='program-status'),false);batch.dispose();
 });
+
+test('optional startup timings report each completed program once without early link status',async()=>{
+ const f=fixture(),events=[],batch=new ShaderProgramBatch(f.gl,(label,batchElapsedMs)=>events.push({label,batchElapsedMs}));
+ const a=batch.add('world','v','world'),b=batch.add('clouds','v','clouds');
+ const ready=batch.wait(new AbortController().signal);
+ a.complete=true;f.tick();f.tick();
+ assert.deepEqual(events.map(e=>e.label),['world']);
+ assert.equal(f.calls.some(c=>c[0]==='program-status'&&c[1]===3),false);
+ b.complete=true;f.tick();await ready;
+ assert.deepEqual(events.map(e=>e.label),['world','clouds']);
+ assert.ok(events.every(e=>Number.isFinite(e.batchElapsedMs)&&e.batchElapsedMs>=0));
+ assert.ok(events[1].batchElapsedMs>=events[0].batchElapsedMs);
+ batch.dispose();
+});

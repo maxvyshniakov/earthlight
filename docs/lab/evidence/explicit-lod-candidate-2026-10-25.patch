@@ -1,0 +1,38 @@
+diff --git a/src/scripts/cloud-lighting.ts b/src/scripts/cloud-lighting.ts
+index 05e03c0..5def6e7 100644
+--- a/src/scripts/cloud-lighting.ts
++++ b/src/scripts/cloud-lighting.ts
+@@ -35,7 +35,14 @@ vec2 cloudLightingUV(vec3 point){
+ float cloudLightingSlice(vec2 uv,float index){
+  float tileIndex=floor(index/4.);
+  vec2 tile=vec2(mod(tileIndex,4.),floor(tileIndex/4.));
+- vec4 field=texture2D(cloudLightingAtlas,(tile*512.+vec2(1.5)+clamp(uv,0.,1.)*509.)/vec2(2048.,1024.));
++ vec2 atlasUV=(tile*512.+vec2(1.5)+clamp(uv,0.,1.)*509.)/vec2(2048.,1024.);
++#ifdef CLOUD_EXPLICIT_LOD
++ // The atlas has one bilinear-filtered level; no derivatives are needed
++ // inside the cloud raymarch's divergent branches.
++ vec4 field=texture2DLodEXT(cloudLightingAtlas,atlasUV,0.);
++#else
++ vec4 field=texture2D(cloudLightingAtlas,atlasUV);
++#endif
+  float channel=mod(index,4.);
+  return channel<.5?field.r:channel<1.5?field.g:channel<2.5?field.b:field.a;
+ }
+diff --git a/src/scripts/noise-table.ts b/src/scripts/noise-table.ts
+index 2c0e06d..4cd2353 100644
+--- a/src/scripts/noise-table.ts
++++ b/src/scripts/noise-table.ts
+@@ -18,7 +18,13 @@ export const noiseTableShader=`
+ uniform sampler2D noiseTable;
+ vec4 noiseCorners(vec2 q){
+   q=mod(q,${NOISE_TABLE_SIZE}.);q-=${NOISE_TABLE_SIZE}.*step(${NOISE_TABLE_SIZE}.,q);
++#ifdef CLOUD_EXPLICIT_LOD
++  // This nearest-filtered lookup table has only level zero. An implicit LOD
++  // unnecessarily introduces gradients into nested, divergent cloud loops.
++  return texture2DLodEXT(noiseTable,(q+.5)/${NOISE_TABLE_SIZE}.,0.);
++#else
+   return texture2D(noiseTable,(q+.5)/${NOISE_TABLE_SIZE}.);
++#endif
+ }
+ float noise(vec3 p) {
+   vec3 i=floor(p),f=fract(p);

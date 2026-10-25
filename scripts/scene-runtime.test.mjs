@@ -694,3 +694,23 @@ test('GPU readiness is polled only at the deadline and blocked frames retain it'
  assert.equal(clock.due(now,ready),true);
  assert.equal(clock.due(now,ready),false);
 });
+
+test('passive cadence preserves phase across missing display callbacks',()=>{
+ const clock=new SceneFrameClock(24,true),period=1000/144;
+ for(let i=1;i<=144;i++){clock.observe(i*period);clock.due(i*period);}
+ let frames=0;
+ // Independent display timeline: a callback is lost every seventh refresh.
+ // The GPU is always available. Resetting phase after lateness delivered
+ // only 206 frames here, although the requested rate remained 24.
+ for(let i=1;i<=1440;i++){
+  if(i%7===6)continue;
+  const now=(144+i)*period;clock.observe(now);
+  if(clock.due(now)){frames++;assert.equal(clock.due(now),false);}
+ }
+ assert.ok(frames>=239&&frames<=241,`delivered ${frames/10} FPS`);
+ const stalled=(144+1440)*period+1000;
+ clock.observe(stalled);assert.equal(clock.due(stalled),true);
+ assert.equal(clock.due(stalled),false,'one draw after a long stall');
+ for(let i=1;i<6;i++){const now=stalled+i*period;clock.observe(now);assert.equal(clock.due(now),false,'no catch-up burst');}
+ clock.observe(stalled+6*period);assert.equal(clock.due(stalled+6*period),true);
+});

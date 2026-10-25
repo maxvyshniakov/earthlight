@@ -84,9 +84,14 @@ export class SceneFrameClock {
    // Missing one or two refreshes is overload; a longer stall happens
    // elsewhere and says nothing about the cadence.
    if(fast&&this.fastBefore&&this.elapsedRefreshes<=refreshes+2)this.judge(this.elapsedRefreshes>refreshes,refreshes<passive,now);
+   // Keep the passive phase through a missed callback. Resetting at every
+   // late draw turns six refreshes at 144 Hz into seven (20.6 instead of 24
+   // FPS). Keep at most two refreshes of lateness, and never enough for a
+   // second draw: real stalls and adaptive gestures start a fresh interval.
+   const late=this.elapsedRefreshes-refreshes;
+   this.elapsedRefreshes=!fast&&!this.fastBefore&&late<=2?Math.min(late,refreshes-1):0;
    this.fastBefore=fast;
-   // A late frame shifts the phase once; it never queues a catch-up draw.
-   this.elapsedRefreshes=0;this.last=now;return true;
+   this.last=now;return true;
   }
   const fps=this.interacting(now)?this.interactionFPS:this.passiveFPS,tolerance=.1,interval=1000/fps;
   this.schedule(-fps);

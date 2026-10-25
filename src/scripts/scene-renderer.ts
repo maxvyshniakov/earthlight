@@ -427,6 +427,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       for(const pass of scenePasses()){gl.useProgram(pass);for(const [name,values] of passValues)applyValue(pass,name,values);}
       gl.useProgram(program);
     };
+    let firstRender=true;
     const initialize = async(started=performance.now()):Promise<boolean> => {
       // Query once, while the GPU queue is still empty. Asked after each map
       // upload, getParameter waited for that upload's mipmaps: seconds of
@@ -435,7 +436,8 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       maxAnisotropy=anisotropy?Math.min(8,gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)):0;
       const current=generation,controller=new AbortController();
       startupAbort=controller;
-      const batch=new ShaderProgramBatch(gl);
+      const recorder=diagnostics();
+      const batch=new ShaderProgramBatch(gl,recorder?.active?(label,batchElapsedMs)=>recorder.event('shader-program-complete',{label,batchElapsedMs}):undefined);
       Object.assign(state,sceneRenderDiagnostics(options,renderPlan));
       state.shaderStartup='compiling';state.shaderMode=batch.parallel?'parallel':'synchronous';
       state.shaderCompileMs='0';state.nightMode=nightMode;state.modisReady='0';
@@ -582,7 +584,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         if(starData)catalog.upload(starData);
         if(oceanPlan){gl.bindBuffer(gl.ARRAY_BUFFER,buffer);oceanField=new OceanField(gl,batch.take(oceanPlan),lab.oceanResolution,oceanMode==='regions'?1:oceanMode==='advected'?8:4);}
         state.ocean=oceanMode??'original';state.oceanBytes=String(oceanField?.bytes??0);state.oceanWidth=String(oceanField?.width??0);
-        initialized=true;state.shaderStartup='ready';
+        initialized=true;firstRender=true;state.shaderStartup='ready';
         return true;
       } catch (error) {
         if(disposed||lost||gl.isContextLost()||current!==generation||controller.signal.aborted)return false;
@@ -714,6 +716,14 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       if(disposed||lost||!initialized||!program||!catalog||!finish)return null;
       // The frame after the hand-over is the first of the new night mode.
       const frameStart=performance.now(),swapping=!!nightSwitch?.handedOver;
+      const startup=firstRender&&diagnostics()?.active?diagnostics():undefined;
+      firstRender=false;
+      let stageStart=frameStart;
+      // CPU submission spans only: a blocked GL call may wait for earlier
+      // GPU commands. No extra status queries or finish() for measurement.
+      const checkpoint=startup?(stage:string)=>{
+        const end=performance.now();startup.event('first-render-stage',{stage,at:stageStart,durationMs:end-stageStart});stageStart=end;
+      }:null;
       if(swapping)commitNightSwitch();
       const committed=performance.now();
       // Upgrade only after a real viewport expansion, with margin at the tier
@@ -735,8 +745,11 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const focal=observer.focal??1.25,zoomExcess=focal/1.25-1;
       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,psfTexture);
       catalog.render(width,height,height/Math.max(1,cssHeight),sky.starToFixed,observer.cameraBasis,sky.yearsSinceJ2000,finish.exposureTexture,focal);
+      checkpoint?.('catalog');
       aurora?.render(width,height,observer.camera,observer.cameraBasis,observer.sun,sceneTime,focal);
+      checkpoint?.('aurora');
       finish.begin(width,height);
+      checkpoint?.('camera-target');
       if(timed)timer?.section('resources-and-lighting');
       // Every pass binds what it owns; no reliance on uploads leaving GL state.
       textures.forEach((texture,i)=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,texture);});
@@ -820,6 +833,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const sceneDaylight=light*light*(3-2*light);
       lastDaylight=sceneDaylight;
       if(timed)timer?.section('source-attenuation');
+      checkpoint?.('resources-and-lighting');
       if(sourceTarget&&sourceTexture&&sourceProgram){
         gl.useProgram(sourceProgram);
         gl.uniform2f(sourceUniforms.resolution,width,height);gl.uniform1f(sourceUniforms.time,sceneTime);gl.uniform1f(sourceUniforms.zoomExcess,zoomExcess);
@@ -837,6 +851,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.uniform1i(sceneUniforms.solarTransmission,12);
       }
       if(timed)timer?.section('world');
+      checkpoint?.('source-attenuation');
       // RGBE stores numerical mantissas and an exponent, not display colors.
       const dither=gl.isEnabled(gl.DITHER);
       if(!finish.linear)gl.disable(gl.DITHER);
@@ -846,6 +861,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       if(lunarView&&lunarResolved>0){moonSurface!.draw(lunarView,zoomExcess);gl.useProgram(program);}
       if(timed)timer?.section('volumes');
+      checkpoint?.('world');
       // Shared state for every screen-sized volume program in this frame.
       const linearScene=finish.linear;
       const drawVolumePass=(passProgram:WebGLProgram,uniforms:Record<string,WebGLUniformLocation|null>,passPosition:number)=>{
@@ -880,6 +896,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         const [freshWidth,freshHeight]=temporal.beginFresh(width,height);
         state.cloudBuffer=`${freshWidth}x${freshHeight}`;
         drawVolumePass(temporalCloudProgram,temporalCloudUniforms,temporalCloudPosition);
+        checkpoint?.('temporal-cloud');
         temporal.beginResolve();
         gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_2D,worldBuffer.texture);
         gl.useProgram(temporalResolveProgram);
@@ -890,6 +907,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         if(before){gl.uniform1f(u.previousFocal,before.focal);gl.uniform3fv(u.previousCamera,before.camera);gl.uniformMatrix3fv(u.previousBasis,false,before.basis);}
         gl.enableVertexAttribArray(temporalResolvePosition);gl.vertexAttribPointer(temporalResolvePosition,2,gl.FLOAT,false,0,0);
         gl.drawArrays(gl.TRIANGLES,0,3);
+        checkpoint?.('temporal-resolve');
         // The resolve borrowed the noise and galaxy units.
         if(noiseTexture){gl.activeTexture(gl.TEXTURE0+NOISE_TABLE_UNIT);gl.bindTexture(gl.TEXTURE_2D,noiseTexture);}
         gl.activeTexture(gl.TEXTURE0+TEMPORAL_PREVIOUS_UNIT);gl.bindTexture(gl.TEXTURE_2D,galaxyTexture);
@@ -921,6 +939,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         temporal?.advance();
       }
       if(timed)timer?.section('camera-finish');
+      checkpoint?.('volumes');
       if(dither&&!finish.linear)gl.enable(gl.DITHER);
       // Image sliders are relative to the accepted photographic baseline.
       const project=(direction:ArrayLike<number>,energy:number):[number,number,number]=>{
@@ -947,6 +966,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
 
       if(timed)timer?.end();
       frameQueue?.submitted();
+      checkpoint?.('camera-finish');
       // CPU time of the swap and of the new mode's first frame (docs/lab/night-switch-2026-10-17.md).
       if(swapping){state.nightCommitMs=(committed-frameStart).toFixed(1);state.nightFirstFrameMs=(performance.now()-committed).toFixed(1);}
       // 'handover': the last frame of the old night mode, for a page to hold;

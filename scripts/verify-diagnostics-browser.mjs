@@ -37,6 +37,13 @@ try{
  await run('download','.earthlight-diagnostics button:nth-of-type(3)',`${out}/report.json`);
  const report=JSON.parse(await readFile(`${out}/report.json`,'utf8'));
  assert.ok(report.milestones.firstFrame>0);assert.ok(report.events.some(e=>e.name==='user-stutter'));
+ const programs=report.events.filter(e=>e.name==='shader-program-complete');
+ assert.ok(programs.some(e=>e.detail.label==='Scene'));assert.ok(programs.some(e=>e.detail.label==='Camera finish'));
+ assert.ok(programs.every(e=>Number.isFinite(e.detail.batchElapsedMs)&&e.detail.batchElapsedMs>=0));
+ const stages=report.events.filter(e=>e.name==='first-render-stage');
+ assert.ok(stages.some(e=>e.detail.stage==='world'));assert.ok(stages.some(e=>e.detail.stage==='camera-finish'));
+ assert.ok(stages.every(e=>Number.isFinite(e.detail.durationMs)&&e.detail.durationMs>=0));
+ assert.equal(new Set(stages.map(e=>e.detail.stage)).size,stages.length,'startup spans are recorded only on the first frame');
  for(const phase of ['day · 1/3','surface · 2/3','night turn · 3/3'])assert.ok(report.windows.some(w=>w.phase===phase&&w.frames>0),phase);
  assert.ok(report.windows.some(w=>w.cpuSubmissionMs));
  if(report.environment.gpuTimerSupported&&report.windows.some(w=>w.gpuMs)){
