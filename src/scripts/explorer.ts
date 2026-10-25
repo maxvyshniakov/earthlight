@@ -217,10 +217,12 @@ export class EarthlightExplorer extends HTMLElement {
     let qualitySince=0,qualitySaved=0;
     let inspection=false;
     let qualityFrame=0;
-    // The explorer enlarges its buffer when Earth fills less of the frame; the
-    // adaptive scale then holds for a covered view. `viewScale` is the cost of
-    // a sky pixel relative to a planet pixel; `viewScale=0` turns it off.
-    const viewSkyParam=number('viewScale',.1);
+    // Measured cadence owns the actual buffer size. A coverage multiplier
+    // otherwise doubles the .45 quality floor back to .90 on a sky-heavy
+    // view, preventing recovery even when the GPU is persistently overloaded.
+    // Keep the geometric model opt-in for experiments; cadence probes already
+    // recover detail when the current view has measured spare capacity.
+    const viewSkyParam=number('viewScale',0);
     const viewSky=standalone&&viewSkyParam>=.05&&viewSkyParam<=.6?viewSkyParam:null;
     const viewScale=new ViewScale();
     const bufferScale=()=>Math.min(1,qualityScale*viewScale.factor);
@@ -328,7 +330,7 @@ export class EarthlightExplorer extends HTMLElement {
     const flushDraw=(now:number)=>{
       frameClock.observe(now);perfObserve(now);
       if(runtime.disposed||runtime.lost||document.hidden||(!session.paused&&this.hasAttribute('data-ready')))return;
-      if(!frameDue(now))return false;
+      if(!renderer.frameAvailable()||!frameDue(now))return false;
       renderFrame();
     };
     const draw=()=>{
@@ -445,7 +447,7 @@ export class EarthlightExplorer extends HTMLElement {
       if (session.paused || document.hidden || runtime.lost || !this.hasAttribute('data-ready')) return;
       frameClock.observe(now);perfObserve(now);
       renderer.observeAnimationFrame(now,profile.fps/24);
-      if (frameDue(now)) {
+      if (renderer.frameAvailable()&&frameDue(now)) {
         if(headroom)renderer.setCadence(1000/frameClock.passiveRate*profile.fps/24,frameClock.refreshPeriod*profile.fps/24,true);
         if(lastAnimationDraw&&focusRadius===0)renderer.observeCadence((now-lastAnimationDraw)*profile.fps/24,now,!frameClock.interacting(now));
         lastAnimationDraw=focusRadius===0?now:0;

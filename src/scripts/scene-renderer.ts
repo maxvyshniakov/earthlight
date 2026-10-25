@@ -6,6 +6,7 @@ import { lunarPhaseIrradiance, lunarDiskGain } from './earth-light';
 import {assetURL,type SceneSources} from './asset-location';
 import {halfFloatTarget,shaderDerivatives,shaderLod,textureImage2D,textureSubImage2D} from './webgl-context.ts';
 import {ShaderProgramBatch} from './shader-programs';
+import {SceneFrameQueue} from './scene-frame-queue';
 import {readSceneRenderOptions} from './scene-render-options';
 import {readSceneRenderCapabilities} from './scene-render-capabilities';
 import {createSceneRenderPlan} from './scene-render-plan';
@@ -49,6 +50,7 @@ export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number
 export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasElement,params:URLSearchParams,notify:()=>void,sources:SceneSources={}) {
     const base=sources.assetBaseURL;
     const background=!!sources.background;
+    const frameQueue=background?null:new SceneFrameQueue(gl);
     const showSky=sources.sky!==false;
     const options=readSceneRenderOptions(params),lab=options.experiments;
     const capabilities=readSceneRenderCapabilities(gl);
@@ -158,6 +160,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       worker.postMessage({blob,bound:terrainBound==='regional'});
     });
     const release = () => {
+      frameQueue?.clear();
       initialized=false;startupAbort?.abort();startupAbort=null;
       cancelNightSwitch();nightSettle=0;sceneValues.clear();passValues.clear();
       uploadAbort.abort();uploadAbort=new AbortController();
@@ -942,6 +945,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       },look.exposure,look.manualExposure);
 
       if(timed)timer?.end();
+      frameQueue?.submitted();
       // CPU time of the swap and of the new mode's first frame (docs/lab/night-switch-2026-10-17.md).
       if(swapping){state.nightCommitMs=(committed-frameStart).toFixed(1);state.nightFirstFrameMs=(performance.now()-committed).toFixed(1);}
       // 'handover': the last frame of the old night mode, for a page to hold;
@@ -986,6 +990,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       return initialization;
     };
     return {render,state,assets,
+      frameAvailable:()=>frameQueue?.ready()??true,
       /** Switch physical night in place: resolves true once the first frame
        * of the new mode is drawn, false if it was superseded or failed. */
       switchNight,

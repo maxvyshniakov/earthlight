@@ -664,3 +664,19 @@ test('cadence transitions distinguish refresh spacing from FPS estimate jitter',
  fixed.due(2);assert.equal(fixed.cadenceChanged,false);
  fixed.due(200);assert.equal(fixed.cadenceChanged,true);
 });
+
+
+test('sustained long GPU stalls still submit and allow quality to recover',()=>{
+ const clock=new SceneFrameClock(24,true),quality=new SceneQuality();let now=0,last=0,draws=0;
+ for(let i=0;i<60;i++){now+=1000/60;clock.observe(now);clock.due(now);}
+ for(let i=0;i<18;i++){
+  now+=300;clock.observe(now);
+  assert.equal(clock.due(now),true,'each delayed callback must be allowed one draw');
+  if(last)quality.observeCadence(now-last,now);
+  last=now;draws++;
+  assert.equal(clock.due(now),false,'no catch-up burst on the same callback');
+ }
+ assert.equal(draws,18);
+ assert.ok(quality.scale<1,'overload must reach the quality controller');
+ assert.ok(Math.abs(clock.refreshPeriod-1000/60)<.1,'stalls do not become the refresh rate');
+});

@@ -49,7 +49,10 @@ export class SceneFrameClock {
   * timestamp jitter and a slightly wrong period estimate cannot drift. */
  observe(now:number){
   const interval=now-this.lastTick;this.lastTick=now;
-  if(interval<=0||interval>250)return;
+  if(interval<=0)return;
+  // A long GPU stall still advances the submission clock. Discard it only
+  // from refresh estimation; otherwise sustained >250 ms frames cannot draw
+  // or provide the quality controller with evidence of the overload.
   this.elapsedRefreshes+=this.period>0?Math.max(1,Math.round(interval/this.period)):1;
   if(interval<4||interval>50)return;
   this.ticks.push(interval);if(this.ticks.length>30)this.ticks.shift();
