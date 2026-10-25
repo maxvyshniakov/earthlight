@@ -17,6 +17,8 @@ try{
  await run('screenshot',`${out}/early.png`);
  await run('download','.earthlight-diagnostics button:nth-of-type(3)',`${out}/early.json`);
  const early=JSON.parse(await readFile(`${out}/early.json`,'utf8'));
+ assert.ok(early.navigation.responseStart>0);assert.ok(early.navigation.responseEnd>=early.navigation.responseStart);
+ assert.equal('name' in early.navigation,false);
  assert.equal(early.schema,'earthlight-diagnostics/v2');assert.equal(early.milestones.firstFrame,undefined);
  assert.ok(!JSON.stringify(early).includes('not-in-report'));
  console.log('early module failure: visible panel and real JSON download');

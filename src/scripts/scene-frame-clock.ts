@@ -72,14 +72,14 @@ export class SceneFrameClock {
  private schedule(step:number){
   this.cadenceChanged=step!==this.cadenceStep;this.cadenceStep=step;
  }
- due(now:number){
+ due(now:number,available:()=>boolean=()=>true){
   if(this.steady&&this.period>0){
    const passive=this.refreshes(this.passiveFPS);
    const fast=this.interacting(now)&&this.interactionFPS>this.passiveFPS;
    const refreshes=fast?Math.min(passive,this.refreshes(this.interactionFPS)+this.slower):passive;
    this.schedule(refreshes);
    this.fps=1000/(refreshes*this.period);
-   if(this.elapsedRefreshes<refreshes)return false;
+   if(this.elapsedRefreshes<refreshes||!available())return false;
    // The first fast frame follows a slower one; only later ones can be late.
    // Missing one or two refreshes is overload; a longer stall happens
    // elsewhere and says nothing about the cadence.
@@ -93,7 +93,7 @@ export class SceneFrameClock {
   if(Math.abs(fps-this.fps)>.01){this.fps=fps;this.last=now-interval;}
   const elapsed=now-this.last;
   // RAF timestamps have sub-millisecond rounding even at exact 60 Hz.
-  if(elapsed+tolerance<interval)return false;
+  if(elapsed+tolerance<interval||!available())return false;
   this.last+=Math.max(1,Math.floor((elapsed+tolerance)/interval))*interval;
   return true;
  }

@@ -10,6 +10,7 @@ import {SceneFrameQueue} from './scene-frame-queue';
 import {readSceneRenderOptions} from './scene-render-options';
 import {readSceneRenderCapabilities} from './scene-render-capabilities';
 import {createSceneRenderPlan} from './scene-render-plan';
+import {diagnostics} from './scene-diagnostics';
 import {sceneRenderDiagnostics} from './scene-render-diagnostics';
 import {sceneShaderHeaders} from './scene-shader-headers';
 import {CloudBuffer} from './cloud-buffer';
@@ -50,7 +51,7 @@ export type SceneLook={galaxy:number;grain:number;chromatic:number;ghosts:number
 export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasElement,params:URLSearchParams,notify:()=>void,sources:SceneSources={}) {
     const base=sources.assetBaseURL;
     const background=!!sources.background;
-    const frameQueue=background?null:new SceneFrameQueue(gl);
+    const frameQueue=background?null:new SceneFrameQueue(gl,!!diagnostics()?.active);
     const showSky=sources.sky!==false;
     const options=readSceneRenderOptions(params),lab=options.experiments;
     const capabilities=readSceneRenderCapabilities(gl);
@@ -990,7 +991,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       return initialization;
     };
     return {render,state,assets,
-      frameAvailable:()=>frameQueue?.ready()??true,
+      frameAvailable:()=>{const ready=frameQueue?.ready()??true;if(diagnostics()?.active&&frameQueue)Object.assign(state,frameQueue.diagnostics());return ready;},
       /** Switch physical night in place: resolves true once the first frame
        * of the new mode is drawn, false if it was superseded or failed. */
       switchNight,

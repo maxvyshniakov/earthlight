@@ -680,3 +680,17 @@ test('sustained long GPU stalls still submit and allow quality to recover',()=>{
  assert.ok(quality.scale<1,'overload must reach the quality controller');
  assert.ok(Math.abs(clock.refreshPeriod-1000/60)<.1,'stalls do not become the refresh rate');
 });
+
+test('GPU readiness is polled only at the deadline and blocked frames retain it',()=>{
+ const clock=new SceneFrameClock(24,true);let now=0,polls=0,available=true;
+ const ready=()=>{polls++;return available;};
+ for(let i=0;i<144;i++){now+=1000/144;clock.observe(now);clock.due(now,ready);}
+ polls=0;
+ for(let i=0;i<144;i++){now+=1000/144;clock.observe(now);clock.due(now,ready);}
+ assert.equal(polls,24);
+ available=false;
+ for(let i=0;i<6;i++){now+=1000/144;clock.observe(now);assert.equal(clock.due(now,ready),false);}
+ available=true;now+=1000/144;clock.observe(now);
+ assert.equal(clock.due(now,ready),true);
+ assert.equal(clock.due(now,ready),false);
+});

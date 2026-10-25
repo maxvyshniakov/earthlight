@@ -330,7 +330,7 @@ export class EarthlightExplorer extends HTMLElement {
     const flushDraw=(now:number)=>{
       frameClock.observe(now);perfObserve(now);
       if(runtime.disposed||runtime.lost||document.hidden||(!session.paused&&this.hasAttribute('data-ready')))return;
-      if(!renderer.frameAvailable()||!frameDue(now))return false;
+      if(!frameDue(now))return false;
       renderFrame();
     };
     const draw=()=>{
@@ -447,7 +447,7 @@ export class EarthlightExplorer extends HTMLElement {
       if (session.paused || document.hidden || runtime.lost || !this.hasAttribute('data-ready')) return;
       frameClock.observe(now);perfObserve(now);
       renderer.observeAnimationFrame(now,profile.fps/24);
-      if (renderer.frameAvailable()&&frameDue(now)) {
+      if (frameDue(now)) {
         if(headroom)renderer.setCadence(1000/frameClock.passiveRate*profile.fps/24,frameClock.refreshPeriod*profile.fps/24,true);
         if(lastAnimationDraw&&focusRadius===0)renderer.observeCadence((now-lastAnimationDraw)*profile.fps/24,now,!frameClock.interacting(now));
         lastAnimationDraw=focusRadius===0?now:0;
@@ -459,7 +459,9 @@ export class EarthlightExplorer extends HTMLElement {
     // retains its 24 FPS budget. Keep the fractional deadline when paused too,
     // instead of starting a new full interval after each render finishes.
     const frameDue=(now:number)=>{
-      const due=frameClock.due(now);
+      // GPU completion polling can cross the browser GPU-process boundary.
+      // Ask only when a frame is due; a blocked slot keeps that frame pending.
+      const due=frameClock.due(now,renderer.frameAvailable);
       // Estimator jitter does not change the scheduled spacing. Reset only
       // across real cadence transitions, otherwise quality receives no samples.
       if(frameClock.cadenceChanged)lastAnimationDraw=0;

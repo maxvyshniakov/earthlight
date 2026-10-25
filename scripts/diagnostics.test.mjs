@@ -2,12 +2,12 @@ import {test,expect} from 'bun:test';
 import {runInNewContext} from 'node:vm';
 import {diagnosticsBoot} from '../src/scripts/diagnostics-boot.ts';
 import {diagnosticTestFrame,diagnosticTestPhase} from '../src/scripts/diagnostic-test.ts';
-function fixture(search='?diagnostics=1&token=private'){
+function fixture(search='?diagnostics=1&token=private',entries={}){
  let now=10;const listeners={},observations={},intervals=[],storage=new Map();
  const document={hidden:false,readyState:'loading',querySelector:()=>null,addEventListener:(name,fn)=>{listeners[name]=fn;}};
  const window={addEventListener:(name,fn)=>{listeners[name]=fn;}};
  const context={window,document,location:{search,origin:'https://example.test'},navigator:{userAgent:'test',hardwareConcurrency:8,language:'en'},
-  performance:{now:()=>now,timeOrigin:123},innerWidth:1280,innerHeight:720,devicePixelRatio:1,URL,URLSearchParams,Date,
+  performance:{now:()=>now,timeOrigin:123,getEntriesByType:type=>entries[type]??[]},innerWidth:1280,innerHeight:720,devicePixelRatio:1,URL,URLSearchParams,Date,
   sessionStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},
   requestAnimationFrame:()=>1,setInterval:fn=>{intervals.push(fn);return 1;},clearInterval:()=>{},
   PerformanceObserver:class{constructor(fn){this.fn=fn;}observe({type}){observations[type]=entries=>this.fn({getEntries:()=>entries});}disconnect(){}},
@@ -89,4 +89,10 @@ test('GPU groups use one query per frame, wait for results, and discard invalid 
   expect(groups.every(g=>Object.keys(g.passes).length===1)).toBe(true);
   timer.dispose();expect(deleted.size).toBe(created);expect(active).toBeNull();
  }finally{timer.dispose();if(previous===undefined)delete globalThis.window;else globalThis.window=previous;}
+});
+
+
+test('navigation timings recover pre-recorder delays without exporting private URLs',()=>{
+ const f=fixture('?diagnostics=1',{navigation:[{name:'https://private.test/?token=secret',type:'navigate',requestStart:40,responseStart:14880,responseEnd:14900,redirectCount:1,redirectStart:0,redirectEnd:0,serverTiming:[{description:'secret'}]}],paint:[{name:'first-contentful-paint',startTime:15000}]});
+ const report=f.recorder.report();expect(report.navigation.responseStart).toBe(14880);expect(report.navigation.requestStart).toBe(40);expect(report.navigation.redirectCount).toBe(1);expect(report.paint[0].at).toBe(15000);expect(JSON.stringify(report)).not.toContain('secret');expect(JSON.stringify(report)).not.toContain('private.test');
 });

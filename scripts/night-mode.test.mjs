@@ -12,9 +12,9 @@ import {CloudLightingAtlas} from '../src/scripts/cloud-lighting.ts';
 import {OceanField} from '../src/scripts/ocean-prototype.ts';
 
 // Every program a night mode compiles, as the renderer assembles it from the
-// mode it was given. The fixture holds the SHA-256 of each source as it was
-// built when the mode was read from the address at import (ac56a17), with
-// city emission identifiers renamed after inverse-token source equivalence.
+// mode it was given. Fixtures originated with the import-time modes (ac56a17).
+// Deliberate shader changes refresh them only after rendered comparisons;
+// cloud empty-space bounds are documented in docs/lab/cloud-empty-space-2026-10-25.md.
 function sources(mode){
  const all={};
  const batch=prefix=>({add:(name,vertex,fragment)=>{all[`${prefix}${name}:vertex`]=vertex;all[`${prefix}${name}:fragment`]=fragment;return name;}});
@@ -33,7 +33,7 @@ function sources(mode){
 const sha=source=>createHash('sha256').update(source).digest('hex');
 const fixture=JSON.parse(readFileSync(new URL('./fixtures/night-mode-sources.json',import.meta.url),'utf8'));
 
-test('every night mode builds the same program sources as when it was read at load',()=>{
+test('every night mode matches the validated program-source fixtures',()=>{
  for(const mode of NIGHT_MODES){
   const built=Object.fromEntries(Object.entries(sources(mode)).map(([name,source])=>[name,sha(source)]));
   assert.deepEqual(Object.keys(built).sort(),Object.keys(fixture[mode]).sort(),mode);

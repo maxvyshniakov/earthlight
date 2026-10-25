@@ -38,14 +38,26 @@ export function diagnosticsBoot(build:Record<string,unknown>){
    const value=params.get(name);if(value!==null)safe[name]=value.slice(0,100);
   }return safe;
  };
+ // Navigation entries predate this inline recorder. Copy numeric timings only:
+ // name, referrer and serverTiming can contain authentication or private data.
+ const navigation=()=>{
+  const entry=performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming|undefined;
+  if(!entry)return null;
+  const timing:Record<string,number|string>={type:entry.type};
+  for(const name of ['startTime','duration','redirectCount','redirectStart','redirectEnd','workerStart','fetchStart','domainLookupStart','domainLookupEnd','connectStart','secureConnectionStart','connectEnd','requestStart','responseStart','responseEnd','domInteractive','domContentLoadedEventStart','domContentLoadedEventEnd','domComplete','loadEventStart','loadEventEnd','transferSize','encodedBodySize','decodedBodySize'] as const){
+   const value=entry[name];if(Number.isFinite(value))timing[name]=round(value);
+  }
+  return timing;
+ };
+ const paint=()=>performance.getEntriesByType?.('paint').filter(e=>e.name==='first-paint'||e.name==='first-contentful-paint').map(e=>({name:e.name,at:round(e.startTime)}))??[];
  const report=()=>({testProtocol:'guided-v1-60s',schema:'earthlight-diagnostics/v2',started,exported:new Date().toISOString(),timeOrigin:performance.timeOrigin,
-  environment,settings:settings(),milestones,gpuPassSamples:[...gpuPassSamples],droppedGpuPassSamples,markers:[...markers],droppedMarkers,dropped,limits,events:[...events],windows:[...windows],resources:[...resources],
-  notes:['Times are milliseconds since navigation. CPU submission is not GPU execution.','Frame intervals measure submissions, not confirmed screen presentation.','Decode queue duration includes upload lifetime; network queue duration includes body download.','GPU pass samples measure one rotating group per frame; never sum groups from different frames. Timestamp and buffer belong to submission, not result delivery.','Resource byte/timing fields may be unavailable across origins. Zero bytes do not prove a cache hit.','History is bounded; dropped counters indicate omitted records.']});
+  environment,navigation:navigation(),paint:paint(),settings:settings(),milestones,gpuPassSamples:[...gpuPassSamples],droppedGpuPassSamples,markers:[...markers],droppedMarkers,dropped,limits,events:[...events],windows:[...windows],resources:[...resources],
+  notes:['Times are milliseconds since navigation. CPU submission is not GPU execution.','Frame intervals measure submissions, not confirmed screen presentation.','GPU fence ages end at a readiness poll; they include time before polling and are not GPU execution durations.','Decode queue duration includes upload lifetime; network queue duration includes body download.','GPU pass samples measure one rotating group per frame; never sum groups from different frames. Timestamp and buffer belong to submission, not result delivery.','Resource byte/timing fields may be unavailable across origins. Zero bytes do not prove a cache hit.','History is bounded; dropped counters indicate omitted records.']});
  const snapshot=()=>{
   const now=performance.now(),root=document.querySelector<HTMLElement>('earthlight-explorer'),canvas=root?.querySelector('canvas');
   if(root){state(root.dataset as Record<string,string>);if(root.hasAttribute('data-unavailable'))mark('unavailable');}
   const data:Record<string,string>={};
-  for(const name of ['renderProfile','renderScale','startScale','targetFps','refreshPeriodMs','qualityScale','viewScale','viewCoverage','focus','assetPhase','assetFailures','shaderStartup','shaderCompileMs','cameraPosition','cameraBasis','lens','cameraAltitude','flightMode','orbit','nightMode','cloudPass','cloudReuse','terrainTiles','dayTiles','nightTiles','cloudTiles','galaxyTiles']){
+  for(const name of ['gpuQueuePolls','gpuQueueBlocked','gpuFenceLongestMs','renderProfile','renderScale','startScale','targetFps','refreshPeriodMs','qualityScale','viewScale','viewCoverage','focus','assetPhase','assetFailures','shaderStartup','shaderCompileMs','cameraPosition','cameraBasis','lens','cameraAltitude','flightMode','orbit','nightMode','cloudPass','cloudReuse','terrainTiles','dayTiles','nightTiles','cloudTiles','galaxyTiles']){
    const value=root?.dataset[name];if(value!==undefined)data[name]=value.slice(0,6000);
   }
   append('windows',{at:round(windowStart),durationMs:round(now-windowStart),phase,hidden:document.hidden,frames:frameCount,

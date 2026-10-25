@@ -72,6 +72,11 @@ float cloudCoverage(vec3 point,float footprint,bool detailed){
 export const photographicCloudDensityShader=`float cloudBaseDensity(vec3 point,float footprint,bool detailed){
   float height=(length(point)-1.)*6371.;
   if(height<.6 || height>12.)return 0.;
+#ifdef LEAN_SHADER_WORK
+  // The photographic envelope is exactly zero outside these conservative
+  // bounds: base >= .8; top <= 2+5.5+1+.325, upper feather <= .45.
+  if(height<=.8 || height>=9.275)return 0.;
+#endif
 #if defined(LEAN_SHADER_WORK) && !defined(MODIS_PATCH)
   // One projection serves both the detailed and neighbourhood samples.
   vec3 cloudNormal=normalize(cloudCoordinates(point));
@@ -92,6 +97,13 @@ export const photographicCloudDensityShader=`float cloudBaseDensity(vec3 point,f
 }
 float cloudColumnDensity(vec3 point,float height,float coverage,float neighborhood,float footprint){
   float connected=smoothstep(.32,.78,min(coverage,neighborhood));
+  float base=.8+.3*neighborhood;
+  float top=2.+5.5*smoothstep(.15,.95,neighborhood)+smoothstep(.10,1.,coverage);
+#ifdef LEAN_SHADER_WORK
+  // Noise can move the top by at most half its amplitude. Skip only samples
+  // whose density is zero for every possible noise value, never thin edges.
+  if(height<=base || height>=top+.5*mix(.65,.12,connected)+.45)return 0.;
+#endif
   float relief=0.;
 #ifndef TEXTURE_SHAPED_CLOUDS
   vec3 material=cloudCoordinates(point),horizontal=normalize(material);
@@ -103,9 +115,7 @@ float cloudColumnDensity(vec3 point,float height,float coverage,float neighborho
 #endif
   // A continuous illustrative envelope, not a cloud-height retrieval. Broad
   // photographic structure controls its rise; local coverage retains edges.
-  float base=.8+.3*neighborhood;
-  float top=2.+5.5*smoothstep(.15,.95,neighborhood)
-    +smoothstep(.10,1.,coverage)+relief;
+  top+=relief;
   // Keep the ramps disjoint even at thin edges so the column integral below
   // remains valid at every coverage and noise value.
   float thickness=top-base;
@@ -139,6 +149,11 @@ float cloudColumnDensity(vec3 point,float height,float coverage,float neighborho
 float cloudBaseDensity(vec3 point,float footprint,bool detailed,vec4 ellipse){
   float height=(length(point)-1.)*6371.;
   if(height<.6 || height>12.)return 0.;
+#ifdef LEAN_SHADER_WORK
+  // The photographic envelope is exactly zero outside these conservative
+  // bounds: base >= .8; top <= 2+5.5+1+.325, upper feather <= .45.
+  if(height<=.8 || height>=9.275)return 0.;
+#endif
   float major=max(footprint,ellipse.w);
   bool stretched=major>3.*footprint;
   vec3 quarter=stretched?normalize(ellipse.xyz)*major*.25:vec3(0.);
