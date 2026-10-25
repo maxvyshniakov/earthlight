@@ -1,3 +1,5 @@
+import {diagnostics} from './scene-diagnostics';
+import {diagnosticTestFrame,diagnosticTestPhase} from './diagnostic-test';
 import {sceneLook} from './scene-defaults';
 import {SceneFrameClock} from './scene-frame-clock';
 import {SceneHostLifecycle} from './scene-host-lifecycle';
@@ -41,6 +43,8 @@ export class EarthlightExplorer extends HTMLElement {
       for(const key of ['api','quality'])if(entry.searchParams.has(key))preset.searchParams.set(key,entry.searchParams.get(key)!);
       history.replaceState(history.state,'',preset);
     }
+    const diagnostic=diagnostics();
+    diagnostic?.event('explorer-connected');
     const canvas = this.querySelector('canvas')!;
     // Holds the last frame of one night mode while the next one meters.
     const crossfade=this.querySelector<HTMLCanvasElement>('.explorer-crossfade');
@@ -70,11 +74,20 @@ export class EarthlightExplorer extends HTMLElement {
     // Slider 100% is the accepted image grade; renderer gains retain its appearance.
     const lookBase = sceneLook;
     const look:SceneLook = { ...lookBase };
-    const attributes:WebGLContextAttributes={alpha:false,antialias:false,depth:false,powerPreference:'low-power'};
+    const standalone=this.dataset.composition==='explorer';
+    const attributes:WebGLContextAttributes={alpha:false,antialias:false,depth:false,powerPreference:standalone?'high-performance':'low-power'};
     const gl=sceneContext(canvas,new URLSearchParams(location.search),attributes);
     // The poster is only for an explorer that cannot draw at all.
     if (!gl) { this.dataset.unavailable = ''; return; }
     this.dataset.renderApi=isWebGL2(gl)?'webgl2':'webgl';
+    if(diagnostic){
+      const debug=gl.getExtension('WEBGL_debug_renderer_info');
+      diagnostic.environment({api:this.dataset.renderApi,powerPreference:gl.getContextAttributes()?.powerPreference,
+        gpuRenderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):null,gpuVendor:debug?gl.getParameter(debug.UNMASKED_VENDOR_WEBGL):null,
+        maxTextureSize:gl.getParameter(gl.MAX_TEXTURE_SIZE)});
+      diagnostic.event('context-created');
+    }
+    let diagnosticStarted:number|null=null,diagnosticPhase='',diagnosticPaused=false,diagnosticSeconds=0;
 
     const runtime=new SceneHostLifecycle({
       running:()=>!session.paused&&this.hasAttribute('data-ready'),
@@ -83,7 +96,6 @@ export class EarthlightExplorer extends HTMLElement {
     });
     // Repeatable frames and opt-in render comparisons.
     const params = new URLSearchParams(location.search);
-    const standalone=this.dataset.composition==='explorer';
     const initialSeconds=initialSceneSeconds(params);
     const session=new ExplorerSession(params,standalone,initialSeconds);
     const calendarInputs=[...this.querySelectorAll<HTMLInputElement>('[data-calendar]')];
@@ -233,8 +245,15 @@ export class EarthlightExplorer extends HTMLElement {
       if(changed&&session.paused&&ready)draw();
     };
     const composition = () => sceneComposition(window.scrollY,smallHeight,cssHeight,scrollComposition);
-    const observerAt=(seconds:number,now=performance.now())=>{
+    const observerAt=(seconds:number,now=performance.now()):ObserverFrame&{focal:number}=>{
       const view=composition();
+      if(diagnosticStarted!==null){
+        const elapsed=(now-diagnosticStarted)/1000,phase=diagnosticTestPhase(elapsed);
+        if(elapsed>=60){diagnostic?.cancelTest?.();return observerAt(playback.read(now)+view.offset,now);}
+        if(phase!==diagnosticPhase){diagnosticPhase=phase;window.dispatchEvent(new CustomEvent('earthlight-diagnostic-phase',{detail:phase}));}
+        const frame=diagnosticTestFrame(elapsed);if(frame)return frame;
+        diagnostic?.cancelTest?.();
+      }
       const pose=standalone?navigation.read(seconds,cameraView,now):issFrame(seconds,view.limb,cameraView,view.altitudeLift);
       return {...calendarFrame(pose,calendar.date(seconds)),focal:standalone?navigation.focal:PROJECTION};
     };
@@ -330,8 +349,10 @@ export class EarthlightExplorer extends HTMLElement {
       // a busy GPU stepped the scale, and each resize's tiles restarted the
       // settle window, deferring inspection indefinitely.
       const still=standalone&&session.paused&&!frameClock.interacting(performance.now());
+      const diagnosticFrameStart=diagnostic?performance.now():0;
       const result=renderer.render(observer,canvas.width,canvas.height,cssHeight,sceneTime,grainIndex,focusLook,focusRadius,session.timeScale,inspection||still);
       if(!result)return;
+      diagnostic?.frame(performance.now()-diagnosticFrameStart);
       if(result.nightSwitch==='handover')holdFrame();
       else if(result.nightSwitch==='settled'){delete this.dataset.nightSwitch;settleFrame(true);}
       else if(crossfade&&!crossfade.hidden&&crossfade.dataset.fading===undefined)settleFrame(false);
@@ -440,6 +461,7 @@ export class EarthlightExplorer extends HTMLElement {
       return due;
     };
     const sync = () => {
+      diagnostic?.resetFrames();
       clearTimeout(exposureTimer);
       frameClock.reset(performance.now());
       clearTimeout(focusTimer);
@@ -659,6 +681,7 @@ export class EarthlightExplorer extends HTMLElement {
       if(runtime.disposed||runtime.lost)return;
       exposureUntil=performance.now()+EXPOSURE_SETTLE_MS;
       Object.assign(this.dataset,renderer.state);
+      diagnostic?.state(renderer.state);
       // No frame will come: shaders failed on this GPU, or every first-light
       // asset failed. A failed refinement keeps the preview and is not this.
       if(!this.hasAttribute('data-ready')&&(renderer.state.shaderStartup==='failed'||renderer.state.firstLight==='failed'))this.dataset.unavailable='';
@@ -1054,7 +1077,25 @@ export class EarthlightExplorer extends HTMLElement {
     controls.hidden = true;
     sync();
     renderer.load();
+    const cancelDiagnosticTest=()=>{
+      if(diagnosticStarted===null)return;
+      diagnosticStarted=null;session.settings.paused=diagnosticPaused;playback.seek(diagnosticSeconds,performance.now());sync();draw();
+      window.dispatchEvent(new CustomEvent('earthlight-diagnostic-phase',{detail:'free'}));
+    };
+    if(diagnostic){
+      diagnostic.cancelTest=cancelDiagnosticTest;
+      diagnostic.test=()=>{
+        if(!this.hasAttribute('data-ready')||diagnosticStarted!==null)return false;
+        diagnosticPaused=session.paused;diagnosticSeconds=playback.read(performance.now());diagnosticStarted=performance.now();diagnosticPhase='';
+        session.settings.paused=false;sync();draw();return true;
+      };
+    }
+    const interruptDiagnostic=(event:Event)=>{if(!(event.target as Element)?.closest?.('.earthlight-diagnostics'))cancelDiagnosticTest();};
+    if(diagnostic)for(const name of ['pointerdown','keydown','wheel'])window.addEventListener(name,interruptDiagnostic,{capture:true});
     this.cleanup = () => {
+      cancelDiagnosticTest();
+      if(diagnostic){diagnostic.test=undefined;diagnostic.cancelTest=undefined;for(const name of ['pointerdown','keydown','wheel'])window.removeEventListener(name,interruptDiagnostic,true);}
+
       flightControls?.dispose();clearTimeout(navigationURLTimer);
       calendarInputs.forEach(input=>input.removeEventListener('input',changeCalendar));
       disposeCameraDrag();

@@ -1,3 +1,4 @@
+import {diagnostics} from './scene-diagnostics';
 /** Hysteresis over delivered frames or GPU samples. Texture fidelity and the
  * path-dependent cloud integration budget is preserved; only the target scales.
  */
@@ -195,6 +196,7 @@ export class SceneTimer {
  private pending:object[]=[];
  private frame=0;
  private usingCadence=false;
+ private diagnostic=diagnostics();
  private gl:WebGLRenderingContext;
  constructor(gl:WebGLRenderingContext){
   this.gl=gl;
@@ -208,6 +210,7 @@ export class SceneTimer {
     getQueryObjectEXT:(query,name)=>core.getQueryParameter(query,name),deleteQueryEXT:query=>core.deleteQuery(query),
    }:null;
   }else this.ext=gl.getExtension('EXT_disjoint_timer_query');
+  this.diagnostic?.environment({gpuTimerSupported:!!this.ext});
  }
  private useCadence(){
   if(this.usingCadence)return;
@@ -224,16 +227,18 @@ export class SceneTimer {
  observeCadence(milliseconds:number,now:number,allowUpscale=true){this.useCadence();this.quality.observeCadence(milliseconds,now,allowUpscale);}
  setCadence(target:number,refresh:number,headroom:boolean){this.quality.headroom=headroom;this.quality.setCadence(target,refresh);}
  begin(){
-  if(!this.ext||this.usingCadence)return;
+  if(!this.ext||(this.usingCadence&&!this.diagnostic?.active))return;
   const ext=this.ext;
-  if(this.gl.getParameter(ext.GPU_DISJOINT_EXT)){for(const q of this.pending)ext.deleteQueryEXT(q);this.pending=[];return;}
+  if(this.gl.getParameter(ext.GPU_DISJOINT_EXT)){this.diagnostic?.event('gpu-disjoint');for(const q of this.pending)ext.deleteQueryEXT(q);this.pending=[];return;}
   this.pending=this.pending.filter(q=>{
    if(!ext.getQueryObjectEXT(q,ext.QUERY_RESULT_AVAILABLE_EXT))return true;
-   this.quality.observe(Number(ext.getQueryObjectEXT(q,ext.QUERY_RESULT_EXT))/1e6,performance.now());ext.deleteQueryEXT(q);return false;
+   const milliseconds=Number(ext.getQueryObjectEXT(q,ext.QUERY_RESULT_EXT))/1e6;
+   this.diagnostic?.gpu(milliseconds);
+   if(!this.usingCadence)this.quality.observe(milliseconds,performance.now());ext.deleteQueryEXT(q);return false;
   });
   // Poll completed queries every frame. Waiting twelve slow frames before
   // polling delayed adaptation by tens of seconds on overloaded phones.
-  if(this.frame++%(this.quality.warmingUp||this.quality.scale<1?3:12)!==0)return;
+  if(this.frame++%(this.usingCadence?12:this.quality.warmingUp||this.quality.scale<1?3:12)!==0)return;
   if(this.pending.length>=2)return;
   this.active=ext.createQueryEXT();ext.beginQueryEXT(ext.TIME_ELAPSED_EXT,this.active);
  }

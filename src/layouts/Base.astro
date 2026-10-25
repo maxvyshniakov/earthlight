@@ -1,5 +1,8 @@
 ---
 import '../styles/global.css';
+import {diagnosticsBoot} from '../scripts/diagnostics-boot';
+import {diagnosticBuild} from '../../scripts/diagnostic-build.mjs';
+const diagnosticScript=`(${diagnosticsBoot.toString()})(${JSON.stringify(diagnosticBuild).replaceAll('<','\\u003c')});`;
 interface Props { title: string; description?: string; immersive?: boolean; }
 const {title, description = 'Explore Earth, its atmosphere and the night sky.'} = Astro.props;
 const site = Astro.site ?? Astro.url;
@@ -10,6 +13,7 @@ const canonical = new URL(Astro.url.pathname, site).href;
 <html lang="en" class="explorer-page">
   <head>
     <meta charset="UTF-8" />
+    <script is:inline set:html={diagnosticScript} />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#000000" />

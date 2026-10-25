@@ -17,6 +17,7 @@
 
 - [Architecture](architecture.md): state ownership, host lifetime, render plans,
   streaming contracts and the verification boundaries.
+- [Downloadable diagnostics](diagnostics.md): opt-in device reports and a repeatable test.
 - [Scene optimization](scene-optimization.md): loading order, texture budgets,
   codec choices and measured costs.
 - [Shader startup](shader-startup.md): compilation, context loss and

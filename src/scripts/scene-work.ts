@@ -1,3 +1,4 @@
+import {diagnostics} from './scene-diagnostics';
 type Job={priority:number;queued:number;signal?:AbortSignal;cancel:()=>void;run:()=>void};
 /** One budget for all overview and tile producers. Decode slots include the
  * bitmap's upload lifetime, bounding live decoded inputs as well as CPU work. */
@@ -6,7 +7,7 @@ class WorkQueue {
  private active=0;
  private limit:number;
  private priorityHolds=new Set<{priority:number}>();
- constructor(limit:number){
+ constructor(limit:number,private kind='work'){
   if(!Number.isInteger(limit)||limit<1)throw new RangeError('Scene work limits must be positive integers');
   this.limit=limit;
  }
@@ -22,7 +23,8 @@ class WorkQueue {
     this.jobs=this.jobs.filter(x=>x!==job);reject(signal?.reason);
    },run:()=>{
     signal?.removeEventListener('abort',job.cancel);this.active++;
-    Promise.resolve().then(work).then(resolve,reject).finally(()=>{this.active--;this.pump();});
+    const diagnostic=diagnostics(),started=diagnostic?performance.now():0;
+    Promise.resolve().then(work).then(resolve,reject).finally(()=>{diagnostic?.work(this.kind,started-job.queued,performance.now()-started);this.active--;this.pump();});
    }};
    signal?.addEventListener('abort',job.cancel,{once:true});this.jobs.push(job);this.pump();
   });
@@ -50,8 +52,8 @@ export class SceneWork {
  private releaseDecode:(()=>void)|undefined;
  private previousView:{camera:number[];forward:number[];time:number}|undefined;
  constructor(private notify=()=>{},limits:{network?:number;decode?:number}={}){
-  this.network=new WorkQueue(limits.network??4);
-  this.decode=new WorkQueue(limits.decode??2);
+  this.network=new WorkQueue(limits.network??4,'network');
+  this.decode=new WorkQueue(limits.decode??2,'decode-and-upload');
  }
  get moving(){return this.releaseNetwork!==undefined;}
  /** Large atlas writes can serialize with the preceding GPU frame. During
@@ -94,7 +96,7 @@ export class SceneWork {
    if(signal.aborted){reject(signal.reason);return;}
    const job={priority,queued:performance.now(),signal,cancel:()=>{
     this.uploads=this.uploads.filter(x=>x!==job);reject(signal.reason);
-   },run:()=>{signal.removeEventListener('abort',job.cancel);try{work();resolve();}catch(error){reject(error);}}};
+   },run:()=>{signal.removeEventListener('abort',job.cancel);const diagnostic=diagnostics(),started=diagnostic?performance.now():0;try{work();resolve();}catch(error){reject(error);}finally{diagnostic?.work('upload-submission',started-job.queued,performance.now()-started);}}};
    signal.addEventListener('abort',job.cancel,{once:true});this.uploads.push(job);
    if(this.timer===undefined)this.timer=setTimeout(()=>this.pump(),0);
   });

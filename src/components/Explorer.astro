@@ -16,6 +16,12 @@ const firstLight=firstLightAssets(assetBaseURL.replace(/\/+$/,'')+'/');
 <earthlight-explorer data-asset-base={assetBaseURL} data-terrain-base={terrainBaseURL} data-explore-url={exploreURL} data-composition={standalone ? "explorer" : "page"}>
   <div class="explorer-viewport" aria-hidden="true"></div>
   <div class="explorer-fallback" aria-hidden="true" style={{backgroundImage:`url("${assetURL('preview/poster.webp',assetBaseURL)}")`}}></div>
+  <div class="explorer-loading" role="status" aria-live="polite">
+    <span class="explorer-loading-start">Preparing Earthlight…</span>
+    <span class="explorer-loading-assets">Loading Earth and sky…</span>
+    <span class="explorer-loading-error">Earthlight could not start. Reload to try again.</span>
+    <progress aria-label="Loading Earthlight"></progress>
+  </div>
   <canvas aria-hidden="true"></canvas>
   <canvas class="explorer-crossfade" aria-hidden="true" hidden></canvas>
   <div class="explorer-service">
@@ -126,6 +132,16 @@ const firstLight=firstLightAssets(assetBaseURL.replace(/\/+$/,'')+'/');
      for an explorer that cannot draw (no WebGL, no scene, no first light). */
   .explorer-fallback { background: #020304 center / cover no-repeat; opacity: 0; transition: opacity .6s ease; }
   earthlight-explorer[data-unavailable]:not([data-ready]) .explorer-fallback { opacity: 1; }
+  .explorer-loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: #eee; font: 14px/1.5 system-ui, sans-serif; pointer-events: none; }
+  .explorer-loading progress { width: 160px; height: 3px; accent-color: #ddd; }
+  .explorer-loading-assets, .explorer-loading-error { display: none; }
+  earthlight-explorer[data-shader-startup="ready"] .explorer-loading-start { display: none; }
+  earthlight-explorer[data-shader-startup="ready"] .explorer-loading-assets { display: inline; }
+  earthlight-explorer[data-unavailable] .explorer-loading-start,
+  earthlight-explorer[data-unavailable] .explorer-loading-assets,
+  earthlight-explorer[data-unavailable] .explorer-loading progress { display: none; }
+  earthlight-explorer[data-unavailable] .explorer-loading-error { display: inline; }
+  earthlight-explorer[data-ready] .explorer-loading { display: none; }
   .explorer-controls { position: absolute; left: calc((100% - 100vw) / 2 + max(var(--page-gutter, 24px), env(safe-area-inset-left))); bottom: max(24px, env(safe-area-inset-bottom)); z-index: 5; display: grid; grid-auto-rows: 12px; gap: 2px; pointer-events: auto; color: #fff; --control-hover: rgb(255 255 255 / 12%); text-transform: uppercase; letter-spacing: .025em; font: 9px/12px 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; text-shadow: none; }
   .explorer-controls button { text-shadow: none; }
   .explorer-controls[hidden] { display: none; }
