@@ -189,11 +189,13 @@ export class SceneQuality {
 type TimerExtension={TIME_ELAPSED_EXT:number;GPU_DISJOINT_EXT:number;QUERY_RESULT_AVAILABLE_EXT:number;QUERY_RESULT_EXT:number;
  createQueryEXT():object;beginQueryEXT(target:number,query:object):void;endQueryEXT(target:number):void;
  getQueryObjectEXT(query:object,name:number):number|boolean;deleteQueryEXT(query:object):void};
+type GPUFrame={at:number;buffer:[number,number];profiled:boolean;target:string|null;passes:{name:string;query:object}[]};
 export class SceneTimer {
  readonly quality=new SceneQuality();
  private ext:TimerExtension|null;
  private active:object|null=null;
- private pending:object[]=[];
+ private pending:GPUFrame[]=[];
+ private current:GPUFrame|null=null;
  private frame=0;
  private usingCadence=false;
  private diagnostic=diagnostics();
@@ -219,29 +221,66 @@ export class SceneTimer {
   // timer may never yield usable results. Animated output owns its FPS budget.
   // Keep GPU and frame-interval samples out of each other's windows.
   this.quality.resetCadence();
-  if(this.ext)for(const query of this.pending)this.ext.deleteQueryEXT(query);
+  if(this.ext)for(const frame of this.pending)for(const pass of frame.passes)this.ext.deleteQueryEXT(pass.query);
   this.pending=[];
  }
  observeAnimationFrame(now:number,cadenceFactor=1){this.useCadence();this.quality.observeAnimationFrame(now,cadenceFactor);}
  resetCadence(){this.usingCadence=false;this.quality.resetCadence();}
  observeCadence(milliseconds:number,now:number,allowUpscale=true){this.useCadence();this.quality.observeCadence(milliseconds,now,allowUpscale);}
  setCadence(target:number,refresh:number,headroom:boolean){this.quality.headroom=headroom;this.quality.setCadence(target,refresh);}
- begin(){
+ private discard(frame:GPUFrame){for(const pass of frame.passes)this.ext!.deleteQueryEXT(pass.query);}
+ private startPass(name:string){
+  const ext=this.ext!,query=ext.createQueryEXT();
+  if(!query){this.discard(this.current!);this.current=null;return;}
+  this.current!.passes.push({name,query});this.active=query;ext.beginQueryEXT(ext.TIME_ELAPSED_EXT,query);
+ }
+ begin(width=0,height=0){
   if(!this.ext||(this.usingCadence&&!this.diagnostic?.active))return;
   const ext=this.ext;
-  if(this.gl.getParameter(ext.GPU_DISJOINT_EXT)){this.diagnostic?.event('gpu-disjoint');for(const q of this.pending)ext.deleteQueryEXT(q);this.pending=[];return;}
-  this.pending=this.pending.filter(q=>{
-   if(!ext.getQueryObjectEXT(q,ext.QUERY_RESULT_AVAILABLE_EXT))return true;
-   const milliseconds=Number(ext.getQueryObjectEXT(q,ext.QUERY_RESULT_EXT))/1e6;
-   this.diagnostic?.gpu(milliseconds);
-   if(!this.usingCadence)this.quality.observe(milliseconds,performance.now());ext.deleteQueryEXT(q);return false;
+  if(this.gl.getParameter(ext.GPU_DISJOINT_EXT)){
+   this.diagnostic?.event('gpu-disjoint');for(const frame of this.pending)this.discard(frame);this.pending=[];return;
+  }
+  this.pending=this.pending.filter(frame=>{
+   if(frame.passes.some(pass=>!ext.getQueryObjectEXT(pass.query,ext.QUERY_RESULT_AVAILABLE_EXT)))return true;
+   const passes:Record<string,number>={};let milliseconds=0;
+   for(const pass of frame.passes){const ms=Number(ext.getQueryObjectEXT(pass.query,ext.QUERY_RESULT_EXT))/1e6;passes[pass.name]=ms;milliseconds+=ms;}
+   this.discard(frame);
+   if(!Number.isFinite(milliseconds)||milliseconds<0)return false;
+   if(frame.profiled)this.diagnostic?.gpuPasses?.({at:frame.at,buffer:frame.buffer,passes});
+   else {
+    this.diagnostic?.gpu(milliseconds);
+    if(!this.usingCadence)this.quality.observe(milliseconds,performance.now());
+   }
+   return false;
   });
-  // Poll completed queries every frame. Waiting twelve slow frames before
-  // polling delayed adaptation by tens of seconds on overloaded phones.
-  if(this.frame++%(this.usingCadence?12:this.quality.warmingUp||this.quality.scale<1?3:12)!==0)return;
-  if(this.pending.length>=2)return;
-  this.active=ext.createQueryEXT();ext.beginQueryEXT(ext.TIME_ELAPSED_EXT,this.active);
+  // One query per sampled frame: multiple boundaries can force costly GPU
+  // pass breaks. Alternate whole-frame samples with one rotating render group.
+  // At most two asynchronous results may be pending.
+  const stride=this.usingCadence?12:this.quality.warmingUp||this.quality.scale<1?3:12;
+  const frame=this.frame++;
+  if(frame%stride!==0||this.pending.length>=2)return;
+  const profiled=!!this.diagnostic?.active&&this.usingCadence&&frame%24===12;
+  const groups=['sky','resources-and-lighting','source-attenuation','world','volumes','camera-finish'];
+  const target=profiled?groups[Math.floor(frame/24)%groups.length]:null;
+  this.current={at:performance.now(),buffer:[width,height],profiled,target,passes:[]};
+  if(!profiled||target==='sky')this.startPass(profiled?'sky':'frame');
  }
- end(){if(this.ext&&this.active){this.ext.endQueryEXT(this.ext.TIME_ELAPSED_EXT);this.pending.push(this.active);this.active=null;}}
- dispose(){if(!this.ext)return;if(this.active){this.ext.endQueryEXT(this.ext.TIME_ELAPSED_EXT);this.pending.push(this.active);}for(const q of this.pending)this.ext.deleteQueryEXT(q);this.pending=[];this.active=null;}
+ section(name:string){
+  if(!this.current?.profiled)return;
+  if(this.active){this.ext!.endQueryEXT(this.ext!.TIME_ELAPSED_EXT);this.active=null;}
+  if(this.current.target===name&&!this.current.passes.length)this.startPass(name);
+ }
+ end(){
+  if(!this.ext||!this.current)return;
+  if(this.active){this.ext.endQueryEXT(this.ext.TIME_ELAPSED_EXT);this.active=null;}
+  if(this.current.passes.length)this.pending.push(this.current);
+  this.current=null;
+ }
+ dispose(){
+  if(!this.ext)return;
+  if(this.active)this.ext.endQueryEXT(this.ext.TIME_ELAPSED_EXT);
+  if(this.current)this.discard(this.current);
+  for(const frame of this.pending)this.discard(frame);
+  this.pending=[];this.current=null;this.active=null;
+ }
 }

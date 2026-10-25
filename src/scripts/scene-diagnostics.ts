@@ -6,6 +6,7 @@ export type DiagnosticRecorder={
  frame:(cpuMs:number)=>void;
  resetFrames:()=>void;
  gpu:(milliseconds:number)=>void;
+ gpuPasses:(sample:{at:number;buffer:[number,number];passes:Record<string,number>})=>void;
  work:(kind:string,waitMs:number,durationMs:number)=>void;
  environment:(values:Record<string,unknown>)=>void;
  test?:()=>boolean;

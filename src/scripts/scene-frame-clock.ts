@@ -51,12 +51,11 @@ export class SceneFrameClock {
   if(interval<4||interval>50)return;
   this.ticks.push(interval);if(this.ticks.length>30)this.ticks.shift();
   if(this.ticks.length<8)return;
-  // Between steady renders most refreshes are idle, so the median of recent
-  // intervals is the display rate even when GPU backpressure delays every
-  // render refresh. It follows a display switching between 60 and 120 Hz
-  // within a few dozen frames. Average near it to remove timestamp jitter.
-  const median=[...this.ticks].sort((a,b)=>a-b)[this.ticks.length>>1];
-  const near=this.ticks.filter(t=>Math.abs(t-median)<median*.2);
+  // Missed refreshes may dominate under GPU backpressure. Estimate from
+  // the faster fifth, not the median, while genuine short intervals remain.
+  // A sustained display-rate change replaces the 30-sample window entirely.
+  const sorted=[...this.ticks].sort((a,b)=>a-b),baseline=sorted[Math.floor((sorted.length-1)*.2)];
+  const near=this.ticks.filter(t=>Math.abs(t-baseline)<baseline*.2);
   this.period=near.reduce((sum,t)=>sum+t,0)/near.length;
  }
  /** Estimated display refresh interval in milliseconds, or 0 before it is known. */

@@ -49,9 +49,44 @@ test('diagnostic GPU sampling is sparse, discards disjoint results and does not 
  const timer=new SceneTimer(gl);
  try{
   timer.observeAnimationFrame(1);
-  for(let i=0;i<120;i++){timer.begin();timer.end();}
+  for(let i=0;i<120;i++){timer.begin();for(const name of ['resources-and-lighting','source-attenuation','world','volumes','camera-finish'])timer.section(name);timer.end();}
   expect(queries).toBe(10);expect(samples.length).toBeGreaterThan(0);expect(timer.quality.scale).toBe(1);
   const count=samples.length;disjoint=true;timer.begin();timer.end();expect(samples.length).toBe(count);
   active=false;disjoint=false;timer.begin();timer.end();expect(queries).toBe(10);
+ }finally{timer.dispose();if(previous===undefined)delete globalThis.window;else globalThis.window=previous;}
+});
+
+
+test('a synchronous first phase is not overwritten by the test button',()=>{
+ const f=fixture();
+ const element=()=>({children:[],append(...children){this.children.push(...children);},setAttribute(){},addEventListener(){},textContent:''});
+ f.document.createElement=element;f.document.head=element();f.document.body=element();
+ f.listeners.DOMContentLoaded();
+ f.recorder.test=()=>{f.listeners['earthlight-diagnostic-phase']({detail:'day · 1/3'});return true;};
+ f.document.body.children[0].children[1].onclick();f.setTime(1010);f.flush();
+ expect(f.recorder.report().windows.at(-1).phase).toBe('day · 1/3');
+});
+
+test('GPU groups use one query per frame, wait for results, and discard invalid samples',async()=>{
+ const {SceneTimer}=await import('../src/scripts/scene-quality.ts');
+ const previous=globalThis.window,groups=[],deleted=new Set();let active=null,created=0,available=true,disjoint=false;
+ globalThis.window={earthlightDiagnostics:{active:true,environment(){},event(){},gpu(){},gpuPasses:s=>groups.push(s)}};
+ const ext={TIME_ELAPSED_EXT:1,GPU_DISJOINT_EXT:2,QUERY_RESULT_AVAILABLE_EXT:3,QUERY_RESULT_EXT:4,
+  createQueryEXT:()=>({id:++created}),beginQueryEXT:(_,q)=>{expect(active).toBeNull();active=q;},endQueryEXT:()=>{expect(active).not.toBeNull();active=null;},
+  deleteQueryEXT:q=>deleted.add(q.id),getQueryObjectEXT:(_,key)=>key===3?available:2_000_000};
+ const timer=new SceneTimer({getExtension:()=>ext,getParameter:()=>disjoint});
+ const frame=()=>{const before=created;timer.begin(1920,1080);for(const name of ['resources-and-lighting','source-attenuation','world','volumes','camera-finish'])timer.section(name);timer.end();expect(created-before).toBeLessThanOrEqual(1);};
+ try{
+  timer.observeAnimationFrame(1);
+  for(let i=0;i<=12;i++)frame();
+  available=false;frame();expect(groups).toHaveLength(0);
+  available=true;frame();expect(groups).toHaveLength(1);
+  expect(groups[0].buffer).toEqual([1920,1080]);expect(groups[0].passes).toEqual({sky:2});expect(timer.quality.scale).toBe(1);
+  for(let i=15;i<=132;i++)frame();
+  disjoint=true;frame();expect(groups).toHaveLength(5);
+  disjoint=false;for(let i=134;i<280;i++)frame();
+  expect(new Set(groups.flatMap(g=>Object.keys(g.passes))).size).toBe(6);
+  expect(groups.every(g=>Object.keys(g.passes).length===1)).toBe(true);
+  timer.dispose();expect(deleted.size).toBe(created);expect(active).toBeNull();
  }finally{timer.dispose();if(previous===undefined)delete globalThis.window;else globalThis.window=previous;}
 });

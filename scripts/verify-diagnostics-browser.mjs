@@ -17,7 +17,7 @@ try{
  await run('screenshot',`${out}/early.png`);
  await run('download','.earthlight-diagnostics button:nth-of-type(3)',`${out}/early.json`);
  const early=JSON.parse(await readFile(`${out}/early.json`,'utf8'));
- assert.equal(early.schema,'earthlight-diagnostics/v1');assert.equal(early.milestones.firstFrame,undefined);
+ assert.equal(early.schema,'earthlight-diagnostics/v2');assert.equal(early.milestones.firstFrame,undefined);
  assert.ok(!JSON.stringify(early).includes('not-in-report'));
  console.log('early module failure: visible panel and real JSON download');
  await run('network','unroute');await run('reload');
@@ -36,7 +36,13 @@ try{
  const report=JSON.parse(await readFile(`${out}/report.json`,'utf8'));
  assert.ok(report.milestones.firstFrame>0);assert.ok(report.events.some(e=>e.name==='user-stutter'));
  for(const phase of ['day · 1/3','surface · 2/3','night turn · 3/3'])assert.ok(report.windows.some(w=>w.phase===phase&&w.frames>0),phase);
- assert.ok(report.windows.some(w=>w.cpuSubmissionMs));assert.ok(report.windows.some(w=>Object.keys(w.jobs).length));
+ assert.ok(report.windows.some(w=>w.cpuSubmissionMs));
+ if(report.environment.gpuTimerSupported&&report.windows.some(w=>w.gpuMs)){
+  assert.ok(report.gpuPassSamples.length>0,'GPU pass samples');
+  assert.equal(new Set(report.gpuPassSamples.flatMap(s=>Object.keys(s.passes))).size,6,'all six groups');
+  for(const sample of report.gpuPassSamples){assert.equal(Object.keys(sample.passes).length,1);assert.ok(['sky','resources-and-lighting','source-attenuation','world','volumes','camera-finish'].includes(Object.keys(sample.passes)[0]));assert.ok(Object.values(sample.passes).every(ms=>Number.isFinite(ms)&&ms>=0));}
+ }
+ assert.ok(report.windows.some(w=>Number(w.state.refreshPeriodMs)>0));assert.ok(report.windows.some(w=>Object.keys(w.jobs).length));
  assert.equal(report.events.filter(e=>e.name==='test-phase'&&e.detail==='free').length,1);
  console.log('guided test: all three phases, timing windows, problem mark and playback restoration');
  await run('set','viewport','390','844');await run('screenshot',`${out}/mobile.png`);

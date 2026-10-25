@@ -599,6 +599,20 @@ test('a gesture keeps its fast cadence through isolated stalls',()=>{
  assert.ok(stalls>8&&Math.abs(clock.fps-60)<.5,`still 60 FPS: ${clock.fps}`);
  assert.ok(gaps.filter(gap=>gap===2).length>gaps.length*.9);
 });
+test('144 Hz cadence retains short refreshes when most callbacks miss refreshes',()=>{
+ const clock=new SceneFrameClock(24,true),period=1000/144;let now=0;
+ for(let i=0;i<100;i++){now+=period;clock.observe(now);clock.due(now);}
+ for(const pattern of [[1,2,3,4],[1,3,4,4]]){
+  for(let i=0;i<120;i++){now+=period*pattern[i%pattern.length];clock.observe(now);clock.due(now);}
+  assert.ok(Math.abs(clock.refreshPeriod-period)<.1,`display period drifted to ${clock.refreshPeriod}`);
+  assert.ok(Math.abs(clock.passiveRate-24)<.1);
+ }
+ // A real 144 -> 60 Hz change still converges once the old samples expire.
+ for(let i=0;i<40;i++){now+=1000/60;clock.observe(now);clock.due(now);}
+ assert.ok(Math.abs(clock.refreshPeriod-1000/60)<.1);
+ assert.ok(Math.abs(clock.passiveRate-30)<.1);
+});
+
 test('steady cadence keeps the display period through GPU backpressure, not a real rate change',()=>{
  const clock=new SceneFrameClock(24,true);let now=0;
  for(let i=0;i<240;i++){now+=1000/120;clock.observe(now);clock.due(now);}

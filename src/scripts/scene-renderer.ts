@@ -720,7 +720,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       // A night switch's first frames build GPU pipelines; they say nothing
       // about the settled scene's cost, so quality ignores them.
       const timed=focusRadius===0&&!inspection&&!nightSwitch&&!nightSettle;
-      if(timed)timer?.begin();
+      if(timed)timer?.begin(width,height);
       const sky = celestialFrame(observer.date,observer.camera);
       if(!showSky){
         // The Moon behind the camera and planets far below visibility.
@@ -733,6 +733,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       catalog.render(width,height,height/Math.max(1,cssHeight),sky.starToFixed,observer.cameraBasis,sky.yearsSinceJ2000,finish.exposureTexture,focal);
       aurora?.render(width,height,observer.camera,observer.cameraBasis,observer.sun,sceneTime,focal);
       finish.begin(width,height);
+      if(timed)timer?.section('resources-and-lighting');
       // Every pass binds what it owns; no reliance on uploads leaving GL state.
       textures.forEach((texture,i)=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,texture);});
       if(modisTexture){gl.activeTexture(gl.TEXTURE9);gl.bindTexture(gl.TEXTURE_2D,modisTexture);}
@@ -814,6 +815,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       const light = Math.max(0,Math.min(1,(observer.solar+.25)/.4));
       const sceneDaylight=light*light*(3-2*light);
       lastDaylight=sceneDaylight;
+      if(timed)timer?.section('source-attenuation');
       if(sourceTarget&&sourceTexture&&sourceProgram){
         gl.useProgram(sourceProgram);
         gl.uniform2f(sourceUniforms.resolution,width,height);gl.uniform1f(sourceUniforms.time,sceneTime);gl.uniform1f(sourceUniforms.zoomExcess,zoomExcess);
@@ -830,6 +832,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         gl.activeTexture(gl.TEXTURE12);gl.bindTexture(gl.TEXTURE_2D,sourceTexture);
         gl.uniform1i(sceneUniforms.solarTransmission,12);
       }
+      if(timed)timer?.section('world');
       // RGBE stores numerical mantissas and an exponent, not display colors.
       const dither=gl.isEnabled(gl.DITHER);
       if(!finish.linear)gl.disable(gl.DITHER);
@@ -838,6 +841,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
       oceanField?.bind(program);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       if(lunarView&&lunarResolved>0){moonSurface!.draw(lunarView,zoomExcess);gl.useProgram(program);}
+      if(timed)timer?.section('volumes');
       // Shared state for every screen-sized volume program in this frame.
       const linearScene=finish.linear;
       const drawVolumePass=(passProgram:WebGLProgram,uniforms:Record<string,WebGLUniformLocation|null>,passPosition:number)=>{
@@ -912,6 +916,7 @@ export function createSceneRenderer(gl:WebGLRenderingContext,canvas:HTMLCanvasEl
         }
         temporal?.advance();
       }
+      if(timed)timer?.section('camera-finish');
       if(dither&&!finish.linear)gl.enable(gl.DITHER);
       // Image sliders are relative to the accepted photographic baseline.
       const project=(direction:ArrayLike<number>,energy:number):[number,number,number]=>{

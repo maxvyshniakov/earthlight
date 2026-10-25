@@ -385,6 +385,7 @@ export class EarthlightExplorer extends HTMLElement {
         const target=Math.min(viewScaleFor(coverage,viewSky),Math.max(1,1/qualityScale));
         if(viewScale.update(target,now,frameClock.interacting(now))){cancelAnimationFrame(qualityFrame);qualityFrame=requestAnimationFrame(resize);}
       }
+      if(diagnostic){this.dataset.qualityScale=result.scale.toFixed(3);this.dataset.viewScale=viewScale.factor.toFixed(3);}
       this.dataset.renderScale=(Math.min(1,result.scale*viewScale.factor)*focusRenderScale(focusRadius,focusDensity)).toFixed(2);
       if(perf){
         perfFrames.push(now);while(perfFrames.length>1&&perfFrames[0]<now-2000)perfFrames.shift();
@@ -429,6 +430,7 @@ export class EarthlightExplorer extends HTMLElement {
       focusDensity=bufferDensity(width,height,devicePixelRatio,inspection?1:bufferScale());
       const size=sceneBufferSize(width,height,devicePixelRatio,(inspection?1:bufferScale())*focusRenderScale(focusRadius,focusDensity),desktopInspection);
       const changed=canvas.width!==size.width||canvas.height!==size.height||cssHeight!==height||smallHeight!==nextSmall;
+      if(changed)diagnostic?.event('buffer-resize',{from:[canvas.width,canvas.height],to:[size.width,size.height],qualityScale,viewScale:viewScale.factor,focusRadius,inspection});
       cssHeight=height;smallHeight=nextSmall;
       // Assigning even an unchanged dimension clears the drawing buffer.
       if(canvas.width!==size.width)canvas.width=size.width;
@@ -458,6 +460,7 @@ export class EarthlightExplorer extends HTMLElement {
       const previous=frameClock.fps,due=frameClock.due(now);
       if(previous!==frameClock.fps)lastAnimationDraw=0;
       this.dataset.targetFps=String(frameClock.fps);
+      if(diagnostic)this.dataset.refreshPeriodMs=frameClock.refreshPeriod.toFixed(3);
       return due;
     };
     const sync = () => {

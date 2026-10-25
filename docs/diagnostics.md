@@ -27,7 +27,7 @@ storage, a browser crash or a hard kill can lose this recovery copy.
 
 ## Reading the report
 
-`schema: earthlight-diagnostics/v1` and `testProtocol: guided-v1-60s` identify
+`schema: earthlight-diagnostics/v2` and `testProtocol: guided-v1-60s` identify
 formats. Build revision, dirty-source flag, build time and immutable asset
 version distinguish deliveries. A dirty build is not an exact commit artifact.
 
@@ -48,16 +48,49 @@ version distinguish deliveries. A dirty build is not an exact commit artifact.
 - `events`: problem marks, long frames/tasks, context losses, visibility and
   test phases. Exception kinds are retained without messages or URLs.
 
-GPU timings are optional asynchronous whole-render samples, not presentation
-latency or per-pass attribution. They share the renderer's existing query owner
-and never wait for the GPU. Disjoint results are discarded. With fixed quality
-or while loading/inspecting, GPU samples may be absent even on supported devices.
-Do not substitute CPU submission time for missing GPU measurements.
+GPU timings are optional asynchronous measurements, not presentation latency.
+Every 12th eligible animated frame is sampled. Samples alternate between the whole render and one rotating group:
+
+| Group | Work covered |
+| --- | --- |
+| `sky` | Star catalogue, aurora and camera target setup |
+| `resources-and-lighting` | Resource bindings/updates and cloud lighting bake |
+| `source-attenuation` | Attenuation of the Sun, Moon and reflection sources |
+| `world` | World pass and resolved Moon (inline profiles can include volumes here) |
+| `volumes` | Temporal cloud rendering/reconstruction and atmosphere/cloud composition |
+| `camera-finish` | Exposure, glare, lens effects and final image processing |
+
+`gpuPassSamples` retains one group per sampled frame, with its submission
+timestamp and buffer size. Results arrive asynchronously; associate
+them with the phase at that timestamp, not the later delivery window. Do not
+add medians from different frames or compare different buffer sizes as equal
+work. Query boundaries can change GPU scheduling or include deferred work from
+earlier draws; a group duration is not proof of that shader alone being slow.
+Validate a suspected bottleneck with a controlled rendering change. Whole-frame
+`gpuMs` summaries exclude the grouped samples. These are
+render groups, not individual shader functions, and their boundaries depend
+on the render profile. Unsupported paths may have near-zero group duration.
+
+Queries share one owner, never nest, never wait for completion and hold at most
+two sampled frames. Each frame has at most one query: multiple timing boundaries
+proved costly on the local GPU. Disjoint results are discarded. Grouped samples do
+not drive adaptive quality. With fixed quality or while loading/inspecting,
+GPU samples may be absent even on supported devices. Do not substitute CPU
+submission time for missing GPU measurements.
+
+The window state now separates `qualityScale`, `viewScale`, `viewCoverage` and
+`refreshPeriodMs`; `renderScale` still includes loading defocus. `buffer-resize`
+events record old/new dimensions and the scale factors at the change. A lower
+buffer scale alone cannot identify whether quality adaptation, view coverage or
+loading caused it. The guided test's first phase cannot be overwritten by the
+start button, even if a frame is submitted synchronously.
 
 The recorder retains at most 900 windows, 500 events and 2,000 resource entries;
 `dropped` reports overwritten entries. The last 50 problem marks are also kept
 separately in `markers`, so long-frame events cannot evict them; `droppedMarkers`
-counts older marks. Per-window samples are bounded as well.
+counts older marks. Per-window samples are bounded as well. `gpuPassSamples` retains at most 600
+frames; `droppedGpuPassSamples` counts overwritten samples. Recovery copies
+retain only the last 60 grouped samples.
 The report contains technical device/rendering data and an allowlist of scene
 settings, not cookies, arbitrary query parameters, URL fragments or user actions
 as text. Nothing is transmitted by the diagnostic feature.

@@ -5,6 +5,7 @@ export function diagnosticsBoot(build:Record<string,unknown>){
  if(new URLSearchParams(location.search).get('diagnostics')!=='1'||window.earthlightDiagnostics)return;
  const started=new Date().toISOString(),key='earthlight-diagnostic-report-v1';
  const events:{at:number;name:string;detail?:unknown}[]=[],windows:Record<string,unknown>[]=[],resources:Record<string,unknown>[]=[];
+ const gpuPassSamples:{at:number;buffer:[number,number];passes:Record<string,number>}[]=[];let droppedGpuPassSamples=0;
  const markers:{at:number}[]=[];let droppedMarkers=0;
  const milestones:Record<string,number>={},environment:Record<string,unknown>={build,userAgent:navigator.userAgent,cores:navigator.hardwareConcurrency,language:navigator.language,gpuTimerSupported:null};
  const dropped={events:0,windows:0,resources:0};
@@ -37,14 +38,14 @@ export function diagnosticsBoot(build:Record<string,unknown>){
    const value=params.get(name);if(value!==null)safe[name]=value.slice(0,100);
   }return safe;
  };
- const report=()=>({testProtocol:'guided-v1-60s',schema:'earthlight-diagnostics/v1',started,exported:new Date().toISOString(),timeOrigin:performance.timeOrigin,
-  environment,settings:settings(),milestones,markers:[...markers],droppedMarkers,dropped,limits,events:[...events],windows:[...windows],resources:[...resources],
-  notes:['Times are milliseconds since navigation. CPU submission is not GPU execution.','Frame intervals measure submissions, not confirmed screen presentation.','Decode queue duration includes upload lifetime; network queue duration includes body download.','Resource byte/timing fields may be unavailable across origins. Zero bytes do not prove a cache hit.','History is bounded; dropped counters indicate omitted records.']});
+ const report=()=>({testProtocol:'guided-v1-60s',schema:'earthlight-diagnostics/v2',started,exported:new Date().toISOString(),timeOrigin:performance.timeOrigin,
+  environment,settings:settings(),milestones,gpuPassSamples:[...gpuPassSamples],droppedGpuPassSamples,markers:[...markers],droppedMarkers,dropped,limits,events:[...events],windows:[...windows],resources:[...resources],
+  notes:['Times are milliseconds since navigation. CPU submission is not GPU execution.','Frame intervals measure submissions, not confirmed screen presentation.','Decode queue duration includes upload lifetime; network queue duration includes body download.','GPU pass samples measure one rotating group per frame; never sum groups from different frames. Timestamp and buffer belong to submission, not result delivery.','Resource byte/timing fields may be unavailable across origins. Zero bytes do not prove a cache hit.','History is bounded; dropped counters indicate omitted records.']});
  const snapshot=()=>{
   const now=performance.now(),root=document.querySelector<HTMLElement>('earthlight-explorer'),canvas=root?.querySelector('canvas');
   if(root){state(root.dataset as Record<string,string>);if(root.hasAttribute('data-unavailable'))mark('unavailable');}
   const data:Record<string,string>={};
-  for(const name of ['renderProfile','renderScale','startScale','targetFps','focus','assetPhase','assetFailures','shaderStartup','shaderCompileMs','cameraPosition','cameraBasis','lens','cameraAltitude','flightMode','orbit','nightMode','cloudPass','cloudReuse','terrainTiles','dayTiles','nightTiles','cloudTiles','galaxyTiles']){
+  for(const name of ['renderProfile','renderScale','startScale','targetFps','refreshPeriodMs','qualityScale','viewScale','viewCoverage','focus','assetPhase','assetFailures','shaderStartup','shaderCompileMs','cameraPosition','cameraBasis','lens','cameraAltitude','flightMode','orbit','nightMode','cloudPass','cloudReuse','terrainTiles','dayTiles','nightTiles','cloudTiles','galaxyTiles']){
    const value=root?.dataset[name];if(value!==undefined)data[name]=value.slice(0,6000);
   }
   append('windows',{at:round(windowStart),durationMs:round(now-windowStart),phase,hidden:document.hidden,frames:frameCount,
@@ -54,10 +55,11 @@ export function diagnosticsBoot(build:Record<string,unknown>){
  };
  // Recovery writes stay small even after a long run; full history is serialized
  // only when the user requests a download. Storage itself is synchronous.
- const save=()=>{try{const data=report();sessionStorage.setItem(key,JSON.stringify({...data,recoverySnapshot:true,windows:data.windows.slice(-90),resources:data.resources.slice(-200),events:data.events.slice(-100)}));}catch{/* downloading still works */}};
+ const save=()=>{try{const data=report();sessionStorage.setItem(key,JSON.stringify({...data,recoverySnapshot:true,windows:data.windows.slice(-90),resources:data.resources.slice(-200),events:data.events.slice(-100),gpuPassSamples:data.gpuPassSamples.slice(-60)}));}catch{/* downloading still works */}};
  const recorder:DiagnosticRecorder={get active(){return !stopped;},event,state,report,resetFrames(){lastFrame=0;},
   frame(ms){if(stopped)return;const now=performance.now();if(lastFrame&&frameGaps.length<1000)frameGaps.push(now-lastFrame);lastFrame=now;frameCount++;if(cpu.length<1000)cpu.push(ms);mark('firstFrame');if(phase==='startup')phase='free';},
   gpu(ms){if(!stopped&&gpu.length<1000&&Number.isFinite(ms))gpu.push(ms);},
+  gpuPasses(sample){if(stopped)return;if(gpuPassSamples.length>=600){gpuPassSamples.shift();droppedGpuPassSamples++;}gpuPassSamples.push(sample);},
   work(kind,waitMs,durationMs){if(stopped)return;const v=jobs[kind]??={count:0,waitMs:0,durationMs:0,maxWaitMs:0,maxDurationMs:0};v.count++;v.waitMs+=waitMs;v.durationMs+=durationMs;v.maxWaitMs=Math.max(v.maxWaitMs,waitMs);v.maxDurationMs=Math.max(v.maxDurationMs,durationMs);},
   environment(values){Object.assign(environment,values);},
  };
@@ -95,7 +97,7 @@ export function diagnosticsBoot(build:Record<string,unknown>){
   const style=document.createElement('style');style.textContent='.earthlight-diagnostics{position:fixed;top:12px;right:12px;z-index:1000;max-width:min(340px,calc(100vw - 24px));padding:12px;background:#16191ff2;color:#fff;border:1px solid #777;border-radius:8px;font:13px/1.5 system-ui;box-sizing:border-box}.earthlight-diagnostics p{margin:0 0 8px}.earthlight-diagnostics button{font:inherit;padding:7px 10px;margin:3px;border:1px solid #888;border-radius:4px;background:#292d35;color:#fff;cursor:pointer}.earthlight-diagnostics button:focus-visible{outline:2px solid white}.earthlight-diagnostics button:disabled{opacity:.5}';document.head.append(style);
   const status=document.createElement('p');status.textContent='Recording locally. Nothing is sent.';panel.append(status);
   const button=(label:string,action:()=>void)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=action;panel.append(b);return b;};
-  const test=button('Run 60-second test',()=>{if(!recorder.test?.()){status.textContent='Wait for the scene to load, or for the current test to finish.';return;}phase='guided';event('test-start');status.textContent='Test running. Interacting with the scene cancels it.';});
+  const test=button('Run 60-second test',()=>{if(!recorder.test?.()){status.textContent='Wait for the scene to load, or for the current test to finish.';return;}event('test-start');status.textContent=`Test: ${phase}. Interacting with the scene cancels it.`;});
   button('It stuttered',()=>{event('user-stutter');save();status.textContent='Stutter marked. Continue or download the report.';});
   button('Download report',()=>{snapshot();save();download(JSON.stringify(report(),null,2),'report');});
   if(previous)button('Previous report',()=>download(previous!,'previous'));
