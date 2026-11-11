@@ -17,9 +17,10 @@ Publishing assets is separate from deploying the applications. Never enable
 metered subscriptions or change billing without explicit owner authorization.
 
 Publishing facts are in `docs/agents/publishing.md`. Everyday pushes go to `dev`. Shipping
-pushes the same tip to `dev` and `main`; a push to `main` deploys the explorer
-and updates personal-site `dev` (on a self-hosted runner), and is
-finished when both deliveries have a final result.
+pushes the same tip to `dev` and `main`; a push to `main` deploys the explorer, and
+personal-site pulls the new `main` into its `dev`. Shipping is finished when both
+deliveries have a final result. This repository holds no secret for, and needs no
+runner of, the personal site.
 
 Documentation is maintained here. Dated experiments live under `docs/lab`.
 Name code, markup and URL parameters with the terms in `docs/glossary.md`.

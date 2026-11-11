@@ -2,8 +2,8 @@
 
 Cloudflare Workers Builds connects `maxvyshniakov/earthlight`
 directly to the `earthlight` Worker at `https://earthlight.maxvyshniakov.com`.
-Only pushes to `main` deploy. The separate GitHub Actions workflow
-updates the package used by `personal-site/dev`; it does not deploy the explorer.
+Only pushes to `main` deploy. The personal site pulls `main` into its
+`personal-site/dev` package with its own workflow; that does not deploy the explorer.
 
 Configured on 2026-10-11. Production trigger:
 `07e8320b-2b4c-4551-a17a-71a6421df7af`.

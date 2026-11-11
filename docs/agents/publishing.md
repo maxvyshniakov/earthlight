@@ -8,7 +8,7 @@
 ## Gate
 - No pre-push hook. Run `bun run verify` on the exact tree you push, and
   `bun run verify:scene <base-url> <output-directory>` for rendering changes. Both `main` deliveries run verify again
-  on Linux.
+  on Linux. This repository has no GitHub Actions workflow.
 - Builds download only the assets named in `assets-manifest.json`. A new asset release must be published first
   ([integration.md](../integration.md), "Publish an asset release"); that needs its own authorization.
 
@@ -19,8 +19,8 @@
 
 ## CI
 - A push to `dev` starts no workflow and no delivery; it is finished when `git ls-remote origin dev` shows the SHA.
-- A push to `main` starts two independent deliveries and is finished when both have a final result. Wait for both
-  before ending the turn.
+- A push to `main` starts the explorer build; start the personal-site delivery yourself (below). Shipping is finished
+  when both have a final result. Wait for both before ending the turn.
 - Explorer: Cloudflare Workers Builds deploys https://earthlight.maxvyshniakov.com ([deployment.md](../deployment.md)).
   It adds the check `Workers Builds: earthlight` to the pushed commit, `in_progress` while building (about five
   minutes; Cloudflare stops it at 20). The account runs one build at a time, so the personal-site dev build waits for
@@ -32,17 +32,20 @@
   ```
 
   On failure `details_url` has the build log; the previous deployment stays live.
-- Personal-site dev: GitHub Actions `Update personal site dev` (`.github/workflows/personal-site-dev.yml`, self-hosted
-  runner) verifies the commit, updates the package on personal-site `dev` and pushes there; Cloudflare then deploys
-  the personal site's dev environment ([integration.md](../integration.md)).
+- Personal-site dev: personal-site's GitHub Actions workflow `Update Earthlight on dev` (`earthlight-dev.yml`) pulls
+  `main`, verifies it, updates the package on personal-site `dev` and pushes there; Cloudflare then deploys the
+  personal site's dev environment ([integration.md](../integration.md)). It also runs every three hours; after a ship,
+  dispatch it instead of waiting:
 
   ```sh
-  gh run list --workflow personal-site-dev.yml --commit <sha> --json databaseId,status,conclusion,url
-  gh run watch <run-id> --exit-status
+  gh workflow run earthlight-dev.yml -R maxvyshniakov/personal-site
+  gh run list -R maxvyshniakov/personal-site --workflow earthlight-dev.yml -L 1 --json databaseId,status,url
+  gh run watch <run-id> -R maxvyshniakov/personal-site --exit-status
   ```
 
-  A run that logs "A newer Earthlight commit superseded this run" succeeds without pushing; follow the newer commit's
-  run. On failure read `gh run view <run-id> --log-failed`; retries are in personal-site `docs/earthlight-delivery.md`.
+  A run whose `check` job finds the SHA already on personal-site `dev` ends there. On failure read
+  `gh run view <run-id> -R maxvyshniakov/personal-site --log-failed`; retries are in personal-site
+  `docs/earthlight-delivery.md`.
 
 ## Release
 - None beyond shipping to `main`. Asset publication is separate and needs its own authorization.
@@ -61,5 +64,5 @@
   browser session that is already authenticated; otherwise say it was not checked.
 
 ## Report
-- For `main`: the explorer check, its Version ID and whether it is active; the Actions run, the personal-site dev
-  commit, its check and Version ID.
+- For `main`: the explorer check, its Version ID and whether it is active; the personal-site Actions run, the
+  personal-site dev commit, its check and Version ID.

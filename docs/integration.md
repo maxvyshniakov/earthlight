@@ -18,19 +18,19 @@ module loads. A page with a Content Security Policy must allow that script
 
 ## Develop and update the consumer
 
-Every verified push to Earthlight `main` runs `.github/workflows/personal-site-dev.yml`.
-It downloads and checks the pinned assets, runs `bun run verify`, then updates
-the package in `personal-site/dev`, verifies that site and pushes a scoped commit.
+The personal site pulls Earthlight `main`; Earthlight pushes nothing to it.
+Its `Update Earthlight on dev` workflow runs on a schedule and on manual
+dispatch on GitHub-hosted runners. When `main` differs from the revision pinned
+on `personal-site/dev`, it reads this public repository anonymously, downloads
+and checks the pinned assets, runs `bun run verify`, updates the package,
+verifies the site and pushes a scoped commit to its `dev` with its own job token.
 Cloudflare Builds deploys the resulting dev commit. Public-site `main` is not an
-automatic target. Runs are serialized; superseded revisions skip publication.
+automatic target.
 
-The workflow's repository-scoped deploy key is stored in the Earthlight Actions
-secret `PERSONAL_SITE_DEV_DEPLOY_KEY`. Its public half is the `Earthlight dev delivery`
-deploy key in `personal-site`. GitHub's ordinary read-only job token handles only
-Earthlight checkout and revision checks; no Cloudflare token is given to Actions.
-The consumer's `earthlight.lock.json` and `/earthlight-version.json` record the
-exact source SHA, archive checksum and asset version. See its
-`docs/earthlight-delivery.md` for retries, rollback and key rotation.
+This repository holds no credential for the personal site and runs no workflow
+for it. The consumer's `earthlight.lock.json` and `/earthlight-version.json`
+record the exact source SHA, archive checksum and asset version. See its
+`docs/earthlight-delivery.md` for retries and rollback.
 
 In the site, `bun run dev:earthlight` resolves the component to the neighboring
 Earthlight checkout. Edits are made here and watched by Astro/Vite. The normal
