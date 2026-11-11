@@ -90,6 +90,13 @@ ISS orbital elements: [CelesTrak](https://celestrak.org/), snapshot saved
 
 Other installed dependencies retain the license notices distributed with them.
 
+## Agent skills
+
+`.agents/skills/security-audit` is vendored from
+[cloudflare/security-audit-skill](https://github.com/cloudflare/security-audit-skill),
+copyright Cloudflare, Inc., MIT:
+[license](.agents/skills/security-audit/LICENSE).
+
 ## Other data
 
 The lens PSF is generated analytically by project scripts without third-party
